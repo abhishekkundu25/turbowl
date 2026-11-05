@@ -1288,3 +1288,100 @@ mod reasoner {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The identity rules (v2 ticket 06)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "io")]
+mod identity {
+    use super::*;
+    use crate::{Format, Reasoner};
+    use std::fmt::Write as _;
+
+    fn loaded(text: &str) -> Reasoner {
+        let mut r = Reasoner::new();
+        r.load_str(text, Format::Turtle, None).unwrap();
+        r
+    }
+
+    /// `n` individuals under a key of two properties: all share their
+    /// first value, and pairs share their last, so the key makes `n / 2`
+    /// pairs the same. Joining on the first property would compare every
+    /// two individuals.
+    fn keyed(n: usize) -> String {
+        let mut text = String::with_capacity(n * 80);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+             ex:Person owl:hasKey ( ex:first ex:last ) .\n",
+        );
+        for i in 0..n {
+            let _ = writeln!(text, "ex:i{i} a ex:Person ; ex:first ex:f ; ex:last ex:l{} .", i / 2);
+        }
+        text
+    }
+
+    /// prp-key over many individuals: each pair merged once, in time linear
+    /// in the individuals.
+    #[test]
+    fn scaling_identity_keys_over_many_individuals() {
+        let _lock = lock();
+        let sizes = sizes(1_024);
+        for &n in &sizes {
+            let mut r = loaded(&keyed(n));
+            r.reason();
+            assert_eq!(r.store().canon().merges(), n / 2, "n = {n}: one merge per pair");
+        }
+        let mut text = shared(keyed);
+        linear(
+            "scaling_identity_keys_over_many_individuals",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+
+    /// `n` individuals of a restriction to one value of `ex:p`, each with
+    /// two values, the second the next one's first: cls-maxc2 makes all
+    /// `n + 1` values one class.
+    fn at_most_one(n: usize) -> String {
+        let mut text = String::with_capacity(n * 80);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+             @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\
+             ex:R owl:maxCardinality \"1\"^^xsd:nonNegativeInteger ; owl:onProperty ex:p .\n",
+        );
+        for i in 0..n {
+            let _ = writeln!(text, "ex:u{i} a ex:R ; ex:p ex:v{i} , ex:v{} .", i + 1);
+        }
+        text
+    }
+
+    /// cls-maxc2 over many values: `n + 1` values merged into one class
+    /// (n merges), in time linear in the values.
+    #[test]
+    fn scaling_identity_max_cardinality_over_many_values() {
+        let _lock = lock();
+        let sizes = sizes(1_024);
+        for &n in &sizes {
+            let mut r = loaded(&at_most_one(n));
+            r.reason();
+            assert_eq!(r.store().canon().merges(), n, "n = {n}: the values are one class");
+        }
+        let mut text = shared(at_most_one);
+        linear(
+            "scaling_identity_max_cardinality_over_many_values",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+}

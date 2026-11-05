@@ -296,14 +296,11 @@ fn a_configurations_program_lists_its_codes_and_rules() {
     assert!(programs::codes(no_checks).is_empty());
     assert!(nemo::codes(no_checks).is_empty());
     let rules = programs::rules(default);
-    for rule in ["cax-sco", "cls-thing", "prp-spo2", "eq-rep-o", "cax-dw"] {
+    for rule in ["cax-sco", "cls-thing", "prp-spo2", "eq-rep-o", "cax-dw", "prp-key"] {
         assert!(rules.contains(rule), "{rule}");
     }
-    // dt-not-type is left out, the identity rules are to come.
-    assert!(
-        !rules.contains("dt-not-type") && !rules.contains("prp-key"),
-        "{rules:?}"
-    );
+    // dt-not-type is left out: Nemo reads literals as IRIs.
+    assert!(!rules.contains("dt-not-type"), "{rules:?}");
     let chains = programs::rules(default.off(Switch::PropertyChains));
     assert!(!chains.contains("prp-spo2"));
 }

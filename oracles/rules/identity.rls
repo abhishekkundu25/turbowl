@@ -1,3 +1,34 @@
 % The `identity` switch: keys and cardinalities that make individuals the
 % same (Tables 5 and 6).
-% to come: prp-key, cls-maxc2, cls-maxqc3, cls-maxqc4
+%
+% The literal "1"^^xsd:nonNegativeInteger that the cardinality rules name
+% reaches the engines as the IRI crates/oracle gives it
+% (turbowl_oracle::NAMED_LITERALS).
+
+% prp-key: c owl:hasKey (p1 ... pn), x and y of type c, with a common value
+% of each pi => x owl:sameAs y. The key list is read as the other lists are
+% (core.rls): a path from the head to rdf:nil, each cell giving one first.
+% keyCell(?c, ?l): a cell of the key list of class ?c.
+% sameKeyFrom(?c, ?l, ?x, ?y): ?x and ?y are of type ?c and share a value of
+% the property of each cell from ?l to the end of the list.
+keyCell(?c, ?h) :- T(?c, owl:hasKey, ?h) .
+keyCell(?c, ?r) :- keyCell(?c, ?l), T(?l, rdf:rest, ?r), ?r != rdf:nil .
+sameKeyFrom(?c, ?l, ?x, ?y) :- keyCell(?c, ?l), T(?l, rdf:rest, rdf:nil), T(?l, rdf:first, ?p),
+    T(?x, rdf:type, ?c), Tp(?p, ?x, ?z), Tp(?p, ?y, ?z), T(?y, rdf:type, ?c) .
+sameKeyFrom(?c, ?l, ?x, ?y) :- keyCell(?c, ?l), T(?l, rdf:first, ?p), T(?l, rdf:rest, ?r), ?r != rdf:nil,
+    sameKeyFrom(?c, ?r, ?x, ?y), Tp(?p, ?x, ?z), Tp(?p, ?y, ?z) .
+T(?x, owl:sameAs, ?y) :- T(?c, owl:hasKey, ?h), sameKeyFrom(?c, ?h, ?x, ?y) .   % prp-key
+
+% Table 6: classes
+T(?y1, owl:sameAs, ?y2) :- T(?x, owl:maxCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
+    T(?x, owl:onProperty, ?p), T(?u, rdf:type, ?x), Tp(?p, ?u, ?y1), Tp(?p, ?u, ?y2) .  % cls-maxc2
+T(?y1, owl:sameAs, ?y2) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
+    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, ?c), T(?u, rdf:type, ?x),
+    Tp(?p, ?u, ?y1), T(?y1, rdf:type, ?c), Tp(?p, ?u, ?y2), T(?y2, rdf:type, ?c) .  % cls-maxqc3
+T(?y1, owl:sameAs, ?y2) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
+    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, owl:Thing), T(?u, rdf:type, ?x),
+    Tp(?p, ?u, ?y1), Tp(?p, ?u, ?y2) .                                                % cls-maxqc4
+
+% sameKeyFrom reads Tp: the properties of a key are used properties (the
+% cardinality rules' properties are, by owl:onProperty, in core.rls).
+usedProp(?p) :- keyCell(?c, ?l), T(?l, rdf:first, ?p) .
