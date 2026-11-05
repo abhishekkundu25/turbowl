@@ -180,6 +180,32 @@ Departures from the plan, as they happen.
   The owner decides between dropping literal-subject derivations,
   compacting the round buffer, and lazy diagnostics. scm-sco has the same
   join shape; experiment E2 is planned for it.
+- **14.** No RDFox estimate can be made yet, for three reasons:
+  - Oxford's `Claros_L.dlog` and `UOBM_L.dlog` axiomatise `owl:sameAs`, but
+    replace only the predicates their ontology names. The W3C rules
+    replace every predicate, so TurbOWL's comparable count is 3.6% under
+    the paper's with `equality` off and 19.8% over with it on. Claros L
+    stays context, not an estimate.
+  - VLog, running the W3C rules through Rulewerk, passes 16 GB on Claros.
+  - LUBM-1K L, whose program has no `owl:sameAs` rules, is the clean
+    candidate. It waits for the owner's approval of the large download and
+    for phase 2's memory work.
+
+  The equality rules are a property of each program, recorded per row.
+  Results files are schema 7.
+- **07.** `schema` on by default costs time: Brick's reasoning goes from 7
+  ms to 12 ms in a smoke run, past ADR 0005's 5% rule, so ticket 15 will
+  likely turn it off by default. F1 widens to every reflexive triple that
+  OWL-RL's scm-sco, scm-spo, scm-eqc2 and scm-eqp2 skip. HermiT judges only
+  subsumptions between terms the input declares, as OWL 2 DL requires for
+  the OWL API to keep the axiom. `WebOnt-I5.8-006`, `-008` and `-009` need
+  datatype subsumptions that no OWL 2 RL rule derives. The restriction
+  rules in `schema.rls` read helper relations, because Nemo took 31 s on
+  one input with five atoms of `T`. The scm-sco cost on deep hierarchies
+  (n log² n) is the W3C rule's own cost; experiment E2 addresses it. Chaos
+  iteration 8181 (an `owl:sameAs owl:equivalentClass` input) spends 16 s in
+  the reference evaluator and passes the 30 s watchdog only below a load
+  of about 27.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
   minutes while showing 2 GB, until the agent stopped it. The cap now
