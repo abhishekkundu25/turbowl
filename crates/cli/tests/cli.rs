@@ -1,0 +1,575 @@
+//! The `turbowl` binary, run as a user runs it: every flag, every exit
+//! code, the report in each form, and the closure it writes compared with
+//! the library's (`turbowl::Reasoner` called directly) as sets.
+
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use turbowl::{Format, Reasoner};
+
+/// A schema: a subclass, a range, a symmetric property, a language tag, a
+/// blank node.
+const SCHEMA: &str = r#"
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+ex:Dog rdfs:subClassOf ex:Animal ; rdfs:label "chien"@fr .
+ex:hasOwner rdfs:range ex:Person .
+ex:knows a owl:SymmetricProperty .
+_:b ex:p ex:o .
+"#;
+
+/// Data for the schema, in another format and another document: its `_:b`
+/// is not the schema's.
+const DATA: &str = "\
+<http://example.org/rex> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Dog> .
+<http://example.org/rex> <http://example.org/hasOwner> <http://example.org/ann> .
+<http://example.org/ann> <http://example.org/knows> <http://example.org/bob> .
+_:b <http://example.org/q> <http://example.org/o> .
+";
+
+/// More data, as RDF/XML.
+const MORE: &str = r#"<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:ex="http://example.org/">
+  <rdf:Description rdf:about="http://example.org/fido">
+    <rdf:type rdf:resource="http://example.org/Dog"/>
+  </rdf:Description>
+</rdf:RDF>
+"#;
+
+/// Two errors: an individual in two disjoint classes (cax-dw) and an
+/// ill-typed literal (dt-not-type).
+const INCONSISTENT: &str = r#"
+@prefix ex: <http://example.org/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+ex:Dog owl:disjointWith ex:Cat .
+ex:tom a ex:Dog, ex:Cat ; ex:age "old"^^xsd:integer .
+"#;
+
+/// A finished run of the binary.
+#[derive(Debug)]
+struct Run {
+    code: i32,
+    stdout: String,
+    stderr: String,
+}
+
+fn turbowl<S: AsRef<std::ffi::OsStr>>(args: &[S]) -> Run {
+    let out = Command::new(env!("CARGO_BIN_EXE_turbowl"))
+        .args(args)
+        .output()
+        .expect("the binary runs");
+    Run {
+        code: out.status.code().expect("an exit code, not a signal"),
+        stdout: String::from_utf8(out.stdout).expect("utf-8 stdout"),
+        stderr: String::from_utf8(out.stderr).expect("utf-8 stderr"),
+    }
+}
+
+/// A fresh directory for one test, with the fixtures written in it.
+fn fixtures(test: &str) -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli").join(test);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, text) in [
+        ("schema.ttl", SCHEMA),
+        ("data.nt", DATA),
+        ("more.rdf", MORE),
+        ("bad.ttl", INCONSISTENT),
+        ("data.n3", DATA),
+    ] {
+        std::fs::write(dir.join(name), text).unwrap();
+    }
+    dir
+}
+
+fn arg(path: &Path) -> String {
+    path.to_str().unwrap().to_owned()
+}
+
+/// The library's closure (or inferred triples) of `inputs`, as N-Triples lines.
+fn library(inputs: &[PathBuf], inferred_only: bool) -> BTreeSet<String> {
+    let mut r = Reasoner::new();
+    for input in inputs {
+        r.load_file(input).unwrap();
+    }
+    r.reason();
+    if inferred_only {
+        r.inferred().map(|t| t.to_string()).collect()
+    } else {
+        r.triples().map(|t| t.to_string()).collect()
+    }
+}
+
+/// The triples of a document the binary wrote, as N-Triples lines.
+fn parsed(text: &str, format: Format) -> BTreeSet<String> {
+    let bytes = text.as_bytes();
+    match format {
+        Format::Turtle => oxttl::TurtleParser::new()
+            .for_slice(bytes)
+            .map(|t| t.unwrap().to_string())
+            .collect(),
+        Format::NTriples => oxttl::NTriplesParser::new()
+            .for_slice(bytes)
+            .map(|t| t.unwrap().to_string())
+            .collect(),
+        Format::N3 => oxttl::N3Parser::new()
+            .for_slice(bytes)
+            .map(|q| q.unwrap().to_string())
+            .collect(),
+        Format::RdfXml => oxrdfxml::RdfXmlParser::new()
+            .for_slice(bytes)
+            .map(|t| t.unwrap().to_string())
+            .collect(),
+    }
+}
+
+fn json(line: &str) -> serde_json::Value {
+    serde_json::from_str(line).unwrap_or_else(|e| panic!("not JSON ({e}): {line}"))
+}
+
+// The closure.
+
+#[test]
+fn the_closure_on_stdout_is_the_librarys_as_turtle() {
+    let dir = fixtures("stdout");
+    let inputs = [dir.join("schema.ttl"), dir.join("data.nt")];
+    let run = turbowl(&[arg(&inputs[0]), arg(&inputs[1])]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let expected = library(&inputs, false);
+    assert!(expected.contains(
+        "<http://example.org/rex> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Animal>"
+    ));
+    assert_eq!(parsed(&run.stdout, Format::Turtle), expected);
+}
+
+#[test]
+fn every_input_format_loads_together() {
+    let dir = fixtures("together");
+    let inputs = [dir.join("schema.ttl"), dir.join("data.n3"), dir.join("more.rdf")];
+    let out = dir.join("closure.nt");
+    let run = turbowl(&[
+        arg(&inputs[0]),
+        arg(&inputs[1]),
+        arg(&inputs[2]),
+        "-o".into(),
+        arg(&out),
+    ]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let closure = parsed(&std::fs::read_to_string(&out).unwrap(), Format::NTriples);
+    assert_eq!(closure, library(&inputs, false));
+    // Inferences cross files: the schema types the other files' individuals.
+    for t in [
+        "<http://example.org/fido> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Animal>",
+        "<http://example.org/ann> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Person>",
+        "<http://example.org/bob> <http://example.org/knows> <http://example.org/ann>",
+    ] {
+        assert!(closure.contains(t), "{t}");
+    }
+    // The two files' `_:b` stay two blank nodes; the language tag survives.
+    let blanks: BTreeSet<&str> = closure
+        .iter()
+        .filter(|t| t.ends_with("<http://example.org/o>"))
+        .map(|t| t.split(' ').next().unwrap())
+        .collect();
+    assert_eq!(blanks.len(), 2, "{blanks:?}");
+    assert!(closure.iter().any(|t| t.ends_with("\"chien\"@fr")));
+}
+
+#[test]
+fn the_output_format_comes_from_the_extension_or_format() {
+    let dir = fixtures("formats");
+    let inputs = [dir.join("schema.ttl"), dir.join("data.nt")];
+    let expected = library(&inputs, false);
+    let cases = [
+        ("out.ttl", None, Format::Turtle),
+        ("out.nt", None, Format::NTriples),
+        ("out.n3", None, Format::N3),
+        ("out.rdf", None, Format::RdfXml),
+        ("out.owl", None, Format::RdfXml),
+        ("out.txt", Some("ntriples"), Format::NTriples),
+        ("out.ttl", Some("rdfxml"), Format::RdfXml),
+        ("out.data", Some("n3"), Format::N3),
+        ("out.x", Some("turtle"), Format::Turtle),
+        ("out.y", Some("nt"), Format::NTriples),
+    ];
+    for (name, format, expected_format) in cases {
+        let out = dir.join(name);
+        let mut args = vec![arg(&inputs[0]), arg(&inputs[1]), "-o".into(), arg(&out)];
+        if let Some(format) = format {
+            args.extend(["--format".into(), format.into()]);
+        }
+        let run = turbowl(&args);
+        assert_eq!(run.code, 0, "{name} {format:?}: {run:?}");
+        let text = std::fs::read_to_string(&out).unwrap();
+        assert_eq!(parsed(&text, expected_format), expected, "{name} {format:?}");
+    }
+}
+
+#[test]
+fn format_on_stdout_and_dash_output() {
+    let dir = fixtures("dash");
+    let inputs = [dir.join("schema.ttl"), dir.join("data.nt")];
+    let expected = library(&inputs, false);
+    for args in [
+        vec![arg(&inputs[0]), arg(&inputs[1]), "--format".into(), "ntriples".into()],
+        vec![
+            arg(&inputs[0]),
+            arg(&inputs[1]),
+            "--format=ntriples".into(),
+            "-o".into(),
+            "-".into(),
+        ],
+        vec![
+            "--output=-".into(),
+            "--format=nt".into(),
+            arg(&inputs[0]),
+            arg(&inputs[1]),
+        ],
+    ] {
+        let run = turbowl(&args);
+        assert_eq!(run.code, 0, "{args:?}: {run:?}");
+        assert_eq!(parsed(&run.stdout, Format::NTriples), expected, "{args:?}");
+        assert!(run.stderr.contains(" base, "), "the report goes to stderr: {run:?}");
+    }
+}
+
+#[test]
+fn inferred_only_writes_the_librarys_inferred_triples() {
+    let dir = fixtures("inferred");
+    let inputs = [dir.join("schema.ttl"), dir.join("data.nt")];
+    let out = dir.join("inferred.nt");
+    let run = turbowl(&[
+        arg(&inputs[0]),
+        arg(&inputs[1]),
+        "--inferred-only".into(),
+        "-o".into(),
+        arg(&out),
+    ]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let inferred = parsed(&std::fs::read_to_string(&out).unwrap(), Format::NTriples);
+    assert_eq!(inferred, library(&inputs, true));
+    assert!(!inferred.is_empty());
+    assert!(
+        !inferred.iter().any(|t| t.contains("\"chien\"@fr")),
+        "a base triple was written"
+    );
+}
+
+#[test]
+fn files_after_double_dash_are_inputs() {
+    let dir = fixtures("dashdash");
+    let odd = dir.join("-odd.ttl");
+    std::fs::write(&odd, SCHEMA).unwrap();
+    let run = turbowl(&["--format", "nt", "--", &arg(&odd)]);
+    assert_eq!(run.code, 0, "{run:?}");
+    assert_eq!(parsed(&run.stdout, Format::NTriples), library(&[odd], false));
+}
+
+// The report.
+
+#[test]
+fn the_report_goes_to_stdout_unless_the_closure_does() {
+    let dir = fixtures("where");
+    let bad = arg(&dir.join("bad.ttl"));
+    let to_stdout = turbowl(&[&bad, "--fail-on", "never", "--format", "nt"]);
+    assert!(to_stdout.stderr.contains("error[cax-dw]: "), "{to_stdout:?}");
+    assert!(!to_stdout.stdout.contains("error["), "{to_stdout:?}");
+
+    let out = arg(&dir.join("closure.ttl"));
+    let to_file = turbowl(&[&bad, "--fail-on", "never", "-o", &out]);
+    assert!(to_file.stdout.contains("error[cax-dw]: "), "{to_file:?}");
+    assert_eq!(to_file.stderr, "");
+}
+
+#[test]
+fn text_lists_each_diagnostic_then_the_summary() {
+    let dir = fixtures("text");
+    let out = arg(&dir.join("closure.ttl"));
+    let run = turbowl(&[&arg(&dir.join("bad.ttl")), "-o", &out, "--diagnostics", "text"]);
+    assert_eq!(run.code, 2, "{run:?}");
+    let lines: Vec<&str> = run.stdout.lines().collect();
+    assert_eq!(lines.len(), 3, "{run:?}");
+    assert!(lines[0].starts_with("error[cax-dw]: "), "{}", lines[0]);
+    assert!(lines[1].starts_with("error[dt-not-type]: "), "{}", lines[1]);
+    assert!(
+        lines[2].contains(" base, ") && lines[2].contains("2 diagnostics"),
+        "{}",
+        lines[2]
+    );
+}
+
+#[test]
+fn json_is_one_object_with_the_summary_and_every_diagnostic() {
+    let dir = fixtures("json");
+    let input = dir.join("bad.ttl");
+    let out = arg(&dir.join("closure.ttl"));
+    let run = turbowl(&[&arg(&input), "-o", &out, "--diagnostics", "json"]);
+    assert_eq!(run.code, 2, "{run:?}");
+    let doc = json(&run.stdout);
+    assert_eq!(run.stdout.lines().count(), 1);
+
+    let mut r = Reasoner::new();
+    r.load_file(&input).unwrap();
+    let summary = r.reason();
+    let s = &doc["summary"];
+    assert_eq!(s["base"], summary.base);
+    assert_eq!(s["inferred"], summary.inferred);
+    assert_eq!(s["rounds"], summary.rounds);
+    assert_eq!(s["diagnostics"], 2);
+    assert!(s["load_seconds"].as_f64().unwrap() >= 0.0);
+    assert!(s["reason_seconds"].as_f64().unwrap() >= 0.0);
+
+    let listed = doc["diagnostics"].as_array().unwrap();
+    assert_eq!(listed.len(), r.diagnostics().len());
+    for (d, expected) in listed.iter().zip(r.diagnostics()) {
+        assert_eq!(d["code"], expected.code);
+        assert_eq!(d["severity"], "error");
+        assert_eq!(d["message"], expected.message.as_str());
+        let terms: Vec<String> = expected.terms.iter().map(|t| t.to_string()).collect();
+        assert_eq!(d["terms"], serde_json::json!(terms));
+    }
+    assert_eq!(
+        listed[0]["terms"],
+        serde_json::json!([
+            "<http://example.org/tom>",
+            "<http://example.org/Dog>",
+            "<http://example.org/Cat>"
+        ])
+    );
+    assert_eq!(listed[1]["code"], "dt-not-type");
+    assert_eq!(
+        listed[1]["terms"][0], "\"old\"^^<http://www.w3.org/2001/XMLSchema#integer>",
+        "terms are N-Triples strings"
+    );
+}
+
+#[test]
+fn ndjson_is_a_line_per_diagnostic_then_the_summary() {
+    let dir = fixtures("ndjson");
+    let out = arg(&dir.join("closure.ttl"));
+    let run = turbowl(&[&arg(&dir.join("bad.ttl")), "-o", &out, "--diagnostics=ndjson"]);
+    assert_eq!(run.code, 2, "{run:?}");
+    let records: Vec<serde_json::Value> = run.stdout.lines().map(json).collect();
+    assert_eq!(records.len(), 3, "{run:?}");
+    assert_eq!(records[0]["type"], "diagnostic");
+    assert_eq!(records[0]["code"], "cax-dw");
+    assert_eq!(records[1]["type"], "diagnostic");
+    assert_eq!(records[1]["code"], "dt-not-type");
+    assert!(records[1]["terms"].is_array() && records[1]["message"].is_string());
+    assert_eq!(records[2]["type"], "summary");
+    assert_eq!(records[2]["diagnostics"], 2);
+}
+
+#[test]
+fn json_on_stderr_parses_when_the_closure_takes_stdout() {
+    let dir = fixtures("stderr-json");
+    let input = dir.join("bad.ttl");
+    let run = turbowl(&[&arg(&input), "--diagnostics", "json", "--format", "nt"]);
+    assert_eq!(run.code, 2, "{run:?}");
+    assert_eq!(json(&run.stderr)["summary"]["diagnostics"], 2);
+    assert_eq!(parsed(&run.stdout, Format::NTriples), library(&[input], false));
+}
+
+#[test]
+fn a_consistent_input_reports_no_diagnostic() {
+    let dir = fixtures("clean");
+    let run = turbowl(&[&arg(&dir.join("schema.ttl")), "--summary-only", "--diagnostics", "json"]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let doc = json(&run.stdout);
+    assert_eq!(doc["summary"]["diagnostics"], 0);
+    assert_eq!(doc["diagnostics"], serde_json::json!([]));
+}
+
+#[test]
+fn max_diagnostics_lists_fewer_and_the_summary_counts_all() {
+    let dir = fixtures("max");
+    let out = arg(&dir.join("closure.ttl"));
+    let bad = arg(&dir.join("bad.ttl"));
+    for (max, listed) in [("0", 0), ("1", 1), ("2", 2), ("50", 2)] {
+        let run = turbowl(&[&bad, "-o", &out, "--diagnostics", "json", "--max-diagnostics", max]);
+        assert_eq!(run.code, 2, "{run:?}");
+        let doc = json(&run.stdout);
+        assert_eq!(
+            doc["diagnostics"].as_array().unwrap().len(),
+            listed,
+            "--max-diagnostics {max}"
+        );
+        assert_eq!(doc["summary"]["diagnostics"], 2);
+    }
+    let run = turbowl(&[&bad, "-o", &out, "--max-diagnostics=1"]);
+    assert_eq!(run.stdout.lines().count(), 2, "one diagnostic and the summary: {run:?}");
+}
+
+#[test]
+fn summary_only_writes_the_summary_and_no_closure() {
+    let dir = fixtures("summary");
+    let bad = arg(&dir.join("bad.ttl"));
+
+    let text = turbowl(&[&bad, "--summary-only"]);
+    assert_eq!(text.code, 2, "{text:?}");
+    assert_eq!(text.stdout.lines().count(), 1, "{text:?}");
+    assert!(text.stdout.contains(" base, ") && text.stdout.contains("2 diagnostics"));
+    assert_eq!(text.stderr, "");
+
+    let doc = json(&turbowl(&[&bad, "--summary-only", "--diagnostics", "json"]).stdout);
+    assert_eq!(doc["diagnostics"], serde_json::json!([]));
+    assert_eq!(doc["summary"]["diagnostics"], 2);
+
+    let nd = turbowl(&[&bad, "--summary-only", "--diagnostics", "ndjson"]);
+    assert_eq!(nd.stdout.lines().count(), 1);
+    assert_eq!(json(&nd.stdout)["type"], "summary");
+}
+
+// Exit codes.
+
+#[test]
+fn fail_on_sets_the_exit_code_and_the_closure_is_still_written() {
+    let dir = fixtures("fail-on");
+    let bad = dir.join("bad.ttl");
+    let clean = arg(&dir.join("schema.ttl"));
+    let out = dir.join("closure.nt");
+    for (fail_on, code) in [(None, 2), (Some("error"), 2), (Some("warning"), 2), (Some("never"), 0)] {
+        let _ = std::fs::remove_file(&out);
+        let mut args = vec![arg(&bad), "-o".into(), arg(&out)];
+        if let Some(fail_on) = fail_on {
+            args.extend(["--fail-on".into(), fail_on.into()]);
+        }
+        let run = turbowl(&args);
+        assert_eq!(run.code, code, "--fail-on {fail_on:?}: {run:?}");
+        let closure = parsed(&std::fs::read_to_string(&out).unwrap(), Format::NTriples);
+        assert_eq!(closure, library(std::slice::from_ref(&bad), false));
+    }
+    for fail_on in ["error", "warning"] {
+        let run = turbowl(&[&clean, "--summary-only", "--fail-on", fail_on]);
+        assert_eq!(run.code, 0, "--fail-on {fail_on} on a consistent input: {run:?}");
+    }
+}
+
+#[test]
+fn input_and_output_errors_exit_1() {
+    let dir = fixtures("io");
+    let schema = arg(&dir.join("schema.ttl"));
+
+    let missing = turbowl(&[&schema, &arg(&dir.join("missing.ttl"))]);
+    assert_eq!(missing.code, 1, "{missing:?}");
+    assert!(missing.stderr.starts_with("turbowl: error: ") && missing.stderr.contains("missing.ttl"));
+    assert_eq!(missing.stdout, "");
+
+    let unwritable = arg(&dir.join("no-such-dir").join("closure.ttl"));
+    let run = turbowl(&[&schema, "-o", &unwritable]);
+    assert_eq!(run.code, 1, "{run:?}");
+    assert!(run.stderr.contains("closure.ttl"), "{run:?}");
+}
+
+#[test]
+fn a_parse_error_exits_1_with_its_line_and_writes_nothing() {
+    let dir = fixtures("parse");
+    let broken = dir.join("broken.ttl");
+    std::fs::write(
+        &broken,
+        "@prefix ex: <http://example.org/> .\nex:a ex:b ex:c .\nex:a ex:b .\n",
+    )
+    .unwrap();
+    let out = dir.join("closure.ttl");
+    let run = turbowl(&[arg(&dir.join("schema.ttl")), arg(&broken), "-o".into(), arg(&out)]);
+    assert_eq!(run.code, 1, "{run:?}");
+    assert!(run.stderr.contains("broken.ttl: 3:"), "the line of the error: {run:?}");
+    assert_eq!(run.stderr.lines().count(), 1, "{run:?}");
+    assert!(!out.exists(), "no closure after a parse error");
+}
+
+#[test]
+fn usage_errors_exit_64() {
+    let dir = fixtures("usage");
+    let schema = arg(&dir.join("schema.ttl"));
+    let odd = arg(&dir.join("model.txt"));
+    std::fs::write(&odd, SCHEMA).unwrap();
+    let cases: Vec<Vec<&str>> = vec![
+        vec![],
+        vec!["--fail-on", "never"],
+        vec![&schema, "--frobnicate"],
+        vec![&schema, "-x"],
+        vec![&schema, "--diagnostics", "xml"],
+        vec![&schema, "--diagnostics"],
+        vec![&schema, "--fail-on", "info"],
+        vec![&schema, "--max-diagnostics", "-1"],
+        vec![&schema, "--max-diagnostics", "many"],
+        vec![&schema, "--format", "jsonld"],
+        vec![&schema, "-o"],
+        vec![&schema, "-o", "closure.txt"],
+        vec![&schema, "-o", "a.ttl", "-o", "b.ttl"],
+        vec![&schema, "--inferred-only", "--inferred-only"],
+        vec![&schema, "--inferred-only=yes"],
+        vec![&schema, "--summary-only", "-o", "closure.ttl"],
+        vec![&schema, "--summary-only", "--format", "nt"],
+        vec![&schema, "--summary-only", "--inferred-only"],
+        vec![&odd],
+        vec!["-"],
+    ];
+    for args in cases {
+        let run = turbowl(&args);
+        assert_eq!(run.code, 64, "{args:?}: {run:?}");
+        assert!(run.stderr.starts_with("turbowl: "), "{args:?}: {run:?}");
+        assert!(run.stderr.contains("--help"), "{args:?}: {run:?}");
+        assert_eq!(run.stdout, "", "{args:?}");
+    }
+}
+
+#[test]
+fn help_and_version_exit_0() {
+    for flag in ["--help", "-h"] {
+        let run = turbowl(&[flag]);
+        assert_eq!(run.code, 0, "{run:?}");
+        assert!(run.stdout.starts_with("turbowl: "), "{run:?}");
+        for option in [
+            "Usage: turbowl",
+            "--output",
+            "--format",
+            "--inferred-only",
+            "--diagnostics",
+            "--fail-on",
+            "--max-diagnostics",
+            "--summary-only",
+            "--version",
+            "Exit status",
+            "64",
+        ] {
+            assert!(run.stdout.contains(option), "the help names {option}");
+        }
+    }
+    for flag in ["--version", "-V"] {
+        let run = turbowl(&[flag]);
+        assert_eq!(run.code, 0, "{run:?}");
+        assert_eq!(run.stdout, format!("turbowl {}\n", env!("CARGO_PKG_VERSION")));
+    }
+    // Help wins over a missing input.
+    assert_eq!(turbowl(&["--diagnostics", "json", "--help"]).code, 0);
+}
+
+#[test]
+fn a_reader_closing_stdout_early_is_not_an_error() {
+    use std::io::Read;
+    let dir = fixtures("pipe");
+    // A closure far larger than a pipe's buffer.
+    let big = dir.join("big.nt");
+    let lines: String = (0..20_000)
+        .map(|i| format!("<http://example.org/i{i}> <http://example.org/p> <http://example.org/o{i}> .\n"))
+        .collect();
+    std::fs::write(&big, lines).unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_turbowl"))
+        .args([arg(&big), "--format".into(), "nt".into()])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut first = [0u8; 100];
+    child.stdout.take().unwrap().read_exact(&mut first).unwrap();
+    // stdout is dropped: the reader is gone.
+    let out = child.wait_with_output().unwrap();
+    let stderr = String::from_utf8(out.stderr).unwrap();
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    assert!(!stderr.contains("error"), "{stderr}");
+    assert!(stderr.contains("20000 base"), "the report still comes: {stderr}");
+}

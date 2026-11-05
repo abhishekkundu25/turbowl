@@ -6,13 +6,22 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = true
+
 [[bin]]
 name = "turbowl"
 path = "src/main.rs"
 
 [dependencies]
 turbowl.workspace = true
+# The json and ndjson reports: escaping done right, already in the lock.
+serde_json = "1"
+
+[dev-dependencies]
 oxrdf.workspace = true
+# The tests parse the command's output in every format, to compare it with
+# the library's closure as sets.
+oxttl.workspace = true
+oxrdfxml.workspace = true
 
 [lints]
 workspace = true
