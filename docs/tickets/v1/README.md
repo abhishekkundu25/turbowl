@@ -122,3 +122,52 @@ Departures from the plan, as they happen.
   harness, `rules/testing.rs`. Ticket 08 said no triple with a literal
   subject is emitted, which contradicts the spec's generalized triples: it
   now says they are derived like any other.
+- **07.** Lists and restrictions are schema-sized and are read again from
+  the store each round, since a family keeps no state; per-instance work
+  stays semi-naive. cls-int1 draws its candidates from a pivot cell every
+  path passes through (soda hall: 29.6 ms to 5.1 ms for the family);
+  cls-hv2 reads its property by subject, so cls-hv1's large tables need no
+  object index. It found that the reference evaluator and Nemo read one
+  list shape differently: a cell without `rdf:first` (the reference still
+  counted the other members) and `rdf:nil` with triples of its own. Both
+  now follow the W3C `LIST[...]` form, as Nemo does.
+- **08.** prp-spo2 keeps the `prp-spo2` cargo feature (on by default). A
+  chain is an n-way semi-naive join without state, joined in full when a
+  list triple is new or an object index it needs was just built; a list
+  with a cycle of live cells or over 1,024 chains is read naively, as the
+  reference does. prp-fp and prp-ifp also derive `y owl:sameAs y` (the W3C
+  rules have no inequality).
+- **09.** dt-not-type's ill-typed half reads the terms of each round's new
+  tuples (each tuple once over a run; a family has no state to remember
+  checked literals). Each round also walks every table and the stable
+  schema axioms once: a fixed cost per round that grows with the schema,
+  not the data. Every finding is an error; findings are deduplicated by
+  the reasoner. An untagged `rdf:langString` literal from an insert hit a
+  debug assertion; it is now held as it came and reported.
+- **10.** The base is a sorted vector of term-id triples plus a hash set of
+  recent additions (12 to 16 bytes a triple). Loading the same document
+  again (same bytes, format and base IRI, keyed by a 128-bit hash) changes
+  nothing until a removal. A blank node inserted by a caller keeps its
+  label on output (one shaped like a document label gets `_0`). The
+  closure's generalized triples are counted round by round, not found by a
+  pass. Counters per family and round stay internal for P0. Until ticket
+  11, the oracle crate and chaos leave out any input that mentions
+  `owl:sameAs`, `owl:FunctionalProperty` or `owl:InverseFunctionalProperty`
+  (the eq-* rules cannot fire on any other input; the argument is on
+  `ours::needs_equality`); the reports count them. The bench's
+  `incremental-remove` picks removals without a blank node.
+- **Wave 3, integrated.** The doc example runs. On the merged tree: the 35
+  minimal inputs that do not need equality equal Nemo (closure and
+  findings), 5 are pending; the W3C OWL 2 RL tests pass every case Nemo
+  passes (84, plus 9 pending), the RDF-MT tests 37 (Nemo 30), including
+  `datatypes-range-clash` and `xmlsch-02-whitespace-facet-2`, and no
+  consistent case is reported inconsistent; Brick with small1 equals Nemo
+  (26,381 triples) and HermiT entails its subsumptions; 100,000 full and
+  100,000 incremental chaos iterations pass (48,107 compared, the rest
+  need equality).
+  The bench runs all three engines end to end; a first one-run look (load
+  average near 60, not a measurement) put this reasoner 5 to 8 times
+  faster than `reasonable` on brick-small1 and lubm-1, with closures equal
+  to Nemo's, and an incremental addition at about 30% of a full run against
+  the 10% budget (fixed per-round costs: lists, restrictions and tables
+  read again each round). The quiet-machine numbers belong to ticket 14.
