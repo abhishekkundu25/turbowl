@@ -1,7 +1,8 @@
-//! The Nemo oracle: `oracles/nemo/owl2rl.rls` (the W3C forms of the rules
-//! version 1 implements, as Datalog) run by Nemo's `nmo` (0.10.1, pinned in
-//! `scripts/fetch-tools.sh`). It is the same rule set on a different engine,
-//! so it judges both profiles' closures and findings exactly.
+//! The Nemo oracle: `oracles/nemo/owl2rl.rls` (the W3C forms of exactly the
+//! rules version 1 implements, as Datalog) run by Nemo's `nmo` (0.10.1,
+//! pinned in `scripts/fetch-tools.sh`). It is the same rule set on a
+//! different engine, so it judges the closure and the findings exactly
+//! (dt-not-type aside: literals reach Nemo as opaque IRIs).
 
 use crate::input::Codec;
 use crate::process::{run as run_process, scratch_dir, timeout};
@@ -10,29 +11,26 @@ use oxrdf::{NamedNode, Term};
 use oxttl::NTriplesParser;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use turtle_reasoner::Profile;
 
 /// The pinned version.
 pub const VERSION: &str = "0.10.1";
 
 /// The finding codes the program derives (no datatype checks: literals reach
 /// Nemo as opaque IRIs).
-pub const CODES: &[&str] = &[
-    "OWLRL.CAX_DW",
-    "OWLRL.PRP_PDW",
-    "OWLRL.CLS_NOTHING",
-    "OWLRL.PRP_ASYP",
-    "OWLRL.PRP_IRP",
-    "OWLRL.CLS_COM",
-];
+pub const CODES: &[&str] = &["cax-dw", "prp-pdw", "cls-nothing2", "prp-asyp", "prp-irp", "cls-com"];
+
+/// `oracles/nemo/owl2rl.rls`.
+pub fn program() -> PathBuf {
+    workspace_root().join("oracles/nemo/owl2rl.rls")
+}
 
 /// `tools/nemo/nmo`.
 pub fn binary() -> PathBuf {
     tools_dir().join("nemo/nmo")
 }
 
-/// Runs the program for the profile on the input.
-pub fn run(input: &Input, profile: Profile) -> Outcome {
+/// Runs the program on the input.
+pub fn run(input: &Input) -> Outcome {
     let nmo = binary();
     match fetched_version(&tools_dir().join("nemo")) {
         Some(v) if v == VERSION && nmo.exists() => {}
@@ -48,18 +46,10 @@ pub fn run(input: &Input, profile: Profile) -> Outcome {
         Ok(d) => d,
         Err(e) => return Outcome::Failed(e),
     };
-    let programs = workspace_root().join("oracles/nemo");
-    let mut program = match std::fs::read_to_string(programs.join("owl2rl.rls")) {
+    let program = match std::fs::read_to_string(program()) {
         Ok(p) => p,
         Err(e) => return Outcome::Failed(format!("oracles/nemo/owl2rl.rls: {e}")),
     };
-    // nmo 0.10 takes one program file: the profile's convention is appended.
-    if profile == Profile::Reasonable {
-        match std::fs::read_to_string(programs.join("reasonable.rls")) {
-            Ok(p) => program.push_str(&p),
-            Err(e) => return Outcome::Failed(format!("oracles/nemo/reasonable.rls: {e}")),
-        }
-    }
     let mut codec = Codec::new(true);
     let encoded: Vec<_> = input.triples().iter().map(|t| codec.encode_triple(t)).collect();
     let written = std::fs::write(dir.join("program.rls"), program)

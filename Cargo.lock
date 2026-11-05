@@ -369,8 +369,8 @@ dependencies = [
  "oxrdf",
  "oxrdfxml",
  "oxttl",
- "reasonable",
  "turtle-reasoner",
+ "turtle-reasoner-reference",
 ]
 
 [[package]]

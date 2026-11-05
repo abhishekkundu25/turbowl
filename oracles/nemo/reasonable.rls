@@ -1,6 +1,0 @@
-% The `reasonable` profile's convention: every subject is typed owl:Thing
-% (docs/research/reasonable-parity.md section 1.2). Not an OWL 2 RL rule.
-% nmo 0.10 runs one program file, so crates/oracle appends this file to
-% owl2rl.rls and it uses that file's prefixes.
-
-T(?s, rdf:type, owl:Thing) :- T(?s, ?p, ?o) .

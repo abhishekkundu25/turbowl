@@ -1,6 +1,6 @@
 [package]
 name = "turtle-reasoner-oracle"
-description = "Oracles for verification: reasonable, OWL-RL, Nemo, a DL reasoner, the W3C tests"
+description = "Oracles for verification: Nemo, OWL-RL, a DL reasoner, the W3C tests"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,9 +14,8 @@ oxttl.workspace = true
 oxrdfxml.workspace = true
 
 [dev-dependencies]
-# The pinned release the parity research read (crates.io 0.5.0-a1 was
-# published from commit fecee2b; its sources are identical to lib/ there).
-reasonable = { version = "=0.5.0-a1", default-features = true }
+# tests/reference.rs holds the reference evaluator to Nemo.
+turtle-reasoner-reference = { path = "../reference" }
 
 [lints]
 workspace = true

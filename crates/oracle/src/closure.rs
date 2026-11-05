@@ -1,7 +1,7 @@
 //! What an oracle returns: the closure as a set of triples and the
 //! diagnostics as a set of [`Finding`]s.
 
-use oxrdf::{Literal, Term, Triple};
+use oxrdf::{Term, Triple};
 use oxttl::NTriplesParser;
 use std::collections::HashSet;
 use std::fmt;
@@ -34,7 +34,7 @@ impl Closure {
         lines
     }
 
-    /// The finding codes, sorted, with their counts (`OWLRL.CAX_DW×2`).
+    /// The finding codes, sorted, with their counts (`cax-dw×2`).
     pub fn finding_summary(&self) -> String {
         let mut codes: Vec<&str> = self.findings.iter().map(|f| f.code.as_str()).collect();
         codes.sort_unstable();
@@ -61,23 +61,40 @@ pub fn triple(ntriple: &str) -> Triple {
         .unwrap_or_else(|e| panic!("{ntriple:?}: {e}"))
 }
 
-/// A diagnostic, reduced to what every oracle can say: its code and the terms
-/// involved, in one order per code.
+/// The diagnostic codes of the rule set: the W3C rules that conclude
+/// `false`, and dt-not-type. Every oracle reports its findings with these
+/// codes and the term orders on [`Finding`].
+pub const CODES: &[&str] = &[
+    "cax-dw",
+    "prp-pdw",
+    "cls-nothing2",
+    "prp-asyp",
+    "prp-irp",
+    "cls-com",
+    "dt-not-type",
+];
+
+/// A diagnostic, reduced to what every oracle can say: its code (the W3C rule
+/// name) and the terms involved, in one order per code.
 ///
 /// | Code | Terms |
 /// |---|---|
-/// | `OWLRL.CAX_DW` | individual, class 1, class 2 (as asserted) |
-/// | `OWLRL.PRP_PDW` | property 1, property 2, subject, object |
-/// | `OWLRL.CLS_NOTHING` | individual |
-/// | `OWLRL.PRP_ASYP` | property, subject, object |
-/// | `OWLRL.PRP_IRP` | property, individual |
-/// | `OWLRL.CLS_COM` | class 1, class 2, individual |
-/// | `RDFS.DATATYPE` | the ill-formed literal |
-/// | `RDFS.DATATYPE_RANGE` | object, datatype, property |
-/// | `OWLRL.OTHER` | the message, as a literal (OWL-RL findings with no code here) |
+/// | `cax-dw` | individual, class 1, class 2 (as asserted in `class1 owl:disjointWith class2`) |
+/// | `prp-pdw` | property 1, property 2, subject, object |
+/// | `cls-nothing2` | individual |
+/// | `prp-asyp` | property, subject, object |
+/// | `prp-irp` | property, individual |
+/// | `cls-com` | class 1, class 2, individual |
+/// | `dt-not-type` | literal, datatype (the literal's own, or a type such as one from prp-rng) |
+/// | `other` | the message, as a literal (OWL-RL findings outside the rule set) |
 ///
-/// turtle-reasoner's `Diagnostic::terms` must use this order (ticket 09);
-/// `RDFS.DATATYPE` keeps only the literal, since OWL-RL names nothing else.
+/// turtle-reasoner's `Diagnostic` maps onto it by `code` and `terms` (ticket
+/// 09 emits the terms in this order); its `severity` and `message` are not
+/// compared. Nemo writes the same columns. OWL-RL's messages name the same
+/// terms for every code, but see the oracle faults in `differences.rs`: its
+/// `cls-com` names the second class where the individual belongs (F2), and
+/// its `dt-not-type` checks only a literal's own datatype (F5), so it always
+/// names the literal and the literal's datatype.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Finding {
     pub code: String,
@@ -86,39 +103,15 @@ pub struct Finding {
 
 impl Finding {
     pub fn new(code: impl Into<String>, terms: Vec<Term>) -> Self {
-        let code = code.into();
-        let terms = if code == "RDFS.DATATYPE" {
-            terms
-                .into_iter()
-                .filter(|t| matches!(t, Term::Literal(_)))
-                .take(1)
-                .collect()
-        } else {
-            terms
-        };
-        Self { code, terms }
+        Self {
+            code: code.into(),
+            terms,
+        }
     }
 
     /// A turtle-reasoner diagnostic.
     pub fn from_diagnostic(d: &turtle_reasoner::Diagnostic) -> Self {
         Self::new(d.code, d.terms.clone())
-    }
-
-    /// A `reasonable` diagnostic, from its code and message (it has no term
-    /// fields; see the message formats in docs/research/reasonable-parity.md §3.2).
-    pub fn from_reasonable(code: &str, message: &str) -> Self {
-        let terms = terms_in(message);
-        let pick: &[usize] = match code {
-            "OWLRL.CAX_DW" | "OWLRL.PRP_ASYP" | "RDFS.DATATYPE_RANGE" => &[0, 1, 2],
-            // property {p1} is disjoint with {p2} for pair ({x} {p1} {y})
-            "OWLRL.PRP_PDW" => &[0, 1, 2, 4],
-            "OWLRL.CLS_NOTHING" => &[0],
-            "OWLRL.PRP_IRP" => &[0, 1],
-            // ill-formed literal {lit} used in triple {s} {p} {o}
-            "RDFS.DATATYPE" => &[0],
-            _ => return Self::new(code, vec![Literal::new_simple_literal(message).into()]),
-        };
-        Self::new(code, pick.iter().filter_map(|&i| terms.get(i).cloned()).collect())
     }
 }
 
@@ -132,7 +125,7 @@ impl fmt::Display for Finding {
     }
 }
 
-/// The terms written in N-Triples syntax inside a message, in order.
+/// The terms written in N-Triples syntax inside a text, in order.
 pub(crate) fn terms_in(text: &str) -> Vec<Term> {
     let mut out = Vec::new();
     let mut i = 0;
@@ -195,27 +188,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_terms_from_reasonable_messages() {
-        let f = Finding::from_reasonable(
-            "OWLRL.PRP_PDW",
-            "property <http://example.org/p> is disjoint with <http://example.org/q> for pair (_:b1 <http://example.org/p> \"a \\\"b\\\"\"@en)",
+    fn reads_terms_from_text() {
+        let terms = terms_in(
+            "<http://example.org/p> and _:b1, \"a \\\"b\\\"\"@en then \"5\"^^<http://www.w3.org/2001/XMLSchema#int>",
         );
+        let shown: Vec<String> = terms.iter().map(ToString::to_string).collect();
         assert_eq!(
-            f.to_string(),
-            "OWLRL.PRP_PDW <http://example.org/p> <http://example.org/q> _:b1 \"a \\\"b\\\"\"@en"
+            shown,
+            [
+                "<http://example.org/p>",
+                "_:b1",
+                "\"a \\\"b\\\"\"@en",
+                "\"5\"^^<http://www.w3.org/2001/XMLSchema#int>"
+            ]
         );
-        let f = Finding::from_reasonable(
-            "RDFS.DATATYPE",
-            "ill-formed literal \"abc\"^^<http://www.w3.org/2001/XMLSchema#integer> used in triple <http://example.org/s> <http://example.org/p> \"abc\"^^<http://www.w3.org/2001/XMLSchema#integer>",
-        );
-        assert_eq!(
-            f.to_string(),
-            "RDFS.DATATYPE \"abc\"^^<http://www.w3.org/2001/XMLSchema#integer>"
-        );
-        let f = Finding::from_reasonable(
-            "OWLRL.CLS_NOTHING",
-            "instance <http://example.org/x> is owl:Nothing (unsatisfiable)",
-        );
-        assert_eq!(f.terms.len(), 1);
     }
 }

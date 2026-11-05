@@ -46,7 +46,7 @@ impl Input {
     }
 
     /// The files, in order (format from each extension; `.n3` is read as Turtle,
-    /// a superset of the N-Triples that `reasonable`'s `.n3` files hold).
+    /// a superset of the N-Triples that the `.n3` models under `data/` hold).
     pub fn files(name: impl Into<String>, paths: &[&Path]) -> Result<Self, String> {
         let mut input = Self::new(name);
         for path in paths {
@@ -56,6 +56,25 @@ impl Input {
             input = input.with_document(path.display().to_string(), &text, format)?;
         }
         Ok(input)
+    }
+
+    /// One document of triples given as they are (generated inputs): blank
+    /// nodes keep their labels, duplicates are dropped.
+    pub fn from_triples(name: impl Into<String>, triples: impl IntoIterator<Item = Triple>) -> Self {
+        let name = name.into();
+        let mut input = Self::new(name.clone());
+        for t in triples {
+            if input.seen.insert(t.clone()) {
+                input.triples.push(t);
+            }
+        }
+        let text = input.to_ntriples();
+        input.documents.push(Document {
+            name,
+            format: Format::NTriples,
+            text,
+        });
+        input
     }
 
     /// Adds a document. Its blank nodes are scoped to it and relabelled in
@@ -205,7 +224,8 @@ impl Codec {
     }
 
     /// The original triple, or `None` when it has no RDF form (a literal
-    /// subject, or a predicate that is not an IRI), as `reasonable` drops them.
+    /// subject, or a predicate that is not an IRI): the rules derive such
+    /// generalized triples, and the closure leaves them out.
     pub(crate) fn decode_triple(&self, s: Term, p: Term, o: Term) -> Option<Triple> {
         let s = match self.decode(s) {
             Term::NamedNode(n) => NamedOrBlankNode::from(n),

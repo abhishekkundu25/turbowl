@@ -282,17 +282,13 @@ pub fn judge(case: &Case, closure: &Closure) -> Verdict {
     // Every finding is an inconsistency: OWL 2 RL's `false` rules, and
     // ill-typed literals (D-inconsistent) of a recognised datatype.
     let recognised = |f: &&crate::Finding| {
-        let datatype = match f.code.as_str() {
-            "RDFS.DATATYPE" => f.terms.first().and_then(|t| match t {
-                Term::Literal(l) => Some(l.datatype().into_owned()),
-                _ => None,
-            }),
-            "RDFS.DATATYPE_RANGE" => f.terms.get(1).and_then(|t| match t {
-                Term::NamedNode(n) => Some(n.clone()),
-                _ => None,
-            }),
-            _ => return true,
-        };
+        if f.code != "dt-not-type" {
+            return true;
+        }
+        let datatype = f.terms.get(1).and_then(|t| match t {
+            Term::NamedNode(n) => Some(n.clone()),
+            _ => None,
+        });
         match (&case.recognized, datatype) {
             (Some(known), Some(d)) => known.contains(&d),
             _ => true,
@@ -313,6 +309,102 @@ pub fn judge(case: &Case, closure: &Closure) -> Verdict {
         Expect::Consistent if !inconsistent => Verdict::Pass,
         Expect::Consistent => Verdict::Fail(format!("inconsistency reported: {}", closure.finding_summary())),
     }
+}
+
+/// The rules outside version 1 that a case likely needs, read from the
+/// vocabulary of its premise and its conclusion (a report for the cases Nemo
+/// fails, not a proof). Empty when no such vocabulary shows.
+pub fn missing_rules(case: &Case) -> Vec<&'static str> {
+    const BY_TERM: &[(&str, &str)] = &[
+        ("owl#differentFrom", "eq-diff1"),
+        ("owl#AllDifferent", "eq-diff2, eq-diff3"),
+        ("owl#hasKey", "prp-key"),
+        ("owl#sourceIndividual", "prp-npa1, prp-npa2"),
+        ("owl#AllDisjointProperties", "prp-adp"),
+        ("owl#AllDisjointClasses", "cax-adc"),
+        ("owl#maxCardinality", "cls-maxc1, cls-maxc2"),
+        ("owl#maxQualifiedCardinality", "cls-maxqc1 to cls-maxqc4"),
+        ("owl#oneOf", "cls-oo"),
+        ("owl#Restriction", "scm-* for restrictions"),
+    ];
+    const BY_CONCLUSION: &[(&str, &str)] = &[
+        ("rdf-schema#subPropertyOf", "scm-spo, scm-eqp1"),
+        ("owl#equivalentProperty", "scm-eqp2"),
+        ("owl#equivalentClass", "scm-eqc2"),
+        ("rdf-schema#domain", "scm-dom1, scm-dom2"),
+        ("rdf-schema#range", "scm-rng1, scm-rng2"),
+        (
+            "rdf-schema#subClassOf",
+            "scm-cls, scm-int, scm-uni, scm-svf, scm-avf, scm-hv",
+        ),
+    ];
+    let iris = |g: &Input| -> Vec<String> {
+        g.triples()
+            .iter()
+            .flat_map(|t| [Term::from(t.predicate.clone()), t.object.clone()])
+            .filter_map(|t| match t {
+                Term::NamedNode(n) => Some(n.into_string()),
+                _ => None,
+            })
+            .collect()
+    };
+    let premise = iris(&case.premise);
+    let has = |terms: &[String], suffix: &str| terms.iter().any(|t| t.ends_with(suffix));
+    let mut out: Vec<&'static str> = BY_TERM
+        .iter()
+        .filter(|(term, _)| has(&premise, term))
+        .map(|(_, rule)| *rule)
+        .collect();
+    if let Expect::Entails(c) | Expect::NotEntails(c) = &case.expect {
+        let conclusion: Vec<String> = c.triples().iter().map(|t| t.predicate.as_str().to_owned()).collect();
+        out.extend(
+            BY_CONCLUSION
+                .iter()
+                .filter(|(term, _)| has(&conclusion, term))
+                .map(|(_, rule)| *rule),
+        );
+        if c.triples()
+            .iter()
+            .any(|t| t.predicate.as_str() == format!("{OWL}sameAs") && Term::from(t.subject.clone()) == t.object)
+        {
+            out.push("eq-ref");
+        }
+    }
+    let container = |g: &Input| {
+        g.triples().iter().any(|t| {
+            [
+                Term::from(t.subject.clone()),
+                t.predicate.clone().into(),
+                t.object.clone(),
+            ]
+            .iter()
+            .any(|term| match term {
+                Term::NamedNode(n) => {
+                    n.as_str().starts_with("http://www.w3.org/1999/02/22-rdf-syntax-ns#_")
+                        || n.as_str().ends_with("rdf-schema#ContainerMembershipProperty")
+                        || n.as_str().ends_with("rdf-schema#member")
+                }
+                _ => false,
+            })
+        })
+    };
+    let conclusion_container = match &case.expect {
+        Expect::Entails(c) | Expect::NotEntails(c) => container(c),
+        _ => false,
+    };
+    if container(&case.premise) || conclusion_container {
+        out.push("rdfs12 and RDFS axioms (container membership; not OWL 2 RL rules)");
+    }
+    let literal = case
+        .premise
+        .triples()
+        .iter()
+        .any(|t| matches!(t.object, Term::Literal(_)));
+    if literal && out.is_empty() {
+        out.push("dt-* (Nemo has no datatype checks; dt-not-type is in version 1)");
+    }
+    out.dedup();
+    out
 }
 
 /// `Ok` when the closure holds every triple of the graph, with its blank

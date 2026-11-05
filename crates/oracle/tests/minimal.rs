@@ -1,4 +1,4 @@
-//! Every oracle on the parity checklist's minimal inputs, triangulated.
+//! Every oracle on the minimal inputs (`cases::minimal`), triangulated.
 //! The table is printed and written to `target/oracle/minimal.md`.
 
 mod support;
@@ -9,8 +9,7 @@ use turtle_reasoner_oracle::{Table, cases, triangulate};
 fn oracles_agree_on_the_minimal_inputs() {
     let mut table = Table::default();
     for case in cases::minimal() {
-        let reasonable = support::reasonable(&case.input());
-        table.rows.push(triangulate(&case, reasonable));
+        table.rows.push(triangulate(&case));
     }
     let text = table.markdown();
     let path = support::report("minimal", &text);
@@ -26,10 +25,10 @@ fn oracles_agree_on_the_minimal_inputs() {
         failures.len(),
         failures.join("\n\n")
     );
+    // A known fault that no longer shows (or did not run) is reported, so
+    // KNOWN stays true.
     let stale = table.stale_known();
-    // A known disagreement that no longer shows (or did not run) is reported,
-    // so KNOWN stays true; it fails only when every oracle ran.
     if !stale.is_empty() {
-        println!("known disagreements not seen: {stale:?}");
+        println!("known faults not seen: {stale:?}");
     }
 }

@@ -4,9 +4,12 @@ Usage: reason.py INPUT.nt CLOSURE.nt FINDINGS.tsv
 
 Writes the closure as N-Triples (without literal subjects, which RDF 1.1
 cannot write, and without OWL-RL's error-message triples) and one line per
-inconsistency OWL-RL reports: the code `crates/oracle` uses, then the terms
-involved in N-Triples syntax, tab-separated. A message this script does not
-recognise is written with the code `OWLRL.OTHER` and the message itself.
+inconsistency OWL-RL reports: the W3C rule name `crates/oracle` uses as the
+code, then the terms involved in N-Triples syntax, tab-separated, in the
+order documented on `Finding` (crates/oracle/src/closure.rs). A message this
+script does not recognise (a rule outside turtle-reasoner's rule set, such
+as eq-diff1 or cls-maxc1) is written with the code `other` and the message
+itself.
 """
 
 import logging
@@ -20,21 +23,23 @@ import rdflib
 from rdflib import Graph, Literal, URIRef
 
 # OWL-RL formats each term with `%s`, so a message holds bare strings.
-# Each pattern names the code and the order of the captured terms in
-# turtle-reasoner's order for that code (see crates/oracle/src/finding.rs).
+# Each pattern names the code and the order of the captured terms in the
+# order `Finding` documents for that code (crates/oracle/src/closure.rs).
+# OWL-RL formats cax-adc like cax-dw, so it is read as cax-dw.
 T = r"(.+?)"
 PATTERNS = [
-    (re.compile(rf"^Disjoint classes {T} and {T} have a common individual {T}$"), "OWLRL.CAX_DW", (2, 0, 1)),
-    (re.compile(rf"^Erroneous usage of disjoint properties {T} and {T} on {T} and {T}$"), "OWLRL.PRP_PDW", (0, 1, 2, 3)),
-    (re.compile(rf"^{T} is defined of type 'Nothing'$"), "OWLRL.CLS_NOTHING", (0,)),
-    (re.compile(rf"^Erroneous usage of asymmetric property {T} on {T} and {T}$"), "OWLRL.PRP_ASYP", (0, 1, 2)),
-    (re.compile(rf"^Irreflexive property used on {T} with {T}$"), "OWLRL.PRP_IRP", (1, 0)),
+    (re.compile(rf"^Disjoint classes {T} and {T} have a common individual {T}$"), "cax-dw", (2, 0, 1)),
+    (re.compile(rf"^Erroneous usage of disjoint properties {T} and {T} on {T} and {T}$"), "prp-pdw", (0, 1, 2, 3)),
+    (re.compile(rf"^{T} is defined of type 'Nothing'$"), "cls-nothing2", (0,)),
+    (re.compile(rf"^Erroneous usage of asymmetric property {T} on {T} and {T}$"), "prp-asyp", (0, 1, 2)),
+    (re.compile(rf"^Irreflexive property used on {T} with {T}$"), "prp-irp", (1, 0)),
     # owlrl 7.6.2 prints the second class where the element belongs
-    # (OWLRL.py:684-691 formats `x`, which is c2 there), so the third term is c2.
-    (re.compile(rf"^Violation of complementarity for classes {T} and {T} on element {T}$"), "OWLRL.CLS_COM", (0, 1, 2)),
+    # (OWLRL.py:684-691 formats `x`, which is c2 there), so the third term is
+    # c2: oracle fault F2.
+    (re.compile(rf"^Violation of complementarity for classes {T} and {T} on element {T}$"), "cls-com", (0, 1, 2)),
     (
         re.compile(rf"^Lexical value of the literal '{T}' does not match its datatype \({T}\)$", re.S),
-        "RDFS.DATATYPE",
+        "dt-not-type",
         None,
     ),
 ]
@@ -91,17 +96,19 @@ def finding(message, by_string, input_literals):
         if not match:
             continue
         if order is None:
+            # dt-not-type: OWL-RL checks only a literal against its own
+            # datatype (oracle fault F5), so the datatype is the literal's.
             lexical, datatype = match.groups()
             literal = next(
                 (lit for lit in input_literals if str(lit) == lexical and str(lit.datatype) == datatype),
                 Literal(lexical, datatype=URIRef(datatype)),
             )
-            return [code, literal.n3()]
+            return [code, literal.n3(), URIRef(datatype).n3()]
         groups = match.groups()
         terms = [by_string.get(groups[i]) for i in order]
         if all(t is not None for t in terms):
             return [code] + [t.n3() for t in terms]
-    return ["OWLRL.OTHER", message.replace("\t", " ").replace("\n", " ")]
+    return ["other", message.replace("\t", " ").replace("\n", " ")]
 
 
 if __name__ == "__main__":

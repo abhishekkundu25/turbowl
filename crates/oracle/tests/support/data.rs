@@ -1,6 +1,7 @@
-//! The data inputs of the parity checklist (items 1 and 2): Brick 1.1 with
-//! `reasonable`'s example models and building models, fetched into `data/`
-//! by `scripts/fetch-data.sh`. Reports go to `target/oracle/data-*.md`.
+//! The data inputs: Brick 1.1 with the example models and building models
+//! from `reasonable`'s repository (only its data; `reasonable` itself judges
+//! nothing), fetched into `data/` by `scripts/fetch-data.sh`. Reports go to
+//! `target/oracle/data-*.md`.
 //!
 //! By default only Brick with small1 runs, so `cargo test -p
 //! turtle-reasoner-oracle` stays under two minutes on a busy machine.
@@ -26,9 +27,9 @@ pub fn slow() -> bool {
 }
 
 /// A scenario of the slow tier: runs only with `ORACLE_SLOW=1`.
-pub fn check_slow(name: &str, item: &str, files: &[&str]) {
+pub fn check_slow(name: &str, covers: &str, files: &[&str]) {
     if slow() {
-        check(name, item, files);
+        check(name, covers, files);
     } else {
         println!("{name}: slow tier, not run (ORACLE_SLOW=1 runs it)");
     }
@@ -52,12 +53,9 @@ pub fn input(name: &str, files: &[&str]) -> Option<Input> {
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// Every oracle on the files under `data/reasonable/`, compared; panics on a failed check.
-pub fn check(name: &str, item: &str, files: &[&str]) {
+pub fn check(name: &str, covers: &str, files: &[&str]) {
     let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let Some(input) = input(name, files) else { return };
-    let start = std::time::Instant::now();
-    let reasonable = super::reasonable(&input);
-    let reasonable_secs = start.elapsed().as_secs_f64();
     // HermiT cannot load owl.n3, OWL's own vocabulary (the OWL API rejects
     // its axioms about built-in terms), so inputs with it are not classified.
     let options = Options {
@@ -65,10 +63,10 @@ pub fn check(name: &str, item: &str, files: &[&str]) {
         hermit: !files.contains(&OWL),
     };
     let start = std::time::Instant::now();
-    let row = triangulate_input(name, item, &input, None, reasonable, options);
+    let row = triangulate_input(name, covers, &input, None, options);
     let table = Table { rows: vec![row] };
     let text = format!(
-        "{}\nInput: {} triples from {}. reasonable took {reasonable_secs:.1} s, the other oracles {:.1} s.\n",
+        "{}\nInput: {} triples from {}. The oracles took {:.1} s.\n",
         table.markdown(),
         input.triples().len(),
         files.join(" + "),

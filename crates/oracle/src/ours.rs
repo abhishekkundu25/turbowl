@@ -4,17 +4,17 @@
 use crate::{Closure, Finding, Input, Outcome};
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::OnceLock;
-use turtle_reasoner::{Profile, Reasoner};
+use turtle_reasoner::Reasoner;
 
-/// Runs a profile on the input's triples (inserted as they are, so blank
+/// Runs the reasoner on the input's triples (inserted as they are, so blank
 /// nodes keep the labels `Input` gave them). While the `Reasoner` is the
 /// stub, returns `Pending`; any other panic propagates.
-pub fn run(input: &Input, profile: Profile) -> Outcome {
+pub fn run(input: &Input) -> Outcome {
     if let Some(reason) = stub() {
         return Outcome::Pending(reason.clone());
     }
     let result = catch_unwind(AssertUnwindSafe(|| {
-        let mut r = Reasoner::new(profile);
+        let mut r = Reasoner::new();
         r.insert(input.triples().iter().map(|t| t.as_ref()));
         r.reason();
         let findings: Vec<Finding> = r.diagnostics().iter().map(Finding::from_diagnostic).collect();
@@ -36,7 +36,7 @@ fn stub() -> Option<&'static String> {
     PROBE
         .get_or_init(|| {
             catch_unwind(|| {
-                let mut r = Reasoner::new(Profile::OwlRl);
+                let mut r = Reasoner::new();
                 r.reason();
                 r.diagnostics().len()
             })

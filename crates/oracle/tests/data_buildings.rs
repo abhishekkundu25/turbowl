@@ -1,5 +1,5 @@
-//! Parity checklist item 2: Brick 1.1 with soda_hall, and each building model
-//! of reasonable's benches/python/buildings with Brick, owl.n3 and rdfs.ttl.
+//! Brick 1.1 with soda_hall, and each building model (from `reasonable`'s
+//! repository, benches/python/buildings) with Brick, owl.n3 and rdfs.ttl.
 //! Both run with `ORACLE_SLOW=1` only. See tests/support/data.rs.
 
 mod support;
@@ -8,7 +8,11 @@ use support::data::{BRICK, OWL, RDFS, check, check_slow};
 
 #[test]
 fn brick_soda_hall() {
-    check_slow("brick-soda-hall", "2", &[BRICK, "example_models/soda_hall.n3"]);
+    check_slow(
+        "brick-soda-hall",
+        "Brick + soda_hall",
+        &[BRICK, "example_models/soda_hall.n3"],
+    );
 }
 
 #[test]
@@ -33,6 +37,10 @@ fn building_models() {
     for b in buildings {
         let file = format!("benches/python/buildings/{b}");
         let name = format!("building-{}", b.trim_end_matches(".ttl").replace(['(', ')', '.'], ""));
-        check(&name, "2", &[BRICK, OWL, RDFS, &file]);
+        check(
+            &name,
+            "Brick + owl.n3 + rdfs.ttl + building",
+            &[BRICK, OWL, RDFS, &file],
+        );
     }
 }

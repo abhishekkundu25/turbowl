@@ -4,7 +4,8 @@
 //!
 //! OWL-RL implements the full rule set (and adds vocabulary triples such as
 //! `x owl:sameAs x` for every term and datatype declarations), so it judges
-//! soundness: a closure of either profile must be a subset of OWL-RL's.
+//! by containment: turtle-reasoner's closure and findings must be a subset of
+//! OWL-RL's, after the filters of its known faults (`differences.rs`).
 
 use crate::input::Codec;
 use crate::process::{run as run_process, scratch_dir, timeout};
@@ -17,16 +18,9 @@ use std::str::FromStr;
 /// The pinned versions (oracles/owlrl/pyproject.toml).
 pub const VERSION: &str = "owlrl 7.6.2, rdflib 7.6.0";
 
-/// The finding codes OWL-RL reports in turtle-reasoner's terms.
-pub const CODES: &[&str] = &[
-    "OWLRL.CAX_DW",
-    "OWLRL.PRP_PDW",
-    "OWLRL.CLS_NOTHING",
-    "OWLRL.PRP_ASYP",
-    "OWLRL.PRP_IRP",
-    "OWLRL.CLS_COM",
-    "RDFS.DATATYPE",
-];
+/// The finding codes of the rule set OWL-RL reports (`reason.py` maps its
+/// messages onto them; any other message becomes an `other` finding).
+pub const CODES: &[&str] = crate::closure::CODES;
 
 /// Runs OWL-RL on the input.
 pub fn run(input: &Input) -> Outcome {
@@ -77,7 +71,7 @@ fn read(codec: &Codec, closure: &std::path::Path, findings: &std::path::Path) ->
         let mut fields = line.split('\t');
         let code = fields.next().unwrap_or_default();
         let rest: Vec<&str> = fields.collect();
-        if code == "OWLRL.OTHER" {
+        if code == "other" {
             found.push(Finding::new(
                 code,
                 vec![Literal::new_simple_literal(rest.join(" ")).into()],

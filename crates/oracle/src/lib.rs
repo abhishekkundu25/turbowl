@@ -1,15 +1,19 @@
-//! Oracles for verification (ticket 04): independent sources of the right
-//! answer, each run on the same [`Input`] and returning a [`Closure`] (a set
-//! of triples and a set of [`Finding`]s), compared as sets.
+//! Oracles for verification (ticket 04, retargeted by ADR 0004): independent
+//! sources of the right answer under the W3C OWL 2 RL rules, for the rule
+//! set of version 1 (`docs/specs/v1.md`). Each runs on the same [`Input`] and
+//! returns a [`Closure`] (a set of triples and a set of [`Finding`]s); they
+//! are compared as sets.
 //!
 //! | Oracle | Runs | Judges |
 //! |---|---|---|
-//! | `reasonable` 0.5.0-a1 | in process (dev-dependency, `tests/support`) | the `reasonable` profile, after the [`Difference`] filters |
-//! | OWL-RL ([`owlrl`]) | `uv run` in `oracles/owlrl/` | soundness of the closure against the full W3C rule set |
-//! | Nemo ([`nemo`]) | `tools/nemo/nmo` on `oracles/nemo/owl2rl.rls` | both profiles' closures exactly, on another engine |
+//! | Nemo ([`nemo`]) | `tools/nemo/nmo` on `oracles/nemo/owl2rl.rls` | the closure and the findings exactly (dt-not-type aside), on another engine |
+//! | OWL-RL ([`owlrl`]) | `uv run` in `oracles/owlrl/` | containment: it implements more rules, so ours ⊆ OWL-RL after the [`Fault`] filters |
 //! | HermiT ([`hermit`]) | `tools/jre` + `tools/hermit` | soundness of inferred class and property subsumptions |
-//! | the W3C tests ([`w3c`]) | `data/w3c/` | the standard's own expected entailments |
+//! | the W3C tests ([`w3c`]) | `data/w3c/` | the standard's own expected entailments; every case Nemo passes is required of us |
+//! | the reference evaluator | `crates/reference` (`tests/reference.rs`) | itself, against Nemo, on generated inputs |
 //! | turtle-reasoner ([`ours`]) | the [`turtle_reasoner::Reasoner`] interface | (the system under test) |
+//!
+//! `reasonable` judges nothing here: it is a speed baseline in `crates/bench`.
 //!
 //! Tools and data are fetched by `scripts/fetch-tools.sh` and
 //! `scripts/fetch-data.sh`. An oracle that is not installed returns
@@ -17,7 +21,8 @@
 //! `Reasoner` is still the stub, [`ours`] returns [`Outcome::Pending`].
 //!
 //! Triangulation ([`triangulate`]) compares the oracles with each other on
-//! every input: when two agree and a third does not, the third is examined.
+//! every input: when two agree and a third does not, the third is examined,
+//! and a confirmed error of an oracle becomes an oracle fault ([`Fault`]).
 
 pub mod cases;
 mod closure;
@@ -32,15 +37,12 @@ mod process;
 mod triangulate;
 pub mod w3c;
 
-pub use closure::{Closure, Finding};
+pub use closure::{CODES, Closure, Finding, triple};
 pub use compare::{Diff, Relation, compare};
-pub use differences::{Difference, apply as apply_differences};
+pub use differences::{Fault, apply as apply_faults, explains_failure};
 pub use input::{Document, Input};
-pub use triangulate::{
-    Check, KNOWN, OUR_CODES, Options, REASONABLE_CODES, Row, Status, Table, triangulate, triangulate_input,
-};
-
 use std::path::{Path, PathBuf};
+pub use triangulate::{Check, KNOWN, Options, Row, Status, Table, triangulate, triangulate_input};
 
 /// What running an oracle gave.
 #[derive(Debug, Clone)]
