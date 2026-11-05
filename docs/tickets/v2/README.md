@@ -22,7 +22,8 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 13 | [Scoreboard data and the 16 GB cap](13-scoreboard-data.md) | 01 | `scripts/fetch-data.sh`, `crates/bench/src/scenario.rs`, new `crates/bench/src/datasets.rs`, `crates/bench/src/machine.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
 | 14 | [Published results and the scoreboard report](14-published-results-and-report.md) | 12, 13 | new `crates/bench/src/{published,report}.rs` and the published-results data file, `crates/bench/src/compare.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
 | 25 | [Memory: OWL2Bench RL, UOBM-010 U and OpenCyc](25-memory.md) | 13 | `crates/turbowl/` (where the cause is), `crates/turbowl/src/scaling.rs` |
-| 15 | [Close-out: phase 1](15-close-out-phase-1.md) | 01 to 14, 25, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
+| 26 | [OWL-RL's datatype and identity faults](26-owlrl-faults.md) | 08 | `crates/oracle/src/differences.rs`, `crates/oracle/src/cases/datatypes.rs` |
+| 15 | [Close-out: phase 1](15-close-out-phase-1.md) | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
 | 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
@@ -145,6 +146,40 @@ Departures from the plan, as they happen.
   cherry-pick then duplicated it, because 12 also changed the lines next
   to it. The fix removed the copy. Before 05 and 06 are committed, the
   orchestrator takes that hunk out of their worktrees.
+- **05.** The consistency halves of its eight W3C cases pass. Their
+  "entails" halves fail on Nemo and OWL-RL too: five need scm-cls, scm-op
+  or scm-dp (ticket 08), and `WebOnt-differentFrom-001` expects
+  `owl:differentFrom` to be symmetric, which no OWL 2 RL rule says. OWL-RL's
+  messages name fewer terms; `reason.py` recovers the rest from its own
+  closure. W3C OWL 2 RL: 95, every case Nemo passes.
+- **06.** prp-key groups a class's individuals by hashing their key
+  values. A group of k equal terms emits k² `owl:sameAs` triples in its
+  first round, as prp-fp and prp-ifp do; with the switches in `Context`
+  (ticket 08) a star of k would do, as a later experiment.
+  `New-Feature-Keys-006` needs literal values (ticket 10), not schema
+  rules. The reference evaluator's prp-key went quadratic over aliases and
+  was made faster. W3C OWL 2 RL: 96, every case Nemo passes.
+- **09.** Decisions taken:
+  - `owl:real` has no lexical forms, so `"1"^^owl:real` is ill-typed.
+  - `rdfs:Literal` is a value space only.
+  - `xsd:string` accepts any string, as in version 1.
+  - `rdf:PlainLiteral` tags follow `xsd:language`'s pattern.
+  - An `rdf:XMLLiteral` is identified by its lexical form.
+
+  Three tests that assumed version 1's five datatypes now expect the wider
+  check. `WebOnt-I4.6-005-Direct` and `WebOnt-equivalentClass-008-Direct`
+  need the Direct Semantics' handling of annotations, not dt-not-type.
+  OWL-RL's datatype faults go to ticket 26, added.
+- **25.** The cause was prp-trp: a component of k nodes made k³
+  derivations for k² pairs, all buffered until the round ended. A
+  transitive table now closes in one step past that size, and no round
+  buffer is kept after a run. owl2bench-rl-1 went from over 8 GB to 81 MB.
+  OpenCyc still passes the cap, for another reason: it makes a term
+  `owl:sameAs rdfs:label`, so the generalized rules type every label
+  literal through a large class hierarchy (24 M literal-subject tuples).
+  The owner decides between dropping literal-subject derivations,
+  compacting the round buffer, and lazy diagnostics. scm-sco has the same
+  join shape; experiment E2 is planned for it.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
   minutes while showing 2 GB, until the agent stopped it. The cap now

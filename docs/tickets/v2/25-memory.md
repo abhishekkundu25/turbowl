@@ -1,6 +1,6 @@
 # 25: Memory: OWL2Bench RL, UOBM-010 U and OpenCyc
 
-Status: todo. Blocked by: 13.
+Status: done. Blocked by: 13.
 
 Ticket 13's smoke runs found TurbOWL holding far more memory than its
 closure explains:
@@ -24,7 +24,7 @@ and report the options. A cause in the bench's closure check goes to ticket
 12, which owns `engine.rs`.
 
 ## Acceptance
-- [ ] For each scenario, a measured breakdown of the peak (what holds how much) and the method.
-- [ ] The root cause is fixed, with a test that fails before the fix; or, if an interface change is needed, the options are reported.
-- [ ] `owl2bench-rl-1` and `uobm-010-u` run under the cap, with their peak bytes per closure triple recorded (smoke runs).
-- [ ] Every suite passes as before.
+- [x] For each scenario, a measured breakdown of the peak (what holds how much) and the method.
+- [x] The root cause is fixed, with a test that fails before the fix; or, if an interface change is needed, the options are reported.
+- [x] `owl2bench-rl-1` and `uobm-010-u` run under the cap, with their peak bytes per closure triple recorded (smoke runs).
+- [x] Every suite passes as before.
