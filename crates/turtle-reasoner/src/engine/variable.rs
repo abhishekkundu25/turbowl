@@ -90,6 +90,15 @@ impl<T: Ord + Copy> Variable<T> {
 
         for batch in &self.stable {
             let mut known: &[T] = batch;
+            // A tier wholly below or above the fresh tuples holds none of
+            // them: skip it in O(1). Tuples that grow round by round (a
+            // chain's next node) then cost O(tiers) a round, not O(log² n).
+            let (Some(first), Some(last)) = (fresh.first(), fresh.last()) else {
+                break;
+            };
+            if known.last().is_some_and(|k| k < first) || known.first().is_some_and(|k| k > last) {
+                continue;
+            }
             if known.len() > 4 * fresh.len() {
                 fresh.retain(|x| {
                     known = gallop(known, |y| y < x);
