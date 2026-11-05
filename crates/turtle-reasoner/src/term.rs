@@ -16,8 +16,10 @@
 //!   tag (datatype `rdf:langString`). Literals are never compared by value:
 //!   `"1"^^xsd:integer` and `"01"^^xsd:integer` are two terms.
 //!
-//! On output a blank node is labelled `<label>_<document>`
-//! ([`Dictionary::write_blank_label`]), unique across documents.
+//! On output a blank node of a document is labelled `<label>_<document>`,
+//! and one from no document (inserted by a caller) keeps its label, so
+//! distinct blank nodes always get distinct labels
+//! ([`Dictionary::write_blank_label`] has the rule).
 //!
 //! Layout, for speed: all term text lives in one arena `String`; an entry
 //! per term holds its range, its kind and one 32-bit field (the document of a
@@ -30,7 +32,8 @@
 //!
 //! This module builds without the `io` feature (WebAssembly).
 
-// Ticket 10 wires the dictionary into the `Reasoner`; until then only tests use it.
+// The rule families (tickets 07 to 09) read most of the vocabulary; until
+// they land, only tests do.
 #![allow(dead_code)]
 
 use oxrdf::{BlankNodeRef, LiteralRef, NamedNodeRef, NamedOrBlankNodeRef, TermRef};
@@ -354,15 +357,29 @@ impl Dictionary {
     }
 
     /// Writes the label a blank node has on output into `out` (cleared
-    /// first): `<label>_<document>`. Distinct blank nodes get distinct labels
-    /// (the document number has no `_`), and the label is valid in every
-    /// format. A term that is not a blank node leaves `out` empty.
+    /// first). A term that is not a blank node leaves `out` empty.
+    ///
+    /// - A blank node of a document is `<label>_<document>`: `_:b` of the
+    ///   first document is `b_1`, of the second `b_2`.
+    /// - A blank node from no document ([`DocId::NONE`], inserted by a
+    ///   caller) keeps its label, so inserting a triple and reading the
+    ///   closure gives the label back.
+    /// - Except when that label already looks like a document label (it ends
+    ///   in `_` and digits, as `b_1` does): it is then written with `_0`
+    ///   appended (`b_1_0`). No document label ends in `_0` (documents are
+    ///   numbered from 1), so such a node never takes a document node's label.
+    ///
+    /// Distinct blank nodes get distinct labels, valid in every format.
     pub(crate) fn write_blank_label(&self, id: TermId, out: &mut String) {
         out.clear();
         if let Term::Blank { doc, label } = self.term(id) {
             out.push_str(label);
-            out.push('_');
-            push_decimal(out, doc.0);
+            if doc != DocId::NONE {
+                out.push('_');
+                push_decimal(out, doc.0);
+            } else if looks_like_document_label(label) {
+                out.push_str("_0");
+            }
         }
     }
 
@@ -475,6 +492,13 @@ impl Dictionary {
 #[inline]
 fn lang_len(language: &str) -> u32 {
     u32::try_from(language.len()).unwrap_or(u32::MAX)
+}
+
+/// True when `label` ends in `_` and one or more digits, the shape of a
+/// document blank node's output label.
+fn looks_like_document_label(label: &str) -> bool {
+    let digits = label.len() - label.trim_end_matches(|c: char| c.is_ascii_digit()).len();
+    digits > 0 && label[..label.len() - digits].ends_with('_')
 }
 
 fn push_decimal(out: &mut String, mut n: u32) {
@@ -754,6 +778,36 @@ mod tests {
         d.write_blank_label(b2, &mut l2);
         assert_eq!((l1.as_str(), l2.as_str()), ("b_1", "b_2"), "output labels stay apart");
         assert_eq!(d.term(b2), Term::Blank { doc: two, label: "b" });
+    }
+
+    #[test]
+    fn blank_nodes_from_no_document_keep_their_label() {
+        let mut d = Dictionary::new();
+        let doc = d.new_document();
+        let label = |d: &Dictionary, id| {
+            let mut out = String::new();
+            d.write_blank_label(id, &mut out);
+            out
+        };
+        let from_doc = d.intern_blank(doc, "b");
+        let inserted = d.intern_blank(DocId::NONE, "b");
+        assert_eq!(
+            (label(&d, from_doc).as_str(), label(&d, inserted).as_str()),
+            ("b_1", "b")
+        );
+        // A label shaped like a document label gets `_0`, so it never takes one.
+        let shaped = d.intern_blank(DocId::NONE, "b_1");
+        assert_eq!(label(&d, shaped), "b_1_0");
+        for (text, written) in [
+            ("b_", "b_"),
+            ("b1", "b1"),
+            ("_7", "_7_0"),
+            ("x_1_0", "x_1_0_0"),
+            ("1", "1"),
+        ] {
+            let id = d.intern_blank(DocId::NONE, text);
+            assert_eq!(label(&d, id), written, "{text}");
+        }
     }
 
     #[test]

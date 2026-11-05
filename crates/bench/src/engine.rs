@@ -183,7 +183,9 @@ fn read_triples(path: &Path) -> Result<Vec<Triple>, String> {
 /// The change stream: `count` triples to add or remove, chosen deterministically
 /// from the inputs. Additions copy the last file's triples (the building model)
 /// onto new subjects, so each one is a new entity of a real class or relation.
-/// Removals are base triples spread evenly through all the files in order.
+/// Removals are base triples spread evenly through all the files in order,
+/// among those without a blank node: a blank node read here is a new node,
+/// not the engine's, so removing it would remove nothing.
 fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, String> {
     match mode {
         Mode::Full => Ok(Vec::new()),
@@ -210,7 +212,10 @@ fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, S
                 all.extend(read_triples(f)?);
             }
             let mut seen = std::collections::HashSet::new();
-            all.retain(|t| seen.insert(t.clone()));
+            all.retain(|t| {
+                let blank = t.subject.is_blank_node() || t.object.is_blank_node();
+                !blank && seen.insert(t.clone())
+            });
             if all.len() < count {
                 return Err(format!("only {} base triples, {count} removals asked", all.len()));
             }
@@ -221,9 +226,9 @@ fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, S
 }
 
 /// One measured run, as the child process does it. The result is one JSON
-/// object: `status` is `ok`, `unavailable` (our reasoner is still the stub),
-/// `unsupported`, `skipped` (Nemo is not fetched), `timeout` (Nemo ran over
-/// `timeout`) or `error`.
+/// object: `status` is `ok`, `unsupported`, `skipped` (Nemo is not fetched),
+/// `timeout` (Nemo ran over `timeout`) or `error` (a failed load, or a panic
+/// in an in-process engine).
 pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: usize, timeout: Duration) -> Value {
     if let Some(why) = engine.unsupported(mode) {
         return json!({ "status": "unsupported", "message": why });
@@ -232,7 +237,7 @@ pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: us
         return crate::nemo::measure(files, timeout)
             .unwrap_or_else(|message| json!({ "status": "error", "message": message }));
     }
-    // The stub panics with `unimplemented!`; report it, not a backtrace.
+    // A panic is reported as an error result, not a backtrace.
     std::panic::set_hook(Box::new(|_| {}));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(engine, mode, files, count)));
     match result {
@@ -244,12 +249,7 @@ pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: us
                 .map(|s| s.to_string())
                 .or_else(|| payload.downcast_ref::<String>().cloned())
                 .unwrap_or_else(|| "panic".into());
-            let status = if message.contains("not implemented") {
-                "unavailable"
-            } else {
-                "error"
-            };
-            json!({ "status": status, "message": message })
+            json!({ "status": "error", "message": format!("panicked: {message}") })
         }
     }
 }

@@ -8,7 +8,7 @@ reasoner. Every speed claim, and every step of the improvement loop
 
 | Engine | What runs | How |
 |---|---|---|
-| `turtle-reasoner` | this repository's `Reasoner` (one rule set) | in process. While it is the stub (before ticket 10) it is reported `unavailable`. |
+| `turtle-reasoner` | this repository's `Reasoner` (one rule set) | in process |
 | `reasonable` | crates.io `reasonable =0.5.0-a1` | linked in, in process |
 | `nemo` | the pinned `nmo` 0.10.1 (`tools/nemo/`, from `scripts/fetch-tools.sh`) with `oracles/nemo/owl2rl.rls`, the W3C forms of the v1 rule set | a subprocess. Without `tools/nemo` (or at another version) it is reported `skipped`. Full runs only: the incremental scenarios are `unsupported` (Nemo runs a program once over its imports; it has no change stream). |
 
@@ -76,11 +76,15 @@ nothing.
   `closure.nt` for Nemo (parsed back with `oxttl`, outside the timings). A mismatch, a closure size that differs
   between runs of the same engine, or a failed run is a **problem**: it is
   printed, listed in the results file, and makes the bench exit 1. A
-  timeout, a skipped scenario and the stub reasoner are results, not
+  timeout, a skipped scenario and an unsupported one are results, not
   problems.
-- While this reasoner is the stub (before ticket 10), its runs panic with
-  `unimplemented!`. The child catches the panic and the engine is marked
-  `unavailable`, with no numbers and no ratios; the baselines still run.
+- A panic in an in-process engine is caught by the child and recorded as an
+  `error` with its message: a problem.
+- This reasoner's counts are its rules' so far: until the equality rules
+  land (ticket 11) it does not close `owl:sameAs`, so on an input with
+  `sameAs`, `owl:FunctionalProperty` or `owl:InverseFunctionalProperty`
+  (the variants with `owl.n3`, `sameas-clique`) its closure is smaller and
+  its time is not comparable.
 
 ### What each engine's time includes
 
@@ -137,7 +141,7 @@ version in its file name.
 | `brick-buildings` | `Brick.n3` + every `.ttl` in the `buildings/` folder of `reasonable`'s Python benchmark, loaded together | A full run on Brick with every building model of `reasonable`'s own benchmark at once. |
 | `lubm-1`, `lubm-10`, `lubm-50` | `univ-bench.ttl` + generated data for 1, 10, 50 universities (about 0.12 M, 1.3 M, 6.5 M triples) | Full runs on instance data that grows: class hierarchies, intersections with `someValuesFrom`, a transitive property, sub-properties, inverses, domains and ranges. Shows how the cost grows with the data. |
 | `incremental-add` | `Brick.n3` + `small1.n3`, then 100 additions | The cost of one added triple against a stored closure. Change *k* copies small1's triple *k* (cycling) onto a new subject `http://example.org/bench/added/k`, so each is a new entity of a real Brick class or relation. |
-| `incremental-remove` | `Brick.n3` + `small1.n3`, then 100 removals | The cost of one removed triple. The removals are base triples spread evenly through the input files in order (deduplicated), removed one after another. |
+| `incremental-remove` | `Brick.n3` + `small1.n3`, then 100 removals | The cost of one removed triple. The removals are base triples without a blank node, spread evenly through the input files in order (deduplicated), removed one after another. A triple with a blank node is left out: parsed again for the change stream, its blank node is a new node to this reasoner (blank nodes are scoped per document), so removing it would remove nothing. |
 | `sameas-clique` (opt-in) | generated: `a0 owl:sameAs a1`, ..., `a998 owl:sameAs a999`, and 10 triples on each alias | Equality: the clique has 1,000,000 `owl:sameAs` triples and each alias gets every alias's 10 triples, about 11 M closure triples once expanded. Not in the default run: `reasonable` takes over 90 s on it. Run it with `--only sameas-clique`. |
 
 ### LUBM-style data
@@ -169,7 +173,7 @@ peak memory (the largest peak) against the number of input triples. The
 exponent is the least-squares slope of ln(value) against ln(input triples):
 1 is linear, 2 quadratic. With two sizes it is the slope between them; an
 engine with fewer than two finished sizes has no exponent, and its other
-sizes are listed with their status (a stub reasoner shows `unavailable`).
+sizes are listed with their status.
 
 - The input triples are counted after all the runs, by parsing each input
   file with `oxttl` (Turtle, N-Triples or N3, by extension); the count is
@@ -214,7 +218,8 @@ result has `x_turtle_reasoner`; the summary has `export_median_ms` and
     {
       "scenario": "lubm-1",
       "engine": "reasonable",                 // turtle-reasoner | reasonable | nemo
-      "status": "ok",                         // ok | unavailable | unsupported | skipped | timeout | error
+      "status": "ok",                         // ok | unsupported | skipped | timeout | error
+                                              //   (files from before ticket 10 also have unavailable: the stub)
       "message": null,                        // why, when not ok
       "inputs": ["/…/univ-bench.ttl", "/…/lubm-v1-1.ttl"],
       "summary": {                            // null when no run finished

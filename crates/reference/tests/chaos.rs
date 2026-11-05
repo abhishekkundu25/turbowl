@@ -18,18 +18,21 @@
 //! skipped and counted: the reference has no representatives, so a large
 //! `owl:sameAs` clique is beyond it.
 //!
-//! Until ticket 10 the core is the ticket 01 stub. The tests then run the
-//! generator and the reference on every iteration, under the same budget,
-//! leave the core out, and print one `NOT COMPARED` line per shard; they
-//! pass, because a stub is the plan for this wave, not a regression.
+//! Until the equality rules land (ticket 11, [`EQUALITY_PENDING`]), inputs
+//! that mention `owl:sameAs`, `owl:FunctionalProperty` or
+//! `owl:InverseFunctionalProperty` are not compared, and counted: on every
+//! other input the eq-* rules derive nothing, so the core must already
+//! equal the reference there (the argument is on the oracle crate's
+//! `ours::needs_equality`, the same criterion). Each shard prints how many
+//! inputs it compared and how many it left out, and why.
 
-use oxrdf::Triple;
+use oxrdf::{Term, Triple};
 use std::collections::{BTreeSet, HashSet};
 use std::io::Write;
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use turtle_reasoner::Reasoner;
 use turtle_reasoner_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
@@ -72,20 +75,36 @@ fn input_of(seed: u64, i: usize) -> (Vec<Triple>, Rng) {
     (input, rng)
 }
 
-/// Whether the core's `Reasoner` is built: until ticket 10 it is the
-/// ticket 01 stub, whose methods are `unimplemented!`. Probed once per
-/// process with an empty run; any other panic there is a failure.
-fn core_is_built() -> bool {
-    static BUILT: OnceLock<Result<bool, String>> = OnceLock::new();
-    let probe = BUILT.get_or_init(|| match catch_unwind(|| Reasoner::new().reason()) {
-        Ok(_) => Ok(true),
-        Err(payload) if panic_message(&*payload).starts_with("not implemented") => Ok(false),
-        Err(payload) => Err(panic_message(&*payload)),
-    });
-    match probe {
-        Ok(built) => *built,
-        Err(message) => panic!("the core panics on an empty run: {message}"),
-    }
+/// True while the core has no equality rules (ticket 11 sets it to false).
+/// The oracle crate's `ours::EQUALITY_PENDING` is the same switch.
+const EQUALITY_PENDING: bool = true;
+
+/// The terms whose presence lets the eq-* rules fire: `owl:sameAs`, and the
+/// property types of prp-fp and prp-ifp, which derive it.
+const EQUALITY_TERMS: [&str; 3] = [
+    "http://www.w3.org/2002/07/owl#sameAs",
+    "http://www.w3.org/2002/07/owl#FunctionalProperty",
+    "http://www.w3.org/2002/07/owl#InverseFunctionalProperty",
+];
+
+/// True when some triple has one of [`EQUALITY_TERMS`] as its subject,
+/// predicate or object: the criterion of the oracle crate's
+/// `ours::needs_equality` (which says why it is sound), repeated here.
+fn needs_equality(input: &[Triple]) -> bool {
+    let is = |t: &Term| matches!(t, Term::NamedNode(n) if EQUALITY_TERMS.contains(&n.as_str()));
+    input
+        .iter()
+        .any(|t| EQUALITY_TERMS.contains(&t.predicate.as_str()) || is(&t.subject.clone().into()) || is(&t.object))
+}
+
+/// What one iteration did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Done {
+    Compared,
+    /// The reference closure would pass `MAX_CLOSURE`.
+    TooLarge,
+    /// The input needs the equality rules ([`EQUALITY_PENDING`]).
+    NeedsEquality,
 }
 
 fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
@@ -238,30 +257,25 @@ impl Drop for Watchdog {
 }
 
 /// Runs `check` on every iteration of shard `k`: a returned error or a
-/// panic fails the test with the replay line.
-///
-/// Against the stub core, every iteration still generates its input and
-/// evaluates the reference (in the same time budget), and only the core's
-/// side is left out; the shard then says so in one line instead of failing
-/// every iteration on `unimplemented!`. Once the core is built the same
-/// tests compare, with nothing to change here.
-fn run(
-    kind: &'static str,
-    default_seed: u64,
-    k: usize,
-    check: impl Fn(&[Triple], &mut Rng, bool) -> Result<bool, String>,
-) {
-    let core = core_is_built();
+/// panic fails the test with the replay line. An input that needs the
+/// equality rules is counted and left out while [`EQUALITY_PENDING`].
+fn run(kind: &'static str, default_seed: u64, k: usize, check: impl Fn(&[Triple], &mut Rng) -> Result<Done, String>) {
     let seed = env_or("CHAOS_SEED", default_seed);
     let iters = env_or("CHAOS_ITERS", 400usize);
     let mut watchdog = Watchdog::new(kind, seed, iters);
-    let (mut done, mut skipped) = (0, 0);
+    let (mut compared, mut too_large, mut equality) = (0, 0, 0);
     for i in iterations(iters, k) {
         let (input, mut rng) = input_of(seed, i);
         watchdog.start(i, &input);
-        match catch_unwind(AssertUnwindSafe(|| check(&input, &mut rng, core))) {
-            Ok(Ok(true)) => done += 1,
-            Ok(Ok(false)) => skipped += 1,
+        let checked = if EQUALITY_PENDING && needs_equality(&input) {
+            Ok(Ok(Done::NeedsEquality))
+        } else {
+            catch_unwind(AssertUnwindSafe(|| check(&input, &mut rng)))
+        };
+        match checked {
+            Ok(Ok(Done::Compared)) => compared += 1,
+            Ok(Ok(Done::TooLarge)) => too_large += 1,
+            Ok(Ok(Done::NeedsEquality)) => equality += 1,
             Ok(Err(why)) => panic!("{}", failure_report(kind, seed, iters, i, &input, &why)),
             Err(payload) => panic!(
                 "{}",
@@ -276,39 +290,30 @@ fn run(
             ),
         }
     }
-    if core {
-        say(&format!(
-            "{kind} shard {k}: {done} compared, {skipped} skipped as too large for the reference"
-        ));
-    } else {
-        say(&format!(
-            "{kind} shard {k}: NOT COMPARED, the core's Reasoner is the stub (ticket 10): {done} inputs generated \
-             and evaluated by the reference only, {skipped} too large for it"
-        ));
-    }
+    say(&format!(
+        "{kind} shard {k}: {compared} compared; not compared: {too_large} too large for the reference, \
+         {equality} need the equality rules (ticket 11)"
+    ));
 }
 
 /// One full run equals the reference.
-fn full(input: &[Triple], _rng: &mut Rng, core: bool) -> Result<bool, String> {
+fn full(input: &[Triple], _rng: &mut Rng) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let Some(expected) = reference(&base) else {
-        return Ok(false);
+        return Ok(Done::TooLarge);
     };
-    if !core {
-        return Ok(true);
-    }
     let mut reasoner = Reasoner::new();
     reasoner.insert(input.iter().map(Triple::as_ref));
     reasoner.reason();
     if let Some(diff) = difference(&expected, &core_state(&reasoner)) {
         return Err(format!("one full run:\n{diff}"));
     }
-    Ok(true)
+    Ok(Done::Compared)
 }
 
 /// Batches of insertions, then a removal, then the removed triples put
 /// back, each followed by `reason()`, equal a full evaluation of the base.
-fn incremental(input: &[Triple], rng: &mut Rng, core: bool) -> Result<bool, String> {
+fn incremental(input: &[Triple], rng: &mut Rng) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let batches = 1 + rng.below(4);
     let mut split: Vec<Vec<&Triple>> = vec![Vec::new(); batches];
@@ -319,11 +324,8 @@ fn incremental(input: &[Triple], rng: &mut Rng, core: bool) -> Result<bool, Stri
     let kept: HashSet<Triple> = base.iter().filter(|t| !removed.contains(t)).cloned().collect();
 
     let (Some(whole), Some(after_removal)) = (reference(&base), reference(&kept)) else {
-        return Ok(false);
+        return Ok(Done::TooLarge);
     };
-    if !core {
-        return Ok(true);
-    }
     let mut reasoner = Reasoner::new();
     for batch in &split {
         reasoner.insert(batch.iter().map(|t| t.as_ref()));
@@ -344,7 +346,7 @@ fn incremental(input: &[Triple], rng: &mut Rng, core: bool) -> Result<bool, Stri
     if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
         return Err(format!("after putting the removed triples back:\n{diff}"));
     }
-    Ok(true)
+    Ok(Done::Compared)
 }
 
 const FULL_SEED: u64 = 0x5EED_0005;
@@ -368,6 +370,24 @@ fn incremental_runs_match_a_full_run_0() {
 #[test]
 fn incremental_runs_match_a_full_run_1() {
     run("incremental", INCREMENTAL_SEED, 1, incremental);
+}
+
+/// The equality terms in any position, and only those, leave an input out.
+#[test]
+fn needs_equality_looks_at_every_position() {
+    let iri = |s: &str| oxrdf::NamedNode::new_unchecked(s);
+    let (a, p) = (iri("http://example.org/a"), iri("http://example.org/p"));
+    let triple = |s: &oxrdf::NamedNode, p: &oxrdf::NamedNode, o: Term| Triple::new(s.clone(), p.clone(), o);
+    for term in EQUALITY_TERMS.map(iri) {
+        assert!(needs_equality(&[triple(&term, &p, a.clone().into())]));
+        assert!(needs_equality(&[triple(&a, &term, a.clone().into())]));
+        assert!(needs_equality(&[triple(&a, &p, term.clone().into())]));
+    }
+    let literal = oxrdf::Literal::new_simple_literal(EQUALITY_TERMS[0]);
+    assert!(!needs_equality(&[
+        triple(&a, &p, literal.into()),
+        triple(&a, &p, a.clone().into())
+    ]));
 }
 
 /// The shards cover `0..iters` once, and CHAOS_ONLY picks one shard.

@@ -17,8 +17,10 @@
 //!
 //! Tools and data are fetched by `scripts/fetch-tools.sh` and
 //! `scripts/fetch-data.sh`. An oracle that is not installed returns
-//! [`Outcome::Skipped`]; with `CI=true` that panics instead. While the
-//! `Reasoner` is still the stub, [`ours`] returns [`Outcome::Pending`].
+//! [`Outcome::Skipped`]; with `CI=true` that panics instead. Until the
+//! equality rules land (ticket 11), [`ours`] returns [`Outcome::Pending`] on
+//! an input that needs them ([`ours::needs_equality`]); the checks count it
+//! as not run, and the reports say how many inputs were pending.
 //!
 //! Triangulation ([`triangulate`]) compares the oracles with each other on
 //! every input: when two agree and a third does not, the third is examined,
@@ -51,7 +53,8 @@ pub enum Outcome {
     Ran(Closure),
     /// The oracle is not installed or cannot run here; the reason says what is missing.
     Skipped(String),
-    /// The system under test is not implemented yet (the stub `Reasoner`).
+    /// The system under test cannot judge this input yet (it needs rules
+    /// still to come); the reason says which.
     Pending(String),
     /// The oracle ran and failed (a crash, a timeout, unreadable output).
     Failed(String),

@@ -1014,3 +1014,162 @@ mod engine {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The reasoner
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "io")]
+mod reasoner {
+    use super::*;
+    use crate::{Format, Reasoner};
+    use oxrdf::{NamedNode, Triple};
+    use std::fmt::Write as _;
+
+    const EX: &str = "http://example.org/";
+
+    /// Brick's shape at about `n` triples, as Turtle: forests of class trees
+    /// of a fixed depth (a root, 4 children each, 3 levels: 85 classes a
+    /// tree, one tree per 1,024 triples), and typed instances, each of a
+    /// leaf class, linked to the next by a property with a domain and a
+    /// range, with a language-tagged label. With the class and property
+    /// rules each instance gets a fixed number of types, so the closure
+    /// grows with the input, as Brick's does with its building models.
+    fn brick_like(n: usize) -> String {
+        let trees = (n / 1024).max(1);
+        let mut text = String::with_capacity(n * 60);
+        let mut triples = 0;
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+             ex:feeds a owl:ObjectProperty ; rdfs:domain ex:Equipment ; rdfs:range ex:Equipment .\n",
+        );
+        triples += 3;
+        for t in 0..trees {
+            for c in 0..85 {
+                let _ = write!(text, "ex:t{t}c{c} a owl:Class");
+                if c > 0 {
+                    let _ = write!(text, " ; rdfs:subClassOf ex:t{t}c{}", (c - 1) / 4);
+                    triples += 1;
+                } else {
+                    text.push_str(" ; rdfs:subClassOf ex:Equipment");
+                    triples += 1;
+                }
+                text.push_str(" .\n");
+                triples += 1;
+            }
+        }
+        let mut i = 0;
+        while triples < n {
+            let _ = writeln!(
+                text,
+                "ex:i{i} a ex:t{}c{} ; ex:feeds ex:i{} ; rdfs:label \"point {i}\"@en .",
+                i % trees,
+                21 + (i / trees) % 64,
+                i + 1
+            );
+            triples += 3;
+            i += 1;
+        }
+        text
+    }
+
+    fn loaded(text: &str) -> Reasoner {
+        let mut r = Reasoner::new();
+        r.load_str(text, Format::Turtle, None).unwrap();
+        r
+    }
+
+    /// Parsing a document into the base: interning, the all-or-nothing
+    /// buffer, sorting and deduplicating it into the base.
+    #[test]
+    fn scaling_reasoner_load() {
+        let _lock = lock();
+        let sizes = sizes(2_048);
+        for &n in &sizes {
+            let mut r = loaded(&brick_like(n));
+            let base = r.reason().base;
+            assert!(base >= n && base < n + 3, "n = {n}: {base} base triples");
+        }
+        linear(
+            "scaling_reasoner_load",
+            &sizes,
+            shared(brick_like),
+            |text: Rc<String>| loaded(&text),
+        );
+    }
+
+    /// The first `reason()` on a loaded base: the facts and the base into a
+    /// fresh store, the rule table to the fixpoint, the findings.
+    #[test]
+    fn scaling_reasoner_full_run() {
+        let _lock = lock();
+        let sizes = sizes(4_096);
+        let mut text = shared(brick_like);
+        linear(
+            "scaling_reasoner_full_run",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+
+    /// A reasoned base, and the additions made since.
+    struct Edited {
+        r: Reasoner,
+        n: usize,
+        added: usize,
+    }
+
+    /// One added triple, then `reason()`: a new instance's type, or a link
+    /// from it to an existing instance, in turn. Its cost must not grow
+    /// with the base (`docs/specs/v1.md`, budgets: an incremental addition
+    /// under 10% of a full run on Brick).
+    fn add_one(e: &mut Edited) -> usize {
+        let k = e.added / 2;
+        let subject = NamedNode::new_unchecked(format!("{EX}new{k}"));
+        let triple = if e.added.is_multiple_of(2) {
+            let class = NamedNode::new_unchecked(format!("{EX}t0c{}", 21 + k % 64));
+            Triple::new(subject, oxrdf::vocab::rdf::TYPE, class)
+        } else {
+            let object = NamedNode::new_unchecked(format!("{EX}i{}", k % (e.n / 4)));
+            Triple::new(subject, NamedNode::new_unchecked(format!("{EX}feeds")), object)
+        };
+        e.added += 1;
+        e.r.insert([triple.as_ref()]);
+        e.r.reason().rounds
+    }
+
+    #[test]
+    fn scaling_reasoner_incremental_addition() {
+        let _lock = lock();
+        let make = |n: usize| {
+            let mut r = loaded(&brick_like(n));
+            r.reason();
+            Edited { r, n, added: 0 }
+        };
+        for n in sizes(2_048) {
+            let mut e = make(n);
+            let before = e.r.reason().base;
+            assert!(add_one(&mut e) >= 1, "an addition runs");
+            assert!(add_one(&mut e) >= 1, "an addition runs");
+            assert_eq!(
+                e.r.counters().delta[0],
+                1,
+                "incremental: the run starts from the addition"
+            );
+            let again = e.r.reason();
+            assert_eq!((again.rounds, again.base), (0, before + 2), "nothing changed: no round");
+        }
+        check(
+            "scaling_reasoner_incremental_addition",
+            Growth::Constant,
+            &sizes(2_048),
+            per_call(make, add_one),
+        );
+    }
+}

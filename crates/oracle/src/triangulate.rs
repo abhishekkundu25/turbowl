@@ -369,6 +369,20 @@ impl Table {
                 let _ = writeln!(out, "```\n{}\n```", c.detail.trim_end());
             }
         }
+        let pending: Vec<&Row> = self
+            .rows
+            .iter()
+            .filter(|r| r.outcomes.iter().any(|(_, o)| matches!(o, Outcome::Pending(_))))
+            .collect();
+        if !pending.is_empty() {
+            let _ = writeln!(
+                out,
+                "\nPending: {} of {} inputs, not run against the system under test (not failures): {}",
+                pending.len(),
+                self.rows.len(),
+                pending.iter().map(|r| r.case.as_str()).collect::<Vec<_>>().join(", ")
+            );
+        }
         let skipped: Vec<String> = self
             .rows
             .iter()

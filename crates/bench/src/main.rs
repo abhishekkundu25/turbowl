@@ -463,7 +463,7 @@ fn run(args: &Args) -> ExitCode {
 
 /// Failed runs, closures that differ from what the engine reports, and
 /// closures that differ between runs of the same engine. A timeout, a
-/// skipped scenario and our stub ("unavailable") are results, not problems.
+/// skipped scenario and an unsupported one are results, not problems.
 fn check(rows: &[Row]) -> Vec<String> {
     let mut problems = Vec::new();
     for r in rows {
