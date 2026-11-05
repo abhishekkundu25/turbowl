@@ -1,14 +1,39 @@
-//! The rule table: every rule family registers here, one line each.
+//! The rule table: every rule family registers here, one line each, with
+//! its switch.
 //!
-//! A family is a module (`class`, `property`, `datatype`, `equality`)
-//! with a [`RuleFn`] that runs one round of its rules, and the facts its
-//! rules with an empty body state. This table is the only place the
-//! reasoner learns which families exist.
+//! A family is a module with a [`RuleFn`] that runs one round of its rules,
+//! and the facts its rules with an empty body state. This table is the only
+//! place the reasoner learns which families exist.
+//!
+//! # Families and switches
+//!
+//! Every family belongs to the always-on core (`switch: None`) or to one
+//! [`Switch`] (ADR 0005); a switch may hold several families. The reasoner
+//! runs the families the caller's [`Switches`] leave on ([`Family::is_on`]),
+//! and inserts a family's facts only when it is on. The families follow the
+//! groups of `docs/specs/v2-1-scoreboard-and-rules.md` ("The switches"):
+//!
+//! | Family | Switch | Rules |
+//! |---|---|---|
+//! | `class` | core | cax-sco, cax-eqc1/2, cls-thing, cls-nothing1, cls-int1/2, cls-uni, cls-svf1/2, cls-avf, cls-hv1/2, scm-sco, scm-eqc1; cls-oo (`class/enumerations.rs`) |
+//! | `property` | core | prp-dom, prp-rng, prp-fp, prp-ifp, prp-symp, prp-trp, prp-spo1, prp-eqp1/2, prp-inv1/2 |
+//! | `property-chains` | `property-chains` | prp-spo2 (`property/chain.rs`) |
+//! | `checks` | `checks` | the rules that conclude `false`, dt-not-type aside |
+//! | `datatype` | `checks` | dt-not-type |
+//! | `equality` | `equality` | eq-sym, eq-trans, eq-rep-s/p/o |
+//! | `identity` | `identity` | prp-key, cls-maxc2, cls-maxqc3/4 |
+//! | `schema` | `schema` | scm-eqc2, scm-spo, scm-eqp1/2, scm-dom1/2, scm-rng1/2, scm-hv, scm-svf1/2, scm-avf1/2, scm-int, scm-uni |
+//! | `trivial` | `trivial` | eq-ref, scm-cls, scm-op, scm-dp, prp-ap, dt-type1, dt-type2 |
+//! | `literal-values` | `literal-values` | dt-eq, dt-diff |
+//!
+//! A rule ticket fills its family's file (its rule function and its
+//! [`Family::facts`]) without editing this table; the vocabulary
+//! (`term.rs`) already names every IRI the W3C rules name.
 //!
 //! # How a family runs
 //!
-//! Each round the reasoner (ticket 10) calls every family's function, in
-//! table order, with the same [`Round`] and [`Context`]:
+//! Each round the reasoner calls every family that is on, in table order,
+//! with the same [`Round`] and [`Context`]:
 //!
 //! - The [`Round`] is the store as the last round left it, read-only, and
 //!   the buffer for derived triples ([`Round::emit`]). A family joins the
@@ -38,14 +63,20 @@
 //! (cls-thing, cls-nothing1). The reasoner inserts them at the start of
 //! every full run, as inferred triples, so they hold even for an empty base.
 
+pub(crate) mod checks;
 pub(crate) mod class;
 pub(crate) mod datatype;
 pub(crate) mod equality;
+pub(crate) mod identity;
+pub(crate) mod literal_values;
 pub(crate) mod property;
+pub(crate) mod schema;
 #[cfg(test)]
 pub(crate) mod testing;
+pub(crate) mod trivial;
 
 use crate::engine::Round;
+use crate::switch::{Switch, Switches};
 use crate::term::{Dictionary, TermId};
 
 /// One round of a family's rules.
@@ -84,6 +115,9 @@ pub(crate) struct Finding {
 #[derive(Debug)]
 pub(crate) struct Family {
     pub(crate) name: &'static str,
+    /// The switch that turns the family on and off; `None` for the core,
+    /// which is always on.
+    pub(crate) switch: Option<Switch>,
     /// One round of the family's rules.
     pub(crate) rules: RuleFn,
     /// `(subject, predicate, object)` facts: the heads of the family's rules
@@ -91,11 +125,25 @@ pub(crate) struct Family {
     pub(crate) facts: &'static [[TermId; 3]],
 }
 
+impl Family {
+    /// True when `switches` leave the family on: it is in the core, or its
+    /// switch is on.
+    pub(crate) fn is_on(&self, switches: Switches) -> bool {
+        self.switch.is_none_or(|s| switches.is_on(s))
+    }
+}
+
 /// Every family, in evaluation order. One line per family.
 #[rustfmt::skip]
 pub(crate) static FAMILIES: &[Family] = &[
-    Family { name: "class", rules: class::rules, facts: class::FACTS }, // ticket 07
-    Family { name: "property", rules: property::rules, facts: property::FACTS }, // ticket 08
-    Family { name: "datatype", rules: datatype::rules, facts: datatype::FACTS }, // ticket 09
-    Family { name: "equality", rules: equality::rules, facts: equality::FACTS }, // ticket 11
+    Family { name: "class", switch: None, rules: class::rules, facts: class::FACTS },
+    Family { name: "property", switch: None, rules: property::rules, facts: property::FACTS },
+    Family { name: "property-chains", switch: Some(Switch::PropertyChains), rules: property::chain::rules, facts: property::chain::FACTS },
+    Family { name: "checks", switch: Some(Switch::Checks), rules: checks::rules, facts: checks::FACTS },
+    Family { name: "datatype", switch: Some(Switch::Checks), rules: datatype::rules, facts: datatype::FACTS },
+    Family { name: "equality", switch: Some(Switch::Equality), rules: equality::rules, facts: equality::FACTS },
+    Family { name: "identity", switch: Some(Switch::Identity), rules: identity::rules, facts: identity::FACTS },
+    Family { name: "schema", switch: Some(Switch::Schema), rules: schema::rules, facts: schema::FACTS },
+    Family { name: "trivial", switch: Some(Switch::Trivial), rules: trivial::rules, facts: trivial::FACTS },
+    Family { name: "literal-values", switch: Some(Switch::LiteralValues), rules: literal_values::rules, facts: literal_values::FACTS },
 ];

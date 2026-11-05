@@ -1,6 +1,7 @@
-//! The property family (ticket 08): prp-dom, prp-rng, prp-fp, prp-ifp,
-//! prp-symp, prp-trp, prp-spo1, prp-spo2, prp-eqp1/2 and prp-inv1/2, in
-//! their W3C forms, over generalized triples.
+//! The property family (ticket 08), in the core: prp-dom, prp-rng, prp-fp,
+//! prp-ifp, prp-symp, prp-trp, prp-spo1, prp-eqp1/2 and prp-inv1/2, in their
+//! W3C forms, over generalized triples. prp-spo2 is a family of its own,
+//! `property-chains`, under the switch of that name: the [`chain`] module.
 //!
 //! # Semi-naive on both sides
 //!
@@ -30,7 +31,6 @@
 //!   subjects with an equal object are made the same.
 //! - prp-trp: `p`'s object index `(y, x)` joined with its subject index
 //!   `(y, z)` on `y`.
-//! - prp-spo2: see the `chain` module.
 //!
 //! An object index ([`Round::by_object`]) is built the round after a rule
 //! first asks for it, with every pair recent then; a rule skips its join
@@ -43,8 +43,7 @@
 //! ADR 0003), so it keeps its meaning when `owl:sameAs` makes it equal to
 //! another term.
 
-#[cfg(feature = "prp-spo2")]
-mod chain;
+pub(crate) mod chain;
 #[cfg(test)]
 mod tests;
 
@@ -59,8 +58,6 @@ pub(crate) const FACTS: &[[TermId; 3]] = &[];
 pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
     copies(round);
     characteristics(round);
-    #[cfg(feature = "prp-spo2")]
-    chain::rules(round);
 }
 
 /// A variable's sorted parts, each with whether it is the recent one.

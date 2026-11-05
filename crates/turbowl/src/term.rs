@@ -519,10 +519,12 @@ fn push_decimal(out: &mut String, mut n: u32) {
 }
 
 /// The vocabulary: the IRIs the OWL 2 RL rules (W3C OWL 2 Profiles, Tables
-/// 4 to 9, and the RL datatypes of Section 4.3) and the RDFS rules name,
+/// 4 to 9, and the RL datatypes of Section 4.2) and the RDFS rules name,
 /// interned first at fixed ids.
 /// A constant's id is its position in [`IRIS`](vocab::IRIS). It lists every
-/// IRI of those tables, more than version 1's rules read.
+/// IRI of those tables, the annotation properties of prp-ap included, so a
+/// rule family never adds one (the phase 1 spec, "The vocabulary"). The
+/// canon treats every id here as a rule constant (`rules/equality.rs`).
 #[allow(dead_code)]
 pub(crate) mod vocab {
     use super::TermId;
@@ -690,7 +692,7 @@ pub(crate) mod vocab {
         OWL_ANNOTATED_SOURCE = owl "annotatedSource",
         OWL_ANNOTATED_PROPERTY = owl "annotatedProperty",
         OWL_ANNOTATED_TARGET = owl "annotatedTarget",
-        // XSD: the OWL 2 RL datatypes (Section 4.3)
+        // XSD: the OWL 2 RL datatypes (Section 4.2)
         XSD_STRING = xsd "string",
         XSD_NORMALIZED_STRING = xsd "normalizedString",
         XSD_TOKEN = xsd "token",
@@ -922,6 +924,93 @@ mod tests {
         other.intern_iri("http://example.org/first");
         for (i, iri) in vocab::IRIS.iter().enumerate() {
             assert_eq!(other.intern_iri(iri), TermId(i as u32));
+        }
+    }
+
+    /// Every IRI the rules of version 2 name (the phase 1 spec, "The
+    /// vocabulary"), every OWL 2 RL datatype (OWL 2 Profiles §4.2) and the
+    /// annotation properties of prp-ap are vocabulary constants.
+    #[test]
+    fn the_vocabulary_holds_every_iri_the_rules_name() {
+        const RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+        const RDFS: &str = "http://www.w3.org/2000/01/rdf-schema#";
+        const OWL: &str = "http://www.w3.org/2002/07/owl#";
+        const XSD: &str = "http://www.w3.org/2001/XMLSchema#";
+        let rules = [
+            (OWL, "hasKey"),
+            (OWL, "maxCardinality"),
+            (OWL, "maxQualifiedCardinality"),
+            (OWL, "onClass"),
+            (OWL, "onDataRange"),
+            (OWL, "oneOf"),
+            (OWL, "differentFrom"),
+            (OWL, "AllDifferent"),
+            (OWL, "members"),
+            (OWL, "distinctMembers"),
+            (OWL, "AllDisjointClasses"),
+            (OWL, "AllDisjointProperties"),
+            (OWL, "NegativePropertyAssertion"),
+            (OWL, "sourceIndividual"),
+            (OWL, "assertionProperty"),
+            (OWL, "targetIndividual"),
+            (OWL, "targetValue"),
+            (OWL, "ObjectProperty"),
+            (OWL, "DatatypeProperty"),
+            (OWL, "AnnotationProperty"),
+            (RDFS, "Datatype"),
+        ];
+        let annotation_properties = [
+            (RDFS, "label"),
+            (RDFS, "comment"),
+            (RDFS, "seeAlso"),
+            (RDFS, "isDefinedBy"),
+            (OWL, "deprecated"),
+            (OWL, "versionInfo"),
+            (OWL, "priorVersion"),
+            (OWL, "backwardCompatibleWith"),
+            (OWL, "incompatibleWith"),
+        ];
+        let datatypes = [
+            (RDF, "PlainLiteral"),
+            (RDF, "XMLLiteral"),
+            (RDFS, "Literal"),
+            (XSD, "decimal"),
+            (XSD, "integer"),
+            (XSD, "nonNegativeInteger"),
+            (XSD, "nonPositiveInteger"),
+            (XSD, "positiveInteger"),
+            (XSD, "negativeInteger"),
+            (XSD, "long"),
+            (XSD, "int"),
+            (XSD, "short"),
+            (XSD, "byte"),
+            (XSD, "unsignedLong"),
+            (XSD, "unsignedInt"),
+            (XSD, "unsignedShort"),
+            (XSD, "unsignedByte"),
+            (XSD, "float"),
+            (XSD, "double"),
+            (XSD, "string"),
+            (XSD, "normalizedString"),
+            (XSD, "token"),
+            (XSD, "language"),
+            (XSD, "Name"),
+            (XSD, "NCName"),
+            (XSD, "NMTOKEN"),
+            (XSD, "boolean"),
+            (XSD, "hexBinary"),
+            (XSD, "base64Binary"),
+            (XSD, "anyURI"),
+            (XSD, "dateTime"),
+            (XSD, "dateTimeStamp"),
+        ];
+        let d = Dictionary::new();
+        for (ns, local) in rules.iter().chain(&annotation_properties).chain(&datatypes) {
+            let iri = format!("{ns}{local}");
+            assert!(
+                d.get_iri(&iri).is_some_and(|id| id.index() < vocab::IRIS.len()),
+                "{iri} is not in the vocabulary"
+            );
         }
     }
 

@@ -1,14 +1,17 @@
-//! The property family's tests: one minimal input per rule, chains, lists
-//! derived during the run, incremental runs, a mixed input with the
+//! The tests of the property rules (the `property` family and prp-spo2's
+//! `property-chains`, run together): one minimal input per rule, chains,
+//! lists derived during the run, incremental runs, a mixed input with the
 //! reference evaluator's inferences written out, generated inputs against a
-//! naive evaluator of the same rules, and the family's scaling.
+//! naive evaluator of the same rules, and the rules' scaling.
 
 use crate::rules::testing::{self, expand};
 use crate::term::vocab;
 use std::collections::BTreeSet;
 
+/// The property rules: the `property` family and prp-spo2's
+/// `property-chains`.
 fn run(turtle: &str) -> testing::Run {
-    testing::run(&["property"], turtle)
+    testing::run(&["property", "property-chains"], turtle)
 }
 
 fn inferred(turtle: &str) -> BTreeSet<String> {
@@ -210,7 +213,6 @@ fn schema_after_the_data_joins_all_of_it() {
 /// `ex:p owl:propertyChainAxiom (ex:q1 ... ex:qn)`, a matching path
 /// `ex:x0 ... ex:xn`, a path from `ex:y0` that stops one short, and a
 /// path `ex:z0 ... ex:zn` with the properties in reverse order.
-#[cfg(feature = "prp-spo2")]
 fn chain_input(n: usize) -> String {
     let qs: Vec<String> = (1..=n).map(|i| format!("ex:q{i}")).collect();
     let mut turtle = format!("ex:p owl:propertyChainAxiom ( {} ) .\n", qs.join(" "));
@@ -224,7 +226,6 @@ fn chain_input(n: usize) -> String {
     turtle
 }
 
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_chains_of_length_1_to_5() {
     for n in 1..=5 {
@@ -240,7 +241,6 @@ fn prp_spo2_chains_of_length_1_to_5() {
 
 /// Each property of a chain arriving in its own run, in several orders:
 /// each atom of the n-way join is the recent one in turn.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_atoms_arriving_one_run_at_a_time() {
     let schema = "ex:p owl:propertyChainAxiom (ex:q1 ex:q2 ex:q3 ex:q4) .";
@@ -257,7 +257,6 @@ fn prp_spo2_atoms_arriving_one_run_at_a_time() {
 
 /// The chain `(ex:p ex:q)` for `ex:p` itself: what it derives feeds it
 /// again, but it is not transitivity.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_recursive_chain() {
     assert_eq!(
@@ -273,7 +272,6 @@ fn prp_spo2_recursive_chain() {
 }
 
 /// A chain that repeats a property: `(ex:q ex:q)` is the square of q.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_repeated_property() {
     assert_eq!(
@@ -287,7 +285,6 @@ fn prp_spo2_repeated_property() {
 
 /// A list whose last cell points back into it never reaches `rdf:nil`: it
 /// gives nothing, and the run ends.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_cyclic_list_gives_nothing() {
     let r = run("ex:p owl:propertyChainAxiom _:l1 .
@@ -301,7 +298,6 @@ fn prp_spo2_cyclic_list_gives_nothing() {
 /// A cycle of cells that still reach `rdf:nil` (the second cell's rest is
 /// both the first cell and nil) reads as the chains q r, q r q r, ..., as
 /// the reference reads it.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_cycle_with_an_exit() {
     assert_eq!(
@@ -321,7 +317,6 @@ fn prp_spo2_cycle_with_an_exit() {
 
 /// A cell with two `rdf:first` gives a chain for each, and a cell with two
 /// `rdf:rest` a chain for each path.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_branching_list() {
     assert_eq!(
@@ -344,7 +339,6 @@ fn prp_spo2_branching_list() {
 /// More chains than a list is walked into: the naive reading gives the
 /// same. Twelve cells with two `rdf:first` each make 4,096 chains, and
 /// one path of data matches.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_too_many_chains_are_read_naively() {
     let n = 12;
@@ -366,7 +360,6 @@ fn prp_spo2_too_many_chains_are_read_naively() {
 /// The axiom and a list cell's rest are derived during the run (prp-spo1
 /// into `owl:propertyChainAxiom` and `rdf:rest`), and the chain then joins
 /// data that was there from the start.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_list_derived_during_the_run() {
     assert_eq!(
@@ -388,7 +381,6 @@ fn prp_spo2_list_derived_during_the_run() {
 
 /// The data of a chain derived during the run, by other rules of the
 /// family, round after round.
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn prp_spo2_data_derived_during_the_run() {
     assert_eq!(
@@ -471,7 +463,6 @@ const MIXED_INFERRED: &str = "
     \"30\" owl:sameAs \"30\"
 ";
 
-#[cfg(feature = "prp-spo2")]
 #[test]
 fn mixed_input_matches_the_reference() {
     assert_eq!(run(&MIXED.join("\n")).inferred(), expand(MIXED_INFERRED));
@@ -636,10 +627,8 @@ mod generated {
             for (p1, p2) in pairs(RDFS_SUB_PROPERTY_OF.0) {
                 new.extend(pairs(p1).into_iter().map(|(x, y)| (x, p2, y)));
             }
-            if cfg!(feature = "prp-spo2") {
-                for (p, head) in pairs(OWL_PROPERTY_CHAIN_AXIOM.0) {
-                    new.extend(chain(&pairs, &objects, head).into_iter().map(|(u, w)| (u, p, w)));
-                }
+            for (p, head) in pairs(OWL_PROPERTY_CHAIN_AXIOM.0) {
+                new.extend(chain(&pairs, &objects, head).into_iter().map(|(u, w)| (u, p, w)));
             }
             for (p1, p2) in pairs(OWL_EQUIVALENT_PROPERTY.0) {
                 new.extend(pairs(p1).into_iter().map(|(x, y)| (x, p2, y)));
@@ -837,25 +826,27 @@ mod scaling {
             terms,
             findings: &mut findings,
         };
-        store.run(|round| super::super::rules(round, &mut cx));
+        store.run(|round| {
+            super::super::rules(round, &mut cx);
+            super::super::chain::rules(round, &mut cx);
+        });
         store
     }
 
-    /// With a fixed schema, the family's run (not the parse) grows linearly
+    /// With a fixed schema, the two families' run (not the parse) grows linearly
     /// with the data: 256 to 4,096 units, 3 to 53 thousand base triples.
     #[test]
     fn scaling_property_family_in_the_data() {
         let _lock = crate::scaling::lock();
         let terms = Dictionary::new();
         let sizes = [256, 512, 1024, 2048, 4096];
-        let inferred = if cfg!(feature = "prp-spo2") {
-            INFERRED_PER_UNIT
-        } else {
-            INFERRED_PER_UNIT - 1
-        };
         for n in [sizes[0], sizes[4]] {
             let len = reason(store(n), &terms).len();
-            assert_eq!(len, SCHEMA_TRIPLES + n * (BASE_PER_UNIT + inferred), "{n} units");
+            assert_eq!(
+                len,
+                SCHEMA_TRIPLES + n * (BASE_PER_UNIT + INFERRED_PER_UNIT),
+                "{n} units"
+            );
         }
         linear("scaling_property_family_in_the_data", &sizes, store, |s| {
             reason(s, &terms)

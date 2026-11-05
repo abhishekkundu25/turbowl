@@ -306,7 +306,7 @@ fn a_removal_splits_a_class() {
 
 #[test]
 fn the_harness_expands_as_the_reasoner_does() {
-    let run = testing::run_all("ex:a owl:sameAs ex:b . ex:a ex:p ex:c .");
+    let run = testing::run_with(crate::Switches::default(), "ex:a owl:sameAs ex:b . ex:a ex:p ex:c .");
     assert!(run.has("ex:b ex:p ex:c"));
     assert!(run.has("ex:b owl:sameAs ex:a"));
 }

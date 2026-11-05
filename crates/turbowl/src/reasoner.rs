@@ -41,10 +41,10 @@
 //! - after additions only, an incremental run: the new base triples were
 //!   queued into the stored closure as they came, and [`Store::run`] joins
 //!   them semi-naively against it; the findings of earlier runs stay;
-//! - after any removal (and on the first run, and after
-//!   [`Reasoner::clear`]), a full run: a fresh store with no terms equal,
-//!   every family's facts (inferred, never base; an empty base gets them
-//!   too), then the base.
+//! - after any removal (and on the first run, after [`Reasoner::clear`],
+//!   and after a change of switches), a full run: a fresh store with no
+//!   terms equal, the facts of every family that is on (inferred, never
+//!   base; an empty base gets them too), then the base.
 //!
 //! A merge that changes a rule constant (two vocabulary terms made equal,
 //! or `rdf:nil` given a class of its own) stops the run, and it starts
@@ -52,7 +52,16 @@
 //! 0003, `engine/store.rs`). Everything found before the restart follows
 //! from the base, so its findings are kept.
 //!
-//! Each round calls every family of the rule table in order with one
+//! # Switches
+//!
+//! The reasoner holds a [`Switches`] configuration, the default unless the
+//! caller gives another. A run uses the families of the rule table that the
+//! switches leave on ([`Family::is_on`]): the others are not called, and
+//! their facts are not inserted. A change of switches makes the next run a
+//! full one, so the closure is always the one a fresh reasoner with those
+//! switches would give.
+//!
+//! Each round calls every family that is on, in table order, with one
 //! [`Context`], as `rules/testing.rs` does, and [`Counters`] records the
 //! round's delta and what each family emitted.
 //!
@@ -77,13 +86,13 @@
 //! base triple forgets which documents were loaded: loading one again after
 //! a removal adds it again.
 
-use crate::Diagnostic;
 #[cfg(feature = "io")]
 use crate::Error;
 use crate::engine::{Canon, Relation, Store};
 use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding};
 use crate::term::{Dictionary, DocId, Kind, TermId};
+use crate::{Diagnostic, Switches};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
 use rustc_hash::FxHashSet;
 
@@ -132,6 +141,8 @@ pub struct Summary {
 pub struct Reasoner {
     /// The rule table: [`FAMILIES`], or a test's own.
     families: &'static [Family],
+    /// Which of the table's families run.
+    switches: Switches,
     terms: Dictionary,
     base: Base,
     /// The closure of the last run, plus the base triples added since,
@@ -165,7 +176,8 @@ enum State {
     Current,
     /// Base triples were added (and queued in the closure): an incremental run.
     Added,
-    /// A run from the base: first, after a removal, or after `clear`.
+    /// A run from the base: first, after a removal, after `clear`, or after
+    /// a change of switches.
     Full,
 }
 
@@ -176,15 +188,27 @@ impl Default for Reasoner {
 }
 
 impl Reasoner {
-    /// An empty reasoner.
+    /// An empty reasoner with the default switches ([`Switches::default`]).
     pub fn new() -> Self {
-        Self::with_families(FAMILIES)
+        Self::with_switches(Switches::default())
     }
 
-    /// An empty reasoner over another rule table (tests use toy families).
+    /// An empty reasoner with these switches.
+    pub fn with_switches(switches: Switches) -> Self {
+        Self::build(FAMILIES, switches)
+    }
+
+    /// An empty reasoner over another rule table, with the default switches
+    /// (tests use toy families).
+    #[cfg(test)]
     pub(crate) fn with_families(families: &'static [Family]) -> Self {
+        Self::build(families, Switches::default())
+    }
+
+    fn build(families: &'static [Family], switches: Switches) -> Self {
         Self {
             families,
+            switches,
             terms: Dictionary::new(),
             base: Base::default(),
             closure: Store::new(),
@@ -192,7 +216,7 @@ impl Reasoner {
             rdf: 0,
             findings: Vec::new(),
             diagnostics: Vec::new(),
-            counters: Counters::new(families),
+            counters: Counters::default(),
             #[cfg(feature = "io")]
             loaded: FxHashSet::default(),
         }
@@ -283,10 +307,26 @@ impl Reasoner {
         }
     }
 
+    /// The switches the runs use.
+    pub fn switches(&self) -> Switches {
+        self.switches
+    }
+
+    /// Sets the switches the next runs use. A change makes the next run a
+    /// full one: its closure and diagnostics are those a fresh reasoner with
+    /// these switches gives. Setting the same switches again changes
+    /// nothing. Until the next run, the reads show the last run's closure.
+    pub fn set_switches(&mut self, switches: Switches) {
+        if switches != self.switches {
+            self.switches = switches;
+            self.state = State::Full;
+        }
+    }
+
     /// Empties the base, the closure and the diagnostics (and the
-    /// dictionary): as new.
+    /// dictionary): as new, with the same switches.
     pub fn clear(&mut self) {
-        *self = Self::with_families(self.families);
+        *self = Self::build(self.families, self.switches);
     }
 
     /// Runs to the fixpoint: in full, or over what changed since the last run.
@@ -415,7 +455,8 @@ impl Reasoner {
     /// fresh store (`full`), or from what was queued; again from the base
     /// after each restart. Returns the rounds.
     fn run(&mut self, full: bool) -> usize {
-        self.counters.clear();
+        let families: Vec<&'static Family> = self.families.iter().filter(|f| f.is_on(self.switches)).collect();
+        self.counters = Counters::new(&families);
         let mut start = full.then(equality::canon);
         if full {
             self.findings.clear();
@@ -426,9 +467,9 @@ impl Reasoner {
         let mut rounds = 0;
         loop {
             if let Some(canon) = start.take() {
-                self.start(canon);
+                self.start(&families, canon);
             }
-            rounds += self.rounds(&mut found);
+            rounds += self.rounds(&families, &mut found);
             if !self.closure.restarted() {
                 break;
             }
@@ -466,23 +507,23 @@ impl Reasoner {
         rounds
     }
 
-    /// A fresh store with `canon`'s classes, holding every family's facts
-    /// and the base.
-    fn start(&mut self, canon: Canon) {
+    /// A fresh store with `canon`'s classes, holding the facts of
+    /// `families` (those that are on) and the base.
+    fn start(&mut self, families: &[&Family], canon: Canon) {
         // The old closure is dropped before the new one fills.
         self.closure = Store::with_canon(canon);
         self.rdf = 0;
-        for family in self.families {
+        for family in families {
             self.closure
                 .extend(family.facts.iter().map(|&[s, p, o]| (s.0, p.0, o.0)));
         }
         self.closure.extend(self.base.iter().map(|[s, p, o]| (s, p, o)));
     }
 
-    /// Runs the rule table on the store to its fixpoint (or to a restart),
-    /// pushing the findings to `found` and the counters. Returns the rounds.
-    fn rounds(&mut self, found: &mut Vec<Finding>) -> usize {
-        let families = self.families;
+    /// Runs `families` (those that are on) on the store to its fixpoint (or
+    /// to a restart), pushing the findings to `found` and the counters.
+    /// Returns the rounds.
+    fn rounds(&mut self, families: &[&Family], found: &mut Vec<Finding>) -> usize {
         let Self {
             terms,
             closure,
@@ -699,7 +740,8 @@ impl Base {
 /// public interface.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Counters {
-    /// The families' names, in table order.
+    /// The names of the families that ran (those the switches left on), in
+    /// table order.
     pub(crate) families: Vec<&'static str>,
     /// Each round's delta: the tuples new in the store when the round
     /// starts (its tables' recent parts; a tuple a merge rewrote is new
@@ -715,7 +757,7 @@ pub(crate) struct Counters {
 }
 
 impl Counters {
-    fn new(families: &[Family]) -> Self {
+    fn new(families: &[&Family]) -> Self {
         Self {
             families: families.iter().map(|f| f.name).collect(),
             ..Self::default()
@@ -757,6 +799,7 @@ impl Counters {
 #[cfg(all(test, feature = "io"))]
 mod tests {
     use super::*;
+    use crate::Switch;
     use crate::engine::{Pair, Round, Variable};
     use crate::term::vocab;
     use std::collections::BTreeSet;
@@ -844,16 +887,19 @@ mod tests {
     static TOY: &[Family] = &[
         Family {
             name: "transitive",
+            switch: None,
             rules: transitive,
             facts: &[],
         },
         Family {
             name: "typing",
+            switch: None,
             rules: typing,
             facts: &[[vocab::OWL_THING, vocab::RDF_TYPE, vocab::OWL_CLASS]],
         },
         Family {
             name: "general",
+            switch: None,
             rules: general,
             facts: &[],
         },
@@ -1170,6 +1216,48 @@ mod tests {
             .collect::<Result<_, _>>()
             .unwrap();
         assert_eq!(lines(inferred.into_iter()), lines(r.inferred()));
+    }
+
+    /// The toy rules under two switches: `transitive` under `trivial` (off
+    /// by default), with a fact, and `typing` under `checks`.
+    static SWITCHED: &[Family] = &[
+        Family {
+            name: "transitive",
+            switch: Some(Switch::Trivial),
+            rules: transitive,
+            facts: &[[vocab::OWL_NOTHING, vocab::RDF_TYPE, vocab::OWL_CLASS]],
+        },
+        Family {
+            name: "typing",
+            switch: Some(Switch::Checks),
+            rules: typing,
+            facts: &[[vocab::OWL_THING, vocab::RDF_TYPE, vocab::OWL_CLASS]],
+        },
+    ];
+
+    #[test]
+    fn a_family_runs_and_states_its_facts_only_when_its_switch_is_on() {
+        let mut r = Reasoner::with_families(SWITCHED);
+        r.terms.intern_iri("http://example.org/anc");
+        load(&mut r, CHAIN);
+        let s = r.reason();
+        assert_eq!((s.base, s.inferred), (3, 1));
+        assert_eq!(lines(r.inferred()), set("owl:Thing rdf:type owl:Class"));
+        assert_eq!(r.counters().families, ["typing"]);
+
+        // Turned on: a full run, with the family's fact.
+        r.set_switches(Switches::default().on(Switch::Trivial));
+        let s = r.reason();
+        assert_eq!((s.base, s.inferred), (3, 3 + 2));
+        assert_eq!(r.counters().delta[0], 3 + 2, "the base and both facts");
+        assert!(lines(r.inferred()).contains("owl:Nothing rdf:type owl:Class"));
+        assert_eq!(r.counters().families, ["transitive", "typing"]);
+
+        // Both off: the base alone.
+        r.set_switches(Switches::default().off(Switch::Checks));
+        let s = r.reason();
+        assert_eq!((s.base, s.inferred), (3, 0));
+        assert!(r.counters().families.is_empty());
     }
 
     #[test]

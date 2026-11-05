@@ -8,11 +8,9 @@ license.workspace = true
 repository.workspace = true
 
 [features]
-default = ["io", "prp-spo2"]
+default = ["io"]
 # Parsing and writing documents (Turtle, N-Triples, N3, RDF/XML).
 io = ["dep:oxttl", "dep:oxrdfxml"]
-# Property chains (owl:propertyChainAxiom), on by default as in reasonable.
-prp-spo2 = []
 
 [dependencies]
 oxrdf.workspace = true

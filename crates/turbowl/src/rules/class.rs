@@ -1,7 +1,7 @@
-//! The class family (ticket 07): cax-sco, cax-eqc1/2, cls-thing,
-//! cls-nothing1, cls-int1/2, cls-uni, cls-svf1/2, cls-avf, cls-hv1/2,
-//! scm-sco and scm-eqc1, in their W3C forms (`docs/specs/v1.md`, the rule
-//! set). The contract is the reference evaluator
+//! The class family (ticket 07), in the core: cax-sco, cax-eqc1/2,
+//! cls-thing, cls-nothing1, cls-int1/2, cls-uni, cls-svf1/2, cls-avf,
+//! cls-hv1/2, cls-oo, scm-sco and scm-eqc1, in their W3C forms
+//! (`docs/specs/v1.md`, the rule set). The contract is the reference evaluator
 //! (`crates/reference/src/evaluate.rs`, `classes()`), which equals Nemo
 //! running `oracles/nemo/owl2rl.rls`.
 //!
@@ -17,6 +17,7 @@
 //!   §10 replace them one at a time (E2 scm-sco, E8 cax-eqc1/2, E1 cax-sco).
 //! - `class/lists.rs`: cls-int1, cls-int2, cls-uni.
 //! - `class/restrictions.rs`: cls-svf1, cls-svf2, cls-avf, cls-hv1, cls-hv2.
+//! - `class/enumerations.rs`: cls-oo (empty until version 2's ticket 08).
 //! - cls-thing and cls-nothing1 have empty bodies: they are [`FACTS`].
 //!
 //! Generalized triples: no rule filters what it derives. cls-avf types a
@@ -33,6 +34,7 @@
 //! round's canon ([`Round::constant`], ADR 0003), so they keep their meaning
 //! when `owl:sameAs` makes one equal to another term.
 
+mod enumerations;
 mod lists;
 mod restrictions;
 #[cfg(test)]
@@ -73,6 +75,7 @@ pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
     scm_eqc1(round, v);
     lists::rules(round, v.ty, instances);
     restrictions::rules(round, v.ty, instances);
+    enumerations::rules(round, v.ty);
 }
 
 /// cax-sco: `c1 rdfs:subClassOf c2`, `x rdf:type c1` → `x rdf:type c2`.

@@ -20,12 +20,17 @@
 //! [`expand`] turns lines such as `ex:rex rdf:type ex:Animal` or
 //! `cax-dw ex:x ex:A ex:B` into those forms. Inputs get the prefixes `rdf:`,
 //! `rdfs:`, `owl:`, `xsd:` and `ex:` (`http://example.org/`) declared.
+//!
+//! A run takes families by name ([`run`]), or the families a configuration
+//! of switches leaves on ([`run_with`], the reasoner's choice);
+//! `Switches::default()` gives the default configuration.
 
 // The families' tests (tickets 07 to 09) use what the harness's own tests do not.
 #![allow(dead_code)]
 
 use super::{Context, FAMILIES, Family, Finding, equality};
 use crate::Format;
+use crate::Switches;
 use crate::engine::Store;
 use crate::term::{Dictionary, Term, TermId};
 use std::collections::BTreeSet;
@@ -65,10 +70,57 @@ pub(crate) fn run(names: &[&str], turtle: &str) -> Run {
     run_families(names.iter().map(|n| family(n)).collect(), turtle)
 }
 
-/// Runs every registered family over a Turtle document to the fixpoint.
-pub(crate) fn run_all(turtle: &str) -> Run {
-    run_families(FAMILIES.iter().collect(), turtle)
+/// Runs the registered families that `switches` leave on (the core
+/// always), in table order, over a Turtle document to the fixpoint: what
+/// the reasoner runs with those switches.
+pub(crate) fn run_with(switches: Switches, turtle: &str) -> Run {
+    run_families(FAMILIES.iter().filter(|f| f.is_on(switches)).collect(), turtle)
 }
+
+/// A document that uses every construct the W3C OWL 2 RL rules read (keys,
+/// cardinalities, enumerations, all-different and all-disjoint axioms,
+/// negative assertions, property kinds, annotations, hierarchies with
+/// cycles, restrictions and literals of several datatypes), so that a
+/// family's test can show that the family reads none, or what it derives
+/// from them.
+pub(crate) const EVERY_CONSTRUCT: &str = "
+    ex:Person owl:hasKey ( ex:ssn ) .
+    ex:a a ex:Person ; ex:ssn \"1\" . ex:b a ex:Person ; ex:ssn \"1\" .
+    ex:Max1 owl:maxCardinality \"1\"^^xsd:nonNegativeInteger ; owl:onProperty ex:p .
+    ex:Max0 owl:maxCardinality \"0\"^^xsd:nonNegativeInteger ; owl:onProperty ex:p .
+    ex:Qcr1 owl:maxQualifiedCardinality \"1\"^^xsd:nonNegativeInteger ;
+        owl:onProperty ex:p ; owl:onClass ex:C .
+    ex:Qcr0 owl:maxQualifiedCardinality \"0\"^^xsd:nonNegativeInteger ;
+        owl:onProperty ex:p ; owl:onClass owl:Thing .
+    ex:Data1 owl:maxQualifiedCardinality \"1\"^^xsd:nonNegativeInteger ;
+        owl:onProperty ex:age ; owl:onDataRange xsd:integer .
+    ex:a a ex:Max1 , ex:Max0 , ex:Qcr1 , ex:Qcr0 , ex:Data1 ; ex:p ex:x , ex:y .
+    ex:x a ex:C . ex:y a ex:C .
+    ex:Colour owl:oneOf ( ex:red ex:green ) .
+    ex:a owl:differentFrom ex:b . ex:x owl:sameAs ex:y .
+    _:d1 a owl:AllDifferent ; owl:members ( ex:a ex:b ) .
+    _:d2 a owl:AllDifferent ; owl:distinctMembers ( ex:x ex:y ) .
+    _:d3 a owl:AllDisjointClasses ; owl:members ( ex:C ex:E ) .
+    _:d4 a owl:AllDisjointProperties ; owl:members ( ex:p ex:q ) .
+    _:n1 a owl:NegativePropertyAssertion ; owl:sourceIndividual ex:a ;
+        owl:assertionProperty ex:p ; owl:targetIndividual ex:x .
+    _:n2 a owl:NegativePropertyAssertion ; owl:sourceIndividual ex:a ;
+        owl:assertionProperty ex:age ; owl:targetValue \"5\"^^xsd:integer .
+    ex:a ex:age \"5\"^^xsd:integer , \"05\"^^xsd:integer , \"5.0\"^^xsd:decimal , \"6\"^^xsd:int ,
+        \"true\"^^xsd:boolean , \"1.5e0\"^^xsd:double , \"2026-11-05T00:00:00Z\"^^xsd:dateTime .
+    ex:p a owl:ObjectProperty . ex:q a owl:ObjectProperty . ex:age a owl:DatatypeProperty .
+    ex:note a owl:AnnotationProperty . ex:C a owl:Class . ex:E a owl:Class .
+    ex:C rdfs:label \"C\" ; rdfs:comment \"a class\" ; owl:deprecated true .
+    ex:C rdfs:subClassOf ex:E . ex:E rdfs:subClassOf ex:C . ex:F owl:equivalentClass ex:C .
+    ex:p rdfs:subPropertyOf ex:q . ex:q rdfs:subPropertyOf ex:r . ex:p owl:equivalentProperty ex:s .
+    ex:p rdfs:domain ex:C ; rdfs:range ex:E . ex:E rdfs:subClassOf ex:G .
+    ex:Has owl:hasValue ex:v ; owl:onProperty ex:p . ex:Has2 owl:hasValue ex:v ; owl:onProperty ex:q .
+    ex:Some owl:someValuesFrom ex:C ; owl:onProperty ex:p .
+    ex:Some2 owl:someValuesFrom ex:E ; owl:onProperty ex:q .
+    ex:All owl:allValuesFrom ex:C ; owl:onProperty ex:p .
+    ex:All2 owl:allValuesFrom ex:E ; owl:onProperty ex:q .
+    ex:Both owl:intersectionOf ( ex:C ex:E ) . ex:Either owl:unionOf ( ex:C ex:E ) .
+";
 
 /// Runs `families` (registered or a test's own) over a Turtle document.
 pub(crate) fn run_families(families: Vec<&'static Family>, turtle: &str) -> Run {
@@ -269,6 +321,7 @@ mod tests {
 
     static TOY: Family = Family {
         name: "toy",
+        switch: None,
         rules: toy,
         facts: &[[vocab::OWL_THING, vocab::RDF_TYPE, vocab::OWL_CLASS]],
     };

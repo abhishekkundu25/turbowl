@@ -1,5 +1,6 @@
-//! prp-spo2: `p owl:propertyChainAxiom (p1 ... pn)`, `u0 p1 u1 ... pn un`
-//! derive `u0 p un`, for chains of any length.
+//! The property-chains family (switch `property-chains`): prp-spo2,
+//! `p owl:propertyChainAxiom (p1 ... pn)`, `u0 p1 u1 ... pn un` derive
+//! `u0 p un`, for chains of any length.
 //!
 //! # Lists
 //!
@@ -45,7 +46,8 @@
 
 use super::tagged;
 use crate::engine::{Pair, Round, Variable, join_slices};
-use crate::term::vocab;
+use crate::rules::Context;
+use crate::term::{TermId, vocab};
 use rustc_hash::FxHashMap;
 use std::ops::Range;
 
@@ -53,8 +55,11 @@ use std::ops::Range;
 /// naively.
 pub(super) const MAX_CHAINS: usize = 1024;
 
+/// prp-spo2 has no empty-body rule.
+pub(crate) const FACTS: &[[TermId; 3]] = &[];
+
 /// One round of prp-spo2.
-pub(super) fn rules(round: &mut Round<'_>) {
+pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
     let (Some(axioms), Some(first), Some(rest)) = (
         round.by_subject(round.constant(vocab::OWL_PROPERTY_CHAIN_AXIOM.0)),
         round.by_subject(round.constant(vocab::RDF_FIRST.0)),
