@@ -109,8 +109,12 @@ fn blank_nodes_of_two_documents_stay_apart() {
     r.load_str(doc, Format::NTriples, None).unwrap();
     r.load_str(&format!("{doc}\n"), Format::NTriples, None).unwrap();
     assert_eq!(r.reason().base, 2);
-    let subjects: BTreeSet<String> = r.triples().map(|t| t.subject.to_string()).collect();
-    assert_eq!(subjects, BTreeSet::from(["_:b_1".to_owned(), "_:b_2".to_owned()]));
+    let blank: BTreeSet<String> = r
+        .triples()
+        .filter(|t| t.subject.is_blank_node())
+        .map(|t| t.subject.to_string())
+        .collect();
+    assert_eq!(blank, BTreeSet::from(["_:b_1".to_owned(), "_:b_2".to_owned()]));
 }
 
 #[test]
@@ -156,7 +160,8 @@ fn every_format_round_trips_with_language_tags() {
     "#;
     let source = loaded(text, Format::Turtle);
     let expected = closure(&source);
-    assert_eq!(expected.len(), 7);
+    // Seven base triples, and the heads of cls-thing and cls-nothing1.
+    assert_eq!(expected.len(), 9);
     let french = Triple::new(
         ex("Dog"),
         ex("label"),

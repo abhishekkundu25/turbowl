@@ -32,10 +32,6 @@
 //!
 //! This module builds without the `io` feature (WebAssembly).
 
-// The rule families (tickets 07 to 09) read most of the vocabulary; until
-// they land, only tests do.
-#![allow(dead_code)]
-
 use oxrdf::{BlankNodeRef, LiteralRef, NamedNodeRef, NamedOrBlankNodeRef, TermRef};
 use rustc_hash::FxHasher;
 use std::fmt;
@@ -184,6 +180,7 @@ impl Dictionary {
     }
 
     /// Makes room for `terms` more terms and `bytes` more bytes of term text.
+    #[allow(dead_code)] // for a loader that knows its input's size (an experiment)
     pub(crate) fn reserve(&mut self, terms: usize, bytes: usize) {
         self.text.reserve(bytes);
         self.entries.reserve(terms);
@@ -195,6 +192,7 @@ impl Dictionary {
 
     /// The number of terms.
     #[inline]
+    #[cfg_attr(not(feature = "io"), allow(dead_code))] // the parser uses it
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
     }
@@ -215,6 +213,7 @@ impl Dictionary {
     }
 
     /// Starts a document: its blank nodes are its own.
+    #[cfg_attr(not(feature = "io"), allow(dead_code))] // the parser uses it
     pub(crate) fn new_document(&mut self) -> DocId {
         self.documents += 1;
         DocId(self.documents)
@@ -520,7 +519,9 @@ fn push_decimal(out: &mut String, mut n: u32) {
 /// The vocabulary: the IRIs the OWL 2 RL rules (W3C OWL 2 Profiles, Tables
 /// 4 to 9, and the RL datatypes of Section 4.3) and the RDFS rules name,
 /// interned first at fixed ids.
-/// A constant's id is its position in [`IRIS`](vocab::IRIS).
+/// A constant's id is its position in [`IRIS`](vocab::IRIS). It lists every
+/// IRI of those tables, more than version 1's rules read.
+#[allow(dead_code)]
 pub(crate) mod vocab {
     use super::TermId;
 

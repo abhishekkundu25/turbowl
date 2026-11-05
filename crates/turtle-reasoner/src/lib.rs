@@ -6,7 +6,7 @@
 //! the previous closure. The rules are the W3C OWL 2 RL rule set listed in
 //! `docs/specs/v1.md` (see `docs/adr/0004-w3c-rules-are-the-target.md`).
 //!
-//! ```no_run
+//! ```
 //! use turtle_reasoner::{Format, Reasoner};
 //! let mut r = Reasoner::new();
 //! r.load_str("@prefix ex: <http://example.org/> .

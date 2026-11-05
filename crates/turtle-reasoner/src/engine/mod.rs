@@ -48,8 +48,9 @@
 //! [`Variable::remap`] on the tables that mention a merged term, which moves
 //! the rewritten tuples back into the deltas.
 
-// The rule families (tickets 07-09) and the reasoner (ticket 10) are the
-// users; until they land, only the tests are.
+// The engine offers more than version 1's rules use: leapjoin, antijoin and
+// `join_static` for the experiments, `Variable::remap` for equality (ticket
+// 11). Its tests use all of it.
 #![allow(dead_code, unused_imports)]
 
 mod join;

@@ -7,7 +7,8 @@
 //! `oxttl` (N3 is written as Turtle, which N3 reads) and RDF/XML with
 //! `oxrdfxml`, from term ids, language tags kept.
 //!
-//! # Interface (for `reasoner.rs`)
+//! # Interface (for `reasoner.rs`; `parse_file` is for the tests, since the
+//! reasoner reads a file itself to key the document)
 //!
 //! ```text
 //! format_of(path: &Path) -> Result<Format, Error>
@@ -50,9 +51,6 @@
 //!   subject, so sort by subject first for compact output. Blank nodes are
 //!   labelled `<label>_<document>` ([`Dictionary::write_blank_label`]).
 
-// Ticket 10 calls this module from `reasoner.rs`; until then only tests use it.
-#![allow(dead_code)]
-
 use crate::term::{Dictionary, DocId, MAX_TERM_BYTES, MAX_TERMS, Term, TermId, vocab};
 use crate::{Error, Format};
 use oxrdf::{BlankNodeRef, GraphName, NamedNodeRef, NamedOrBlankNodeRef, TermRef, TripleRef};
@@ -83,6 +81,7 @@ pub(crate) fn format_of(path: &Path) -> Result<Format, Error> {
 }
 
 /// Reads and parses a file: one document.
+#[cfg(test)]
 pub(crate) fn parse_file(
     dict: &mut Dictionary,
     path: &Path,

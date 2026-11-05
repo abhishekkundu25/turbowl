@@ -32,9 +32,6 @@
 //! (cls-thing, cls-nothing1). The reasoner inserts them at the start of
 //! every full run, as inferred triples, so they hold even for an empty base.
 
-// Ticket 10 runs the table; until then only the tests read it.
-#![allow(dead_code)]
-
 pub(crate) mod class;
 pub(crate) mod datatype;
 pub(crate) mod property;

@@ -58,7 +58,6 @@ pub struct Diagnostic {
 impl Diagnostic {
     /// The public form of a rule's finding: its terms read from the
     /// dictionary, its severity and its message.
-    #[allow(dead_code)] // the reasoner (ticket 10) calls it
     pub(crate) fn from_finding(finding: &Finding, terms: &Dictionary) -> Self {
         let terms: Vec<Term> = finding.terms.iter().map(|&t| terms.to_oxrdf(TermId(t))).collect();
         Self {
