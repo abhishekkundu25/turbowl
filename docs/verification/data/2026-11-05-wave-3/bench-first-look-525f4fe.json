@@ -1,0 +1,562 @@
+{
+ "meta": {
+  "build": "release",
+  "changes": 20,
+  "commit": "525f4fee3d386684a0fa1b43c41de6116c714d60",
+  "cores": 12,
+  "cpu": "Apple M6",
+  "data_dir": "<repo>/data",
+  "date": "2026-11-05T11:48:46Z",
+  "dirty": true,
+  "load_after": [
+   57.173828125,
+   40.03125,
+   25.54833984375
+  ],
+  "load_before": [
+   59.974609375,
+   40.28515625,
+   25.5517578125
+  ],
+  "memory_bytes": 34359738368,
+  "os": "macOS 27.0 (kernel 27.0.0, aarch64)",
+  "runs": 1,
+  "timeout_s": 600,
+  "versions": {
+   "bench": "0.1.0",
+   "nemo": "0.10.1",
+   "reasonable": "0.5.0-a1",
+   "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+   "turtle_reasoner": "0.1.0"
+  }
+ },
+ "problems": [],
+ "results": [
+  {
+   "engine": "turtle-reasoner",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [],
+     "closure": 26381,
+     "closure_counted": 26381,
+     "load_ms": 13.294708,
+     "peak_rss_bytes": 7454720,
+     "reason_ms": 3.627083,
+     "status": "ok"
+    }
+   ],
+   "scenario": "brick-small1",
+   "status": "ok",
+   "summary": {
+    "closure": 26381,
+    "export_median_ms": null,
+    "load_median_ms": 13.295,
+    "max_ms": 3.627,
+    "measure": "reason_ms",
+    "median_ms": 3.627,
+    "min_ms": 3.627,
+    "peak_bytes_per_closure_triple": 282.579,
+    "peak_rss_bytes": 7454720,
+    "peak_rss_min_bytes": 7454720,
+    "reason_median_ms": 3.627,
+    "total_median_ms": 16.922,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 1.0,
+    "time": 1.0,
+    "total": 1.0
+   }
+  },
+  {
+   "engine": "reasonable",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [],
+     "closure": 31580,
+     "closure_counted": 31580,
+     "load_ms": 40.523208,
+     "peak_rss_bytes": 39895040,
+     "reason_ms": 17.643458000000003,
+     "status": "ok"
+    }
+   ],
+   "scenario": "brick-small1",
+   "status": "ok",
+   "summary": {
+    "closure": 31580,
+    "export_median_ms": null,
+    "load_median_ms": 40.523,
+    "max_ms": 17.643,
+    "measure": "reason_ms",
+    "median_ms": 17.643,
+    "min_ms": 17.643,
+    "peak_bytes_per_closure_triple": 1263.301,
+    "peak_rss_bytes": 39895040,
+    "peak_rss_min_bytes": 39895040,
+    "reason_median_ms": 17.643,
+    "total_median_ms": 58.167,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 5.352,
+    "time": 4.864,
+    "total": 3.437
+   }
+  },
+  {
+   "engine": "nemo",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [],
+     "closure": 26381,
+     "closure_counted": 26381,
+     "export_ms": 14.0,
+     "load_ms": 81.0,
+     "peak_rss_bytes": 24870912,
+     "reason_ms": 220.0,
+     "status": "ok",
+     "wall_ms": 331.10154200000005
+    }
+   ],
+   "scenario": "brick-small1",
+   "status": "ok",
+   "summary": {
+    "closure": 26381,
+    "export_median_ms": 14.0,
+    "load_median_ms": 81.0,
+    "max_ms": 220.0,
+    "measure": "reason_ms",
+    "median_ms": 220.0,
+    "min_ms": 220.0,
+    "peak_bytes_per_closure_triple": 942.759,
+    "peak_rss_bytes": 24870912,
+    "peak_rss_min_bytes": 24870912,
+    "reason_median_ms": 220.0,
+    "total_median_ms": 301.0,
+    "wall_median_ms": 331.102
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 3.336,
+    "time": 60.656,
+    "total": 17.787
+   }
+  },
+  {
+   "engine": "turtle-reasoner",
+   "inputs": [
+    "<repo>/target/bench-data/univ-bench.ttl",
+    "<repo>/target/bench-data/lubm-v1-1.ttl"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [],
+     "closure": 184086,
+     "closure_counted": 184086,
+     "load_ms": 84.955792,
+     "peak_rss_bytes": 30621696,
+     "reason_ms": 13.545291,
+     "status": "ok"
+    }
+   ],
+   "scenario": "lubm-1",
+   "status": "ok",
+   "summary": {
+    "closure": 184086,
+    "export_median_ms": null,
+    "load_median_ms": 84.956,
+    "max_ms": 13.545,
+    "measure": "reason_ms",
+    "median_ms": 13.545,
+    "min_ms": 13.545,
+    "peak_bytes_per_closure_triple": 166.345,
+    "peak_rss_bytes": 30621696,
+    "peak_rss_min_bytes": 30621696,
+    "reason_median_ms": 13.545,
+    "total_median_ms": 98.501,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 1.0,
+    "time": 1.0,
+    "total": 1.0
+   }
+  },
+  {
+   "engine": "reasonable",
+   "inputs": [
+    "<repo>/target/bench-data/univ-bench.ttl",
+    "<repo>/target/bench-data/lubm-v1-1.ttl"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [],
+     "closure": 204521,
+     "closure_counted": 204521,
+     "load_ms": 322.540042,
+     "peak_rss_bytes": 273301504,
+     "reason_ms": 106.534625,
+     "status": "ok"
+    }
+   ],
+   "scenario": "lubm-1",
+   "status": "ok",
+   "summary": {
+    "closure": 204521,
+    "export_median_ms": null,
+    "load_median_ms": 322.54,
+    "max_ms": 106.535,
+    "measure": "reason_ms",
+    "median_ms": 106.535,
+    "min_ms": 106.535,
+    "peak_bytes_per_closure_triple": 1336.3,
+    "peak_rss_bytes": 273301504,
+    "peak_rss_min_bytes": 273301504,
+    "reason_median_ms": 106.535,
+    "total_median_ms": 429.075,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 8.925,
+    "time": 7.865,
+    "total": 4.356
+   }
+  },
+  {
+   "engine": "nemo",
+   "inputs": [
+    "<repo>/target/bench-data/univ-bench.ttl",
+    "<repo>/target/bench-data/lubm-v1-1.ttl"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [],
+     "closure": 184086,
+     "closure_counted": 184086,
+     "export_ms": 117.0,
+     "load_ms": 326.0,
+     "peak_rss_bytes": 60604416,
+     "reason_ms": 717.0,
+     "status": "ok",
+     "wall_ms": 1168.49575
+    }
+   ],
+   "scenario": "lubm-1",
+   "status": "ok",
+   "summary": {
+    "closure": 184086,
+    "export_median_ms": 117.0,
+    "load_median_ms": 326.0,
+    "max_ms": 717.0,
+    "measure": "reason_ms",
+    "median_ms": 717.0,
+    "min_ms": 717.0,
+    "peak_bytes_per_closure_triple": 329.218,
+    "peak_rss_bytes": 60604416,
+    "peak_rss_min_bytes": 60604416,
+    "reason_median_ms": 717.0,
+    "total_median_ms": 1043.0,
+    "wall_median_ms": 1168.496
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 1.979,
+    "time": 52.935,
+    "total": 10.589
+   }
+  },
+  {
+   "engine": "turtle-reasoner",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [
+      1.0585410000000002,
+      0.026625,
+      1.785,
+      1.629958,
+      1.085417,
+      2.186416,
+      0.029083,
+      0.013875,
+      0.025042,
+      0.02525,
+      1.661875,
+      5.583666999999999,
+      0.028708,
+      0.025291,
+      1.114625,
+      0.026833,
+      1.4768750000000002,
+      1.592417,
+      1.026416,
+      2.095958
+     ],
+     "closure": 26602,
+     "closure_counted": 26602,
+     "load_ms": 23.172292,
+     "peak_rss_bytes": 7536640,
+     "reason_ms": 6.807375,
+     "status": "ok"
+    }
+   ],
+   "scenario": "incremental-add",
+   "status": "ok",
+   "summary": {
+    "closure": 26602,
+    "export_median_ms": null,
+    "load_median_ms": 23.172,
+    "max_ms": 1.072,
+    "measure": "change_median_ms",
+    "median_ms": 1.072,
+    "min_ms": 1.072,
+    "peak_bytes_per_closure_triple": 283.311,
+    "peak_rss_bytes": 7536640,
+    "peak_rss_min_bytes": 7536640,
+    "reason_median_ms": 6.807,
+    "total_median_ms": 29.98,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 1.0,
+    "time": 1.0,
+    "total": 1.0
+   }
+  },
+  {
+   "engine": "reasonable",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [
+      8.232458,
+      6.259083,
+      8.839042000000001,
+      7.990959000000001,
+      7.793417000000001,
+      8.547416,
+      6.269292,
+      6.4726669999999995,
+      6.029708,
+      5.881,
+      7.816209,
+      8.168667,
+      6.156625,
+      6.206875,
+      7.102791,
+      6.098959,
+      8.563708,
+      9.375083,
+      6.438625,
+      9.555542
+     ],
+     "closure": 31821,
+     "closure_counted": 31821,
+     "load_ms": 41.49975,
+     "peak_rss_bytes": 75022336,
+     "reason_ms": 19.495416,
+     "status": "ok"
+    }
+   ],
+   "scenario": "incremental-add",
+   "status": "ok",
+   "summary": {
+    "closure": 31821,
+    "export_median_ms": null,
+    "load_median_ms": 41.5,
+    "max_ms": 7.448,
+    "measure": "change_median_ms",
+    "median_ms": 7.448,
+    "min_ms": 7.448,
+    "peak_bytes_per_closure_triple": 2357.636,
+    "peak_rss_bytes": 75022336,
+    "peak_rss_min_bytes": 75022336,
+    "reason_median_ms": 19.495,
+    "total_median_ms": 60.995,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 9.954,
+    "time": 6.948,
+    "total": 2.035
+   }
+  },
+  {
+   "engine": "nemo",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": "Nemo runs a program once over its imports; it has no incremental changes",
+   "runs": [],
+   "scenario": "incremental-add",
+   "status": "unsupported",
+   "summary": null,
+   "x_turtle_reasoner": null
+  },
+  {
+   "engine": "turtle-reasoner",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [
+      3.48475,
+      3.4182919999999997,
+      3.465583,
+      3.5122920000000004,
+      6.238625,
+      5.372916,
+      3.649583,
+      3.502042,
+      3.419666,
+      3.446042,
+      3.485334,
+      3.585375,
+      3.4,
+      3.441125,
+      3.4875000000000003,
+      3.3730409999999997,
+      3.343625,
+      3.539833,
+      3.366459,
+      3.383958
+     ],
+     "closure": 26331,
+     "closure_counted": 26331,
+     "load_ms": 10.243458,
+     "peak_rss_bytes": 14794752,
+     "reason_ms": 3.809375,
+     "status": "ok"
+    }
+   ],
+   "scenario": "incremental-remove",
+   "status": "ok",
+   "summary": {
+    "closure": 26331,
+    "export_median_ms": null,
+    "load_median_ms": 10.243,
+    "max_ms": 3.475,
+    "measure": "change_median_ms",
+    "median_ms": 3.475,
+    "min_ms": 3.475,
+    "peak_bytes_per_closure_triple": 561.876,
+    "peak_rss_bytes": 14794752,
+    "peak_rss_min_bytes": 14794752,
+    "reason_median_ms": 3.809,
+    "total_median_ms": 14.053,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 1.0,
+    "time": 1.0,
+    "total": 1.0
+   }
+  },
+  {
+   "engine": "reasonable",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": null,
+   "runs": [
+    {
+     "change_ms": [
+      16.321749999999998,
+      17.637625,
+      22.313667,
+      15.657958,
+      18.579209,
+      16.504166,
+      19.876333,
+      19.200167,
+      23.4465,
+      15.916166999999998,
+      15.546458,
+      19.538875,
+      15.892083,
+      15.749167000000002,
+      20.278208,
+      21.982583,
+      31.242625,
+      20.59375,
+      18.793625,
+      19.862
+     ],
+     "closure": 31530,
+     "closure_counted": 31530,
+     "load_ms": 31.67225,
+     "peak_rss_bytes": 58884096,
+     "reason_ms": 13.994916,
+     "status": "ok"
+    }
+   ],
+   "scenario": "incremental-remove",
+   "status": "ok",
+   "summary": {
+    "closure": 31530,
+    "export_median_ms": null,
+    "load_median_ms": 31.672,
+    "max_ms": 18.997,
+    "measure": "change_median_ms",
+    "median_ms": 18.997,
+    "min_ms": 18.997,
+    "peak_bytes_per_closure_triple": 1867.558,
+    "peak_rss_bytes": 58884096,
+    "peak_rss_min_bytes": 58884096,
+    "reason_median_ms": 13.995,
+    "total_median_ms": 45.667,
+    "wall_median_ms": null
+   },
+   "x_turtle_reasoner": {
+    "peak_rss": 3.98,
+    "time": 5.467,
+    "total": 3.25
+   }
+  },
+  {
+   "engine": "nemo",
+   "inputs": [
+    "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+    "<repo>/data/reasonable/example_models/small1.n3"
+   ],
+   "message": "Nemo runs a program once over its imports; it has no incremental changes",
+   "runs": [],
+   "scenario": "incremental-remove",
+   "status": "unsupported",
+   "summary": null,
+   "x_turtle_reasoner": null
+  }
+ ],
+ "scaling": [],
+ "schema": 3
+}

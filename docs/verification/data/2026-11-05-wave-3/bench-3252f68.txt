@@ -1,0 +1,99 @@
+load average before: 6.69 8.42 7.13
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+brick-small1 turtle-reasoner run 1/3 ... 3.3 ms
+brick-small1 reasonable run 1/3 ... 11.9 ms
+brick-small1 nemo run 1/3 ... 173.0 ms
+brick-small1 turtle-reasoner run 2/3 ... 3.2 ms
+brick-small1 reasonable run 2/3 ... 11.6 ms
+brick-small1 nemo run 2/3 ... 166.0 ms
+brick-small1 turtle-reasoner run 3/3 ... 3.1 ms
+brick-small1 reasonable run 3/3 ... 11.4 ms
+brick-small1 nemo run 3/3 ... 165.0 ms
+brick-soda-hall turtle-reasoner run 1/3 ... 6.7 ms
+brick-soda-hall reasonable run 1/3 ... 31.4 ms
+brick-soda-hall nemo run 1/3 ... 487.0 ms
+brick-soda-hall turtle-reasoner run 2/3 ... 7.0 ms
+brick-soda-hall reasonable run 2/3 ... 33.4 ms
+brick-soda-hall nemo run 2/3 ... 485.0 ms
+brick-soda-hall turtle-reasoner run 3/3 ... 6.9 ms
+brick-soda-hall reasonable run 3/3 ... 33.0 ms
+brick-soda-hall nemo run 3/3 ... 473.0 ms
+lubm-1 turtle-reasoner run 1/3 ... 11.6 ms
+lubm-1 reasonable run 1/3 ... 66.4 ms
+lubm-1 nemo run 1/3 ... 485.0 ms
+lubm-1 turtle-reasoner run 2/3 ... 11.6 ms
+lubm-1 reasonable run 2/3 ... 65.9 ms
+lubm-1 nemo run 2/3 ... 515.0 ms
+lubm-1 turtle-reasoner run 3/3 ... 12.0 ms
+lubm-1 reasonable run 3/3 ... 66.0 ms
+lubm-1 nemo run 3/3 ... 485.0 ms
+lubm-10 turtle-reasoner run 1/3 ... 139.9 ms
+lubm-10 reasonable run 1/3 ... 918.4 ms
+lubm-10 nemo run 1/3 ... 5521.0 ms
+lubm-10 turtle-reasoner run 2/3 ... 143.3 ms
+lubm-10 reasonable run 2/3 ... 858.4 ms
+lubm-10 nemo run 2/3 ... 5581.0 ms
+lubm-10 turtle-reasoner run 3/3 ... 150.7 ms
+lubm-10 reasonable run 3/3 ... 855.4 ms
+lubm-10 nemo run 3/3 ... 5514.0 ms
+lubm-50 turtle-reasoner run 1/3 ... 812.6 ms
+lubm-50 reasonable run 1/3 ... 5495.6 ms
+lubm-50 nemo run 1/3 ... 33606.0 ms
+lubm-50 turtle-reasoner run 2/3 ... 1015.3 ms
+lubm-50 reasonable run 2/3 ... 6794.3 ms
+lubm-50 nemo run 2/3 ... 35114.0 ms
+lubm-50 turtle-reasoner run 3/3 ... 930.9 ms
+lubm-50 reasonable run 3/3 ... 6844.7 ms
+lubm-50 nemo run 3/3 ... 31673.0 ms
+incremental-add turtle-reasoner run 1/3 ... 0.2 ms
+incremental-add reasonable run 1/3 ... 4.4 ms
+incremental-add turtle-reasoner run 2/3 ... 0.2 ms
+incremental-add reasonable run 2/3 ... 4.3 ms
+incremental-add turtle-reasoner run 3/3 ... 0.2 ms
+incremental-add reasonable run 3/3 ... 4.3 ms
+incremental-remove turtle-reasoner run 1/3 ... 2.9 ms
+incremental-remove reasonable run 1/3 ... 13.1 ms
+incremental-remove turtle-reasoner run 2/3 ... 3.0 ms
+incremental-remove reasonable run 2/3 ... 13.1 ms
+incremental-remove turtle-reasoner run 3/3 ... 2.9 ms
+incremental-remove reasonable run 3/3 ... 13.1 ms
+load average after: 8.64 10.57 8.59
+warning: load average over 1 after the runs
+
+turtle-reasoner bench: 3 runs each; load average 6.69 8.42 7.13 before, 8.64 10.57 8.59 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. Nemo's split is its own report; its export and process start are in neither.
+x turtle: over turtle-reasoner's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turtle time | x turtle total | x turtle mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | turtle-reasoner | 3 | 9.0 | 3.2 | 3.1 | 3.3 | 12.2 | 7 | 26381 | 279 | 1.00 | 1.00 | 1.00 |
+| brick-small1 | reasonable | 3 | 23.9 | 11.6 | 11.4 | 11.9 | 35.6 | 39 | 31580 | 1279 | 3.65 | 2.92 | 5.49 |
+| brick-small1 | nemo | 3 | 48.0 | 166.0 | 165.0 | 173.0 | 214.0 | 23 | 26381 | 917 | 52.05 | 17.55 | 3.29 |
+| brick-soda-hall | turtle-reasoner | 3 | 11.8 | 6.9 | 6.7 | 7.0 | 18.5 | 9 | 57652 | 156 | 1.00 | 1.00 | 1.00 |
+| brick-soda-hall | reasonable | 3 | 29.1 | 33.0 | 31.4 | 33.4 | 62.5 | 57 | 64545 | 929 | 4.79 | 3.38 | 6.66 |
+| brick-soda-hall | nemo | 3 | 75.0 | 485.0 | 473.0 | 487.0 | 561.0 | 27 | 57652 | 493 | 70.33 | 30.32 | 3.16 |
+| lubm-1 | turtle-reasoner | 3 | 68.2 | 11.6 | 11.6 | 12.0 | 79.8 | 29 | 184086 | 167 | 1.00 | 1.00 | 1.00 |
+| lubm-1 | reasonable | 3 | 198.7 | 66.0 | 65.9 | 66.4 | 264.5 | 258 | 204521 | 1324 | 5.67 | 3.31 | 8.83 |
+| lubm-1 | nemo | 3 | 214.0 | 485.0 | 485.0 | 515.0 | 699.0 | 53 | 184086 | 304 | 41.66 | 8.76 | 1.82 |
+| lubm-10 | turtle-reasoner | 3 | 745.1 | 143.3 | 139.9 | 150.7 | 888.4 | 283 | 2024317 | 147 | 1.00 | 1.00 | 1.00 |
+| lubm-10 | reasonable | 3 | 3137.1 | 858.4 | 855.4 | 918.4 | 3995.5 | 2779 | 2237514 | 1302 | 5.99 | 4.50 | 9.81 |
+| lubm-10 | nemo | 3 | 2517.0 | 5521.0 | 5514.0 | 5581.0 | 8031.0 | 572 | 2024317 | 296 | 38.54 | 9.04 | 2.02 |
+| lubm-50 | turtle-reasoner | 3 | 4829.7 | 930.9 | 812.6 | 1015.3 | 5760.6 | 1485 | 10345697 | 150 | 1.00 | 1.00 | 1.00 |
+| lubm-50 | reasonable | 3 | 29515.2 | 6794.3 | 5495.6 | 6844.7 | 36359.9 | 8444 | 11432387 | 774 | 7.30 | 6.31 | 5.69 |
+| lubm-50 | nemo | 3 | 17382.0 | 33606.0 | 31673.0 | 35114.0 | 50988.0 | 2158 | 10345697 | 219 | 36.10 | 8.85 | 1.45 |
+| incremental-add | turtle-reasoner | 3 | 9.0 | 0.2 | 0.2 | 0.2 | 12.2 | 7 | 27261 | 279 | 1.00 | 1.00 | 1.00 |
+| incremental-add | reasonable | 3 | 24.0 | 4.3 | 4.3 | 4.4 | 35.5 | 135 | 32560 | 4334 | 20.91 | 2.91 | 18.56 |
+| incremental-add | nemo (unsupported) | 0 | | | | | | | | | | | |
+| incremental-remove | turtle-reasoner | 3 | 8.9 | 2.9 | 2.9 | 3.0 | 12.2 | 14 | 25620 | 559 | 1.00 | 1.00 | 1.00 |
+| incremental-remove | reasonable | 3 | 24.1 | 13.1 | 13.1 | 13.1 | 35.8 | 55 | 30819 | 1881 | 4.46 | 2.94 | 4.05 |
+| incremental-remove | nemo (unsupported) | 0 | | | | | | | | | | | |
+
+Scaling: the fitted exponent of total time (load + reasoning, median) and of peak memory
+against the input triples, least squares on a log-log scale. 1 is linear.
+
+| family | engine | input triples | total ms | peak MB | time exponent | memory exponent | not fitted |
+|---|---|---|---|---|---:|---:|---|
+| lubm | turtle-reasoner | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 80, 888, 5761 | 29, 283, 1485 | 1.06 | 0.97 |  |
+| lubm | reasonable | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 265, 3996, 36360 | 258, 2779, 8444 | 1.21 | 0.87 |  |
+| lubm | nemo | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 699, 8031, 50988 | 53, 572, 2158 | 1.06 | 0.92 |  |

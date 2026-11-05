@@ -179,3 +179,11 @@ Departures from the plan, as they happen.
   (private and empty until the owner pushes). The bench's results files
   are schema 4; `--compare` reads an older file's `turtle-reasoner`
   engine as `turbowl`.
+- **Wave 3, recorded.** `docs/verification/2026-11-05-wave-3.md` holds
+  the exact numbers at `3252f68`, with its raw results. The benchmark ran
+  3 times per engine with the load average at 7 to 11 (a trend, not a
+  claim). Full runs are 3.65 to 7.30 times faster than `reasonable`, with
+  5.49 to 9.81 times less memory. An incremental addition costs 6.5% of a
+  full run, inside the 10% budget; the 30% above came from a one-run look
+  under a load average near 60. The fitted LUBM time exponent is 1.056
+  (`reasonable` 1.213, Nemo 1.059), and all 24 `scaling_*` tests pass.
