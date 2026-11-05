@@ -31,7 +31,9 @@ verification suite that judges it against several independent oracles.
   write), `engine/` (relations, rounds, joins; knows no rules),
   `rules/` (one file per rule family, registered one line each in
   `rules/mod.rs`), `diagnostics.rs`, `reasoner.rs`.
-- Adapters: `crates/cli` (the `turbowl` binary), `crates/python`.
+- Adapters: `crates/cli` (the `turbowl` binary; `--help` and the crate
+  doc in `src/main.rs` define its report, the JSON fields and the exit
+  codes 0, 1, 2 and 64), `crates/python`.
 - Verification: `crates/oracle` (the oracles), `crates/reference` (the
   reference evaluator, the generator, chaos), `crates/bench` (benchmarks).
 - Oracle tools and data are fetched, never committed:
@@ -58,6 +60,7 @@ scripts/check-wasm.sh                                   # the core for wasm32
 timeout 120 cargo test --release --locked -p turbowl
 timeout 120 cargo test --release --locked -p turbowl-oracle
 timeout 120 cargo test --release --locked -p turbowl-reference --test chaos
+timeout 120 cargo test --release --locked -p turbowl-cli  # runs the built binary
 cargo run --release -p turbowl-bench -- --list
 ```
 

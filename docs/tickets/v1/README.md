@@ -187,3 +187,20 @@ Departures from the plan, as they happen.
   full run, inside the 10% budget; the 30% above came from a one-run look
   under a load average near 60. The fitted LUBM time exponent is 1.056
   (`reasonable` 1.213, Nemo 1.059), and all 24 `scaling_*` tests pass.
+- **12.** The ticket left some behaviour open; the slice decided it.
+  - `--fail-on` defaults to `error`, so an inconsistent model exits 2
+    unless `--fail-on never` is given. The closure and report are still
+    written.
+  - The report is the diagnostics, then the summary. It goes to stdout,
+    or to stderr when the closure takes stdout.
+  - The `json` and `ndjson` field names are stable, with terms as
+    N-Triples strings. The summary carries the load and reasoning times.
+  - `--summary-only` refuses `-o`, `--format` and `--inferred-only`.
+  - An input extension that names no format is a usage error (64).
+  - Arguments are parsed by hand. The only new dependency is
+    `serde_json`, which was already in the lock.
+
+  Left for later: reading stdin, with `--input-format`; reporting the N3
+  statements dropped on load, which the interface does not expose; and
+  `Severity::as_str` and `Ord` on `Severity`, so that the CLI and Python
+  need no mappings of their own.
