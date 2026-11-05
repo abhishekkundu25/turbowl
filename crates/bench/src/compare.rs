@@ -39,6 +39,33 @@ fn pct(old: f64, new: f64) -> String {
     }
 }
 
+/// The fields of two files' `meta` that differ where they must not, each as
+/// `NAME differs (OLD vs NEW)`.
+fn differences(om: &Value, nm: &Value) -> Vec<String> {
+    // A file from before schema 6 ran the default rules and read the peak
+    // resident size; one from before schema 7 ran on one thread.
+    let or = |v: &Value, old: Value| if v.is_null() { old } else { v.clone() };
+    let mut out = Vec::new();
+    for (field, before) in [
+        ("cpu", None),
+        ("os", None),
+        ("build", None),
+        ("changes", None),
+        ("configuration", Some(Value::from("default"))),
+        ("peak_memory", Some(Value::from("peak resident size"))),
+        ("threads", Some(Value::from(1))),
+    ] {
+        let (o, n) = match before {
+            Some(b) => (or(&om[field], b.clone()), or(&nm[field], b)),
+            None => (om[field].clone(), nm[field].clone()),
+        };
+        if o != n {
+            out.push(format!("{field} differs ({o} vs {n})"));
+        }
+    }
+    out
+}
+
 pub(crate) fn run(old_path: &Path, new_path: &Path) -> ExitCode {
     let ((old, old_skipped), (new, new_skipped)) = match (crate::read_results(old_path), crate::read_results(new_path))
     {
@@ -65,24 +92,8 @@ pub(crate) fn run(old_path: &Path, new_path: &Path) -> ExitCode {
         load(&nm["load_before"]),
         load(&nm["load_after"])
     );
-    // A file from before schema 6 ran the default rules and read the peak
-    // resident size.
-    let or = |v: &Value, old: &str| if v.is_null() { Value::from(old) } else { v.clone() };
-    for (field, before) in [
-        ("cpu", None),
-        ("os", None),
-        ("build", None),
-        ("changes", None),
-        ("configuration", Some("default")),
-        ("peak_memory", Some("peak resident size")),
-    ] {
-        let (o, n) = match before {
-            Some(b) => (or(&om[field], b), or(&nm[field], b)),
-            None => (om[field].clone(), nm[field].clone()),
-        };
-        if o != n {
-            println!("warning: {field} differs ({o} vs {n}): the numbers are not comparable");
-        }
+    for field in differences(om, nm) {
+        println!("warning: {field}: the numbers are not comparable");
     }
     for (name, meta) in [("old", om), ("new", nm)] {
         if meta["load_before"][0].as_f64().is_some_and(|l| l > 1.0) {
@@ -170,7 +181,65 @@ pub(crate) fn run(old_path: &Path, new_path: &Path) -> ExitCode {
 
 #[cfg(test)]
 mod tests {
-    use super::verdict;
+    use super::{differences, verdict};
+    use serde_json::json;
+
+    /// Every schema from 1 to 7 reads, and compares with any other: what an
+    /// older file leaves out reads as what it ran (the default
+    /// configuration, the peak resident size, one thread).
+    #[test]
+    fn compares_across_schemas() {
+        let dir = std::env::temp_dir().join(format!("bench-compare-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let meta = |schema: u64| match schema {
+            1..=5 => json!({ "cpu": "M", "date": "d" }),
+            6 => json!({ "cpu": "M", "configuration": "default", "peak_memory": "lifetime peak physical footprint" }),
+            _ => json!({ "cpu": "M", "configuration": "default, equality off", "switches": ["checks"],
+                         "threads": 1, "peak_memory": "lifetime peak physical footprint" }),
+        };
+        let engine = |schema: u64| if schema < 4 { "turtle-reasoner" } else { "turbowl" };
+        let mut read = Vec::new();
+        for schema in 1..=8 {
+            let path = dir.join(format!("v{schema}.json"));
+            let row = json!({ "scenario": "lubm-1", "engine": engine(schema), "status": "ok",
+                              "summary": { "median_ms": 1.0, "min_ms": 1.0, "max_ms": 1.0 } });
+            std::fs::write(
+                &path,
+                json!({ "schema": schema, "meta": meta(schema), "results": [row] }).to_string(),
+            )
+            .unwrap();
+            match crate::read_results(&path) {
+                Ok((v, skipped)) => {
+                    assert!(schema <= 7, "schema {schema} read");
+                    assert!(skipped.is_empty());
+                    assert_eq!(v["results"][0]["engine"], "turbowl", "schema {schema}");
+                    read.push(v);
+                }
+                Err(e) => assert_eq!(schema, 8, "{e}"),
+            }
+        }
+        assert_eq!(read.len(), 7);
+        for old in 1..=7 {
+            for new in 1..=7 {
+                assert_eq!(
+                    super::run(&dir.join(format!("v{old}.json")), &dir.join(format!("v{new}.json"))),
+                    std::process::ExitCode::SUCCESS
+                );
+            }
+        }
+        let fields = |o: usize, n: usize| differences(&read[o - 1]["meta"], &read[n - 1]["meta"]);
+        assert!(fields(1, 5).is_empty());
+        assert_eq!(
+            fields(5, 6),
+            ["peak_memory differs (\"peak resident size\" vs \"lifetime peak physical footprint\")"]
+        );
+        assert_eq!(
+            fields(6, 7),
+            ["configuration differs (\"default\" vs \"default, equality off\")"]
+        );
+        assert!(fields(7, 7).is_empty());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn flags_only_ranges_apart() {

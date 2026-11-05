@@ -3,7 +3,10 @@
 //! on the scenario's inputs converted once), in one configuration of the
 //! rules, and reports median, spread, peak memory, closure size and each
 //! engine's ratio to this reasoner; each competitor's closure must equal
-//! this reasoner's. See `README.md`.
+//! this reasoner's. `--scoreboard` reads results files and prints each
+//! engine's value and the leader per scenario and axis, with RDFox's
+//! published results scaled through a bridge where they allow it
+//! (`published.rs`, `report.rs`). See `README.md`.
 //!
 //! Every run is a fresh child process (this binary with the hidden `--one`
 //! mode), so that peak memory is one engine's on one input. The parent
@@ -16,6 +19,8 @@ mod engine;
 mod lubm;
 mod machine;
 mod nemo;
+mod published;
+mod report;
 mod scaling;
 mod scenario;
 mod souffle;
@@ -28,10 +33,10 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
-use turbowl::Switches;
+use turbowl::{Switch, Switches};
 
 /// The results file's format version.
-const SCHEMA: u64 = 6;
+const SCHEMA: u64 = 7;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
 /// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
 /// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name
@@ -39,8 +44,10 @@ const SCHEMA: u64 = 6;
 /// status `over-memory` and `meta.memory_cap_bytes`, 6 adds the engines
 /// `souffle` and `vlog`, `meta.configuration` and `meta.peak_memory`, a run's
 /// `total_ms` (an engine that does not split loading from reasoning), and
-/// the peak memory becomes the peak physical footprint on macOS.
-const READS: [u64; 6] = [1, 2, 3, 4, 5, 6];
+/// the peak memory becomes the peak physical footprint on macOS, 7 adds
+/// `meta.switches`, `meta.threads` and `published_counts`, and
+/// `meta.configuration` can name switches turned from the default.
+const READS: [u64; 7] = [1, 2, 3, 4, 5, 6, 7];
 /// This reasoner's engine name in results files before version 4.
 const OLD_NAME: &str = "turtle-reasoner";
 
@@ -55,12 +62,15 @@ const GB: f64 = (1u64 << 30) as f64;
 const USAGE: &str = "\
 usage: turbowl-bench [options]
        turbowl-bench --compare OLD.json NEW.json
+       turbowl-bench --scoreboard RESULTS.json...
 
   --list              print the scenarios and the engines, and stop
   --only A,B          run only these scenarios (opt-in ones run only this way)
   --engines A,B       run only these engines (turbowl, nemo, souffle, vlog)
-  --complete          every switch on, the complete W3C rule set (default:
-                      the default switches)
+  --complete          start from every switch on, the complete W3C rule set
+                      (default: the default switches)
+  --switch NAME=on|off  turn one switch on or off, after --complete;
+                      repeatable, a later one for the same name wins
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
@@ -68,6 +78,8 @@ usage: turbowl-bench [options]
   --data-dir DIR      fetched models (default: data/ at the repository root)
   --json FILE         also write the results to FILE
   --compare OLD NEW   print per-scenario deltas between two results files
+  --scoreboard FILE...  print each engine's value and the leader per scenario
+                      and axis, and the estimates from published results
 
 Run on a quiet machine: load average under 1, nothing building or testing.";
 
@@ -76,8 +88,9 @@ struct Args {
     list: bool,
     only: Option<Vec<String>>,
     engines: Vec<EngineId>,
-    /// The complete configuration (every switch on), else the default one.
-    complete: bool,
+    /// The configuration: the default switches, or every switch on
+    /// (`--complete`), then each `--switch` in order.
+    switches: Switches,
     runs: usize,
     changes: usize,
     timeout: Duration,
@@ -86,6 +99,7 @@ struct Args {
     data_dir: Option<PathBuf>,
     json: Option<PathBuf>,
     compare: Option<(PathBuf, PathBuf)>,
+    scoreboard: Option<Vec<PathBuf>>,
 }
 
 fn parse_args(argv: &[String]) -> Result<Args, String> {
@@ -93,7 +107,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         list: false,
         only: None,
         engines: EngineId::ALL.to_vec(),
-        complete: false,
+        switches: Switches::default(),
         runs: 5,
         changes: 100,
         timeout: Duration::from_secs(600),
@@ -101,8 +115,10 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         data_dir: None,
         json: None,
         compare: None,
+        scoreboard: None,
     };
-    let mut it = argv.iter();
+    let (mut complete, mut settings) = (false, Vec::new());
+    let mut it = argv.iter().peekable();
     while let Some(arg) = it.next() {
         let mut value = || it.next().cloned().ok_or_else(|| format!("{arg} needs a value"));
         let number = |v: String| {
@@ -120,7 +136,8 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
                     .map(|e| EngineId::from_name(e).ok_or(format!("unknown engine {e}")))
                     .collect::<Result<_, _>>()?
             }
-            "--complete" => a.complete = true,
+            "--complete" => complete = true,
+            "--switch" => settings.push(switch_setting(&value()?)?),
             "--runs" => a.runs = number(value()?)?,
             "--changes" => a.changes = number(value()?)?,
             "--timeout" => a.timeout = Duration::from_secs(number(value()?)? as u64),
@@ -136,10 +153,31 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
             "--data-dir" => a.data_dir = Some(value()?.into()),
             "--json" => a.json = Some(value()?.into()),
             "--compare" => a.compare = Some((value()?.into(), value()?.into())),
+            "--scoreboard" => {
+                let mut files = Vec::new();
+                while let Some(file) = it.next_if(|f| !f.starts_with("--")) {
+                    files.push(file.into());
+                }
+                if files.is_empty() {
+                    return Err(format!("{arg} needs a results file"));
+                }
+                a.scoreboard = Some(files);
+            }
             "-h" | "--help" => return Err(String::new()),
             other => return Err(format!("unknown argument {other}")),
         }
     }
+    // --complete is a starting point wherever it comes, as in the CLI.
+    a.switches = settings.into_iter().fold(
+        if complete {
+            Switches::complete()
+        } else {
+            Switches::default()
+        },
+        |s, (switch, on)| {
+            if on { s.on(switch) } else { s.off(switch) }
+        },
+    );
     if let Some(only) = &a.only {
         for name in only {
             if scenario::find(name).is_none() {
@@ -148,6 +186,20 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         }
     }
     Ok(a)
+}
+
+/// A `--switch` value: `NAME=on` or `NAME=off`, as the CLI takes it.
+fn switch_setting(value: &str) -> Result<(Switch, bool), String> {
+    let (name, on) = match value.split_once('=') {
+        Some((name, "on")) => (name, true),
+        Some((name, "off")) => (name, false),
+        _ => return Err(format!("--switch takes NAME=on or NAME=off, not {value}")),
+    };
+    let switch = Switch::from_name(name).ok_or_else(|| {
+        let names: Vec<&str> = Switch::ALL.into_iter().map(Switch::name).collect();
+        format!("unknown switch {name} (the switches: {})", names.join(", "))
+    })?;
+    Ok((switch, on))
 }
 
 fn main() -> ExitCode {
@@ -191,41 +243,68 @@ fn main() -> ExitCode {
     if let Some((old, new)) = &args.compare {
         return compare::run(old, new);
     }
+    if let Some(files) = &args.scoreboard {
+        return report::run(files);
+    }
     run(&args)
 }
 
-/// The hidden `--one ENGINE MODE CONFIGURATION CHANGES TIMEOUT_S FILE...`
-/// mode: one measured run, one JSON line on stdout.
+/// The hidden `--one ENGINE MODE SWITCHES CHANGES TIMEOUT_S FILE...` mode:
+/// one measured run, one JSON line on stdout. SWITCHES names the switches
+/// that are on, separated by commas (`none` for none).
 fn child(argv: &[String]) -> ExitCode {
-    let (Some(engine), Some(mode), Some(complete), Some(changes), Some(timeout)) = (
+    let (Some(engine), Some(mode), Some(switches), Some(changes), Some(timeout)) = (
         argv.first().and_then(|e| EngineId::from_name(e)),
         argv.get(1).and_then(|m| Mode::from_name(m)),
-        argv.get(2)
-            .and_then(|c| ["default", "complete"].iter().position(|n| n == c)),
+        argv.get(2).and_then(|s| switches_from_names(s)),
         argv.get(3).and_then(|c| c.parse().ok()),
         argv.get(4).and_then(|t| t.parse().ok()).map(Duration::from_secs),
     ) else {
-        eprintln!("--one ENGINE MODE default|complete CHANGES TIMEOUT_S FILE...");
+        eprintln!("--one ENGINE MODE SWITCHES CHANGES TIMEOUT_S FILE...");
         return ExitCode::from(64);
     };
     let files: Vec<PathBuf> = argv[5..].iter().map(PathBuf::from).collect();
-    let switches = switches(complete == 1);
     println!("{}", engine::run_one(engine, mode, switches, &files, changes, timeout));
     ExitCode::SUCCESS
 }
 
-/// The configuration's switches: every one on, or the defaults.
-fn switches(complete: bool) -> Switches {
-    if complete {
-        Switches::complete()
-    } else {
-        Switches::default()
-    }
+/// The names of the switches that are on, as the results file lists them.
+fn switch_names(switches: Switches) -> Vec<&'static str> {
+    Switch::ALL
+        .into_iter()
+        .filter(|&s| switches.is_on(s))
+        .map(Switch::name)
+        .collect()
 }
 
-/// The configuration's name, as `--one` and the results file spell it.
-fn configuration(complete: bool) -> &'static str {
-    if complete { "complete" } else { "default" }
+/// The switches named, comma-separated (`none` for none).
+fn switches_from_names(names: &str) -> Option<Switches> {
+    let none = Switch::ALL.into_iter().fold(Switches::complete(), Switches::off);
+    if names == "none" {
+        return Some(none);
+    }
+    names
+        .split(',')
+        .try_fold(none, |s, name| Switch::from_name(name).map(|switch| s.on(switch)))
+}
+
+/// The configuration's name, as the results file spells it: `default`,
+/// `complete`, or `default` with the switches turned from it
+/// (`default, equality off`).
+pub(crate) fn configuration(switches: Switches) -> String {
+    if switches == Switches::complete() {
+        return "complete".into();
+    }
+    let changed: Vec<String> = Switch::ALL
+        .into_iter()
+        .filter(|&s| switches.is_on(s) != Switches::default().is_on(s))
+        .map(|s| format!("{} {}", s.name(), if switches.is_on(s) { "on" } else { "off" }))
+        .collect();
+    if changed.is_empty() {
+        "default".into()
+    } else {
+        format!("default, {}", changed.join(", "))
+    }
 }
 
 pub(crate) fn repo_root() -> PathBuf {
@@ -246,7 +325,10 @@ fn spawn_run(engine: EngineId, mode: Mode, args: &Args, files: &[PathBuf]) -> Va
         .arg("--one")
         .arg(engine.name())
         .arg(mode.name())
-        .arg(configuration(args.complete))
+        .arg(match switch_names(args.switches).join(",") {
+            names if names.is_empty() => "none".into(),
+            names => names,
+        })
         .arg(args.changes.to_string())
         .arg(timeout.as_secs().to_string())
         .args(files)
@@ -533,9 +615,32 @@ fn run(args: &Args) -> ExitCode {
         triples.iter().find(|(n, _)| *n == name).map(|&(_, t)| t)
     });
 
+    // This reasoner's counts on the scenarios a paper published, comparable
+    // with the paper's: counted after every run (not timed).
+    let mut published_counts = Vec::new();
+    for (s, files) in &inputs {
+        let ours = rows
+            .iter()
+            .find(|r| r.scenario.name == s.name && r.engine == EngineId::Turbowl)
+            .and_then(|r| r.runs.last())
+            .and_then(|run| run["closure_counted"].as_u64());
+        let (Some(closure), true) = (ours, published::all().on(s.name).next().is_some()) else {
+            continue;
+        };
+        eprintln!(
+            "{}: counting the data and the ontology's own closure (not timed) ...",
+            s.name
+        );
+        match published::count(files, args.switches, closure) {
+            Ok(counts) => published_counts.push((s.name, counts)),
+            Err(e) => eprintln!("{}: counting for the published results: {e}", s.name),
+        }
+    }
+
     let problems = check(&rows);
     print_table(&rows, args, load_before, load_after);
     scaling::print(&scaling);
+    report::print_counts(&published_counts);
     for p in &problems {
         println!("problem: {p}");
     }
@@ -549,7 +654,10 @@ fn run(args: &Args) -> ExitCode {
         meta["changes"] = json!(args.changes);
         meta["timeout_s"] = json!(args.timeout.as_secs());
         meta["memory_cap_bytes"] = json!(args.memory_cap);
-        meta["configuration"] = json!(configuration(args.complete));
+        meta["configuration"] = json!(configuration(args.switches));
+        meta["switches"] = json!(switch_names(args.switches));
+        // Every engine here runs on one thread (README).
+        meta["threads"] = json!(1);
         meta["peak_memory"] = json!(if cfg!(target_os = "macos") {
             "lifetime peak physical footprint"
         } else {
@@ -576,6 +684,14 @@ fn run(args: &Args) -> ExitCode {
             "meta": meta,
             "results": results,
             "scaling": scaling,
+            "published_counts": published_counts
+                .iter()
+                .map(|(scenario, counts)| {
+                    let mut v = counts.to_json();
+                    v["scenario"] = json!(scenario);
+                    v
+                })
+                .collect::<Vec<_>>(),
             "problems": problems,
         });
         let text = serde_json::to_string_pretty(&doc).expect("JSON values serialize") + "\n";
@@ -668,7 +784,7 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
     println!();
     println!(
         "TurbOWL bench: {} configuration, {} runs each; load average {} before, {} after",
-        configuration(args.complete),
+        configuration(args.switches),
         args.runs,
         load_text(before),
         load_text(after)

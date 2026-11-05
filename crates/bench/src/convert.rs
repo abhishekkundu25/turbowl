@@ -210,7 +210,7 @@ fn scoped(n: usize, b: &BlankNode) -> BlankNode {
 }
 
 /// Parses a file as this reasoner's `load_file` does, giving each triple to `sink`.
-fn parse(path: &Path, sink: &mut dyn FnMut(Triple) -> std::io::Result<()>) -> Result<(), String> {
+pub(crate) fn parse(path: &Path, sink: &mut dyn FnMut(Triple) -> std::io::Result<()>) -> Result<(), String> {
     let err = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or_default();
     let format = Format::from_extension(ext).ok_or_else(|| err(&"unknown format"))?;

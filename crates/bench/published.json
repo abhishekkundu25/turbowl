@@ -1,0 +1,394 @@
+{
+  "about": "RDFox's published results and the numbers of the engines that ran next to it in the same table (docs/research/competitors-2026-11.md §1.2; the VLog 2016, CIKM 2019 and GLog 2021 tables were read again from the papers on 2026-11-06). Read by crates/bench/src/published.rs; the format is described there. Counts and memory are as printed; times are seconds. equality: whether the paper's program axiomatises owl:sameAs. Oxford's AAAI 2014 Claros and UOBM programs do (data/oxford/*/*.dlog: symmetry, transitivity and a replacement rule per predicate, no reflexivity), its LUBM programs have no owl:sameAs rule at all, and CIKM 2019 states its programs do not; absent where it is not known.",
+  "papers": [
+    {
+      "id": "aaai2014-a",
+      "cite": "Motik, Nenov, Piro, Horrocks, Olteanu: Parallel materialisation of Datalog programs in centralised, main-memory RDF systems. AAAI 2014",
+      "url": "https://www.cs.ox.ac.uk/boris.motik/pubs/mnpho14parallel-materialisation-RDFox.pdf",
+      "where": "Table 1 (sizes, p. 7); Fig. 2, table (a) (times and memory, p. 8)",
+      "machine": "Dell, 2x Xeon E5-2650 (16 cores, 32 threads), 128 GB, RHEL 6.3",
+      "note": "Each time is the mean of 3 runs. Materialisation only (import is separate). The memory column is one number per row."
+    },
+    {
+      "id": "aaai2014-b",
+      "cite": "Motik et al., AAAI 2014 (as above)",
+      "url": "https://www.cs.ox.ac.uk/boris.motik/pubs/mnpho14parallel-materialisation-RDFox.pdf",
+      "where": "Fig. 2, table (b) (p. 8)",
+      "machine": "2x Xeon E5-2643 (8 cores), CentOS 6.4",
+      "note": "One thread; import and materialisation. Cells reconstructed from garbled PDF text: only those read with confidence are recorded."
+    },
+    {
+      "id": "aaai2015",
+      "cite": "Motik, Nenov, Piro, Horrocks: Handling owl:sameAs via rewriting. AAAI 2015",
+      "url": "https://www.cs.ox.ac.uk/boris.motik/pubs/mnph15owl-sameAs-rewriting.pdf",
+      "where": "Tables 2-3 (p. 6)",
+      "machine": "2x Xeon E5-2643 (8 cores, 16 threads), 128 GB, Fedora 20",
+      "note": "AX axiomatises equality (every owl:sameAs consequence); REW rewrites (one representative per class). Its programs (the -eq ones) are its own, with the rule counts given."
+    },
+    {
+      "id": "iswc2015",
+      "cite": "Nenov, Piro, Motik, Horrocks, Wu, Banerjee: RDFox: a highly-scalable RDF store. ISWC 2015",
+      "url": "https://www.cs.ox.ac.uk/boris.motik/pubs/npmhwb15RDFox-scalable.pdf",
+      "where": "Table 1 (p. 13)",
+      "machine": "Oracle SPARC T5-8, 128 cores (1,024 threads), 4 TB",
+      "note": "RDFox revision 2067 (the source zip's name)."
+    },
+    {
+      "id": "aij2019",
+      "cite": "Motik, Nenov, Piro, Horrocks: Maintenance of datalog materialisations revisited. Artificial Intelligence 269 (2019)",
+      "url": "https://www.cs.ox.ac.uk/boris.motik/pubs/mnph19maintenance-revisited.pdf",
+      "where": "Table 1 (p. 36)",
+      "machine": "Dell R730, 2x Xeon E5-2640 (8 cores each), 512 GB, Fedora 24",
+      "note": "Sizes only: the paper times maintenance, not a full materialisation. Its programs (Claros L: 1,310 rules) differ from AAAI 2014's (2,174)."
+    },
+    {
+      "id": "vlog2016",
+      "cite": "Urbani, Jacobs, Kroetzsch: Column-oriented Datalog materialization for large knowledge graphs. AAAI 2016",
+      "url": "https://arxiv.org/pdf/1511.08915",
+      "where": "Table 1 (data and rule counts); Table 2 (time and peak memory, p. 6)",
+      "machine": "MacBook Pro, 2.2 GHz Core i7, 16 GB, OS X 10.10.5",
+      "note": "Both engines single-threaded; RDFox is the 2014 sequential build, recompiled in release mode. Materialisation time: VLog's data sits in an on-disk store built beforehand (Table 1's DB size). The data and programs are Oxford's AAAI 2014 ones (VLog's rule counts are higher because its rewriting adds rules that copy each triple into a predicate), so the counts are AAAI 2014's. VLog's own count of derived IDB facts (Claros L: 89 M) uses its separation of EDB and IDB predicates and is not RDFox's unique triples."
+    },
+    {
+      "id": "cikm2019",
+      "cite": "Hu, Urbani, Motik, Horrocks: Datalog reasoning over compressed RDF knowledge bases. CIKM 2019",
+      "url": "https://www.cs.ox.ac.uk/boris.motik/pubs/humh19compressed-materialisation.pdf",
+      "where": "Table 3 (facts before and after, rules) and Table 4 (load and materialisation, p. 8, appendix B)",
+      "machine": "Dell PowerEdge R720, 2x Xeon E5-2670 2.6 GHz, 256 GB, Fedora 27",
+      "note": "Threads and versions not stated. L programs from the OWL ontologies as Motik et al. describe, owl:sameAs not axiomatised. VLog (RDF) loads into its on-disk RDF store; VLog (CSV) reads CSV files into memory, as Rulewerk feeds VLog a file here."
+    },
+    {
+      "id": "glog2021",
+      "cite": "Tsamoura, Carral, Malizia, Urbani: Materializing knowledge bases via trigger graphs. PVLDB 14 (2021)",
+      "url": "https://arxiv.org/pdf/2102.02753",
+      "where": "Table 1 (facts), Table 3 (Datalog scenarios), Table 13 (RDFox on more threads)",
+      "machine": "Intel i7 PC, 94.1 GiB, Ubuntu 16.04",
+      "note": "RDFox is the build bundled with ChaseBench, one thread in Table 3. Its Claros has 13.8 M EDB facts and its DBpedia 29 M (Table 1), not Oxford's 18.8 M and 112.7 M; the LUBM size of the Datalog scenarios is not stated. Whether a runtime includes loading is not stated. Timeouts after 1 h."
+    },
+    {
+      "id": "inferray2016",
+      "cite": "Subercaze, Gravier, Chevalier, Laforest: Inferray: fast in-memory RDF inference. PVLDB 9 (2016)",
+      "url": "http://www.vldb.org/pvldb/vol9/p468-subercaze.pdf",
+      "where": "Table 3",
+      "machine": "Xeon E3-1246v3, 32 GB",
+      "note": "RDFS-Plus, not OWL 2 RL; times in milliseconds in the paper, recorded here in seconds. RDFox version not stated."
+    },
+    {
+      "id": "vflog2025",
+      "cite": "VFLog, AAAI 2025",
+      "url": "https://arxiv.org/pdf/2501.13051",
+      "where": "Table 3 (p. 7)",
+      "machine": "AMD EPYC 9534 (64 cores), 500 GB",
+      "note": "ChaseBench's LUBM with its existential rules removed: another program and another encoding of LUBM. RDFox 7.1a on all threads. Whether times include loading is not stated. The only published number for a current RDFox release."
+    },
+    {
+      "id": "ijcai2023",
+      "cite": "IJCAI 2023, a prototype on the RDFox codebase",
+      "url": "https://arxiv.org/abs/2305.06854",
+      "where": "Table 1",
+      "machine": "2x Xeon E5-2640, 512 GB",
+      "note": "Standard semi-naive evaluation in a research prototype, not the product. Threads, and the LUBM generator's seed and index, not stated."
+    }
+  ],
+  "results": [
+    { "paper": "aaai2014-a", "dataset": "Claros", "variant": "L", "equality": true, "program": "Oxford AAAI 2014 Claros_L (2,174 rules)", "scenario": "claros-l", "before": "18.8 M", "after": "95.5 M", "memory": "4.2 GB",
+      "note": "Not the job TurbOWL does in any configuration (smoke runs, 2026-11-06): Claros_L.dlog axiomatises owl:sameAs only over the predicates its ontology names (symmetry, transitivity, 860 replacement rules), while 5.8 M data triples use predicates it never names (rdfs:label 2.1 M, rdf:value 1.3 M, Claros period_begin and period_end 0.7 M, ...), which the W3C eq-rep-s and eq-rep-o rules replace. TurbOWL's comparable after count: 114,392,641 with equality on (+19.8%), 92,097,206 with it off (-3.6%; no replacement at all).",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 1907 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 2477 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 179 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 127 } ] },
+    { "paper": "aaai2014-a", "dataset": "Claros", "variant": "LE", "equality": true, "program": "Oxford AAAI 2014 Claros_LE (2,223 rules)", "scenario": "claros-le", "before": "18.8 M", "after": "555.1 M", "memory": "18.0 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 4128 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 4989 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 415 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 285 } ] },
+    { "paper": "aaai2014-a", "dataset": "DBpedia", "variant": "L", "program": "Oxford AAAI 2014 DBpedia_L (7,258 rules)", "scenario": "dbpedia-l", "before": "112.7 M", "after": "118.3 M", "memory": "6.1 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 158 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 161 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 26 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 24 } ] },
+    { "paper": "aaai2014-a", "dataset": "DBpedia", "variant": "LE", "program": "Oxford AAAI 2014 DBpedia_LE (7,333 rules)", "scenario": "dbpedia-le", "before": "112.7 M", "after": "1,529.7 M", "memory": "51.9 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 8457 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 9075 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 828 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 602 } ] },
+    { "paper": "aaai2014-a", "dataset": "LUBM-01K", "variant": "L", "equality": false, "program": "Oxford AAAI 2014 LUBM_L (98 rules)", "scenario": "lubm-01k-l", "before": "133.6 M", "after": "182.4 M", "memory": "9.3 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 68 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 73 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 8 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 7 } ] },
+    { "paper": "aaai2014-a", "dataset": "LUBM-01K", "variant": "LE", "equality": false, "program": "Oxford AAAI 2014 LUBM_LE (107 rules)", "scenario": "lubm-01k-le", "before": "133.6 M", "after": "332.6 M", "memory": "13.8 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 913 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 947 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 88 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 71 } ] },
+    { "paper": "aaai2014-a", "dataset": "LUBM-01K", "variant": "U", "program": "Oxford AAAI 2014 LUBM_U (122 rules)", "scenario": "lubm-01k-u", "before": "133.6 M", "after": "219.0 M", "memory": "11.1 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 122 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 135 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 13 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 10 } ] },
+    { "paper": "aaai2014-a", "dataset": "LUBM-05K", "variant": "L", "equality": false, "program": "Oxford AAAI 2014 LUBM_L (98 rules)", "before": "691.1 M", "after": "911.2 M", "memory": "49.0 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 422 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 442 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 42 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "outcome": "out of memory" } ] },
+    { "paper": "aaai2014-a", "dataset": "UOBM-010", "variant": "U", "program": "Oxford AAAI 2014 UOBM_U (518 rules)", "scenario": "uobm-010-u", "before": "2.2 M", "after": "35.6 M", "memory": "1.1 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 2381 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 2738 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 256 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 168 } ] },
+    { "paper": "aaai2014-a", "dataset": "UOBM-01K", "variant": "L", "equality": true, "program": "Oxford AAAI 2014 UOBM_L (407 rules)", "scenario": "uobm-01k-l", "before": "254.8 M", "after": "429.6 M", "memory": "20.2 GB",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build, sequential", "threads": 1, "reasoning_s": 476 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 1, "reasoning_s": 532 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 16, "reasoning_s": 42 },
+        { "engine": "RDFox", "build": "2014 research build, parallel", "threads": 32, "reasoning_s": 31 } ] },
+
+    { "paper": "aaai2014-b", "dataset": "LUBM-01K", "variant": "L", "equality": false, "program": "Oxford AAAI 2014 LUBM_L (98 rules)", "scenario": "lubm-01k-l", "before": "133.6 M", "after": "182.4 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build", "threads": 1, "load_s": 332, "reasoning_s": 71 },
+        { "engine": "OWLIM-Lite 5.3", "threads": 1, "load_s": 2409, "reasoning_s": 316 },
+        { "engine": "MonetDB (VP)", "threads": 1, "load_s": 6136, "reasoning_s": 27 },
+        { "engine": "PostgreSQL 9.2 (VP)", "threads": 1, "load_s": 7736, "reasoning_s": 948 } ] },
+    { "paper": "aaai2014-b", "dataset": "UOBM-01K", "variant": "L", "equality": true, "program": "Oxford AAAI 2014 UOBM_L (407 rules)", "scenario": "uobm-01k-l", "before": "254.8 M", "after": "429.6 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build", "threads": 1, "load_s": 632, "reasoning_s": 467 },
+        { "engine": "OWLIM-Lite 5.3", "threads": 1, "load_s": 4778, "outcome": "timeout" },
+        { "engine": "MonetDB (VP)", "threads": 1, "load_s": 11063, "reasoning_s": 358 },
+        { "engine": "PostgreSQL 9.2 (VP)", "threads": 1, "load_s": 13864, "reasoning_s": 6708 } ] },
+    { "paper": "aaai2014-b", "dataset": "DBpedia", "variant": "L", "program": "Oxford AAAI 2014 DBpedia_L (7,258 rules)", "scenario": "dbpedia-l", "before": "112.7 M", "after": "118.3 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build", "threads": 1, "load_s": 274, "reasoning_s": 143 },
+        { "engine": "OWLIM-Lite 5.3", "threads": 1, "load_s": 1735, "reasoning_s": 14855 },
+        { "engine": "MonetDB (VP)", "threads": 1, "load_s": 15499, "reasoning_s": 354 },
+        { "engine": "PostgreSQL 9.2 (VP)", "threads": 1, "load_s": 5844, "outcome": "out of memory" } ] },
+    { "paper": "aaai2014-b", "dataset": "Claros", "variant": "L", "equality": true, "program": "Oxford AAAI 2014 Claros_L (2,174 rules)", "scenario": "claros-l", "before": "18.8 M", "after": "95.5 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 research build", "threads": 1, "load_s": 48, "reasoning_s": 2062 },
+        { "engine": "OWLIM-Lite 5.3", "threads": 1, "load_s": 300, "reasoning_s": 14293 },
+        { "engine": "MonetDB (VP)", "threads": 1, "load_s": 883, "outcome": "out of memory" },
+        { "engine": "PostgreSQL 9.2 (VP)", "threads": 1, "load_s": 1138, "reasoning_s": 25026 } ] },
+
+    { "paper": "aaai2015", "dataset": "Claros", "variant": "L-eq AX", "equality": true, "program": "AAAI 2015 Claros L-eq (1,312 rules, 42 with owl:sameAs in the head)", "scenario": "claros-l", "before": "19 M", "after": "102 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 2042.9, "memory": "4.5 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 153.4 } ] },
+    { "paper": "aaai2015", "dataset": "Claros", "variant": "L-eq REW", "program": "AAAI 2015 Claros L-eq (1,312 rules)", "scenario": "claros-l", "before": "19 M", "after": "79.7 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 65.8, "memory": "3.6 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 6.9 } ] },
+    { "paper": "aaai2015", "dataset": "DBpedia", "variant": "L-eq AX", "equality": true, "program": "AAAI 2015 DBpedia L-eq (3,384 rules, 23 with owl:sameAs in the head)", "scenario": "dbpedia-l", "before": "113 M", "after": "139 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 219.8, "memory": "6.9 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 27.5 } ] },
+    { "paper": "aaai2015", "dataset": "DBpedia", "variant": "L-eq REW", "program": "AAAI 2015 DBpedia L-eq (3,384 rules)", "scenario": "dbpedia-l", "before": "113 M", "after": "136 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 31.7, "memory": "7.0 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 3.6 } ] },
+    { "paper": "aaai2015", "dataset": "OpenCyc", "variant": "L-eq AX", "equality": true, "program": "AAAI 2015 OpenCyc-eq (261,067 rules, 3,781 with owl:sameAs in the head)", "scenario": "opencyc", "before": "2.4 M", "after": "1,176 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 2093.7, "memory": "35.9 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 254.0 } ] },
+    { "paper": "aaai2015", "dataset": "OpenCyc", "variant": "L-eq REW", "program": "AAAI 2015 OpenCyc-eq (261,067 rules)", "scenario": "opencyc", "before": "2.4 M", "after": "142 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 119.9, "memory": "4.6 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 52.3 } ] },
+    { "paper": "aaai2015", "dataset": "UniProt", "variant": "L-eq AX", "equality": true, "program": "AAAI 2015 UniProt-eq (451 rules, 60 with owl:sameAs in the head); no OWL form ships", "scenario": "uniprot", "before": "123 M", "after": "228 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 370.6, "memory": "15.1 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 61.9 } ] },
+    { "paper": "aaai2015", "dataset": "UniProt", "variant": "L-eq REW", "program": "AAAI 2015 UniProt-eq (451 rules)", "scenario": "uniprot", "before": "123 M", "after": "228 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 143.4, "memory": "15.1 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 17.1 } ] },
+    { "paper": "aaai2015", "dataset": "UOBM-010", "variant": "U-eq AX", "program": "AAAI 2015 UOBM U-eq (279 rules, 4 with owl:sameAs in the head)", "scenario": "uobm-010-u", "before": "2.2 M", "after": "36 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 2696.7, "memory": "1.2 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 314.4 } ] },
+    { "paper": "aaai2015", "dataset": "UOBM-010", "variant": "U-eq REW", "program": "AAAI 2015 UOBM U-eq (279 rules)", "scenario": "uobm-010-u", "before": "2.2 M", "after": "9.7 M",
+      "engines": [
+        { "engine": "RDFox", "threads": 1, "reasoning_s": 1152.7, "memory": "0.4 GB" },
+        { "engine": "RDFox", "threads": 16, "reasoning_s": 137.9 } ] },
+
+    { "paper": "iswc2015", "dataset": "LUBM-50K", "variant": "L", "equality": false, "program": "Oxford LUBM_L", "before": "6.7 G", "after": "9.2 G", "memory": "101 B/triple",
+      "engines": [
+        { "engine": "RDFox", "build": "revision 2067", "threads": 1, "reasoning_s": 27000 },
+        { "engine": "RDFox", "build": "revision 2067", "threads": 128, "reasoning_s": 387.4 } ] },
+    { "paper": "iswc2015", "dataset": "Claros", "variant": "LE", "equality": true, "program": "Oxford Claros_LE", "scenario": "claros-le", "before": "18.8 M", "after": "539.2 M", "memory": "36.9 B/triple",
+      "engines": [
+        { "engine": "RDFox", "build": "revision 2067", "threads": 1, "reasoning_s": 10000 },
+        { "engine": "RDFox", "build": "revision 2067", "threads": 128, "reasoning_s": 225.7 },
+        { "engine": "RDFox", "build": "revision 2067", "threads": 1024, "reasoning_s": 124.9 } ] },
+    { "paper": "iswc2015", "dataset": "DBpedia", "variant": "LE", "program": "Oxford DBpedia_LE", "scenario": "dbpedia-le", "before": "112.7 M", "after": "1.5 G", "memory": "39.0 B/triple",
+      "engines": [
+        { "engine": "RDFox", "build": "revision 2067", "threads": 1, "reasoning_s": 31200 },
+        { "engine": "RDFox", "build": "revision 2067", "threads": 128, "reasoning_s": 697.9 },
+        { "engine": "RDFox", "build": "revision 2067", "threads": 1024, "reasoning_s": 358.8 } ] },
+
+    { "paper": "aij2019", "dataset": "Claros", "variant": "L", "program": "AIJ 2019 Claros L (1,310 rules)", "scenario": "claros-l", "before": "18.8 M", "after": "73.8 M", "engines": [] },
+    { "paper": "aij2019", "dataset": "Claros", "variant": "LE", "program": "AIJ 2019 Claros LE (1,337 rules)", "scenario": "claros-le", "before": "18.8 M", "after": "533.3 M", "engines": [] },
+    { "paper": "aij2019", "dataset": "UOBM-01K", "variant": "L", "program": "AIJ 2019 UOBM L (210 rules)", "scenario": "uobm-01k-l", "before": "254.8 M", "after": "426.2 M", "engines": [] },
+    { "paper": "aij2019", "dataset": "DBpedia (AIJ 2019 subset, 386.7 M)", "variant": "L", "program": "AIJ 2019 DBpedia L (5,936 rules)", "before": "386.7 M", "after": "643.8 M", "engines": [] },
+    { "paper": "aij2019", "dataset": "UniProt", "variant": "L", "program": "AIJ 2019 UniProt L (451 rules)", "before": "123.1 M", "after": "174.7 M", "engines": [] },
+    { "paper": "aij2019", "dataset": "ChEMBL", "variant": "L", "program": "AIJ 2019 ChEMBL L (259 rules)", "before": "289.2 M", "after": "323.4 M", "engines": [] },
+    { "paper": "aij2019", "dataset": "Reactome", "variant": "L", "program": "AIJ 2019 Reactome L (541 rules)", "before": "12.5 M", "after": "19.8 M", "engines": [] },
+
+    { "paper": "vlog2016", "dataset": "LUBM-01K", "variant": "L", "equality": false, "program": "Oxford AAAI 2014 LUBM_L (VLog's rewriting: 170 rules)", "scenario": "lubm-01k-l", "before": "133.6 M", "after": "182.4 M", "note": "VLog's IDB facts: 172 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "reasoning_s": 82, "memory": "11,884 MB" },
+        { "engine": "VLog", "build": "the paper's (version not stated)", "threads": 1, "reasoning_s": 38, "memory": "2,198 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "LUBM-01K", "variant": "U", "program": "Oxford AAAI 2014 LUBM_U (202 rules)", "scenario": "lubm-01k-u", "before": "133.6 M", "after": "219.0 M", "note": "VLog's IDB facts: 197 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "reasoning_s": 148, "memory": "14,593 MB" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 80, "memory": "2,418 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "LUBM-01K", "variant": "LE", "equality": false, "program": "Oxford AAAI 2014 LUBM_LE (182 rules)", "scenario": "lubm-01k-le", "before": "133.6 M", "after": "332.6 M", "note": "VLog's IDB facts: 322 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "outcome": "out of memory" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 2175, "memory": "9,818 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "LUBM-05K", "variant": "L", "equality": false, "program": "Oxford AAAI 2014 LUBM_L (170 rules)", "before": "691.1 M", "after": "911.2 M", "note": "VLog's IDB facts: 815 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "outcome": "out of memory" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 196, "memory": "8,280 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "LUBM-05K", "variant": "U", "program": "Oxford AAAI 2014 LUBM_U (202 rules)", "before": "691.1 M", "note": "VLog's IDB facts: 994 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "outcome": "out of memory" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 434, "memory": "7,997 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "LUBM-05K", "variant": "LE", "equality": false, "program": "Oxford AAAI 2014 LUBM_LE (182 rules)", "before": "691.1 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "outcome": "out of memory" },
+        { "engine": "VLog", "threads": 1, "outcome": "timeout (3 h)", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "DBpedia", "variant": "L", "program": "Oxford AAAI 2014 DBpedia_L (VLog's rewriting: 9,396 rules)", "scenario": "dbpedia-l", "before": "112.7 M", "after": "118.3 M", "note": "VLog's IDB facts: 33 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "reasoning_s": 177, "memory": "7,917 MB" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 91, "memory": "532 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "Claros", "variant": "L", "equality": true, "program": "Oxford AAAI 2014 Claros_L (VLog's rewriting: 2,689 rules)", "scenario": "claros-l", "before": "18.8 M", "after": "95.5 M", "note": "VLog's IDB facts: 89 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "reasoning_s": 2418, "memory": "5,696 MB" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 644, "memory": "2,406 MB", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "Claros", "variant": "LE", "equality": true, "program": "Oxford AAAI 2014 Claros_LE (VLog's rewriting: 2,749 rules)", "scenario": "claros-le", "before": "18.8 M", "after": "555.1 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "outcome": "out of memory" },
+        { "engine": "VLog", "threads": 1, "outcome": "timeout (3 h)", "runs_here_as": "vlog" } ] },
+    { "paper": "vlog2016", "dataset": "Claros-S (VLog's 500 K sample)", "variant": "LE", "equality": true, "program": "Oxford AAAI 2014 Claros_LE (2,749 rules)", "before": "500 K", "note": "VLog's IDB facts: 3.7 M",
+      "engines": [
+        { "engine": "RDFox", "build": "2014 sequential build, recompiled", "threads": 1, "reasoning_s": 8.5, "memory": "271 MB" },
+        { "engine": "VLog", "threads": 1, "reasoning_s": 2.5, "memory": "127 MB", "runs_here_as": "vlog" } ] },
+
+    { "paper": "cikm2019", "dataset": "LUBM-01K", "variant": "L", "equality": false, "program": "LUBM L (98 rules)", "scenario": "lubm-01k-l", "before": "133.6 M", "after": "182.4 M",
+      "engines": [
+        { "engine": "RDFox", "load_s": 355.0, "reasoning_s": 133.3 },
+        { "engine": "VLog (RDF)", "load_s": 1211.0, "reasoning_s": 22.7 },
+        { "engine": "VLog (CSV)", "load_s": 265.0, "reasoning_s": 35.1, "runs_here_as": "vlog" },
+        { "engine": "CompMat", "load_s": 198.0, "reasoning_s": 68.8 } ] },
+    { "paper": "cikm2019", "dataset": "Reactome", "variant": "L", "equality": false, "program": "Reactome L (541 rules)", "before": "12.5 M", "after": "19.8 M",
+      "engines": [
+        { "engine": "RDFox", "load_s": 33.5, "reasoning_s": 19.5 },
+        { "engine": "VLog (RDF)", "load_s": 39.2, "reasoning_s": 4.8 },
+        { "engine": "VLog (CSV)", "load_s": 21.0, "reasoning_s": 6.5, "runs_here_as": "vlog" },
+        { "engine": "CompMat", "load_s": 20.3, "reasoning_s": 27.0 } ] },
+    { "paper": "cikm2019", "dataset": "Claros", "variant": "L", "equality": false, "program": "Claros L (1,310 rules, as AIJ 2019)", "scenario": "claros-l", "before": "18.8 M", "after": "73.8 M",
+      "engines": [
+        { "engine": "RDFox", "load_s": 47.1, "reasoning_s": 88.8 },
+        { "engine": "VLog (RDF)", "load_s": 189.7, "reasoning_s": 8.7 },
+        { "engine": "VLog (CSV)", "load_s": 33.0, "reasoning_s": 14.0, "runs_here_as": "vlog" },
+        { "engine": "CompMat", "load_s": 26.8, "reasoning_s": 32.3 } ] },
+    { "paper": "cikm2019", "dataset": "Claros", "variant": "LE", "equality": false, "program": "Claros LE (1,337 rules, as AIJ 2019)", "scenario": "claros-le", "before": "18.8 M", "after": "533.3 M",
+      "engines": [
+        { "engine": "RDFox", "load_s": 47.1, "reasoning_s": 3445.0 },
+        { "engine": "VLog (RDF)", "load_s": 189.7, "reasoning_s": 2680.2 },
+        { "engine": "VLog (CSV)", "load_s": 34.0, "reasoning_s": 2650.0, "runs_here_as": "vlog" },
+        { "engine": "CompMat", "load_s": 26.8, "total_s": 10200 } ] },
+
+    { "paper": "glog2021", "dataset": "LUBM (size not stated)", "variant": "L", "program": "Oxford LUBM_L (VLog's rewriting: 170 rules)",
+      "engines": [
+        { "engine": "VLog", "threads": 1, "unstated_s": 1.5, "memory": "324 MB", "runs_here_as": "vlog" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 1, "unstated_s": 23, "memory": "2,301 MB" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 8, "unstated_s": 4.8 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 16, "unstated_s": 3.8 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 32, "unstated_s": 4.3 },
+        { "engine": "COM (a commercial chase engine)", "threads": 1, "unstated_s": 20.4, "memory": "4,479 MB" },
+        { "engine": "GLog (m+r)", "threads": 1, "unstated_s": 1.0, "memory": "264 MB" } ] },
+    { "paper": "glog2021", "dataset": "LUBM (size not stated)", "variant": "LE", "program": "Oxford LUBM_LE (182 rules)",
+      "engines": [
+        { "engine": "VLog", "threads": 1, "unstated_s": 170.5, "memory": "2,725 MB", "runs_here_as": "vlog" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 1, "unstated_s": 116.6, "memory": "3,140 MB" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 8, "unstated_s": 20.9 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 16, "unstated_s": 16.2 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 32, "unstated_s": 17.2 },
+        { "engine": "COM (a commercial chase engine)", "threads": 1, "unstated_s": 115.9, "memory": "3,610 MB" },
+        { "engine": "GLog (m+r)", "threads": 1, "unstated_s": 16.1, "memory": "1,338 MB" } ] },
+    { "paper": "glog2021", "dataset": "UOBM (GLog's, 2.1 M EDB facts)", "variant": "L", "program": "UOBM L (561 rules)", "before": "2.1 M",
+      "engines": [
+        { "engine": "VLog", "threads": 1, "unstated_s": 7.3, "memory": "1,021 MB", "runs_here_as": "vlog" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 1, "unstated_s": 10, "memory": "784 MB" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 8, "unstated_s": 2 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 16, "unstated_s": 1.6 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 32, "unstated_s": 2.4 },
+        { "engine": "COM (a commercial chase engine)", "threads": 1, "unstated_s": 10, "memory": "4,215 MB" },
+        { "engine": "GLog (m+r)", "threads": 1, "unstated_s": 2.6, "memory": "342 MB" } ] },
+    { "paper": "glog2021", "dataset": "DBpedia (GLog's, 29 M EDB facts)", "variant": "L", "program": "DBpedia L (VLog's rewriting: 9,396 rules)", "before": "29 M",
+      "engines": [
+        { "engine": "VLog", "threads": 1, "unstated_s": 41.6, "memory": "827 MB", "runs_here_as": "vlog" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 1, "unstated_s": 64.4, "memory": "3,290 MB" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 8, "unstated_s": 29 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 16, "unstated_s": 23.9 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 32, "unstated_s": 34 },
+        { "engine": "COM (a commercial chase engine)", "threads": 1, "unstated_s": 198.4, "memory": "3,878 MB" },
+        { "engine": "GLog (m+r)", "threads": 1, "unstated_s": 19, "memory": "1,339 MB" } ] },
+    { "paper": "glog2021", "dataset": "Claros (GLog's, 13.8 M EDB facts)", "variant": "L", "program": "Claros L (VLog's rewriting: 2,689 rules)", "scenario": "claros-l", "before": "13.8 M",
+      "engines": [
+        { "engine": "VLog", "threads": 1, "unstated_s": 431, "memory": "3,170 MB", "runs_here_as": "vlog" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 1, "unstated_s": 2512, "memory": "5,491 MB" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 8, "unstated_s": 296 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 16, "unstated_s": 171.1 },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 32, "unstated_s": 244.9 },
+        { "engine": "COM (a commercial chase engine)", "threads": 1, "unstated_s": 2373.0, "memory": "6,453 MB" },
+        { "engine": "GLog (m+r)", "threads": 1, "unstated_s": 119, "memory": "6,078 MB" } ] },
+    { "paper": "glog2021", "dataset": "Claros (GLog's, 13.8 M EDB facts)", "variant": "LE", "program": "Claros LE (2,749 rules)", "scenario": "claros-le", "before": "13.8 M",
+      "engines": [
+        { "engine": "VLog", "threads": 1, "unstated_s": 2771.8, "memory": "11,895 MB", "runs_here_as": "vlog" },
+        { "engine": "RDFox", "build": "ChaseBench's", "threads": 1, "outcome": "runtime exception or timeout (1 h)" },
+        { "engine": "COM (a commercial chase engine)", "threads": 1, "outcome": "timeout (1 h)" },
+        { "engine": "GLog (m+r)", "threads": 1, "unstated_s": 1053.9, "memory": "48,455 MB" } ] },
+
+    { "paper": "inferray2016", "dataset": "LUBM, 1 M triples", "variant": "RDFS-Plus", "before": "1 M",
+      "engines": [ { "engine": "RDFox", "unstated_s": 0.069 }, { "engine": "Inferray", "unstated_s": 0.019 }, { "engine": "OWLIM-SE", "unstated_s": 1.324 } ] },
+    { "paper": "inferray2016", "dataset": "LUBM, 10 M triples", "variant": "RDFS-Plus", "before": "10 M",
+      "engines": [ { "engine": "RDFox", "unstated_s": 0.855 }, { "engine": "Inferray", "unstated_s": 0.540 }, { "engine": "OWLIM-SE", "unstated_s": 6.175 } ] },
+    { "paper": "inferray2016", "dataset": "LUBM, 50 M triples", "variant": "RDFS-Plus", "before": "50 M",
+      "engines": [ { "engine": "RDFox", "unstated_s": 4.077 }, { "engine": "Inferray", "unstated_s": 1.984 }, { "engine": "OWLIM-SE", "unstated_s": 31.187 } ] },
+    { "paper": "inferray2016", "dataset": "LUBM, 100 M triples", "variant": "RDFS-Plus", "before": "100 M",
+      "engines": [ { "engine": "RDFox", "unstated_s": 10.613 }, { "engine": "Inferray", "unstated_s": 2.514 }, { "engine": "OWLIM-SE", "unstated_s": 72.098 } ] },
+
+    { "paper": "vflog2025", "dataset": "ChaseBench LUBM-010", "variant": "ChaseBench",
+      "engines": [
+        { "engine": "RDFox", "build": "7.1a", "threads": 64, "unstated_s": 0.44 },
+        { "engine": "Nemo", "build": "0.5.1", "runs_here_as": "nemo", "unstated_s": 0.65 },
+        { "engine": "VLog", "build": "through Rulewerk", "runs_here_as": "vlog", "unstated_s": 1.46 },
+        { "engine": "VFLog (CPU)", "unstated_s": 0.15 } ] },
+    { "paper": "vflog2025", "dataset": "ChaseBench LUBM-100", "variant": "ChaseBench",
+      "engines": [
+        { "engine": "RDFox", "build": "7.1a", "threads": 64, "unstated_s": 4.98 },
+        { "engine": "Nemo", "build": "0.5.1", "runs_here_as": "nemo", "unstated_s": 6.34 },
+        { "engine": "VLog", "build": "through Rulewerk", "runs_here_as": "vlog", "unstated_s": 5.02 },
+        { "engine": "VFLog (CPU)", "unstated_s": 0.71 } ] },
+    { "paper": "vflog2025", "dataset": "ChaseBench LUBM-01K", "variant": "ChaseBench",
+      "engines": [
+        { "engine": "RDFox", "build": "7.1a", "threads": 64, "unstated_s": 56.8 },
+        { "engine": "Nemo", "build": "0.5.1", "runs_here_as": "nemo", "unstated_s": 62.32 },
+        { "engine": "VLog", "build": "through Rulewerk", "runs_here_as": "vlog", "unstated_s": 165.8 },
+        { "engine": "VFLog (CPU)", "unstated_s": 6.47 } ] },
+
+    { "paper": "ijcai2023", "dataset": "LUBM-500", "variant": "L", "equality": false, "program": "LUBM L", "scenario": "lubm-uba-500-l", "before": "66,751,196", "after": "91,128,727", "memory": "7.2 GB",
+      "engines": [ { "engine": "RDFox codebase prototype (standard semi-naive)", "reasoning_s": 95.73 } ] }
+  ]
+}

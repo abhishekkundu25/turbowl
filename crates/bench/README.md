@@ -8,7 +8,9 @@ closure must equal this reasoner's. Every speed claim, and every step of the imp
 (`docs/specs/experiments.md`), is judged by these numbers. Its scenarios
 include the public datasets the RDFox papers measured
 ([Public datasets](#public-datasets)), and no run passes the memory cap
-(16 GB by default; ADR 0006).
+(16 GB by default; ADR 0006). `--scoreboard` reads results files and
+prints each engine's value and the leader per scenario and axis, and the
+estimates RDFox's published results allow ([The scoreboard](#the-scoreboard)).
 
 | Engine | Version | What runs | How | Threads here |
 |---|---|---|---|---|
@@ -50,6 +52,8 @@ cargo run --release -p turbowl-bench -- --list   # the scenarios, the papers' co
 cargo run --release -p turbowl-bench -- --json results.json
 cargo run --release -p turbowl-bench -- --only lubm-1,lubm-10 --engines nemo --runs 3
 cargo run --release -p turbowl-bench -- --compare old.json new.json
+cargo run --release -p turbowl-bench -- --only lubm-uba-10-l --switch equality=off --json off.json
+cargo run --release -p turbowl-bench -- --scoreboard default.json complete.json off.json
 ```
 
 | Option | Meaning |
@@ -57,7 +61,8 @@ cargo run --release -p turbowl-bench -- --compare old.json new.json
 | `--list` | Print the scenarios and the engines, and stop. |
 | `--only A,B` | Run only these scenarios. The opt-in ones (`sameas-clique` and every public dataset) run only this way. |
 | `--engines A,B` | Run only these engines: `turbowl`, `nemo`, `souffle`, `vlog`. |
-| `--complete` | Run the complete configuration (every switch on: the complete W3C rule set) instead of the default switches, in every engine. |
+| `--complete` | Start from the complete configuration (every switch on: the complete W3C rule set) instead of the default switches, in every engine. |
+| `--switch NAME=on\|off` | Turn one switch on or off, in every engine, after `--complete` wherever it comes; repeatable, and a later one for the same name wins (as the CLI's). A paper's program without `owl:sameAs` rules (Oxford's LUBM ones) is matched with `--switch equality=off` ([Published results](#published-results-and-estimates)). |
 | `--runs N` | Runs per scenario and engine (default 5; the improvement loop needs 5 or more). |
 | `--changes N` | Changes in the incremental scenarios (default 100). |
 | `--timeout SECS` | Stop a run after this long and record `timeout` (default 600). A competitor is stopped by the child at this time; the child itself gets 30 s more. |
@@ -65,6 +70,7 @@ cargo run --release -p turbowl-bench -- --compare old.json new.json
 | `--data-dir DIR` | Where the fetched models are (default `data/` at the repository root). |
 | `--json FILE` | Also write the results file described below. |
 | `--compare OLD NEW` | Print per-scenario deltas between two results files. |
+| `--scoreboard FILE...` | Print the scoreboard of these results files ([The scoreboard](#the-scoreboard)). |
 
 Build in release mode: a debug build prints a warning, and its numbers mean
 nothing.
@@ -353,11 +359,119 @@ sizes are listed with their status.
   at most 1.2 for this reasoner over LUBM 1, 10 and 50, recorded beside the
   competitors' exponents.
 
+## The scoreboard
+
+`--scoreboard FILE...` reads results files (schemas 1 to 7) and prints, in
+Markdown, one section per configuration and thread mode: `default` and
+`complete`, each with one thread and with all cores, then any other
+configuration a file ran (`default, equality off`). A mode no file ran says
+so; the all-cores sections say that no engine here runs on more than one
+core yet. When two files hold the same scenario and engine in the same
+section, the later file's row is used.
+
+Each section has a row per scenario and axis (reasoning, total, and peak
+memory for a full run; the time per change and peak memory for an
+incremental one) with every engine's median over its runs (min..max), and
+the leader:
+
+- The leader has the lowest median, and leads only when its range lies
+  below every other engine's. Engines whose ranges overlap the lowest one's
+  tie with it, as `--compare` flags a change only when ranges do not
+  overlap. With one run, only equal values tie.
+- An engine with no value cannot lead: `n/a (not split)` (Soufflé and VLog
+  report load and reasoning as one time), its status (`timeout`,
+  `over-memory`, `unsupported`, `skipped`, `error`), or `not run`.
+- Under the table: how many rows turbowl leads or ties, and every row it
+  does not lead, with the leader.
+
+The last section is the estimates from published results, below.
+
+## Published results and estimates
+
+`published.json` records RDFox's published results and the numbers of every
+engine that ran next to it in the same table (`docs/research/competitors-2026-11.md`
+§1.2, with VLog 2016's, CIKM 2019's and GLog 2021's tables read again from
+the papers): per row the paper, the dataset, the program and its variant,
+whether the program axiomatises `owl:sameAs`, the fact counts before and
+after as printed, and per engine its build, threads, seconds (load,
+reasoning, or their sum, or a time the paper does not split), memory, and
+the bench engine it is when it runs here (the bridge). `src/published.rs`
+describes the format. `--list` still prints the counts from `src/datasets.rs`.
+
+**The same job.** A paper counts the facts its Datalog program derives over
+the data; the ontology is compiled into rules, not loaded. TurbOWL loads the
+ontology as triples, so a run on a scenario some paper published records
+its comparable counts (`published_counts`, not timed): before, the data's
+distinct triples (the program file left out); after, the closure less the
+triples of the ontology's own closure (the program file alone, in the same
+configuration) that are not data. The configuration must match the
+program: one that axiomatises `owl:sameAs` needs `equality` on, one without
+`owl:sameAs` rules needs it off. That is the program's property, not its
+variant's name: Oxford's Claros and UOBM programs, L included, axiomatise
+equality (symmetry, transitivity and a replacement rule per predicate, no
+reflexivity: `data/oxford/*/*.dlog`), its LUBM programs have no
+`owl:sameAs` rule, and CIKM 2019 states its L programs leave it out. U and
+REW are never the same job.
+
+**An estimate** is RDFox's time in the paper x the bridge's time here / the
+bridge's time in the paper, and is made only when every condition holds:
+
+1. RDFox and the bridge both ran one thread in the paper (the bridge runs
+   one here), and neither failed there;
+2. the variant is L, LE or an AX program, and the program's equality
+   matches the configuration's `equality` switch;
+3. TurbOWL's comparable counts print as the paper's (to the precision
+   printed), after a difference the data file explains (`explained`);
+4. the bridge ran here on the same scenario, finished, and its closure
+   equals TurbOWL's;
+5. the paper's times and the bridge's time here measure the same work:
+   reasoning, else load plus reasoning.
+
+Otherwise the scoreboard lists it as refused, with the reason. An estimate
+row gives the source, the bridge, both paper times, the bridge's time here,
+the estimate, TurbOWL's time here, and RDFox's memory as published (not
+scaled). A published RDFox number is a floor (ADR 0006).
+
+**Claros L, smoke runs** (2026-11-06, one run each, `--memory-cap 16`,
+1-minute load average 8 to 57: not measurements):
+
+| Run | Closure | Ontology alone, not data | Comparable after | Papers |
+|---|---|---|---|---|
+| `claros-l`, `--switch equality=off` | 92,101,059 | 3,853 | 92,097,206 | 95.5 M (AAAI 2014, VLog 2016): -3.6%; 73.8 M (CIKM 2019, AIJ 2019): +24.8% |
+| `claros-l`, default (equality on) | 114,396,494 | 3,853 | 114,392,641 | 95.5 M: +19.8%; 102 M AX (AAAI 2015): +12.1% |
+
+The data's distinct triples are 18,793,277 in both: the papers' 18.8 M.
+Neither "after" matches, and none can: `Claros_L.dlog` replaces equals only
+in the predicates its ontology names, while 5.8 M data triples use
+predicates it never names (`rdfs:label` 2.1 M, `rdf:value` 1.3 M, Claros'
+`period_begin` and `period_end` 0.7 M, ...), which the W3C rules eq-rep-s
+and eq-rep-o replace. With equality off TurbOWL replaces nothing (fewer
+triples); with it on, it replaces everywhere (more). CIKM 2019's and AIJ
+2019's Claros L is another program (1,310 rules, not 2,174). So no Claros L
+estimate is made today, and three more conditions fail besides the counts:
+
+- The bridge does not run here: VLog passed the 16 GB cap on `claros-l` in
+  both configurations (16,393 MB with equality on, 16,467 MB off), where the
+  paper's VLog held 2,406 MB. Here VLog runs the W3C rules, which match
+  every triple's predicate as a variable, inside Rulewerk's JVM with the
+  encoded input in memory; the paper's ran Oxford's compiled program over
+  an on-disk store.
+- The time: VLog 2016 times VLog's materialisation over a store built
+  beforehand, and VLog here reports loading and reasoning as one number.
+- CIKM 2019 states no threads; GLog 2021's Claros has 13.8 M facts, not
+  18.8 M.
+
 ## The results file (`--json`)
 
-Schema version 6. Times are in milliseconds, memory in bytes.
+Schema version 7. Times are in milliseconds, memory in bytes.
 
-Version 6 adds the engines `souffle` and `vlog` (and their entries in
+Version 7 adds `meta.switches` (the names of the switches that were on),
+`meta.threads` (the threads each engine ran on: 1, as every file before
+it) and the top-level `published_counts` (this reasoner's counts on the
+scenarios a paper published, for the estimates: [Published
+results](#published-results-and-estimates)). `meta.configuration` can now
+also be `default` followed by the switches `--switch` turned from it
+(`default, equality off`). Nothing else changes. Version 6 adds the engines `souffle` and `vlog` (and their entries in
 `meta.versions`), `meta.configuration` (`default` or `complete`) and
 `meta.peak_memory` (what the peak memory fields measure), and a run's
 `total_ms`, for an engine that reports loading and reasoning as one number
@@ -375,7 +489,7 @@ file's `turtle-reasoner` engine as `turbowl`. Version 3 adds the top-level
 Version 2 changed from 1: the engines were renamed; a result's `status` can
 be `unsupported`; each result has `x_turtle_reasoner`; the summary has
 `export_median_ms` and `wall_median_ms`; Nemo's runs have `export_ms` and
-`wall_ms`; and `meta.versions` has `nemo`. `--compare` reads versions 1 to 5.
+`wall_ms`; and `meta.versions` has `nemo`. `--compare` and `--scoreboard` read versions 1 to 7.
 
 Files written before version 2 of this project also hold the rows and the
 `meta.versions` entry of an engine the bench no longer runs (ADR 0006).
@@ -384,7 +498,7 @@ skipped from which file, and compares the rest.
 
 ```jsonc
 {
-  "schema": 5,
+  "schema": 7,
   "meta": {
     "date": "2026-11-05T10:00:00Z",          // UTC, when the file was written
     "commit": "fcca1da…", "dirty": false,     // the repository's HEAD; tracked files changed?
@@ -395,7 +509,9 @@ skipped from which file, and compares the rest.
     "load_after": [0.95, 0.70, 0.72],
     "runs": 5, "changes": 100, "timeout_s": 600,
     "memory_cap_bytes": 17179869184,          // --memory-cap
-    "configuration": "default",               // or "complete" (--complete)
+    "configuration": "default",               // or "complete" (--complete), or "default, equality off" (--switch)
+    "switches": ["equality", "property-chains", "checks", "identity", "schema"], // the switches on
+    "threads": 1,                             // the threads each engine ran on
     "peak_memory": "lifetime peak physical footprint", // on Linux: "peak resident size"
     "data_dir": "/…/data",
     "versions": { "bench": "0.1.0", "turbowl": "0.1.0",
@@ -455,6 +571,15 @@ skipped from which file, and compares the rest.
       ]
     }
   ],
+  "published_counts": [                       // the scenarios a paper published (published.json) that turbowl finished
+    {
+      "scenario": "claros-l",
+      "before": 18793277,                     // the data's distinct triples (the program file left out)
+      "closure": 114396494,                   // turbowl's closure over the program and the data
+      "ontology_only": 3853,                  // triples of the program's own closure that are not data
+      "after": 114392641                      // closure - ontology_only: comparable with a paper's "after"
+    }
+  ],
   "problems": []                              // strings; non-empty means exit 1
 }
 ```
@@ -469,7 +594,8 @@ old and new medians, the change in percent, both ranges (min to max), and
 the peak memory. It flags a change only when the two ranges do not overlap
 (`SLOWER` or `faster`, `MORE` or `less` memory): a median that moved inside
 the spread is noise until more runs say otherwise. It warns when the CPU,
-the OS, the build or the change count differ, or when either run started
+the OS, the build, the change count, the configuration, what the peak
+memory measures or the threads differ, or when either run started
 with a load average over 1, and prints a changed closure size. It skips the
 rows of an engine the bench no longer runs and says how many it skipped. It
 reports only and exits 0.
