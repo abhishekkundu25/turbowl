@@ -41,13 +41,11 @@
 //! | `identity` | on | Until the close-out of phase 1 (ticket 15) measures it against the rule above. |
 //! | `schema` | on | Until the close-out of phase 1 (ticket 15) measures it against the rule above. |
 //! | `trivial` | off | Rarely implemented elsewhere, and filler: `x owl:sameAs x` for every term, four triples for every class, a type for every literal. |
-//! | `literal-values` | off | Rarely implemented elsewhere, and costly: dt-diff grows with the square of the literals. |
+//! | `literal-values` | off | Rarely implemented elsewhere, and it reads every literal's value; dt-diff only checks, and lists no `owl:differentFrom` triples. |
 //!
-//! The rules of each switch are listed on its [`Switch`] variant. Until
-//! the rule tickets of version 2 land, the `identity`, `schema`, `trivial`
-//! and `literal-values` switches and cls-oo derive nothing, and `checks`
-//! holds version 1's checks (cax-dw, cls-com, cls-nothing2, prp-pdw,
-//! prp-asyp, prp-irp, and dt-not-type for five datatypes).
+//! The rules of each switch are listed on its [`Switch`] variant. While
+//! version 2 is built, a group whose rule ticket has not landed derives
+//! nothing (`docs/tickets/v2/README.md` says which have).
 //!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.

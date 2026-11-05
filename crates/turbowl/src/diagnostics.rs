@@ -36,9 +36,9 @@ pub enum Severity {
 /// | `prp-npa1`, `prp-npa2` | source individual, property, target individual (prp-npa1) or value (prp-npa2): the triple a negative property assertion denies |
 /// | `cls-maxc1`, `cls-maxqc1`, `cls-maxqc2` | restriction (of cardinality `"0"^^xsd:nonNegativeInteger`), individual, value |
 ///
-/// dt-not-type checks `xsd:string`, `xsd:integer`, `xsd:int`,
-/// `rdf:langString` and `rdf:XMLLiteral`; a literal of another datatype is
-/// never reported.
+/// dt-not-type checks every datatype of the OWL 2 RL datatype map (OWL 2
+/// Profiles §4.2) and `rdf:langString`; a literal of a datatype outside it
+/// is never reported.
 ///
 /// The rules run over generalized triples, so a term may be a literal
 /// where RDF allows only an IRI or a blank node (an individual that a

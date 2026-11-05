@@ -10,7 +10,7 @@
 //! term made equal to a rule constant such as `rdf:type`, two rule
 //! constants made equal, a list cell made equal to `rdf:nil` or to another
 //! cell), disjointness and complements, container membership triples (which no
-//! rule of the set reads), and literals of checked and unchecked datatypes,
+//! rule of the set reads), and literals of the OWL 2 RL datatypes and of others,
 //! well-formed or not. Some individuals, every list
 //! cell and every restriction are blank nodes.
 //!

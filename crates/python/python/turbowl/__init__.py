@@ -195,9 +195,11 @@ class Diagnostic:
     """A finding about the data: an inconsistency, or an ill-typed literal.
 
     Attributes:
-        code: The W3C rule that found it: ``cax-dw``, ``prp-pdw``,
-            ``cls-nothing2``, ``prp-asyp``, ``prp-irp``, ``cls-com`` or
-            ``dt-not-type``.
+        code: The W3C rule that found it: ``cax-dw``, ``cax-adc``,
+            ``prp-pdw``, ``prp-adp``, ``cls-nothing2``, ``prp-asyp``,
+            ``prp-irp``, ``prp-npa1``, ``prp-npa2``, ``cls-com``,
+            ``cls-maxc1``, ``cls-maxqc1``, ``cls-maxqc2``, ``eq-diff1``,
+            ``eq-diff2``, ``eq-diff3`` or ``dt-not-type``.
         severity: How serious it is.
         message: One sentence naming the terms. The wording may change; read
             ``code`` and ``terms``.
@@ -215,6 +217,18 @@ class Diagnostic:
             - ``dt-not-type``: literal, datatype (the literal's own when it
               is ill-typed, or a checked datatype the closure types it with,
               as by ``rdfs:range``).
+            - ``eq-diff1``: x, y (as in ``x owl:differentFrom y``, where
+              ``x owl:sameAs y`` holds).
+            - ``eq-diff2``, ``eq-diff3``: the ``owl:AllDifferent`` node, then
+              two members made ``owl:sameAs``, the earlier first.
+            - ``cax-adc``: individual, then two classes of an
+              ``owl:AllDisjointClasses`` list, the earlier first.
+            - ``prp-adp``: two properties of an ``owl:AllDisjointProperties``
+              list, the earlier first, then subject, object.
+            - ``prp-npa1``, ``prp-npa2``: source individual, property,
+              target (the triple a negative property assertion denies).
+            - ``cls-maxc1``, ``cls-maxqc1``, ``cls-maxqc2``: restriction,
+              individual, value.
 
             The rules run over generalized triples, so a term may be a
             literal where RDF allows only an IRI or a blank node.
