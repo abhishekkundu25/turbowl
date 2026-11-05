@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.9.4,<2"]
+build-backend = "maturin"
+
+[project]
+name = "turbowl"
+description = "A fast OWL 2 RL reasoner, with rdflib graphs and terms in and out"
+requires-python = ">=3.10"
+license = "MIT OR Apache-2.0"
+dynamic = ["version"]
+dependencies = ["rdflib>=7.6,<8"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "turbowl._native"
+profile = "release"
+locked = true
+
+[tool.uv]
+# `uv sync` and `uv run` build the native module with maturin (above), as an
+# editable install that puts it in python/turbowl/, and build it again when
+# one of these changes. After deleting the built module by hand (a clean of
+# ignored files), `uv sync --reinstall-package turbowl` builds it again.
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "src/**/*.rs" },
+    { file = "../turbowl/Cargo.toml" },
+    { file = "../turbowl/src/**/*.rs" },
+    { file = "../../Cargo.lock" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# rdflib's own N3 parser warns about rdflib (reading back our N3 output).
+filterwarnings = ["ignore:Dataset.default_context is deprecated:DeprecationWarning"]

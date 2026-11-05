@@ -1,0 +1,4 @@
+# The native module maturin builds into the source tree.
+*.so
+*.pyd
+.pytest_cache/
