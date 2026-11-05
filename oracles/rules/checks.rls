@@ -46,15 +46,17 @@ prpNpa2(?i, ?p, ?lt) :- T(?x, owl:sourceIndividual, ?i), T(?x, owl:assertionProp
     T(?x, owl:targetValue, ?lt), Tp(?p, ?i, ?lt) .                                 % prp-npa2
 
 % The cardinality "0"^^xsd:nonNegativeInteger, as crates/oracle names it
-% (turbowl_oracle::NAMED_LITERALS).
-clsMaxc1(?x, ?u, ?y) :- T(?x, owl:maxCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>),
-    T(?x, owl:onProperty, ?p), T(?u, rdf:type, ?x), Tp(?p, ?u, ?y) .              % cls-maxc1
-clsMaxqc1(?x, ?u, ?y) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>),
-    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, ?c), T(?u, rdf:type, ?x),
-    Tp(?p, ?u, ?y), T(?y, rdf:type, ?c) .                                          % cls-maxqc1
-clsMaxqc2(?x, ?u, ?y) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>),
-    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, owl:Thing), T(?u, rdf:type, ?x),
-    Tp(?p, ?u, ?y) .                                                               % cls-maxqc2
+% (turbowl_oracle::NAMED_LITERALS). Each rule reads its restriction's
+% instances through a helper relation, as identity.rls does:
+% maxZeroOf(?x, ?u, ?p) and maxQZeroOf(?x, ?u, ?p, ?c) for `?u rdf:type ?x`.
+maxZeroOf(?x, ?u, ?p) :- T(?x, owl:maxCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>),
+    T(?x, owl:onProperty, ?p), T(?u, rdf:type, ?x) .
+clsMaxc1(?x, ?u, ?y) :- maxZeroOf(?x, ?u, ?p), Tp(?p, ?u, ?y) .                   % cls-maxc1
+maxQZero(?x, ?p, ?c) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>),
+    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, ?c) .
+maxQZeroOf(?x, ?u, ?p, ?c) :- maxQZero(?x, ?p, ?c), T(?u, rdf:type, ?x) .
+clsMaxqc1(?x, ?u, ?y) :- maxQZeroOf(?x, ?u, ?p, ?c), Tp(?p, ?u, ?y), T(?y, rdf:type, ?c) .  % cls-maxqc1
+clsMaxqc2(?x, ?u, ?y) :- maxQZeroOf(?x, ?u, ?p, owl:Thing), Tp(?p, ?u, ?y) .       % cls-maxqc2
 
 % The engines have no datatype checks: literals reach them as opaque IRIs.
 % dt-not-type is judged by OWL-RL, the W3C tests and the reference evaluator.

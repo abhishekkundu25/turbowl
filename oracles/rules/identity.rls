@@ -19,15 +19,21 @@ sameKeyFrom(?c, ?l, ?x, ?y) :- keyCell(?c, ?l), T(?l, rdf:first, ?p), T(?l, rdf:
     sameKeyFrom(?c, ?r, ?x, ?y), Tp(?p, ?x, ?z), Tp(?p, ?y, ?z) .
 T(?x, owl:sameAs, ?y) :- T(?c, owl:hasKey, ?h), sameKeyFrom(?c, ?h, ?x, ?y) .   % prp-key
 
-% Table 6: classes
-T(?y1, owl:sameAs, ?y2) :- T(?x, owl:maxCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
-    T(?x, owl:onProperty, ?p), T(?u, rdf:type, ?x), Tp(?p, ?u, ?y1), Tp(?p, ?u, ?y2) .  % cls-maxc2
-T(?y1, owl:sameAs, ?y2) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
-    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, ?c), T(?u, rdf:type, ?x),
-    Tp(?p, ?u, ?y1), T(?y1, rdf:type, ?c), Tp(?p, ?u, ?y2), T(?y2, rdf:type, ?c) .  % cls-maxqc3
-T(?y1, owl:sameAs, ?y2) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
-    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, owl:Thing), T(?u, rdf:type, ?x),
-    Tp(?p, ?u, ?y1), Tp(?p, ?u, ?y2) .                                                % cls-maxqc4
+% Table 6: classes. Each rule reads its restriction's instances through
+% helper relations: maxOneOf(?u, ?p) for `?u rdf:type ?x` where ?x is a
+% restriction to at most one value of ?p, maxQOneOf(?u, ?p, ?c) for one value
+% of ?p in ?c. Written as the W3C's five to eight atoms of T, Nemo took 67
+% seconds on a 48-statement input in the complete configuration.
+maxOne(?x, ?p) :- T(?x, owl:maxCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
+    T(?x, owl:onProperty, ?p) .
+maxOneOf(?u, ?p) :- maxOne(?x, ?p), T(?u, rdf:type, ?x) .
+T(?y1, owl:sameAs, ?y2) :- maxOneOf(?u, ?p), Tp(?p, ?u, ?y1), Tp(?p, ?u, ?y2) .  % cls-maxc2
+maxQOne(?x, ?p, ?c) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-1>),
+    T(?x, owl:onProperty, ?p), T(?x, owl:onClass, ?c) .
+maxQOneOf(?u, ?p, ?c) :- maxQOne(?x, ?p, ?c), T(?u, rdf:type, ?x) .
+maxQValue(?u, ?p, ?c, ?y) :- maxQOneOf(?u, ?p, ?c), Tp(?p, ?u, ?y), T(?y, rdf:type, ?c) .
+T(?y1, owl:sameAs, ?y2) :- maxQValue(?u, ?p, ?c, ?y1), maxQValue(?u, ?p, ?c, ?y2) .  % cls-maxqc3
+T(?y1, owl:sameAs, ?y2) :- maxQOneOf(?u, ?p, owl:Thing), Tp(?p, ?u, ?y1), Tp(?p, ?u, ?y2) .  % cls-maxqc4
 
 % sameKeyFrom reads Tp: the properties of a key are used properties (the
 % cardinality rules' properties are, by owl:onProperty, in core.rls).
