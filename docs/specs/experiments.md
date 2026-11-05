@@ -16,7 +16,7 @@ rating and for changing, so that nobody grades their own work.
   reviewer    reviewer    implementer   verification    orchestrator   table row,
   scores the  proposes    applies one   suite + bench   keeps or       next round
   current     ranked      proposal in   on the change   reverts        starts from
-  version     changes     a worktree    vs. baseline    against rules  the kept
+  version     changes     a worktree    vs. Baseline    against rules  the kept
                                                                        version
 ```
 
@@ -32,12 +32,12 @@ rating and for changing, so that nobody grades their own work.
 3. **Change.** An implementer agent, in its own worktree, makes only that
    change, with tests. It does not tune the benchmark or the oracles.
 4. **Evaluate.** The orchestrator runs the full verification (every oracle,
-   chaos, incremental, W3C) and the benchmark against the kept baseline, on
-   a quiet machine, and writes a verification record
-   (`docs/verification/<date>-e<NN>.md`).
+   chaos, incremental, W3C) and the scoreboard's benchmark on the change and
+   on the Baseline (the kept version), on a quiet machine, and writes a
+   verification record (`docs/verification/<date>-e<NN>.md`).
 5. **Decide.** Keep the change only if every correctness check passes, no
-   budget in the v1 spec regresses, and the rubric score improves on the
-   dimension the hypothesis named without a drop of more than 1 point
+   budget in the current specs regresses, and the rubric score improves on
+   the dimension the hypothesis named without a drop of more than 1 point
    elsewhere. Otherwise revert it. A partial win can be kept only if the
    reviewer of the next round agrees.
 6. **Record.** Add the row to the table below (also for reverted
@@ -46,13 +46,17 @@ rating and for changing, so that nobody grades their own work.
 
 ## Rubric (each 0 to 10, scored by the reviewer)
 
+Speed and memory are measured on the scoreboard (`CONTEXT.md`): this
+reasoner against the competitors on the same scenarios, single-threaded and
+on all cores.
+
 | Dimension | 10 means | Evidence the reviewer must cite |
 |---|---|---|
 | Correctness | every oracle agrees, all W3C cases for implemented rules pass, no open documented difference without an oracle-backed test | the last verification record |
 | Coverage | all of OWL 2 RL implemented (rules and diagnostics) | the rule table, the W3C pass list |
-| Speed (full run) | faster than every open reasoner on every benchmark scenario | the benchmark record, with ratios |
-| Speed (incremental) | a one-triple change costs about what the change implies, for additions and removals | the incremental scenarios |
-| Memory | lowest peak per closure triple of the compared reasoners | the benchmark record |
+| Speed (full run) | first on the scoreboard: lower reasoning time and total time than every competitor on every scenario | the scoreboard record, with ratios |
+| Speed (incremental) | first on the scoreboard's time per change, and a one-triple change costs about what the change implies, for additions and removals | the scoreboard's incremental scenarios |
+| Memory | first on the scoreboard: lower peak memory per closure triple than every competitor | the scoreboard record |
 | Architecture | one deep module, small interface, no shallow layers, every seam has two adapters or a test reason | a walk of the crate with the deletion test |
 | Embeddability | builds for wasm32, no global state, `Send`, small dependency set, Python bindings current | build logs, `cargo tree` |
 | Operability | clear errors, diagnostics with structured fields, CLI behaviour, docs current | CLI tests, README |
@@ -66,9 +70,9 @@ sentence on the weakest dimension, and that guides the next find step.
   iterations.
 - Correctness never trades for speed: a failing oracle is an automatic
   revert.
-- Numbers come from the benchmark with nothing else running, 5 runs or more,
-  median and spread, with what bounds the number named
-  (`explain-the-number`).
+- Numbers come from the scoreboard's benchmark (`crates/bench`) with nothing
+  else running, 5 runs or more, median and spread, with what bounds the
+  number named (`explain-the-number`).
 - A reverted experiment stays in the table with what was learned.
 - A change to an oracle, a filter or a budget is its own iteration, with the
   reason, and the reviewer of the next round checks it.
@@ -79,7 +83,7 @@ sentence on the weakest dimension, and that guides the next find step.
 
 | # | Date | Weakest dimension (from rating) | Change | Hypothesis | Result (numbers) | Rubric before → after | Decision |
 |---|---|---|---|---|---|---|---|
-| 0 | | | version 1 (baseline) | | | – → | baseline |
+| 0 | | | version 1 (the first Baseline) | | | – → | Baseline |
 
 ## For the next agent
 

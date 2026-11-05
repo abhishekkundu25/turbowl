@@ -1,6 +1,6 @@
 [package]
 name = "turbowl-bench"
-description = "Benchmarks against reasonable and other reasoners"
+description = "Benchmarks against other reasoners"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -12,9 +12,6 @@ turbowl.workspace = true
 oxrdf.workspace = true
 # Reads the change streams of the incremental scenarios from the input files.
 oxttl.workspace = true
-# The reasoner every scenario is compared with, run in process. Pinned exactly:
-# the numbers are only comparable against the same release.
-reasonable = "=0.5.0-a1"
 # The results file and the one-run protocol between the bench and its children.
 serde_json = "1"
 # getrusage (peak memory) and getloadavg: no safe std equivalent.

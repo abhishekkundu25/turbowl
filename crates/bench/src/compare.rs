@@ -40,7 +40,8 @@ fn pct(old: f64, new: f64) -> String {
 }
 
 pub(crate) fn run(old_path: &Path, new_path: &Path) -> ExitCode {
-    let (old, new) = match (crate::read_results(old_path), crate::read_results(new_path)) {
+    let ((old, old_skipped), (new, new_skipped)) = match (crate::read_results(old_path), crate::read_results(new_path))
+    {
         (Ok(o), Ok(n)) => (o, n),
         (Err(e), _) | (_, Err(e)) => {
             eprintln!("{e}");
@@ -75,6 +76,19 @@ pub(crate) fn run(old_path: &Path, new_path: &Path) -> ExitCode {
     for (name, meta) in [("old", om), ("new", nm)] {
         if meta["load_before"][0].as_f64().is_some_and(|l| l > 1.0) {
             println!("warning: the {name} run started with a load average over 1");
+        }
+    }
+    for (path, skipped) in [(old_path, &old_skipped), (new_path, &new_skipped)] {
+        if !skipped.is_empty() {
+            let mut engines = skipped.clone();
+            engines.sort();
+            engines.dedup();
+            println!(
+                "note: skipped {} rows of {}: engines this bench no longer runs ({})",
+                skipped.len(),
+                path.display(),
+                engines.join(", ")
+            );
         }
     }
     println!();

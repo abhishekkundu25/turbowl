@@ -1,7 +1,7 @@
 //! The benchmark: runs each scenario for this repository's reasoner and for
-//! its baselines, `reasonable` (linked in) and Nemo (the pinned `nmo`, a
-//! subprocess), on the same inputs, and reports median, spread, peak memory,
-//! closure size and each engine's ratio to this reasoner. See `README.md`.
+//! its competitor Nemo (the pinned `nmo`, a subprocess), on the same inputs,
+//! and reports median, spread, peak memory, closure size and each engine's
+//! ratio to this reasoner. See `README.md`.
 //!
 //! Every run is a fresh child process (this binary with the hidden `--one`
 //! mode), so that peak memory is one engine's on one input.
@@ -26,7 +26,8 @@ use std::time::{Duration, Instant};
 const SCHEMA: u64 = 4;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
 /// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
-/// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name).
+/// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name
+/// and skips the rows of engines this bench no longer runs).
 const READS: [u64; 4] = [1, 2, 3, 4];
 /// This reasoner's engine name in results files before version 4.
 const OLD_NAME: &str = "turtle-reasoner";
@@ -39,9 +40,9 @@ const USAGE: &str = "\
 usage: turbowl-bench [options]
        turbowl-bench --compare OLD.json NEW.json
 
-  --list              print the scenarios and stop
+  --list              print the scenarios and the engines, and stop
   --only A,B          run only these scenarios (opt-in ones run only this way)
-  --engines A,B       run only these engines (turbowl, reasonable, nemo)
+  --engines A,B       run only these engines (turbowl, nemo)
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
@@ -134,6 +135,8 @@ fn main() -> ExitCode {
             let opt_in = if s.opt_in { " [opt-in: --only]" } else { "" };
             println!("{:<20} {}{opt_in}", s.name, s.about);
         }
+        let engines: Vec<&str> = EngineId::ALL.iter().map(|e| e.name()).collect();
+        println!("\nengines: {}", engines.join(", "));
         return ExitCode::SUCCESS;
     }
     if let Some((old, new)) = &args.compare {
@@ -570,8 +573,10 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
     println!();
 }
 
-/// Reads a results file.
-pub(crate) fn read_results(path: &Path) -> Result<Value, String> {
+/// Reads a results file. The rows of an engine this bench no longer runs
+/// are left out of `results` and `scaling`; the engine of each `results` row
+/// left out is returned beside the file.
+pub(crate) fn read_results(path: &Path) -> Result<(Value, Vec<String>), String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let mut v: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
     if !v["schema"].as_u64().is_some_and(|n| READS.contains(&n)) {
@@ -591,7 +596,20 @@ pub(crate) fn read_results(path: &Path) -> Result<Value, String> {
             }
         }
     }
-    Ok(v)
+    let mut skipped = Vec::new();
+    for list in ["results", "scaling"] {
+        if let Some(rows) = v[list].as_array_mut() {
+            rows.retain(|row| {
+                let engine = row["engine"].as_str().unwrap_or("");
+                let runs = EngineId::from_name(engine).is_some();
+                if !runs && list == "results" {
+                    skipped.push(engine.to_string());
+                }
+                runs
+            });
+        }
+    }
+    Ok((v, skipped))
 }
 
 #[cfg(test)]
@@ -604,18 +622,56 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let row = |engine: &str| json!({ "scenario": "lubm-1", "engine": engine });
         for (schema, engine, read) in [
-            (3, OLD_NAME, "turbowl"),
-            (4, "turbowl", "turbowl"),
-            (4, OLD_NAME, OLD_NAME),
+            (3, OLD_NAME, Some("turbowl")),
+            (4, "turbowl", Some("turbowl")),
+            (4, OLD_NAME, None),
         ] {
             let path = dir.join(format!("v{schema}-{engine}.json"));
             let file = json!({ "schema": schema, "results": [row(engine), row("nemo")], "scaling": [row(engine)] });
             std::fs::write(&path, file.to_string()).unwrap();
-            let v = read_results(&path).unwrap();
-            assert_eq!(v["results"][0]["engine"], read, "schema {schema}");
-            assert_eq!(v["results"][1]["engine"], "nemo");
-            assert_eq!(v["scaling"][0]["engine"], read, "schema {schema}");
+            let (v, skipped) = read_results(&path).unwrap();
+            let engines: Vec<&Value> = v["results"].as_array().unwrap().iter().map(|r| &r["engine"]).collect();
+            match read {
+                Some(name) => {
+                    assert_eq!(engines, [name, "nemo"], "schema {schema}");
+                    assert_eq!(v["scaling"][0]["engine"], name, "schema {schema}");
+                    assert!(skipped.is_empty(), "schema {schema}");
+                }
+                // In version 4 the old name is an engine this bench does not run.
+                None => {
+                    assert_eq!(engines, ["nemo"], "schema {schema}");
+                    assert_eq!(v["scaling"], json!([]), "schema {schema}");
+                    assert_eq!(skipped, [OLD_NAME], "schema {schema}");
+                }
+            }
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A results file from version 1 still compares with a newer one: the
+    /// rows of the engine version 2 dropped are skipped, the rest match.
+    #[test]
+    fn skips_the_rows_of_dropped_engines() {
+        let data = repo_root().join("docs/verification/data");
+        let (old, skipped) = read_results(&data.join("2026-11-05-wave-3/bench-3252f68.json")).unwrap();
+        let (new, none) = read_results(&data.join("2026-11-05-wave-4/bench-trend-7c31e93.json")).unwrap();
+        assert!(none.is_empty());
+        assert_eq!(skipped.len(), 7, "one row per scenario: {skipped:?}");
+        assert!(
+            skipped
+                .iter()
+                .all(|e| *e == skipped[0] && EngineId::from_name(e).is_none())
+        );
+        let rows = |v: &Value, list: &str| v[list].as_array().unwrap().clone();
+        assert_eq!(rows(&old, "results").len(), 14, "turbowl and nemo on 7 scenarios");
+        for list in ["results", "scaling"] {
+            for r in rows(&old, list) {
+                assert!(EngineId::from_name(r["engine"].as_str().unwrap()).is_some(), "{r}");
+            }
+        }
+        let key = |r: &Value| (r["scenario"].clone(), r["engine"].clone());
+        for n in rows(&new, "results") {
+            assert!(rows(&old, "results").iter().any(|o| key(o) == key(&n)), "{n}");
+        }
     }
 }

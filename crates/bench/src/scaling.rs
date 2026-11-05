@@ -215,7 +215,7 @@ mod tests {
         let measured = [
             Measured {
                 scenario: find("lubm-1"),
-                engine: EngineId::Reasonable,
+                engine: EngineId::Turbowl,
                 status: "ok",
                 summary: summary(10.0, 1e8),
             },
@@ -227,7 +227,7 @@ mod tests {
             },
             Measured {
                 scenario: find("lubm-10"),
-                engine: EngineId::Reasonable,
+                engine: EngineId::Turbowl,
                 status: "ok",
                 summary: summary(100.0, 4e8),
             },
@@ -245,7 +245,7 @@ mod tests {
         };
         let e = entries(&["lubm"], &measured, &triples);
         assert_eq!(e.len(), 2);
-        assert_eq!(e[0]["engine"], "reasonable");
+        assert_eq!(e[0]["engine"], "turbowl");
         assert_eq!(e[0]["time_exponent"], 1.0);
         assert_eq!(e[0]["memory_exponent"], 0.602);
         assert_eq!(e[1]["engine"], "nemo");

@@ -1,5 +1,5 @@
-//! The engines behind one small trait, and one measured run of one engine
-//! (the child process's work: the `--one` mode).
+//! The engines, and one measured run of one engine (the child process's
+//! work: the `--one` mode).
 
 use oxrdf::Triple;
 use serde_json::{Value, json};
@@ -8,40 +8,21 @@ use std::time::Duration;
 use std::time::Instant;
 use turbowl::Reasoner;
 
-/// The `reasonable` release linked in (the exact pin in `Cargo.toml`).
-pub(crate) const REASONABLE_VERSION: &str = "0.5.0-a1";
-
-/// What a scenario needs from a reasoner.
-trait Engine {
-    fn load(&mut self, path: &Path) -> Result<(), String>;
-    fn reason(&mut self);
-    /// Called once after the first run, outside the timings, before a change stream.
-    fn prepare_changes(&mut self) {}
-    fn insert(&mut self, triple: &Triple);
-    fn remove(&mut self, triple: &Triple);
-    /// The closure size the engine reports, and the number of distinct
-    /// closure triples counted by iterating it.
-    fn closure(&self) -> (usize, usize);
-}
-
 /// The engines a scenario can run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EngineId {
     /// This repository's reasoner, in process.
     Turbowl,
-    /// `reasonable`, linked in, in process.
-    Reasonable,
     /// Nemo's `nmo` running `oracles/nemo/owl2rl.rls`, a subprocess.
     Nemo,
 }
 
 impl EngineId {
-    pub(crate) const ALL: [EngineId; 3] = [EngineId::Turbowl, EngineId::Reasonable, EngineId::Nemo];
+    pub(crate) const ALL: [EngineId; 2] = [EngineId::Turbowl, EngineId::Nemo];
 
     pub(crate) fn name(self) -> &'static str {
         match self {
             EngineId::Turbowl => "turbowl",
-            EngineId::Reasonable => "reasonable",
             EngineId::Nemo => "nemo",
         }
     }
@@ -54,77 +35,6 @@ impl EngineId {
     pub(crate) fn unsupported(self, mode: Mode) -> Option<&'static str> {
         (self == EngineId::Nemo && mode != Mode::Full)
             .then_some("Nemo runs a program once over its imports; it has no incremental changes")
-    }
-
-    /// The in-process engines; Nemo runs as a subprocess instead.
-    fn make(self) -> Option<Box<dyn Engine>> {
-        match self {
-            EngineId::Turbowl => Some(Box::new(Ours {
-                r: Reasoner::new(),
-                reported: 0,
-            })),
-            EngineId::Reasonable => Some(Box::new(Theirs {
-                r: reasonable::reasoner::Reasoner::new(),
-                base: Vec::new(),
-            })),
-            EngineId::Nemo => None,
-        }
-    }
-}
-
-struct Ours {
-    r: Reasoner,
-    /// Base plus inferred, from the last run's `Summary`.
-    reported: usize,
-}
-
-impl Engine for Ours {
-    fn load(&mut self, path: &Path) -> Result<(), String> {
-        self.r.load_file(path).map_err(|e| e.to_string())
-    }
-    fn reason(&mut self) {
-        let s = self.r.reason();
-        self.reported = s.base + s.inferred;
-    }
-    fn insert(&mut self, triple: &Triple) {
-        self.r.insert([triple.as_ref()]);
-    }
-    fn remove(&mut self, triple: &Triple) {
-        self.r.remove([triple.as_ref()]);
-    }
-    fn closure(&self) -> (usize, usize) {
-        (self.reported, distinct(self.r.triples()))
-    }
-}
-
-struct Theirs {
-    r: reasonable::reasoner::Reasoner,
-    /// The base triples, kept for removals: `reasonable` removes only by
-    /// replacing the whole base (`set_base_triples`, as its Python `update_graph`).
-    base: Vec<Triple>,
-}
-
-impl Engine for Theirs {
-    fn load(&mut self, path: &Path) -> Result<(), String> {
-        let path = path.to_str().ok_or("path is not UTF-8")?;
-        self.r.load_file(path).map_err(|e| e.to_string())
-    }
-    fn reason(&mut self) {
-        self.r.reason();
-    }
-    fn prepare_changes(&mut self) {
-        self.base = self.r.get_input();
-    }
-    fn insert(&mut self, triple: &Triple) {
-        self.r.load_triples(vec![triple.clone()]);
-    }
-    fn remove(&mut self, triple: &Triple) {
-        self.base.retain(|t| t != triple);
-        self.r.set_base_triples(self.base.clone());
-    }
-    fn closure(&self) -> (usize, usize) {
-        let out = self.r.view_output();
-        (out.len(), distinct(out.iter()))
     }
 }
 
@@ -228,7 +138,7 @@ fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, S
 /// One measured run, as the child process does it. The result is one JSON
 /// object: `status` is `ok`, `unsupported`, `skipped` (Nemo is not fetched),
 /// `timeout` (Nemo ran over `timeout`) or `error` (a failed load, or a panic
-/// in an in-process engine).
+/// in this reasoner).
 pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: usize, timeout: Duration) -> Value {
     if let Some(why) = engine.unsupported(mode) {
         return json!({ "status": "unsupported", "message": why });
@@ -239,7 +149,7 @@ pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: us
     }
     // A panic is reported as an error result, not a backtrace.
     std::panic::set_hook(Box::new(|_| {}));
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(engine, mode, files, count)));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(mode, files, count)));
     match result {
         Ok(Ok(v)) => v,
         Ok(Err(message)) => json!({ "status": "error", "message": message }),
@@ -254,36 +164,34 @@ pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: us
     }
 }
 
-fn measure(id: EngineId, mode: Mode, files: &[PathBuf], count: usize) -> Result<Value, String> {
+/// One run of this reasoner, in process.
+fn measure(mode: Mode, files: &[PathBuf], count: usize) -> Result<Value, String> {
     let stream = changes(mode, files, count)?;
-    let mut engine = id.make().ok_or("not an in-process engine")?;
+    let mut r = Reasoner::new();
 
     let start = Instant::now();
     for f in files {
-        engine.load(f)?;
+        r.load_file(f).map_err(|e| e.to_string())?;
     }
     let load_ms = ms(start);
 
     let start = Instant::now();
-    engine.reason();
+    let mut summary = r.reason();
     let reason_ms = ms(start);
 
     let mut change_ms = Vec::with_capacity(stream.len());
-    if mode != Mode::Full {
-        engine.prepare_changes();
-        for t in &stream {
-            let start = Instant::now();
-            match mode {
-                Mode::Add => engine.insert(t),
-                _ => engine.remove(t),
-            }
-            engine.reason();
-            change_ms.push(ms(start));
+    for t in &stream {
+        let start = Instant::now();
+        match mode {
+            Mode::Add => r.insert([t.as_ref()]),
+            _ => r.remove([t.as_ref()]),
         }
+        summary = r.reason();
+        change_ms.push(ms(start));
     }
     // Read the peak before the checks below, which hold their own copies.
     let peak_rss_bytes = crate::machine::peak_rss_bytes(libc::RUSAGE_SELF);
-    let (reported, counted) = engine.closure();
+    let (reported, counted) = (summary.base + summary.inferred, distinct(r.triples()));
     Ok(json!({
         "status": "ok",
         "load_ms": load_ms,

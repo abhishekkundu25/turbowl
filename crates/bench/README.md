@@ -1,15 +1,14 @@
 # turbowl-bench
 
-Runs fixed scenarios for this repository's reasoner and its two baselines
-(ADR 0004), on the same input files, and reports the median and spread of the
-times, the peak memory, the closure size and each engine's ratio to this
-reasoner. Every speed claim, and every step of the improvement loop
+Runs fixed scenarios for this repository's reasoner and its competitor Nemo
+(`CONTEXT.md`, ADR 0006), on the same input files, and reports the median and
+spread of the times, the peak memory, the closure size and each engine's ratio
+to this reasoner. Every speed claim, and every step of the improvement loop
 (`docs/specs/experiments.md`), is judged by these numbers.
 
 | Engine | What runs | How |
 |---|---|---|
 | `turbowl` | this repository's `Reasoner` (one rule set) | in process |
-| `reasonable` | crates.io `reasonable =0.5.0-a1` | linked in, in process |
 | `nemo` | the pinned `nmo` 0.10.1 (`tools/nemo/`, from `scripts/fetch-tools.sh`) with `oracles/nemo/owl2rl.rls`, the W3C forms of the v1 rule set | a subprocess. Without `tools/nemo` (or at another version) it is reported `skipped`. Full runs only: the incremental scenarios are `unsupported` (Nemo runs a program once over its imports; it has no change stream). |
 
 ## Run it on a quiet machine
@@ -21,17 +20,17 @@ result taken with a warning can show a trend, but it does not support a claim.
 
 ```sh
 scripts/fetch-data.sh                                    # Brick and the building models into data/
-cargo run --release -p turbowl-bench -- --list   # the scenarios
+cargo run --release -p turbowl-bench -- --list   # the scenarios and the engines
 cargo run --release -p turbowl-bench -- --json results.json
-cargo run --release -p turbowl-bench -- --only lubm-1,lubm-10 --engines reasonable --runs 3
+cargo run --release -p turbowl-bench -- --only lubm-1,lubm-10 --engines nemo --runs 3
 cargo run --release -p turbowl-bench -- --compare old.json new.json
 ```
 
 | Option | Meaning |
 |---|---|
-| `--list` | Print the scenarios and stop. |
+| `--list` | Print the scenarios and the engines, and stop. |
 | `--only A,B` | Run only these scenarios. The opt-in ones (`sameas-clique`) run only this way. |
-| `--engines A,B` | Run only these engines: `turbowl`, `reasonable`, `nemo`. |
+| `--engines A,B` | Run only these engines: `turbowl`, `nemo`. |
 | `--runs N` | Runs per scenario and engine (default 5; the improvement loop needs 5 or more). |
 | `--changes N` | Changes in the incremental scenarios (default 100). |
 | `--timeout SECS` | Stop a run after this long and record `timeout` (default 600). Nemo is stopped by the child at this time; the child itself gets 30 s more. |
@@ -50,13 +49,11 @@ nothing.
   allocator, the same for every engine.
 - **Peak memory** is a peak resident set size (`getrusage`, `ru_maxrss`,
   which macOS reports in bytes and Linux in kilobytes; the bench converts to
-  bytes). For the in-process engines it is the child's own
-  (`RUSAGE_SELF`), read just after the last `reason()`, before the closure
-  checks, which hold their own copies; it includes the bench binary itself,
-  about the same for both. For Nemo it is `nmo`'s (`RUSAGE_CHILDREN` of the
-  child, read after waiting for `nmo`, its only child): Nemo's whole process,
-  output writing included. The
-  table's `B/triple` column (`peak_bytes_per_closure_triple` in the results
+  bytes). For this reasoner it is the child's own (`RUSAGE_SELF`), read
+  just after the last `reason()`, before the closure checks, which hold
+  their own copies; it includes the bench binary itself. For Nemo it is
+  `nmo`'s (`RUSAGE_CHILDREN` of the child, read after waiting for `nmo`, its
+  only child): Nemo's whole process, output writing included. The table's `B/triple` column (`peak_bytes_per_closure_triple` in the results
   file) is the largest peak over the closure size: the memory rubric of
   `docs/specs/experiments.md`.
 - **Load time** covers loading every input file in order (each engine's own
@@ -64,21 +61,21 @@ nothing.
   clock. The headline number of a full run is the reasoning time; the
   results file also has the load time and their sum (`total`). See
   [What each engine's time includes](#what-each-engines-time-includes).
-- In the incremental scenarios, each change is timed from the change call
-  through the next `reason()`. The headline number of a run is the median of
-  its per-change times.
+- In the incremental scenarios, each change (`insert` or `remove` of one
+  triple) is timed from the change call through the next `reason()`, which
+  works semi-naively from the stored closure. The headline number of a run
+  is the median of its per-change times.
 - Runs alternate between the engines (run 1 of each engine, then run 2, ...),
   so a drift in the machine falls on all of them.
 - **Checks.** After each run, the child counts the distinct closure triples
   (by a 64-bit hash) and compares that count with what the engine reports:
-  `Summary::base + Summary::inferred` for this reasoner, the length of
-  `view_output()` for `reasonable`, the number of lines Nemo wrote to
-  `closure.nt` for Nemo (parsed back with `oxttl`, outside the timings). A mismatch, a closure size that differs
-  between runs of the same engine, or a failed run is a **problem**: it is
-  printed, listed in the results file, and makes the bench exit 1. A
-  timeout, a skipped scenario and an unsupported one are results, not
-  problems.
-- A panic in an in-process engine is caught by the child and recorded as an
+  `Summary::base + Summary::inferred` for this reasoner, the number of
+  lines Nemo wrote to `closure.nt` for Nemo (parsed back with `oxttl`,
+  outside the timings). A mismatch, a closure size that differs between
+  runs of the same engine, or a failed run is a **problem**: it is printed,
+  listed in the results file, and makes the bench exit 1. A timeout, a
+  skipped scenario and an unsupported one are results, not problems.
+- A panic in this reasoner is caught by the child and recorded as an
   `error` with its message: a problem.
 - Every engine's closure is the full one on every scenario, `owl:sameAs`
   included (ticket 11), so the times compare. This reasoner keeps one
@@ -94,7 +91,7 @@ nothing.
 The engines do not split their work at the same places, so compare the
 columns that mean the same thing:
 
-| | `turbowl`, `reasonable` | `nemo` |
+| | `turbowl` | `nemo` |
 |---|---|---|
 | load | parsing every file into the reasoner (`load_file`) | Nemo's `Data import` (its own report, `--report short`, whole milliseconds) |
 | reasoning (the headline) | the first `reason()`: rules to fixpoint and the closure materialised in memory | Nemo's `Reasoning`: rules to fixpoint. Nemo loads tables lazily, so part of its parsing can fall here. |
@@ -102,7 +99,7 @@ columns that mean the same thing:
 | peak memory | the bench child, engine included | the `nmo` process, export included |
 
 So `total` (load plus reasoning) is the fairest single comparison of the
-three; the headline compares reasoning alone, where Nemo may carry some of
+two; the headline compares reasoning alone, where Nemo may carry some of
 its parsing. Nemo's wall clock is recorded but not compared. Nemo also reads
 the files with its own parser: it interprets typed literals as values (it
 would write `"01"^^xsd:integer` as `"1"^^xsd:integer`), so its closure size
@@ -117,16 +114,8 @@ Since `owl2rl.rls` binds variable predicates through the properties the
 schema names and joins cax-eqc2 like cax-eqc1, Nemo finishes every LUBM
 size. In one run on 2026-11-05, on a heavily loaded machine (1-minute load
 average 175 before, 63 after), its reasoning took 1.1 s on `lubm-1`, 10.7 s
-on `lubm-10` and 52 s on `lubm-50`, against `reasonable`'s 0.1 s, 1.8 s and
-9.7 s. A Nemo run over `--timeout` is a `timeout` result, not a problem;
-lower `--timeout` to keep a run short.
-
-### How each engine makes a change
-
-| Change | This reasoner | `reasonable` |
-|---|---|---|
-| Add a triple | `insert`, then `reason` (semi-naive from the stored closure) | `load_triples`, then `reason` (its incremental path) |
-| Remove a triple | `remove`, then `reason` | `set_base_triples` with the base minus the triple, then `reason`. It has no single-triple removal: this is what its Python `update_graph` does, and any removal makes its next run a full one. The base copy it needs is taken once, outside the timings. |
+on `lubm-10` and 52 s on `lubm-50`. A Nemo run over `--timeout` is a
+`timeout` result, not a problem; lower `--timeout` to keep a run short.
 
 ## Scenarios
 
@@ -145,7 +134,7 @@ version in its file name.
 | `lubm-1`, `lubm-10`, `lubm-50` | `univ-bench.ttl` + generated data for 1, 10, 50 universities (about 0.12 M, 1.3 M, 6.5 M triples) | Full runs on instance data that grows: class hierarchies, intersections with `someValuesFrom`, a transitive property, sub-properties, inverses, domains and ranges. Shows how the cost grows with the data. |
 | `incremental-add` | `Brick.n3` + `small1.n3`, then 100 additions | The cost of one added triple against a stored closure. Change *k* copies small1's triple *k* (cycling) onto a new subject `http://example.org/bench/added/k`, so each is a new entity of a real Brick class or relation. |
 | `incremental-remove` | `Brick.n3` + `small1.n3`, then 100 removals | The cost of one removed triple. The removals are base triples without a blank node, spread evenly through the input files in order (deduplicated), removed one after another. A triple with a blank node is left out: parsed again for the change stream, its blank node is a new node to this reasoner (blank nodes are scoped per document), so removing it would remove nothing. |
-| `sameas-clique` (opt-in) | generated: `a0 owl:sameAs a1`, ..., `a998 owl:sameAs a999`, and 10 triples on each alias | Equality: the clique has 1,000,000 `owl:sameAs` triples and each alias gets every alias's 10 triples, about 11 M closure triples once expanded. Not in the default run: `reasonable` takes over 90 s on it. Run it with `--only sameas-clique`. |
+| `sameas-clique` (opt-in) | generated: `a0 owl:sameAs a1`, ..., `a998 owl:sameAs a999`, and 10 triples on each alias | Equality: the clique has 1,000,000 `owl:sameAs` triples and each alias gets every alias's 10 triples, about 11 M closure triples once expanded. Not in the default run: run it with `--only sameas-clique`. |
 
 ### LUBM-style data
 
@@ -181,12 +170,11 @@ sizes are listed with their status.
 - The input triples are counted after all the runs, by parsing each input
   file with `oxttl` (Turtle, N-Triples or N3, by extension); the count is
   not timed and includes the univ-bench ontology's triples.
-- The peak memory of the in-process engines includes the bench binary
-  itself, a constant that pulls their memory exponent below 1 on small
-  inputs. Nemo's is the `nmo` process alone.
+- This reasoner's peak memory includes the bench binary itself, a
+  constant that pulls its memory exponent below 1 on small inputs. Nemo's is the `nmo` process alone.
 - The spec's budget (`docs/specs/v1.md`, Performance) is a time exponent of
   at most 1.2 for this reasoner over LUBM 1, 10 and 50, recorded beside the
-  baselines' exponents.
+  competitors' exponents.
 
 ## The results file (`--json`)
 
@@ -198,16 +186,19 @@ before 2026-11-05): the engine `turtle-reasoner` is now `turbowl`,
 `meta.versions.turbowl`; nothing else changes. `--compare` reads an older
 file's `turtle-reasoner` engine as `turbowl`. Version 3 adds the top-level
 `scaling` list (the Scaling table) to version 2, and changes nothing else.
-Version 2 changed from 1: the engines are `turtle-reasoner`, `reasonable`
-and `nemo` (version 1 had `turtle-owl-rl` and `turtle-reasonable`); a
-result's `status` can be `unsupported`; each result has
-`x_turtle_reasoner`; the summary has `export_median_ms` and
-`wall_median_ms`; Nemo's runs have `export_ms` and `wall_ms`; and
-`meta.versions` has `nemo`. `--compare` reads versions 1 to 4.
+Version 2 changed from 1: the engines were renamed; a result's `status` can
+be `unsupported`; each result has `x_turtle_reasoner`; the summary has
+`export_median_ms` and `wall_median_ms`; Nemo's runs have `export_ms` and
+`wall_ms`; and `meta.versions` has `nemo`. `--compare` reads versions 1 to 4.
+
+Files written before version 2 of this project also hold the rows and the
+`meta.versions` entry of an engine the bench no longer runs (ADR 0006).
+`--compare` skips the rows of any engine it does not run, says how many it
+skipped from which file, and compares the rest.
 
 ```jsonc
 {
-  "schema": 3,
+  "schema": 4,
   "meta": {
     "date": "2026-11-05T10:00:00Z",          // UTC, when the file was written
     "commit": "fcca1da…", "dirty": false,     // the repository's HEAD; tracked files changed?
@@ -219,13 +210,13 @@ result's `status` can be `unsupported`; each result has
     "runs": 5, "changes": 100, "timeout_s": 600,
     "data_dir": "/…/data",
     "versions": { "bench": "0.1.0", "turbowl": "0.1.0",
-                  "reasonable": "0.5.0-a1", "nemo": "0.10.1",  // null when not fetched
+                  "nemo": "0.10.1",           // null when not fetched
                   "rustc": "rustc 1.99.0 (…)" }
   },
   "results": [
     {
       "scenario": "lubm-1",
-      "engine": "reasonable",                 // turbowl | reasonable | nemo
+      "engine": "nemo",                       // turbowl | nemo
       "status": "ok",                         // ok | unsupported | skipped | timeout | error
                                               //   (files from before ticket 10 also have unavailable: the stub)
       "message": null,                        // why, when not ok
@@ -236,23 +227,23 @@ result's `status` can be `unsupported`; each result has
         "load_median_ms": 222.5,
         "reason_median_ms": 70.1,             // the first reason() (the full run)
         "total_median_ms": 292.6,             // load + first reason(), per run
-        "export_median_ms": null,             // Nemo only: writing its output
-        "wall_median_ms": null,               // Nemo only: the nmo process, start to exit
+        "export_median_ms": 95.0,             // Nemo only (else null): writing its output
+        "wall_median_ms": 410.3,              // Nemo only (else null): the nmo process, start to exit
         "peak_rss_bytes": 268468224,          // the largest peak of the runs
         "peak_rss_min_bytes": 266000000,      // the smallest
         "closure": 204521,                    // closure triples (base + inferred), last run
         "peak_bytes_per_closure_triple": 1312.7 // peak_rss_bytes / closure; null when the closure is 0
       },
       "x_turbowl": {                          // this engine over turbowl, same scenario;
-        "time": 0.81,                         //   null when either has no finished run.
-        "total": 0.95,                        //   median_ms, total_median_ms and
-        "peak_rss": 1.20                      //   peak_rss_bytes ratios; over 1: slower or larger
+        "time": 6.03,                         //   null when either has no finished run.
+        "total": 1.42,                        //   median_ms, total_median_ms and
+        "peak_rss": 1.95                      //   peak_rss_bytes ratios; over 1: slower or larger
       },
       "runs": [                               // one per finished run, in order
         { "status": "ok", "load_ms": 222.5, "reason_ms": 70.1,
           "change_ms": [],                    // per change, in order (incremental-*)
           "peak_rss_bytes": 268468224,
-          // Nemo's runs also have "export_ms" and "wall_ms".
+          "export_ms": 95.0, "wall_ms": 410.3, // Nemo's runs only
           "closure": 204521,                  // what the engine reports
           "closure_counted": 204521 }         // distinct triples counted
       ]
@@ -261,7 +252,7 @@ result's `status` can be `unsupported`; each result has
   "scaling": [                                // one per family and engine; [] when no family ran at two sizes
     {
       "family": "lubm",
-      "engine": "reasonable",
+      "engine": "nemo",
       "time_exponent": 1.04,                  // of total_median_ms; null with fewer than 2 points
       "memory_exponent": 0.92,                // of peak_rss_bytes; null likewise
       "points": [                             // the sizes with a finished run, by input triples
@@ -288,19 +279,17 @@ the peak memory. It flags a change only when the two ranges do not overlap
 (`SLOWER` or `faster`, `MORE` or `less` memory): a median that moved inside
 the spread is noise until more runs say otherwise. It warns when the CPU,
 the OS, the build or the change count differ, or when either run started
-with a load average over 1, and prints a changed closure size. It reports
-only and exits 0.
+with a load average over 1, and prints a changed closure size. It skips the
+rows of an engine the bench no longer runs and says how many it skipped. It
+reports only and exits 0.
 
 ## The budgets these numbers judge
 
-From `docs/specs/v1.md` (Non-functional budgets, Performance):
+From `docs/specs/v1.md` (Non-functional budgets, Performance), less the two
+ratios to the engine ADR 0006 removed:
 
-- This reasoner's full-run time is below `reasonable`'s on every scenario:
-  `reasonable`'s `x turbowl time` is over 1. The ratio is recorded.
-- The ratio to Nemo is recorded too (Nemo's `x turbowl time` and
+- The ratio to Nemo is recorded (Nemo's `x turbowl time` and
   `x turbowl total`); it is not a pass/fail budget.
-- This reasoner's peak memory is below `reasonable`'s on every scenario:
-  `reasonable`'s `x turbowl mem` is over 1.
 - An incremental addition of one triple to Brick plus a building model
   costs under 10% of a full run (`incremental-add`'s median against
   `brick-small1`'s).

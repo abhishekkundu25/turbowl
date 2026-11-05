@@ -1,4 +1,4 @@
-//! Nemo as a baseline: the pinned `nmo` (`tools/nemo/`, fetched by
+//! Nemo as a competitor: the pinned `nmo` (`tools/nemo/`, fetched by
 //! `scripts/fetch-tools.sh`) runs `oracles/nemo/owl2rl.rls`, the W3C forms of
 //! the version 1 rule set, as a subprocess of the `--one` child.
 //!
@@ -92,7 +92,7 @@ pub(crate) fn report(text: &str) -> Option<(f64, f64, f64)> {
     Some((field("Data import:")?, field("Reasoning:")?, field("Data export:")?))
 }
 
-/// One run of `nmo` on the files: a run result like the in-process engines'
+/// One run of `nmo` on the files: a run result like this reasoner's
 /// (`status` `ok`, `skipped` or `timeout`), or `Err` when it failed.
 pub(crate) fn measure(files: &[PathBuf], timeout: Duration) -> Result<Value, String> {
     if let Some(why) = not_installed() {

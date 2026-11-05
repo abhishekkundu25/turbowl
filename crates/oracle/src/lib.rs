@@ -13,7 +13,8 @@
 //! | the reference evaluator | `crates/reference` (`tests/reference.rs`) | itself, against Nemo, on generated inputs |
 //! | TurbOWL ([`ours`]) | the [`turbowl::Reasoner`] interface | (the system under test) |
 //!
-//! `reasonable` judges nothing here: it is a speed baseline in `crates/bench`.
+//! The competitors (`CONTEXT.md`) are measured for speed and memory in
+//! `crates/bench`; only the oracles above judge correctness.
 //!
 //! Tools and data are fetched by `scripts/fetch-tools.sh` and
 //! `scripts/fetch-data.sh`. An oracle that is not installed returns
