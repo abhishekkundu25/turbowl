@@ -214,3 +214,17 @@ fn clear_empties_everything() {
     r.load_str(DOCUMENT, Format::Turtle, None).unwrap();
     assert_eq!(r.reason().base, 13);
 }
+
+#[test]
+fn an_untagged_lang_string_is_reported_ill_typed() {
+    let lang_string = NamedNode::new_unchecked("http://www.w3.org/1999/02/22-rdf-syntax-ns#langString");
+    let untagged = Literal::new_typed_literal("x", lang_string.clone());
+    let mut r = Reasoner::new();
+    r.insert([Triple::new(ex("s"), ex("p"), untagged.clone()).as_ref()]);
+    r.reason();
+    let found: Vec<(&str, Vec<Term>)> = r.diagnostics().iter().map(|d| (d.code, d.terms.clone())).collect();
+    assert_eq!(
+        found,
+        [("dt-not-type", vec![Term::from(untagged), Term::from(lang_string)])]
+    );
+}

@@ -68,7 +68,9 @@ pub(crate) enum Term<'a> {
         doc: DocId,
         label: &'a str,
     },
-    /// `datatype` is `vocab::RDF_LANG_STRING` exactly when `language` is set.
+    /// `datatype` is `vocab::RDF_LANG_STRING` when `language` is set. A literal
+    /// typed `rdf:langString` with no tag is ill-typed, and kept as it came:
+    /// no parser makes one, but a caller can insert it (dt-not-type reports it).
     Literal {
         lexical: &'a str,
         datatype: TermId,
@@ -236,10 +238,10 @@ impl Dictionary {
         self.intern(TAG_BLANK, doc.0, label, "")
     }
 
-    /// The id of a literal with a datatype (not `rdf:langString`), interned if new.
+    /// The id of a literal with a datatype and no language tag, interned if
+    /// new. With `rdf:langString` it is the ill-typed literal of [`Term::Literal`].
     #[inline]
     pub(crate) fn intern_typed_literal(&mut self, lexical: &str, datatype: TermId) -> TermId {
-        debug_assert!(datatype != vocab::RDF_LANG_STRING, "a langString needs its tag");
         self.intern(TAG_TYPED, datatype.0, lexical, "")
     }
 
@@ -809,6 +811,25 @@ mod tests {
             let id = d.intern_blank(DocId::NONE, text);
             assert_eq!(label(&d, id), written, "{text}");
         }
+    }
+
+    #[test]
+    fn a_lang_string_without_a_tag_is_kept_as_it_came() {
+        use oxrdf::{Literal, vocab::rdf};
+        let mut d = Dictionary::new();
+        let untagged = Literal::new_typed_literal("x", rdf::LANG_STRING);
+        let id = d.intern_literal(untagged.as_ref());
+        assert_eq!(
+            d.term(id),
+            Term::Literal {
+                lexical: "x",
+                datatype: vocab::RDF_LANG_STRING,
+                language: None
+            }
+        );
+        assert_eq!(d.to_oxrdf(id), untagged.clone().into());
+        assert_ne!(id, d.intern_lang_literal("x", "en"));
+        assert_eq!(d.intern_literal(untagged.as_ref()), id);
     }
 
     #[test]
