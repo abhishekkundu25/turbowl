@@ -404,10 +404,11 @@ fn ill_typed_literals() {
     assert_eq!(
         diagnostics(
             "ex:s ex:p \" 42\"^^xsd:int , \"2147483648\"^^xsd:int , \"abc\"^^xsd:integer ,
-             \"<a>t</b>\"^^rdf:XMLLiteral , \"<a>\"^^rdf:XMLLiteral ."
+             \"<a>t</b>\"^^rdf:XMLLiteral , \"<a>\"^^rdf:XMLLiteral , \"3.x\"^^xsd:decimal ."
         ),
         findings(&[
             ("dt-not-type", &["\" 42\"^^xsd:int", "xsd:int"]),
+            ("dt-not-type", &["\"3.x\"^^xsd:decimal", "xsd:decimal"]),
             ("dt-not-type", &["\"2147483648\"^^xsd:int", "xsd:int"]),
             ("dt-not-type", &["\"abc\"^^xsd:integer", "xsd:integer"]),
             ("dt-not-type", &["\"<a>t</b>\"^^rdf:XMLLiteral", "rdf:XMLLiteral"]),
@@ -416,7 +417,7 @@ fn ill_typed_literals() {
     );
     let quiet = diagnostics(
         "ex:s ex:p \"+5\"^^xsd:integer , \"-7\"^^xsd:int , \"x\"^^ex:unknown , \"<a>t</a>\"^^rdf:XMLLiteral , \"s\" ,
-         \"t\"@en , \"3.x\"^^xsd:decimal .",
+         \"t\"@en .",
     );
     assert!(quiet.is_empty(), "{quiet:?}");
     // A literal is found once, however many triples hold it.
@@ -455,10 +456,14 @@ fn literals_outside_a_datatype_range() {
     let quiet = diagnostics(
         "ex:n rdfs:range xsd:integer . ex:a ex:n \"5\"^^xsd:int .
          ex:i rdfs:range xsd:int . ex:a ex:i \"5\"^^xsd:integer .
-         ex:u rdfs:range ex:Class . ex:a ex:u \"lit\" .
-         ex:v rdfs:range xsd:decimal . ex:a ex:v \"x\" .",
+         ex:u rdfs:range ex:Class . ex:a ex:u \"lit\" .",
     );
     assert!(quiet.is_empty(), "{quiet:?}");
+    // Every OWL 2 RL datatype is checked, xsd:decimal among them.
+    assert_eq!(
+        diagnostics("ex:v rdfs:range xsd:decimal . ex:a ex:v \"x\" ."),
+        findings(&[("dt-not-type", &["\"x\"", "xsd:decimal"])])
+    );
     // An IRI or blank-node object of a property with a class range is an
     // instance of the class, and nothing is found.
     let input = "ex:u rdfs:range ex:Class . ex:a ex:u ex:b , _:c .";

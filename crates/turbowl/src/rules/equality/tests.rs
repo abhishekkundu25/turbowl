@@ -252,7 +252,10 @@ fn a_literal_joining_a_typed_class_is_checked_when_nothing_else_changes() {
     reason(&mut r);
     assert_eq!(
         findings(&r),
-        expand("dt-not-type \"abc\"^^xsd:integer xsd:integer\ndt-not-type \"abc\"^^xsd:integer xsd:string")
+        expand(
+            "dt-not-type \"abc\"^^xsd:integer xsd:integer\ndt-not-type \"abc\"^^xsd:integer xsd:string\n\
+             dt-not-type \"3.5\"^^xsd:decimal xsd:string"
+        )
     );
 }
 

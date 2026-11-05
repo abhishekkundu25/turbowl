@@ -1,7 +1,11 @@
 //! The minimal inputs of dt-not-type (the `checks` group): ill-typed
-//! literals, and literals a rule types with a datatype whose value space
-//! they are not in. Version 2's ticket 09 adds the other OWL 2 RL datatypes
-//! here.
+//! literals of the datatypes of the OWL 2 RL map, and literals a rule types
+//! with a datatype whose value space they are not in.
+//!
+//! The literals of `dt-not-type-map` are ones OWL-RL reads as the W3C
+//! datatypes define them; its other departures are oracle faults, and the
+//! map's edge cases are tested in the core and the reference evaluator
+//! (`crates/turbowl/src/rules/datatype/edge_cases.rs`).
 
 use super::Case;
 use turbowl::Switch;
@@ -22,18 +26,67 @@ pub(super) const CASES: &[Case] = &[
             "! dt-not-type \"abc\"^^xsd:integer xsd:integer",
         ],
     },
+    // Every datatype of the map against its own lexical space: bounds of
+    // the integer subtypes, exponents, patterns, time zones.
+    Case {
+        group: GROUP,
+        name: "dt-not-type-map",
+        covers: "dt-not-type",
+        turtle: "ex:s ex:p \"1e3\"^^xsd:decimal, \"1.0\"^^xsd:integer, \"128\"^^xsd:byte,
+                 \"-1\"^^xsd:nonNegativeInteger, \"0\"^^xsd:positiveInteger, \"70000\"^^xsd:unsignedShort,
+                 \"9223372036854775808\"^^xsd:long, \"yes\"^^xsd:boolean, \"1e\"^^xsd:double,
+                 \"abc\"^^xsd:float, \"en_GB\"^^xsd:language, \"1a\"^^xsd:Name, \"a:b\"^^xsd:NCName,
+                 \"a b\"^^xsd:NMTOKEN, \"0G\"^^xsd:hexBinary, \"Q!==\"^^xsd:base64Binary,
+                 \"2000-13-01T00:00:00\"^^xsd:dateTime, \"2000-01-01T00:00:00\"^^xsd:dateTimeStamp,
+                 \"abc\"^^rdf:PlainLiteral .
+                 ex:s ex:q \"-5\"^^xsd:negativeInteger, \"0\"^^xsd:nonPositiveInteger, \"4294967295\"^^xsd:unsignedInt,
+                 \"-32768\"^^xsd:short, \"18446744073709551615\"^^xsd:unsignedLong, \"1.5\"^^xsd:decimal,
+                 \"127\"^^xsd:byte, \"1.5E3\"^^xsd:double, \"2.5\"^^xsd:float, \"true\"^^xsd:boolean,
+                 \"en-GB\"^^xsd:language, \"0FB7\"^^xsd:hexBinary, \"QUJD\"^^xsd:base64Binary,
+                 \"http://example.org/\"^^xsd:anyURI, \"2000-01-01T00:00:00Z\"^^xsd:dateTimeStamp,
+                 \"2000-01-01T12:30:00.5\"^^xsd:dateTime, \"chat@fr\"^^rdf:PlainLiteral, \"a b\"^^xsd:token,
+                 \"_a-1\"^^xsd:NCName, \"a:b\"^^xsd:Name, \"1a\"^^xsd:NMTOKEN, \"a b\"^^xsd:normalizedString .",
+        expect: &[
+            "! dt-not-type \"1e3\"^^xsd:decimal xsd:decimal",
+            "! dt-not-type \"1.0\"^^xsd:integer xsd:integer",
+            "! dt-not-type \"128\"^^xsd:byte xsd:byte",
+            "! dt-not-type \"-1\"^^xsd:nonNegativeInteger xsd:nonNegativeInteger",
+            "! dt-not-type \"0\"^^xsd:positiveInteger xsd:positiveInteger",
+            "! dt-not-type \"70000\"^^xsd:unsignedShort xsd:unsignedShort",
+            "! dt-not-type \"9223372036854775808\"^^xsd:long xsd:long",
+            "! dt-not-type \"yes\"^^xsd:boolean xsd:boolean",
+            "! dt-not-type \"1e\"^^xsd:double xsd:double",
+            "! dt-not-type \"abc\"^^xsd:float xsd:float",
+            "! dt-not-type \"en_GB\"^^xsd:language xsd:language",
+            "! dt-not-type \"1a\"^^xsd:Name xsd:Name",
+            "! dt-not-type \"a:b\"^^xsd:NCName xsd:NCName",
+            "! dt-not-type \"a b\"^^xsd:NMTOKEN xsd:NMTOKEN",
+            "! dt-not-type \"0G\"^^xsd:hexBinary xsd:hexBinary",
+            "! dt-not-type \"Q!==\"^^xsd:base64Binary xsd:base64Binary",
+            "! dt-not-type \"2000-13-01T00:00:00\"^^xsd:dateTime xsd:dateTime",
+            "! dt-not-type \"2000-01-01T00:00:00\"^^xsd:dateTimeStamp xsd:dateTimeStamp",
+            "! dt-not-type \"abc\"^^rdf:PlainLiteral rdf:PlainLiteral",
+        ],
+    },
     // A literal typed by prp-rng (OWL-RL does not check these: F5). An
     // IRI object is not a literal, and "5"^^xsd:int is an xsd:integer.
+    // The integers are inside the decimals, and a byte holds only its range.
+    // (A double in a decimal range is left to the unit tables and chaos:
+    // OWL-RL reports that clash as cax-dw, from its own datatype
+    // disjointness axioms, which the F5 entry would hide.)
     Case {
         group: GROUP,
         name: "dt-not-type-range",
         covers: "prp-rng, dt-not-type",
         turtle: "ex:p rdfs:range xsd:integer . ex:s ex:p \"abc\", \"x\"@en, ex:o, \"5\"^^xsd:int .
-                 ex:q rdfs:range ex:Unknown . ex:s ex:q \"1\" .",
+                 ex:q rdfs:range ex:Unknown . ex:s ex:q \"1\" .
+                 ex:r rdfs:range xsd:decimal . ex:s ex:r \"2\"^^xsd:int, \"2.5\"^^xsd:decimal .
+                 ex:b rdfs:range xsd:byte . ex:s ex:b \"300\"^^xsd:integer, \"5\"^^xsd:unsignedLong .",
         expect: &[
             "+ ex:o rdf:type xsd:integer",
             "! dt-not-type \"abc\" xsd:integer",
             "! dt-not-type \"x\"@en xsd:integer",
+            "! dt-not-type \"300\"^^xsd:integer xsd:byte",
         ],
     },
 ];

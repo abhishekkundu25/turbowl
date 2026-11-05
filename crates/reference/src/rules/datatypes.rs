@@ -1,7 +1,8 @@
 //! dt-not-type, in the `checks` switch: a literal not in the value space of
 //! its own datatype, or of a datatype the closure types it with. The value
-//! spaces are the datatype map's (`crate::datatype`); version 2's ticket 09
-//! extends the map to every OWL 2 RL datatype, and this file with it.
+//! spaces are those of the OWL 2 RL datatype map (`crate::datatype`); a
+//! literal whose datatype is outside the map, or `rdfs:Literal`, has no
+//! known value and is never reported.
 
 use super::{EMPTY, Family, Found};
 use crate::datatype;
@@ -28,8 +29,8 @@ fn diagnose(v: &View, found: &mut Vec<Found>) {
             }
         }
     }
-    // A literal the closure types with a datatype (by prp-rng or any other
-    // rule) whose value space it is not in.
+    // A literal the closure types with a datatype of the map (by prp-rng or
+    // any other rule) whose value space it is not in.
     for (x, class) in v.pairs(&iri(RDF_TYPE)) {
         if let (Term::Literal(literal), Term::NamedNode(class)) = (x, class)
             && datatype::in_value_space(literal, class.as_str()) == Some(false)

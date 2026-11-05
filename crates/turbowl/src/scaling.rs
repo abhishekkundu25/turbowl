@@ -1385,3 +1385,91 @@ mod identity {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The datatype map
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "io")]
+mod datatypes {
+    use super::*;
+    use crate::{Format, Reasoner};
+    use std::fmt::Write as _;
+
+    /// The ranges of the eight data properties: each literal is typed with
+    /// one (dt-not-type's typed half), often outside its value space.
+    const RANGES: [&str; 8] = [
+        "xsd:integer",
+        "xsd:decimal",
+        "xsd:string",
+        "xsd:token",
+        "xsd:double",
+        "xsd:dateTime",
+        "rdfs:Literal",
+        "owl:rational",
+    ];
+
+    /// `n` triples, each with a literal of its own, of the datatypes of the
+    /// map in turn (numbers, floats, strings, binaries, date-times), a
+    /// quarter of them ill-typed, on eight data properties with ranges.
+    fn literals(n: usize) -> String {
+        let mut text = String::with_capacity(n * 80);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\
+             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n",
+        );
+        for (j, range) in RANGES.iter().enumerate() {
+            let _ = writeln!(text, "ex:d{j} rdfs:range {range} .");
+        }
+        for i in 0..n {
+            let k = i / 12;
+            let literal = match i % 12 {
+                0 => format!("\"{k}\"^^xsd:int"),
+                1 => format!("\"-{k}.25\"^^xsd:decimal"),
+                2 => format!("\"{k}e-3\"^^xsd:double"),
+                3 => format!("\"a{k} b\"^^xsd:token"),
+                4 => format!("\"{k}/7\"^^owl:rational"),
+                5 => format!("\"{}-01-01T00:00:00Z\"^^xsd:dateTime", 10_000 + k),
+                6 => format!("\"{k:08X}\"^^xsd:hexBinary"),
+                7 => format!("\"{k} \"^^xsd:integer"),
+                8 => format!("\"x{k}\"^^xsd:boolean"),
+                9 => format!("\"{}\"^^xsd:unsignedByte", 256 + k),
+                10 => format!("\"s{k}\"@en"),
+                _ => format!("\"{k}.5\"^^xsd:float"),
+            };
+            let _ = writeln!(text, "ex:i{i} ex:d{} {literal} .", i % 8);
+        }
+        text
+    }
+
+    fn loaded(text: &str) -> Reasoner {
+        let mut r = Reasoner::new();
+        r.load_str(text, Format::Turtle, None).unwrap();
+        r
+    }
+
+    /// dt-not-type over `n` literals, both halves, in a full run: linear.
+    #[test]
+    fn scaling_datatype_check_literals() {
+        let _lock = lock();
+        let sizes = sizes(4_096);
+        for &n in &sizes {
+            let mut r = loaded(&literals(n));
+            r.reason();
+            let findings = r.diagnostics().len();
+            assert!(findings > n / 3 && findings < 2 * n, "n = {n}: {findings} findings");
+        }
+        let mut text = shared(literals);
+        linear(
+            "scaling_datatype_check_literals",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+}
