@@ -37,11 +37,11 @@
 //! until it exists and loses nothing.
 //!
 //! prp-fp and prp-ifp derive `y owl:sameAs y` too (the W3C rules have no
-//! inequality). Their `owl:sameAs` triples stay in the store as they are
-//! until equality (ticket 11) rewrites them.
+//! inequality); the equality family merges what they make equal.
 //!
-//! The vocabulary is read as bare `vocab` ids. Once equality lands, ADR 0003
-//! asks for each constant through the round (its representative).
+//! Every constant is read through the round's canon ([`Round::constant`],
+//! ADR 0003), so it keeps its meaning when `owl:sameAs` makes it equal to
+//! another term.
 
 #[cfg(feature = "prp-spo2")]
 mod chain;
@@ -54,9 +54,6 @@ use crate::term::{TermId, vocab};
 
 /// The property rules have no empty-body rule.
 pub(crate) const FACTS: &[[TermId; 3]] = &[];
-
-const RDF_TYPE: u32 = vocab::RDF_TYPE.0;
-const SAME_AS: u32 = vocab::OWL_SAME_AS.0;
 
 /// One round of the property rules.
 pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
@@ -133,39 +130,41 @@ fn each_axiom<'a>(round: &mut Round<'a>, schema: u32, reversed: bool, mut f: imp
 /// prp-dom, prp-rng, prp-spo1, prp-eqp1/2, prp-inv1/2: rules that copy a
 /// property's pairs, rewritten, with no join.
 fn copies(round: &mut Round<'_>) {
+    let ty = round.constant(vocab::RDF_TYPE.0);
+    let equivalent = round.constant(vocab::OWL_EQUIVALENT_PROPERTY.0);
+    let inverse = round.constant(vocab::OWL_INVERSE_OF.0);
     // prp-dom: p rdfs:domain c, x p y => x rdf:type c. Pairs are sorted by
     // subject within a part, so a subject's run gives one triple.
-    each_axiom(round, vocab::RDFS_DOMAIN.0, false, |round, a| {
+    each_axiom(round, round.constant(vocab::RDFS_DOMAIN.0), false, |round, a| {
         let mut last = None;
         for &(x, _) in pairs_for(a.table, a.recent) {
             if last != Some(x) {
-                round.emit(x, RDF_TYPE, a.other);
+                round.emit(x, ty, a.other);
                 last = Some(x);
             }
         }
     });
     // prp-rng: p rdfs:range c, x p y => y rdf:type c.
-    each_axiom(round, vocab::RDFS_RANGE.0, false, |round, a| {
+    each_axiom(round, round.constant(vocab::RDFS_RANGE.0), false, |round, a| {
         for &(_, y) in pairs_for(a.table, a.recent) {
-            round.emit(y, RDF_TYPE, a.other);
+            round.emit(y, ty, a.other);
         }
     });
     // prp-spo1: p1 rdfs:subPropertyOf p2, x p1 y => x p2 y.
-    each_axiom(round, vocab::RDFS_SUB_PROPERTY_OF.0, false, |round, a| {
-        copy(round, &a, false)
-    });
+    each_axiom(
+        round,
+        round.constant(vocab::RDFS_SUB_PROPERTY_OF.0),
+        false,
+        |round, a| copy(round, &a, false),
+    );
     // prp-eqp1: p1 owl:equivalentProperty p2, x p1 y => x p2 y.
-    each_axiom(round, vocab::OWL_EQUIVALENT_PROPERTY.0, false, |round, a| {
-        copy(round, &a, false)
-    });
+    each_axiom(round, equivalent, false, |round, a| copy(round, &a, false));
     // prp-eqp2: p1 owl:equivalentProperty p2, x p2 y => x p1 y.
-    each_axiom(round, vocab::OWL_EQUIVALENT_PROPERTY.0, true, |round, a| {
-        copy(round, &a, false)
-    });
+    each_axiom(round, equivalent, true, |round, a| copy(round, &a, false));
     // prp-inv1: p1 owl:inverseOf p2, x p1 y => y p2 x.
-    each_axiom(round, vocab::OWL_INVERSE_OF.0, false, |round, a| copy(round, &a, true));
+    each_axiom(round, inverse, false, |round, a| copy(round, &a, true));
     // prp-inv2: p1 owl:inverseOf p2, x p2 y => y p1 x.
-    each_axiom(round, vocab::OWL_INVERSE_OF.0, true, |round, a| copy(round, &a, true));
+    each_axiom(round, inverse, true, |round, a| copy(round, &a, true));
 }
 
 /// Emits each pair of the axiom's table that the rule joins this round as a
@@ -184,12 +183,14 @@ fn copy(round: &mut Round<'_>, a: &Axiom<'_>, reversed: bool) {
     }
 }
 
-/// Calls `f(round, p, recent)` for each `p rdf:type class`, `recent` when
-/// that triple is new this round. Reads `rdf:type`'s object index; the
-/// round it is first asked for there is none, and nothing is called (the
-/// next round sees every typing as recent).
+/// Calls `f(round, p, recent)` for each `p rdf:type class` (`class` a
+/// constant, read through the round), `recent` when that triple is new this
+/// round. Reads `rdf:type`'s object index; the round it is first asked for
+/// there is none, and nothing is called (the next round sees every typing
+/// as recent).
 fn each_typed<'a>(round: &mut Round<'a>, class: u32, mut f: impl FnMut(&mut Round<'a>, u32, bool)) {
-    let Some(types) = round.by_object(RDF_TYPE) else {
+    let class = round.constant(class);
+    let Some(types) = round.by_object(round.constant(vocab::RDF_TYPE.0)) else {
         return;
     };
     for (part, recent) in tagged(types) {
@@ -203,22 +204,23 @@ fn each_typed<'a>(round: &mut Round<'a>, class: u32, mut f: impl FnMut(&mut Roun
 /// prp-fp, prp-ifp, prp-symp, prp-trp: the rules on a property typed with
 /// one of the OWL property characteristics.
 fn characteristics(round: &mut Round<'_>) {
+    let same_as = round.constant(vocab::OWL_SAME_AS.0);
     // prp-fp: x p y1, x p y2 => y1 owl:sameAs y2.
     each_typed(round, vocab::OWL_FUNCTIONAL_PROPERTY.0, |round, p, recent| {
         let Some(so) = round.by_subject(p) else { return };
         if recent {
-            join_views(&so.all(), &so.all(), |_, y1, y2| round.emit(y1, SAME_AS, y2));
+            join_views(&so.all(), &so.all(), |_, y1, y2| round.emit(y1, same_as, y2));
         } else {
-            join(so, so, |_, y1, y2| round.emit(y1, SAME_AS, y2));
+            join(so, so, |_, y1, y2| round.emit(y1, same_as, y2));
         }
     });
     // prp-ifp: x1 p y, x2 p y => x1 owl:sameAs x2.
     each_typed(round, vocab::OWL_INVERSE_FUNCTIONAL_PROPERTY.0, |round, p, recent| {
         let Some(os) = round.by_object(p) else { return };
         if recent {
-            join_views(&os.all(), &os.all(), |_, x1, x2| round.emit(x1, SAME_AS, x2));
+            join_views(&os.all(), &os.all(), |_, x1, x2| round.emit(x1, same_as, x2));
         } else {
-            join(os, os, |_, x1, x2| round.emit(x1, SAME_AS, x2));
+            join(os, os, |_, x1, x2| round.emit(x1, same_as, x2));
         }
     });
     // prp-symp: x p y => y p x.

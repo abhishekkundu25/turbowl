@@ -16,11 +16,22 @@
 //! - **The closure**: an engine [`Store`] holding the base, the families'
 //!   facts and every derived triple, generalized triples included (a
 //!   literal subject, a predicate that is not an IRI; `docs/specs/v1.md`,
-//!   Implementation Decisions). The reads leave the generalized ones out;
-//!   they are counted round by round from the store's deltas, so
-//!   [`Summary::inferred`] needs no pass over the closure.
-//! - **The findings**: sorted and deduplicated after each run, and their
-//!   public form, the [`Diagnostic`]s.
+//!   Implementation Decisions). The reads leave the generalized ones out.
+//! - **Equality** (ADR 0003): the store's canon says which terms
+//!   `owl:sameAs` made equal, and the store holds each triple once, in
+//!   representatives. Every read expands a stored triple to each member of
+//!   each of its terms' classes (`rules/equality.rs`), which gives the
+//!   closure of the W3C eq-* rules, `owl:sameAs` triples among the members
+//!   included.
+//! - **The count of RDF triples** in the expanded closure, so that
+//!   [`Summary::inferred`] needs no pass over it: a run adds what each
+//!   round's deltas stand for, and a run that merged a class counts the
+//!   store again, since a merge rewrites stored triples (a tuple is in a
+//!   delta again, [`Variable::remap`](crate::engine::Variable::remap)) and
+//!   changes what the unchanged ones stand for.
+//! - **The findings**, in representatives (dt-not-type's name the literal
+//!   itself), sorted and deduplicated after each run, and their public form,
+//!   the [`Diagnostic`]s, each term expanded to every member of its class.
 //!
 //! # Runs
 //!
@@ -31,8 +42,15 @@
 //!   queued into the stored closure as they came, and [`Store::run`] joins
 //!   them semi-naively against it; the findings of earlier runs stay;
 //! - after any removal (and on the first run, and after
-//!   [`Reasoner::clear`]), a full run: a fresh store, every family's facts
-//!   (inferred, never base; an empty base gets them too), then the base.
+//!   [`Reasoner::clear`]), a full run: a fresh store with no terms equal,
+//!   every family's facts (inferred, never base; an empty base gets them
+//!   too), then the base.
+//!
+//! A merge that changes a rule constant (two vocabulary terms made equal,
+//! or `rdf:nil` given a class of its own) stops the run, and it starts
+//! again from the base with the classes found so far (a *restart*: ADR
+//! 0003, `engine/store.rs`). Everything found before the restart follows
+//! from the base, so its findings are kept.
 //!
 //! Each round calls every family of the rule table in order with one
 //! [`Context`], as `rules/testing.rs` does, and [`Counters`] records the
@@ -62,7 +80,8 @@
 use crate::Diagnostic;
 #[cfg(feature = "io")]
 use crate::Error;
-use crate::engine::{Relation, Store};
+use crate::engine::{Canon, Relation, Store};
+use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding};
 use crate::term::{Dictionary, DocId, Kind, TermId};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
@@ -119,11 +138,13 @@ pub struct Reasoner {
     /// queued for the next run (unless that run is a full one).
     closure: Store,
     state: State,
-    /// Triples of the closure that are not RDF (all of them inferred).
-    hidden: usize,
-    /// The findings of the closure, sorted and deduplicated.
+    /// The RDF triples of the closure once expanded (base and inferred).
+    rdf: usize,
+    /// The findings of the closure, in representatives, sorted and
+    /// deduplicated.
     findings: Vec<Finding>,
-    /// The public form of `findings`, in the same order.
+    /// The public form of `findings`, expanded to every member of each
+    /// term's class, sorted.
     diagnostics: Vec<Diagnostic>,
     counters: Counters,
     /// The documents loaded since the last removal ([`document_key`]).
@@ -168,7 +189,7 @@ impl Reasoner {
             base: Base::default(),
             closure: Store::new(),
             state: State::Full,
-            hidden: 0,
+            rdf: 0,
             findings: Vec::new(),
             diagnostics: Vec::new(),
             counters: Counters::new(families),
@@ -280,25 +301,27 @@ impl Reasoner {
         };
         self.state = State::Current;
         let base = self.base.len();
-        debug_assert!(self.closure.len() >= base + self.hidden, "the closure holds the base");
+        debug_assert!(self.rdf >= base, "the closure holds the base");
         Summary {
             base,
-            inferred: self.closure.len().saturating_sub(base + self.hidden),
+            inferred: self.rdf.saturating_sub(base),
             rounds,
             diagnostics: self.diagnostics.len(),
         }
     }
 
     /// The closure: base and inferred triples. Generalized triples (a
-    /// literal subject, a predicate that is not an IRI) are left out.
+    /// literal subject, a predicate that is not an IRI) are left out. Each
+    /// term made equal to others by `owl:sameAs` stands for all of them:
+    /// a triple about one holds for every one, and they are `owl:sameAs`
+    /// each other.
     pub fn triples(&self) -> impl Iterator<Item = Triple> + '_ {
-        self.closure.triples().filter_map(|(s, p, o)| self.rdf_triple(s, p, o))
+        self.expanded().filter_map(|(s, p, o)| self.rdf_triple(s, p, o))
     }
 
     /// Only the inferred triples (the closure's triples that are not base).
     pub fn inferred(&self) -> impl Iterator<Item = Triple> + '_ {
-        self.closure
-            .triples()
+        self.expanded()
             .filter(|&(s, p, o)| !self.base.contains(&[s, p, o]))
             .filter_map(|(s, p, o)| self.rdf_triple(s, p, o))
     }
@@ -313,14 +336,31 @@ impl Reasoner {
     #[cfg(feature = "io")]
     pub fn write(&self, out: impl std::io::Write, format: Format, inferred_only: bool) -> Result<(), Error> {
         let mut triples: Vec<[TermId; 3]> = self
-            .closure
-            .triples()
+            .expanded()
             .filter(|&(s, p, _)| self.is_rdf(s, p))
             .filter(|&(s, p, o)| !inferred_only || !self.base.contains(&[s, p, o]))
             .map(|(s, p, o)| [TermId(s), TermId(p), TermId(o)])
             .collect();
         triples.sort_unstable();
         crate::io::write(&self.terms, triples, out, format).map(|_| ())
+    }
+
+    /// Every triple of the closure, generalized ones included, each stored
+    /// triple expanded to the members of its terms' classes.
+    fn expanded(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
+        equality::expanded(self.closure.canon(), self.closure.triples())
+    }
+
+    /// The closure as stored, in representatives.
+    #[cfg(test)]
+    pub(crate) fn store(&self) -> &Store {
+        &self.closure
+    }
+
+    /// The dictionary.
+    #[cfg(test)]
+    pub(crate) fn terms(&self) -> &Dictionary {
+        &self.terms
     }
 
     /// The counters of the last run.
@@ -372,58 +412,99 @@ impl Reasoner {
     }
 
     /// Runs the rule table to the fixpoint: from the base and the facts in a
-    /// fresh store (`full`), or from what was queued. Returns the rounds.
+    /// fresh store (`full`), or from what was queued; again from the base
+    /// after each restart. Returns the rounds.
     fn run(&mut self, full: bool) -> usize {
+        self.counters.clear();
+        let mut start = full.then(equality::canon);
         if full {
-            // Drop the old closure before building the new one.
-            self.closure = Store::new();
-            self.hidden = 0;
             self.findings.clear();
-            for family in self.families {
-                self.closure
-                    .extend(family.facts.iter().map(|&[s, p, o]| (s.0, p.0, o.0)));
-            }
-            self.closure.extend(self.base.iter().map(|[s, p, o]| (s, p, o)));
         }
-        let families = self.families;
-        let Self {
-            terms,
-            closure,
-            hidden,
-            counters,
-            ..
-        } = self;
-        let terms: &Dictionary = terms;
-        counters.clear();
+        let merges = if full { 0 } else { self.closure.canon().merges() };
+        let mut restarted = false;
         let mut found = Vec::new();
-        let mut cx = Context {
-            terms,
-            findings: &mut found,
-        };
-        let mut seen = closure.len();
-        let rounds = closure.run(|round| {
-            let store = round.store();
-            let len = store.len();
-            counters.delta.push(len - seen);
-            seen = len;
-            *hidden += generalized(store, terms);
-            for family in families {
-                let before = round.emitted();
-                (family.rules)(round, &mut cx);
-                counters.emitted.push(round.emitted() - before);
+        let mut rounds = 0;
+        loop {
+            if let Some(canon) = start.take() {
+                self.start(canon);
             }
-        });
-        if full || !found.is_empty() {
+            rounds += self.rounds(&mut found);
+            if !self.closure.restarted() {
+                break;
+            }
+            restarted = true;
+            start = Some(std::mem::take(&mut self.closure).into_canon());
+        }
+        let merged = restarted || self.closure.canon().merges() != merges;
+        if merged {
+            let weights = Weights::new(self.closure.canon(), &self.terms);
+            self.rdf = self
+                .closure
+                .triples()
+                .map(|(s, p, o)| weights.of(&self.terms, s, p, o))
+                .sum();
+        }
+        if full || merged || !found.is_empty() {
             self.findings.append(&mut found);
+            let canon = self.closure.canon();
+            for f in &mut self.findings {
+                equality::canonical(canon, f);
+            }
             self.findings.sort_unstable();
             self.findings.dedup();
-            self.diagnostics = self
-                .findings
+            let mut expanded = Vec::with_capacity(self.findings.len());
+            for f in &self.findings {
+                equality::expand_finding(canon, f, &mut expanded);
+            }
+            expanded.sort_unstable();
+            expanded.dedup();
+            self.diagnostics = expanded
                 .iter()
                 .map(|f| Diagnostic::from_finding(f, &self.terms))
                 .collect();
         }
         rounds
+    }
+
+    /// A fresh store with `canon`'s classes, holding every family's facts
+    /// and the base.
+    fn start(&mut self, canon: Canon) {
+        // The old closure is dropped before the new one fills.
+        self.closure = Store::with_canon(canon);
+        self.rdf = 0;
+        for family in self.families {
+            self.closure
+                .extend(family.facts.iter().map(|&[s, p, o]| (s.0, p.0, o.0)));
+        }
+        self.closure.extend(self.base.iter().map(|[s, p, o]| (s, p, o)));
+    }
+
+    /// Runs the rule table on the store to its fixpoint (or to a restart),
+    /// pushing the findings to `found` and the counters. Returns the rounds.
+    fn rounds(&mut self, found: &mut Vec<Finding>) -> usize {
+        let families = self.families;
+        let Self {
+            terms,
+            closure,
+            rdf,
+            counters,
+            ..
+        } = self;
+        let terms: &Dictionary = terms;
+        // What a stored triple stands for, as the run starts: when a merge
+        // changes it, the run counts the store again at its end.
+        let weights = Weights::new(closure.canon(), terms);
+        let mut cx = Context { terms, findings: found };
+        closure.run(|round| {
+            let (tuples, triples) = delta(round.store(), terms, &weights);
+            counters.delta.push(tuples);
+            *rdf += triples;
+            for family in families {
+                let before = round.emitted();
+                (family.rules)(round, &mut cx);
+                counters.emitted.push(round.emitted() - before);
+            }
+        })
     }
 
     /// True when `(s, p, _)` is an RDF triple: a subject that is not a
@@ -447,17 +528,22 @@ impl Reasoner {
     }
 }
 
-/// The generalized triples (not RDF) in the deltas of the store's tables:
-/// called once a round, it counts each stored triple once over a run.
-fn generalized(store: &Store, terms: &Dictionary) -> usize {
-    let mut count = 0;
+/// The tuples in the deltas of the store's tables, and the RDF triples
+/// they stand for once expanded: called once a round, it counts each stored
+/// triple once over a run in which no class changes.
+fn delta(store: &Store, terms: &Dictionary, weights: &Weights) -> (usize, usize) {
+    let (mut tuples, mut rdf) = (0, 0);
     for (p, table) in store.tables() {
         let recent = table.by_subject().recent();
         if recent.is_empty() {
             continue;
         }
+        tuples += recent.len();
+        if !weights.is_trivial() {
+            rdf += recent.iter().map(|&(s, o)| weights.of(terms, s, p, o)).sum::<usize>();
+            continue;
+        }
         if terms.kind(TermId(p)) != Kind::Iri {
-            count += recent.len();
             continue;
         }
         // Sorted by subject: one lookup per subject.
@@ -471,10 +557,10 @@ fn generalized(store: &Store, terms: &Dictionary) -> usize {
                     literal
                 }
             };
-            count += usize::from(literal);
+            rdf += usize::from(!literal);
         }
     }
-    count
+    (tuples, rdf)
 }
 
 /// The triples in `new` and not in `old` (both sorted and deduplicated),
@@ -616,7 +702,8 @@ pub(crate) struct Counters {
     /// The families' names, in table order.
     pub(crate) families: Vec<&'static str>,
     /// Each round's delta: the tuples new in the store when the round
-    /// starts (the store's length against the round before). The first
+    /// starts (its tables' recent parts; a tuple a merge rewrote is new
+    /// again). The first
     /// round's is the run's input (the base and the facts in a full run,
     /// the additions in an incremental one); round r + 1's is what round r
     /// derived that was new.

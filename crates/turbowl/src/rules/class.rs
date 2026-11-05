@@ -29,8 +29,9 @@
 //! its recent part, so the next round, where all of it is recent, makes up
 //! for what was skipped.
 //!
-//! Constants are bare vocabulary ids for now; ticket 11 reads them through
-//! the round's canon map (ADR 0003).
+//! Constants (`rdf:type`, `owl:Thing`, `rdf:nil`, ...) are read through the
+//! round's canon ([`Round::constant`], ADR 0003), so they keep their meaning
+//! when `owl:sameAs` makes one equal to another term.
 
 mod lists;
 mod restrictions;
@@ -47,74 +48,83 @@ pub(crate) const FACTS: &[[TermId; 3]] = &[
     [vocab::OWL_NOTHING, vocab::RDF_TYPE, vocab::OWL_CLASS],
 ];
 
-const TYPE: u32 = vocab::RDF_TYPE.0;
-const SUB_CLASS_OF: u32 = vocab::RDFS_SUB_CLASS_OF.0;
-const EQUIVALENT_CLASS: u32 = vocab::OWL_EQUIVALENT_CLASS.0;
+/// The constants this file's rules name, through the round's canon.
+#[derive(Debug, Clone, Copy)]
+struct Vocab {
+    ty: u32,
+    sub_class_of: u32,
+    equivalent_class: u32,
+}
 
 /// One round of the class rules.
 pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
+    let v = Vocab {
+        ty: round.constant(vocab::RDF_TYPE.0),
+        sub_class_of: round.constant(vocab::RDFS_SUB_CLASS_OF.0),
+        equivalent_class: round.constant(vocab::OWL_EQUIVALENT_CLASS.0),
+    };
     // `rdf:type` by object, (class, individual): every rule that reads the
     // instances of a class reads them here.
-    let instances = round.by_object(TYPE);
-    cax_sco(round, instances);
-    cax_eqc1(round, instances);
-    cax_eqc2(round, instances);
-    scm_sco(round);
-    scm_eqc1(round);
-    lists::rules(round, instances);
-    restrictions::rules(round, instances);
+    let instances = round.by_object(v.ty);
+    cax_sco(round, v, instances);
+    cax_eqc1(round, v, instances);
+    cax_eqc2(round, v, instances);
+    scm_sco(round, v);
+    scm_eqc1(round, v);
+    lists::rules(round, v.ty, instances);
+    restrictions::rules(round, v.ty, instances);
 }
 
 /// cax-sco: `c1 rdfs:subClassOf c2`, `x rdf:type c1` → `x rdf:type c2`.
 /// Join on c1: `subClassOf` by subject with `rdf:type` by object.
-fn cax_sco(round: &mut Round<'_>, instances: Option<&Variable<Pair>>) {
-    let (Some(sco), Some(instances)) = (round.by_subject(SUB_CLASS_OF), instances) else {
+fn cax_sco(round: &mut Round<'_>, v: Vocab, instances: Option<&Variable<Pair>>) {
+    let (Some(sco), Some(instances)) = (round.by_subject(v.sub_class_of), instances) else {
         return;
     };
-    join(sco, instances, |_, c2, x| round.emit(x, TYPE, c2));
+    join(sco, instances, |_, c2, x| round.emit(x, v.ty, c2));
 }
 
 /// cax-eqc1: `c1 owl:equivalentClass c2`, `x rdf:type c1` → `x rdf:type c2`.
 /// Join on c1: `equivalentClass` by subject with `rdf:type` by object.
-fn cax_eqc1(round: &mut Round<'_>, instances: Option<&Variable<Pair>>) {
-    let (Some(eqc), Some(instances)) = (round.by_subject(EQUIVALENT_CLASS), instances) else {
+fn cax_eqc1(round: &mut Round<'_>, v: Vocab, instances: Option<&Variable<Pair>>) {
+    let (Some(eqc), Some(instances)) = (round.by_subject(v.equivalent_class), instances) else {
         return;
     };
-    join(eqc, instances, |_, c2, x| round.emit(x, TYPE, c2));
+    join(eqc, instances, |_, c2, x| round.emit(x, v.ty, c2));
 }
 
 /// cax-eqc2: `c1 owl:equivalentClass c2`, `x rdf:type c2` → `x rdf:type c1`.
 /// Join on c2: `equivalentClass` by object with `rdf:type` by object.
-fn cax_eqc2(round: &mut Round<'_>, instances: Option<&Variable<Pair>>) {
+fn cax_eqc2(round: &mut Round<'_>, v: Vocab, instances: Option<&Variable<Pair>>) {
     let Some(instances) = instances else { return };
-    let Some(eqc) = round.by_object(EQUIVALENT_CLASS) else {
+    let Some(eqc) = round.by_object(v.equivalent_class) else {
         return;
     };
-    join(eqc, instances, |_, c1, x| round.emit(x, TYPE, c1));
+    join(eqc, instances, |_, c1, x| round.emit(x, v.ty, c1));
 }
 
 /// scm-sco: `c1 rdfs:subClassOf c2`, `c2 rdfs:subClassOf c3` →
 /// `c1 rdfs:subClassOf c3`. Join on c2: `subClassOf` by object with
 /// `subClassOf` by subject.
-fn scm_sco(round: &mut Round<'_>) {
-    let Some(sco) = round.by_subject(SUB_CLASS_OF) else {
+fn scm_sco(round: &mut Round<'_>, v: Vocab) {
+    let Some(sco) = round.by_subject(v.sub_class_of) else {
         return;
     };
-    let Some(sco_by_object) = round.by_object(SUB_CLASS_OF) else {
+    let Some(sco_by_object) = round.by_object(v.sub_class_of) else {
         return;
     };
-    join(sco_by_object, sco, |_, c1, c3| round.emit(c1, SUB_CLASS_OF, c3));
+    join(sco_by_object, sco, |_, c1, c3| round.emit(c1, v.sub_class_of, c3));
 }
 
 /// scm-eqc1: `c1 owl:equivalentClass c2` → `c1 rdfs:subClassOf c2` and
 /// `c2 rdfs:subClassOf c1`. Reads the recent `equivalentClass` pairs.
-fn scm_eqc1(round: &mut Round<'_>) {
-    let Some(eqc) = round.by_subject(EQUIVALENT_CLASS) else {
+fn scm_eqc1(round: &mut Round<'_>, v: Vocab) {
+    let Some(eqc) = round.by_subject(v.equivalent_class) else {
         return;
     };
     for &(c1, c2) in eqc.recent().iter() {
-        round.emit(c1, SUB_CLASS_OF, c2);
-        round.emit(c2, SUB_CLASS_OF, c1);
+        round.emit(c1, v.sub_class_of, c2);
+        round.emit(c2, v.sub_class_of, c1);
     }
 }
 

@@ -9,35 +9,31 @@
 //! recent. Restrictions are grouped by `p`, so each rule looks up a
 //! property's table once per round, outside the tuple loops.
 
-use super::{TYPE, range};
+use super::range;
 use crate::engine::{Pair, Round, Variable, View, join, join_views};
 use crate::term::vocab;
 
-const ON_PROPERTY: u32 = vocab::OWL_ON_PROPERTY.0;
-const SOME_VALUES_FROM: u32 = vocab::OWL_SOME_VALUES_FROM.0;
-const ALL_VALUES_FROM: u32 = vocab::OWL_ALL_VALUES_FROM.0;
-const HAS_VALUE: u32 = vocab::OWL_HAS_VALUE.0;
-const THING: u32 = vocab::OWL_THING.0;
-
-/// The restriction rules, for one round. `instances` is `rdf:type` by object.
-pub(super) fn rules(round: &mut Round<'_>, instances: Option<&Variable<Pair>>) {
-    let Some(on_property) = round.by_subject(ON_PROPERTY) else {
+/// The restriction rules, for one round. `ty` is `rdf:type` and `instances`
+/// its table by object.
+pub(super) fn rules(round: &mut Round<'_>, ty: u32, instances: Option<&Variable<Pair>>) {
+    let Some(on_property) = round.by_subject(round.constant(vocab::OWL_ON_PROPERTY.0)) else {
         return;
     };
-    let types = round.by_subject(TYPE).map(Variable::all);
-    if let Some(svf) = round.by_subject(SOME_VALUES_FROM) {
+    let types = round.by_subject(ty).map(Variable::all);
+    if let Some(svf) = round.by_subject(round.constant(vocab::OWL_SOME_VALUES_FROM.0)) {
         let restrictions = restrictions(svf, on_property);
-        cls_svf1(round, &restrictions, instances, types.as_ref());
-        cls_svf2(round, &restrictions);
+        cls_svf1(round, ty, &restrictions, instances, types.as_ref());
+        let thing = round.constant(vocab::OWL_THING.0);
+        cls_svf2(round, ty, thing, &restrictions);
     }
-    if let Some(avf) = round.by_subject(ALL_VALUES_FROM) {
+    if let Some(avf) = round.by_subject(round.constant(vocab::OWL_ALL_VALUES_FROM.0)) {
         let restrictions = restrictions(avf, on_property);
-        cls_avf(round, &restrictions, instances, types.as_ref());
+        cls_avf(round, ty, &restrictions, instances, types.as_ref());
     }
-    if let Some(hv) = round.by_subject(HAS_VALUE) {
+    if let Some(hv) = round.by_subject(round.constant(vocab::OWL_HAS_VALUE.0)) {
         let restrictions = restrictions(hv, on_property);
         cls_hv1(round, &restrictions, instances);
-        cls_hv2(round, &restrictions);
+        cls_hv2(round, ty, &restrictions);
     }
 }
 
@@ -96,6 +92,7 @@ fn runs(mut pairs: &[Pair], mut f: impl FnMut(u32, &[Pair])) {
 /// instances of y; for a new restriction, all of p with all instances of y.
 fn cls_svf1(
     round: &mut Round<'_>,
+    ty: u32,
     restrictions: &[Restriction],
     instances: Option<&Variable<Pair>>,
     types: Option<&View<'_, Pair>>,
@@ -117,7 +114,7 @@ fn cls_svf1(
                 types.for_each_value(v, |c| matched.extend(range(&old, c).iter().map(|&(_, x)| x)));
                 for &x in &matched {
                     for &(_, u) in run {
-                        round.emit(u, TYPE, x);
+                        round.emit(u, ty, x);
                     }
                 }
             });
@@ -125,7 +122,7 @@ fn cls_svf1(
                 for &(_, v) in range(instances.recent(), y) {
                     for part in edges.stable() {
                         for &(_, u) in range(part, v) {
-                            round.emit(u, TYPE, x);
+                            round.emit(u, ty, x);
                         }
                     }
                 }
@@ -136,7 +133,7 @@ fn cls_svf1(
                 for &(_, v) in range(part, y) {
                     for p_part in edges.parts() {
                         for &(_, u) in range(p_part, v) {
-                            round.emit(u, TYPE, x);
+                            round.emit(u, ty, x);
                         }
                     }
                 }
@@ -147,12 +144,12 @@ fn cls_svf1(
 
 /// cls-svf2: `x owl:someValuesFrom owl:Thing`, `x owl:onProperty p`, `u p v`
 /// → `u rdf:type x`. The subjects of p's recent pairs, or of all of them for
-/// a new restriction.
-fn cls_svf2(round: &mut Round<'_>, restrictions: &[Restriction]) {
+/// a new restriction. `thing` is `owl:Thing`.
+fn cls_svf2(round: &mut Round<'_>, ty: u32, thing: u32, restrictions: &[Restriction]) {
     let (mut old, mut new) = (Vec::new(), Vec::new());
     for (p, group) in by_property(restrictions) {
-        fillers(group, false, |r| r.y == THING, &mut old);
-        fillers(group, true, |r| r.y == THING, &mut new);
+        fillers(group, false, |r| r.y == thing, &mut old);
+        fillers(group, true, |r| r.y == thing, &mut new);
         if old.is_empty() && new.is_empty() {
             continue;
         }
@@ -162,7 +159,7 @@ fn cls_svf2(round: &mut Round<'_>, restrictions: &[Restriction]) {
         let mut subjects = |part: &[Pair], xs: &[Pair]| {
             runs(part, |u, _| {
                 for &(_, x) in xs {
-                    round.emit(u, TYPE, x);
+                    round.emit(u, ty, x);
                 }
             });
         };
@@ -181,6 +178,7 @@ fn cls_svf2(round: &mut Round<'_>, restrictions: &[Restriction]) {
 /// u; for a new restriction, all instances of x with all of p.
 fn cls_avf(
     round: &mut Round<'_>,
+    ty: u32,
     restrictions: &[Restriction],
     instances: Option<&Variable<Pair>>,
     types: Option<&View<'_, Pair>>,
@@ -204,7 +202,7 @@ fn cls_avf(
                 for &(_, u) in range(instances.recent(), x) {
                     for part in edges.stable() {
                         for &(_, v) in range(part, u) {
-                            round.emit(v, TYPE, y);
+                            round.emit(v, ty, y);
                         }
                     }
                 }
@@ -214,7 +212,7 @@ fn cls_avf(
                     for &(_, u) in range(part, x) {
                         for p_part in edges.parts() {
                             for &(_, v) in range(p_part, u) {
-                                round.emit(v, TYPE, y);
+                                round.emit(v, ty, y);
                             }
                         }
                     }
@@ -229,7 +227,7 @@ fn cls_avf(
                 types.for_each_value(u, |c| matched.extend(range(&old, c).iter().map(|&(_, y)| y)));
                 for &y in &matched {
                     for &(_, v) in run {
-                        round.emit(v, TYPE, y);
+                        round.emit(v, ty, y);
                     }
                 }
             });
@@ -260,7 +258,7 @@ fn cls_hv1(round: &mut Round<'_>, restrictions: &[Restriction], instances: Optio
 /// `u rdf:type x`. p's recent pairs, looked up by object among the group's
 /// values; all of p's pairs for a new restriction. Reading p by subject
 /// spares an object index of p, which cls-hv1 makes large.
-fn cls_hv2(round: &mut Round<'_>, restrictions: &[Restriction]) {
+fn cls_hv2(round: &mut Round<'_>, ty: u32, restrictions: &[Restriction]) {
     let (mut old, mut new) = (Vec::new(), Vec::new());
     for (p, group) in by_property(restrictions) {
         let Some(edges) = round.by_subject(p) else {
@@ -271,7 +269,7 @@ fn cls_hv2(round: &mut Round<'_>, restrictions: &[Restriction]) {
         let mut matches = |part: &[Pair], values: &[Pair]| {
             for &(u, v) in part {
                 for &(_, x) in range(values, v) {
-                    round.emit(u, TYPE, x);
+                    round.emit(u, ty, x);
                 }
             }
         };

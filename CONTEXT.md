@@ -37,6 +37,13 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Representative**: for a set of terms that `owl:sameAs` makes equal, the one
   term id that stands for all of them inside the engine. Output expands it
   back to every member.
+- **Canon**: the union-find of term ids that says which terms are equal and
+  which id represents each class. A merge rewrites the stored tuples into
+  representatives and puts them in the deltas again.
+- **Restart**: a run that starts again from the base, keeping the canon,
+  because a merge changed what a rule constant (`rdf:type`, `rdf:nil`, ...)
+  means. Rare: two vocabulary terms made equal, or `rdf:nil` made equal to
+  another term.
 - **Rule set**: the W3C OWL 2 RL rules version 1 implements (listed in
   `docs/specs/v1.md`). There is one; ADR 0004 removed the profiles.
 

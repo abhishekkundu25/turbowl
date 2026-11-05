@@ -15,7 +15,8 @@ use std::collections::{HashMap, HashSet};
 /// A known fault of an oracle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Fault {
-    /// OWL-RL's scm-sco never derives `c rdfs:subClassOf c`.
+    /// OWL-RL's scm-sco never derives `c rdfs:subClassOf c` (nor, by
+    /// eq-rep-p, `c p c` for a `p` made `owl:sameAs` `rdfs:subClassOf`).
     F1,
     /// OWL-RL's cls-com names the second class where the individual belongs.
     F2,
@@ -41,7 +42,8 @@ impl Fault {
             Self::F1 => {
                 "owlrl 7.6.2 skips c rdfs:subClassOf c in scm-sco (OWLRL.py:883-888, `if c1 != c2` and \
                  `if c1 != c3`) and derives it only through scm-cls, which needs `c a owl:Class`; the W3C \
-                 scm-sco has no such condition, so `A subClassOf B . B subClassOf A` gives A subClassOf A"
+                 scm-sco has no such condition, so `A subClassOf B . B subClassOf A` gives A subClassOf A, \
+                 and eq-rep-p copies it to every property made owl:sameAs rdfs:subClassOf"
             }
             Self::F2 => {
                 "owlrl 7.6.2 formats cls-com's message with `x`, which is the second class there \
@@ -88,10 +90,12 @@ impl Fault {
     /// and the faulty oracle's (`theirs`) on this input.
     pub fn shows(self, input: &Input, ours: &Closure, theirs: &Closure) -> bool {
         match self {
-            Self::F1 => ours
-                .triples
-                .iter()
-                .any(|t| reflexive_sub_class(t) && !theirs.triples.contains(t)),
+            Self::F1 => {
+                let aliases = sub_class_aliases(ours);
+                ours.triples
+                    .iter()
+                    .any(|t| reflexive_sub_class(t, &aliases) && !theirs.triples.contains(t))
+            }
             Self::F2 => [ours, theirs]
                 .iter()
                 .any(|c| c.findings.iter().any(|f| f.code == "cls-com")),
@@ -110,9 +114,11 @@ impl Fault {
     /// Removes from both closures what this fault makes differ.
     fn filter(self, ours: &mut Closure, theirs: &mut Closure) {
         match self {
-            Self::F1 => ours
-                .triples
-                .retain(|t| !reflexive_sub_class(t) || theirs.triples.contains(t)),
+            Self::F1 => {
+                let aliases = sub_class_aliases(ours);
+                ours.triples
+                    .retain(|t| !reflexive_sub_class(t, &aliases) || theirs.triples.contains(t))
+            }
             Self::F2 => {
                 for c in [ours, theirs] {
                     c.findings = c
@@ -157,8 +163,27 @@ pub fn explains_failure(oracle: &str, input: &Input) -> Option<Fault> {
     (oracle == Fault::F4.oracle() && has_cyclic_list(input)).then_some(Fault::F4)
 }
 
-fn reflexive_sub_class(t: &oxrdf::Triple) -> bool {
-    t.predicate == rdfs::SUB_CLASS_OF && Term::from(t.subject.clone()) == t.object
+/// `rdfs:subClassOf`, and every IRI the closure makes `owl:sameAs` it.
+fn sub_class_aliases(closure: &Closure) -> HashSet<oxrdf::NamedNode> {
+    let mut aliases: HashSet<oxrdf::NamedNode> = closure
+        .triples
+        .iter()
+        .filter(|t| {
+            t.predicate.as_str() == "http://www.w3.org/2002/07/owl#sameAs"
+                && t.object == Term::from(rdfs::SUB_CLASS_OF.into_owned())
+        })
+        .filter_map(|t| match &t.subject {
+            NamedOrBlankNode::NamedNode(n) => Some(n.clone()),
+            NamedOrBlankNode::BlankNode(_) => None,
+        })
+        .collect();
+    aliases.insert(rdfs::SUB_CLASS_OF.into_owned());
+    aliases
+}
+
+/// `c p c` with `p` one of `aliases` ([`sub_class_aliases`]).
+fn reflexive_sub_class(t: &oxrdf::Triple, aliases: &HashSet<oxrdf::NamedNode>) -> bool {
+    aliases.contains(&t.predicate) && Term::from(t.subject.clone()) == t.object
 }
 
 /// A dt-not-type finding about a literal with leading or trailing whitespace.
@@ -302,6 +327,30 @@ mod tests {
             Ok(s) => assert!(s.not_entailed.is_empty(), "HermiT: {:?}", s.not_entailed),
             Err(o) => println!("HermiT not run: {o:?}"),
         }
+        filter_is_needed_and_enough(Fault::F1, &input, &nemo, &owlrl);
+    }
+
+    /// F1 through equality: with `rdfs:subClassOf owl:sameAs
+    /// owl:equivalentClass`, eq-rep-p copies `A subClassOf A` to
+    /// `A equivalentClass A`, which OWL-RL misses with the first.
+    #[test]
+    fn f1_reaches_the_aliases_of_sub_class_of() {
+        let input = input(
+            "f1-alias",
+            "rdfs:subClassOf owl:sameAs owl:equivalentClass . ex:A rdfs:subClassOf ex:B .",
+        );
+        let Some((nemo, owlrl)) = both(&input) else { return };
+        let owlrl = ran(owlrl);
+        let a_eqc_a =
+            triple("<http://example.org/A> <http://www.w3.org/2002/07/owl#equivalentClass> <http://example.org/A>");
+        assert!(
+            nemo.triples.contains(&a_eqc_a),
+            "the W3C rules (Nemo) derive A equivalentClass A"
+        );
+        assert!(
+            !owlrl.triples.contains(&a_eqc_a),
+            "OWL-RL now derives it: F1 is gone here"
+        );
         filter_is_needed_and_enough(Fault::F1, &input, &nemo, &owlrl);
     }
 

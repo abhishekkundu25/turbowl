@@ -330,15 +330,16 @@ impl View {
     }
 
     /// Whether some path from `head` to `rdf:nil` has, at every cell, a
-    /// member that satisfies `holds` (cls-int1's "every member").
-    fn every_member(&self, head: &Term, holds: impl Fn(&Term) -> bool) -> bool {
+    /// member that satisfies `holds` (cls-int1's "every member"). `cells`
+    /// are the list's cells ([`View::cells`]); they are visited from the
+    /// last found, so a simple list settles in one sweep.
+    fn every_member(&self, head: &Term, cells: &[Term], holds: impl Fn(&Term) -> bool) -> bool {
         let (first, rest, nil) = (iri(RDF_FIRST), iri(RDF_REST), iri(RDF_NIL));
-        let cells = self.cells(head);
         let mut good: HashSet<Term> = HashSet::new();
         let mut changed = true;
         while changed {
             changed = false;
-            for cell in &cells {
+            for cell in cells.iter().rev() {
                 if good.contains(cell) {
                     continue;
                 }
@@ -356,41 +357,81 @@ impl View {
     /// The (u, v) pairs a property chain whose list starts at `head` joins:
     /// `u p1 x1 ... x(n-1) pn v` along some path from `head` to `rdf:nil`.
     /// `None` once the pairs joined for all the list's suffixes pass `cap`.
+    ///
+    /// For each cell, the pairs the list from that cell to `rdf:nil` joins,
+    /// to a fixpoint: a cell's are its firsts' pairs when a rest is
+    /// `rdf:nil`, and its firsts' pairs joined with its other rests' pairs.
+    /// The join distributes over unions, so each cell joins the union of its
+    /// firsts' pairs with the union of its rests' once (a cell with many
+    /// firsts and rests would otherwise find each pair many times), and
+    /// each sweep joins only what the rests gained in the sweep before (the
+    /// first sweep: the pairs of the cells that end at `rdf:nil`).
     fn chain(&self, head: &Term, cap: usize) -> Option<Vec<(Term, Term)>> {
         let (first, rest, nil) = (iri(RDF_FIRST), iri(RDF_REST), iri(RDF_NIL));
         let cells = self.cells(head);
         // For each cell: u -> every v the chain from that cell to nil joins.
         let mut joined: HashMap<Term, HashMap<Term, HashSet<Term>>> = HashMap::new();
-        let mut total = 0usize;
-        let mut changed = true;
-        while changed {
-            changed = false;
-            for cell in &cells {
-                let mut found = Vec::new();
+        // What each cell gained in the last sweep: x -> the v's, as above.
+        let mut gained: HashMap<Term, HashMap<Term, HashSet<Term>>> = HashMap::new();
+        // Each cell's firsts' pairs, by their object x: x -> the u's.
+        let firsts: Vec<HashMap<&Term, HashSet<&Term>>> = cells
+            .iter()
+            .map(|cell| {
+                let mut by_x: HashMap<&Term, HashSet<&Term>> = HashMap::new();
                 for p in self.objects(cell, &first) {
-                    for tail in self.objects(cell, &rest) {
-                        if *tail == nil {
-                            found.extend(self.pairs(p).iter().cloned());
-                        } else if let Some(after) = joined.get(tail) {
-                            for (u, x) in self.pairs(p) {
-                                for v in after.get(x).into_iter().flatten() {
-                                    found.push((u.clone(), v.clone()));
-                                }
-                            }
+                    for (u, x) in self.pairs(p) {
+                        by_x.entry(x).or_default().insert(u);
+                    }
+                }
+                by_x
+            })
+            .collect();
+        let mut total = 0usize;
+        let mut sweep = 0;
+        loop {
+            let mut next: HashMap<Term, HashMap<Term, HashSet<Term>>> = HashMap::new();
+            for (cell, firsts) in cells.iter().zip(&firsts) {
+                // The rests' new pairs, by their subject x: x -> the v's.
+                let mut tails: HashMap<&Term, HashSet<&Term>> = HashMap::new();
+                let mut to_nil = false;
+                for tail in self.objects(cell, &rest) {
+                    if *tail == nil {
+                        to_nil = true;
+                    } else if let Some(after) = gained.get(tail) {
+                        for (x, vs) in after {
+                            tails.entry(x).or_default().extend(vs);
                         }
+                    }
+                }
+                let mut found: Vec<(&Term, &Term)> = Vec::new();
+                if to_nil && sweep == 0 {
+                    found.extend(firsts.iter().flat_map(|(x, us)| us.iter().map(move |u| (*u, *x))));
+                }
+                for (x, us) in firsts {
+                    if let Some(vs) = tails.get(x) {
+                        found.extend(us.iter().flat_map(|u| vs.iter().map(move |v| (*u, *v))));
                     }
                 }
                 let map = joined.entry(cell.clone()).or_default();
                 for (u, v) in found {
-                    if map.entry(u).or_default().insert(v) {
-                        changed = true;
+                    if map.entry(u.clone()).or_default().insert(v.clone()) {
                         total += 1;
                         if total > cap {
                             return None;
                         }
+                        next.entry(cell.clone())
+                            .or_default()
+                            .entry(u.clone())
+                            .or_default()
+                            .insert(v.clone());
                     }
                 }
             }
+            if next.is_empty() {
+                break;
+            }
+            gained = next;
+            sweep += 1;
         }
         let from_head = joined.remove(head).unwrap_or_default();
         Some(
@@ -562,8 +603,9 @@ fn classes(v: &View, r: &mut Round) {
     for (c, head) in v.pairs(&iri(OWL_INTERSECTION_OF)) {
         let members = v.members(head);
         let candidates: HashSet<&Term> = members.iter().flat_map(|k| v.subjects(&ty, k)).collect();
+        let cells = v.cells(head);
         for y in candidates {
-            if v.every_member(head, |k| v.has(y, &ty, k)) {
+            if v.every_member(head, &cells, |k| v.has(y, &ty, k)) {
                 r.derive("cls-int1", y, &ty, c);
             }
         }

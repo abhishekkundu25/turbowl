@@ -17,10 +17,7 @@
 //!
 //! Tools and data are fetched by `scripts/fetch-tools.sh` and
 //! `scripts/fetch-data.sh`. An oracle that is not installed returns
-//! [`Outcome::Skipped`]; with `CI=true` that panics instead. Until the
-//! equality rules land (ticket 11), [`ours`] returns [`Outcome::Pending`] on
-//! an input that needs them ([`ours::needs_equality`]); the checks count it
-//! as not run, and the reports say how many inputs were pending.
+//! [`Outcome::Skipped`]; with `CI=true` that panics instead.
 //!
 //! Triangulation ([`triangulate`]) compares the oracles with each other on
 //! every input: when two agree and a third does not, the third is examined,
@@ -51,11 +48,9 @@ pub use triangulate::{Check, KNOWN, Options, Row, Status, Table, triangulate, tr
 pub enum Outcome {
     /// The oracle ran and gave this closure.
     Ran(Closure),
-    /// The oracle is not installed or cannot run here; the reason says what is missing.
+    /// The oracle is not installed or cannot run here, or the input is
+    /// outside what it judges; the reason says which.
     Skipped(String),
-    /// The system under test cannot judge this input yet (it needs rules
-    /// still to come); the reason says which.
-    Pending(String),
     /// The oracle ran and failed (a crash, a timeout, unreadable output).
     Failed(String),
 }
@@ -78,12 +73,11 @@ impl Outcome {
         }
     }
 
-    /// One word for a results table: `ran`, `skipped`, `pending` or `failed`.
+    /// One word for a results table: `ran`, `skipped` or `failed`.
     pub fn status(&self) -> &'static str {
         match self {
             Outcome::Ran(_) => "ran",
             Outcome::Skipped(_) => "skipped",
-            Outcome::Pending(_) => "pending",
             Outcome::Failed(_) => "failed",
         }
     }

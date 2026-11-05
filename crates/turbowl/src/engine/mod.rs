@@ -41,18 +41,22 @@
 //! tuples of `Ord + Copy`, and `(u32, u32)` pairs sort and compare as fast as
 //! anything can.
 //!
-//! # Where equality rewriting goes (ticket 11)
+//! # Equality (ticket 11)
 //!
-//! `Store::step` has the place marked: rewrite the round's derived triples
-//! through the canon map before they are sorted, and call
-//! [`Variable::remap`] on the tables that mention a merged term, which moves
-//! the rewritten tuples back into the deltas.
+//! [`Canon`] is a union-find of term ids. A rule asks for a merge
+//! ([`Round::merge`]); the next step merges, rewrites every stored tuple
+//! that mentions a moved id ([`Variable::remap`] moves the rewritten tuples
+//! back into the deltas), moves a merged-away predicate's table into its
+//! representative's, and rewrites the round's derived triples before they
+//! are sorted. Rules read the constants they name through the canon
+//! ([`Round::constant`]). A merge that changes a constant stops the run
+//! ([`Store::restarted`]); see `store.rs`.
 
 // The engine offers more than version 1's rules use: leapjoin, antijoin and
-// `join_static` for the experiments, `Variable::remap` for equality (ticket
-// 11). Its tests use all of it.
+// `join_static` for the experiments. Its tests use all of it.
 #![allow(dead_code, unused_imports)]
 
+mod canon;
 mod join;
 mod leapjoin;
 mod relation;
@@ -62,6 +66,7 @@ mod variable;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use canon::{Canon, Members, Merged};
 pub(crate) use join::{antijoin, antijoin_slices, join, join_slices, join_static, join_views};
 pub(crate) use leapjoin::{
     ExtendAnti, ExtendWith, FilterAnti, FilterWith, Leaper, Leapers, ValueFilter, extend_anti, extend_with,

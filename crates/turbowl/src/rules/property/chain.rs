@@ -49,8 +49,6 @@ use crate::term::vocab;
 use rustc_hash::FxHashMap;
 use std::ops::Range;
 
-const NIL: u32 = vocab::RDF_NIL.0;
-
 /// The most chains one axiom's list is read as before it is evaluated
 /// naively.
 pub(super) const MAX_CHAINS: usize = 1024;
@@ -58,13 +56,15 @@ pub(super) const MAX_CHAINS: usize = 1024;
 /// One round of prp-spo2.
 pub(super) fn rules(round: &mut Round<'_>) {
     let (Some(axioms), Some(first), Some(rest)) = (
-        round.by_subject(vocab::OWL_PROPERTY_CHAIN_AXIOM.0),
-        round.by_subject(vocab::RDF_FIRST.0),
-        round.by_subject(vocab::RDF_REST.0),
+        round.by_subject(round.constant(vocab::OWL_PROPERTY_CHAIN_AXIOM.0)),
+        round.by_subject(round.constant(vocab::RDF_FIRST.0)),
+        round.by_subject(round.constant(vocab::RDF_REST.0)),
     ) else {
         return;
     };
-    let mut chains = Chains::new(first, rest);
+    let nil = round.constant(vocab::RDF_NIL.0);
+    let nil_is_a_cell = round.canon().members(nil).len() > 1;
+    let mut chains = Chains::new(first, rest, nil, nil_is_a_cell);
     for (part, recent) in tagged(axioms) {
         for &(p, head) in part {
             chains.axiom(round, p, head, recent);
@@ -91,6 +91,13 @@ struct Naive;
 struct Chains<'a> {
     first: &'a Variable<Pair>,
     rest: &'a Variable<Pair>,
+    /// The representative of `rdf:nil`, and whether it is also read on as
+    /// a cell: when `owl:sameAs` gave it a class with other members, a cell
+    /// equal to `rdf:nil` but not `rdf:nil` itself can be a later cell (the
+    /// W3C rules test `rdf:nil` for identity). It becomes true only by a
+    /// merge that restarts the run, so it is fixed for a run.
+    nil: u32,
+    nil_is_a_cell: bool,
     /// The cells reachable from the current head, the head first.
     cells: Vec<u32>,
     index: FxHashMap<u32, usize>,
@@ -119,10 +126,12 @@ fn values(v: &Variable<Pair>, key: u32, out: &mut Vec<(u32, bool)>) {
 }
 
 impl<'a> Chains<'a> {
-    fn new(first: &'a Variable<Pair>, rest: &'a Variable<Pair>) -> Self {
+    fn new(first: &'a Variable<Pair>, rest: &'a Variable<Pair>, nil: u32, nil_is_a_cell: bool) -> Self {
         Self {
             first,
             rest,
+            nil,
+            nil_is_a_cell,
             cells: Vec::new(),
             index: FxHashMap::default(),
             info: Vec::new(),
@@ -158,6 +167,12 @@ impl<'a> Chains<'a> {
         (self.properties, self.chains) = (properties, chains);
     }
 
+    /// True when a list reads on from `tail` as a cell: every term but
+    /// `rdf:nil`, and `rdf:nil` too when it is a cell (see the field).
+    fn continues(&self, tail: u32) -> bool {
+        tail != self.nil || self.nil_is_a_cell
+    }
+
     /// Reads the cells reachable from `head` and marks the live ones.
     fn read_list(&mut self, head: u32) {
         self.cells.clear();
@@ -176,7 +191,7 @@ impl<'a> Chains<'a> {
             values(self.rest, cell, &mut self.rests);
             for k in r..self.rests.len() {
                 let tail = self.rests[k].0;
-                if tail != NIL && !self.index.contains_key(&tail) {
+                if self.continues(tail) && !self.index.contains_key(&tail) {
                     self.index.insert(tail, self.cells.len());
                     self.cells.push(tail);
                 }
@@ -198,7 +213,7 @@ impl<'a> Chains<'a> {
                 }
                 let live = self.rests[cell.rests.clone()]
                     .iter()
-                    .any(|&(t, _)| t == NIL || self.info[self.index[&t]].live);
+                    .any(|&(t, _)| t == self.nil || self.info[self.index[&t]].live);
                 if live {
                     self.info[i].live = true;
                     changed = true;
@@ -221,14 +236,15 @@ impl<'a> Chains<'a> {
             for r in info.rests.clone() {
                 let (tail, tail_recent) = self.rests[r];
                 let new = recent || q_recent || tail_recent;
-                if tail == NIL {
+                if tail == self.nil {
                     if self.chains.len() == MAX_CHAINS {
                         return Err(Naive);
                     }
                     let start = self.properties.len();
                     self.properties.extend_from_slice(&self.path);
                     self.chains.push((start..self.properties.len(), new));
-                } else {
+                }
+                if self.continues(tail) {
                     let next = self.index[&tail];
                     if self.info[next].live {
                         self.walk(next, new)?;
@@ -372,10 +388,12 @@ impl<'a> Chains<'a> {
                     };
                     for r in info.rests.clone() {
                         let tail = self.rests[r].0;
-                        if tail == NIL {
+                        if tail == self.nil {
                             for part in q.parts() {
                                 found.extend_from_slice(part);
                             }
+                        }
+                        if !self.continues(tail) {
                             continue;
                         }
                         let next = self.index[&tail];

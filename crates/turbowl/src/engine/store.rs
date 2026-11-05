@@ -1,6 +1,29 @@
 //! The triple store the rules read: one predicate table per predicate term
 //! id, and the round loop that runs the rules to a fixpoint.
+//!
+//! # Equality (ticket 11, ADR 0003)
+//!
+//! The store holds a [`Canon`] and keeps every tuple in terms of
+//! representatives. A rule asks for a merge ([`Round::merge`]); the next
+//! step applies the round's merges, then:
+//!
+//! - every table's tuples that mention an id whose representative changed
+//!   are rewritten and queued again ([`Variable::remap`]), so they are a
+//!   delta next round and every rule joins them again (as egglog does:
+//!   canonicalise, then take the delta);
+//! - a table whose predicate lost its place as representative is moved,
+//!   rewritten, into the representative's table, as new tuples;
+//! - the round's derived triples are rewritten before they are queued.
+//!
+//! A new tuple that a merge makes possible to join always mentions an id
+//! that changed, so it is in a delta: semi-naive evaluation stays complete.
+//! That fails only when a rule constant changes ([`Merged::Constant`]): a
+//! rule that now reads another table, or tests for identity with another
+//! class, has never joined what was stable. The step then stops the run
+//! ([`Store::restarted`]), and the caller runs again from its base with
+//! this canon ([`Store::into_canon`], [`Store::with_canon`]).
 
+use super::canon::{Canon, Merged};
 use super::relation::Relation;
 use super::variable::Variable;
 use rustc_hash::FxHashMap;
@@ -41,6 +64,8 @@ pub(crate) struct Pending {
     triples: Vec<(u32, u32, u32)>,
     /// Predicates to index by object.
     by_object: Vec<u32>,
+    /// Pairs of ids to make equal.
+    merges: Vec<(u32, u32)>,
 }
 
 /// Predicate tables, semi-naively evaluated.
@@ -57,12 +82,44 @@ pub(crate) struct Store {
     is_active: Vec<bool>,
     pending: Pending,
     rounds: usize,
+    /// Which ids are equal; every stored tuple is in its representatives.
+    canon: Canon,
+    /// The ids whose representative changed in the last step.
+    moved: Vec<u32>,
+    /// A merge changed a rule constant: the last run stopped there.
+    restarted: bool,
 }
 
 impl Store {
-    /// An empty store.
+    /// An empty store, with no constants.
     pub(crate) fn new() -> Self {
         Self::default()
+    }
+
+    /// An empty store whose ids are made equal as `canon` says: queued
+    /// triples are rewritten into its representatives.
+    pub(crate) fn with_canon(canon: Canon) -> Self {
+        Self {
+            canon,
+            ..Self::default()
+        }
+    }
+
+    /// The canon, for a store that is dropped (to run again from the base).
+    pub(crate) fn into_canon(self) -> Canon {
+        self.canon
+    }
+
+    /// Which ids are equal.
+    pub(crate) fn canon(&self) -> &Canon {
+        &self.canon
+    }
+
+    /// True when the last run stopped because a merge changed a rule
+    /// constant: the store is incomplete, and the run must start again
+    /// from the base with [`Store::into_canon`].
+    pub(crate) fn restarted(&self) -> bool {
+        self.restarted
     }
 
     /// Queues a triple; the next run sees it as new.
@@ -86,6 +143,7 @@ impl Store {
     /// Returns the rounds in which `rules` ran. Called again after more
     /// inserts, it continues semi-naively from the stored state.
     pub(crate) fn run(&mut self, mut rules: impl FnMut(&mut Round<'_>)) -> usize {
+        debug_assert!(!self.restarted, "a store that stopped for a restart is not run again");
         let mut pending = std::mem::take(&mut self.pending);
         let mut rounds = 0;
         while self.step(&mut pending) {
@@ -101,12 +159,10 @@ impl Store {
     }
 
     /// Applies a round's output and advances every active table. True when
-    /// some table has a non-empty recent part, so another round is needed.
+    /// some table has a non-empty recent part or an id moved, so another
+    /// round is needed.
     fn step(&mut self, pending: &mut Pending) -> bool {
-        // Ticket 11 (canon.rs): rewrite `pending.triples` through the canon
-        // map here, before sorting, and call `remap` on the tables whose
-        // tuples mention a merged term.
-
+        // Object indexes first, so that the rewriting below covers them.
         pending.by_object.sort_unstable();
         pending.by_object.dedup();
         for p in std::mem::take(&mut pending.by_object) {
@@ -117,6 +173,26 @@ impl Store {
                 os.insert(Relation::from_vec(table.so.all().iter().map(|(s, o)| (o, s)).collect()));
                 table.os = Some(os);
                 self.activate(t);
+            }
+        }
+
+        self.moved.clear();
+        let mut constant = false;
+        for (a, b) in std::mem::take(&mut pending.merges) {
+            constant |= self.canon.merge(a, b, &mut self.moved) == Merged::Constant;
+        }
+        if constant {
+            self.restarted = true;
+            pending.triples.clear();
+            return false;
+        }
+        if !self.moved.is_empty() {
+            self.rewrite(pending);
+        }
+        if !self.canon.is_empty() {
+            let canon = &self.canon;
+            for t in &mut pending.triples {
+                *t = (canon.find(t.0), canon.find(t.1), canon.find(t.2));
             }
         }
 
@@ -161,7 +237,42 @@ impl Store {
                 .enumerate()
                 .all(|(t, table)| !table.is_active() || self.is_active[t])
         );
-        changed
+        // A merge whose rewritten tuples were all known still changes what
+        // the stored ones stand for: a rule that reads the moved ids
+        // ([`Round::moved`]) gets a round.
+        changed || !self.moved.is_empty()
+    }
+
+    /// Rewrites the stored tuples after merges: in place for a table whose
+    /// predicate is still a representative, into `pending` (and so into the
+    /// representative's table) for one whose predicate is not.
+    fn rewrite(&mut self, pending: &mut Pending) {
+        let canon = &self.canon;
+        let pair = |(a, b): Pair| (canon.find(a), canon.find(b));
+        for t in 0..self.tables.len() {
+            let p = self.predicates[t];
+            let to = canon.find(p);
+            let table = &mut self.tables[t];
+            if to != p {
+                // Between steps a table's `so` has nothing queued; the
+                // object index goes with the table (the representative's
+                // table builds its own when a rule asks).
+                let moved = std::mem::take(table);
+                pending.triples.extend(moved.so.all().iter().map(|(s, o)| {
+                    let (s, o) = pair((s, o));
+                    (to, s, o)
+                }));
+                continue;
+            }
+            let mut moved = table.so.remap(pair);
+            if let Some(os) = &mut table.os {
+                moved += os.remap(pair);
+            }
+            if moved > 0 && !self.is_active[t] {
+                self.is_active[t] = true;
+                self.active.push(t);
+            }
+        }
     }
 
     fn table_index(&mut self, p: u32) -> usize {
@@ -205,7 +316,8 @@ impl Store {
         self.tables.iter().all(|t| t.so.is_empty())
     }
 
-    /// Every `(subject, predicate, object)`, table by table.
+    /// Every `(subject, predicate, object)`, table by table, in
+    /// representatives (see [`Store::canon`]).
     pub(crate) fn triples(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
         self.tables().flat_map(|(p, t)| {
             t.so.parts()
@@ -259,6 +371,29 @@ impl<'a> Round<'a> {
     /// end of the round.
     pub(crate) fn emit(&mut self, s: u32, p: u32, o: u32) {
         self.pending.triples.push((p, s, o));
+    }
+
+    /// The representative of `id`: how a rule reads a constant it names,
+    /// so that a constant made equal to another term keeps its meaning.
+    #[inline]
+    pub(crate) fn constant(&self, id: u32) -> u32 {
+        self.store.canon.find(id)
+    }
+
+    /// Which ids are equal.
+    pub(crate) fn canon(&self) -> &'a Canon {
+        &self.store.canon
+    }
+
+    /// Makes `a` and `b` equal from the next round on: the next step merges
+    /// their classes and rewrites the store.
+    pub(crate) fn merge(&mut self, a: u32, b: u32) {
+        self.pending.merges.push((a, b));
+    }
+
+    /// The ids whose representative changed in the step before this round.
+    pub(crate) fn moved(&self) -> &'a [u32] {
+        &self.store.moved
     }
 
     /// This round's number in the store's life, from 1.

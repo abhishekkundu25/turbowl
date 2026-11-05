@@ -6,7 +6,7 @@
 mod common;
 
 use common::{lines, parse, term};
-use oxrdf::Triple;
+use oxrdf::{Term, Triple};
 use std::collections::{BTreeSet, HashSet};
 use turbowl_reference::{DIAGNOSTIC_RULES, RULES, evaluate, evaluate_counted, evaluate_within, generate};
 
@@ -514,6 +514,41 @@ fn generator_exercises_every_rule() {
         assert!(seeds_fired.contains_key(rule), "{rule} never fires");
     }
     assert!(not_rdf > 0, "no seed derives a literal subject");
+}
+
+/// The generator makes vocabulary terms equal (ADR 0003's amendment): over
+/// the chaos test's first 300 seeds, some inputs make a term `owl:sameAs` a
+/// rule constant, some make two rule constants equal, and some make a term
+/// equal to `rdf:nil`, the constant the list rules test for identity.
+#[test]
+fn generator_makes_vocabulary_terms_equal() {
+    const VOCABULARY: [&str; 4] = [
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "http://www.w3.org/2000/01/rdf-schema#",
+        "http://www.w3.org/2002/07/owl#",
+        "http://www.w3.org/2001/XMLSchema#",
+    ];
+    let vocabulary =
+        |t: &Term| matches!(t, Term::NamedNode(n) if VOCABULARY.iter().any(|ns| n.as_str().starts_with(ns)));
+    let nil = Term::from(oxrdf::NamedNode::new_unchecked(
+        "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil",
+    ));
+    let (mut one, mut two, mut to_nil) = (0, 0, 0);
+    for seed in 0..300 {
+        let mut rng = turbowl_reference::Rng::at(0x5EED_0005, seed);
+        let size = 1 + rng.below(48);
+        let input = generate(rng.next_u64(), size);
+        let same: Vec<(Term, Term)> = input
+            .iter()
+            .filter(|t| t.predicate.as_str() == "http://www.w3.org/2002/07/owl#sameAs")
+            .map(|t| (Term::from(t.subject.clone()), t.object.clone()))
+            .collect();
+        one += usize::from(same.iter().any(|(s, o)| vocabulary(s) != vocabulary(o)));
+        two += usize::from(same.iter().any(|(s, o)| vocabulary(s) && vocabulary(o)));
+        to_nil += usize::from(same.iter().any(|(s, o)| (*s == nil) != (*o == nil)));
+    }
+    eprintln!("of 300 inputs: {one} make a term equal to a constant, {two} two constants, {to_nil} a term rdf:nil");
+    assert!(one > 0 && two > 0 && to_nil > 0, "{one} {two} {to_nil}");
 }
 
 /// The parser these tests use reads what they write.

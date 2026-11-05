@@ -40,6 +40,24 @@
 //! - **Typed** (`lit rdf:type dt` for a checked `dt` whose value space does
 //!   not hold the literal's value, as prp-rng or a base triple states it):
 //!   the recent part of `rdf:type` by object, at each checked datatype.
+//!
+//! # Equality
+//!
+//! Every constant is read through the round's canon ([`Round::constant`],
+//! ADR 0003), and the findings name representatives; the reasoner expands
+//! each term to every member of its class. dt-not-type is the exception:
+//! its rule looks inside the literal, so it names the literal itself.
+//!
+//! - **Ill-typed**: a literal is in some tuple, as it came, before a merge
+//!   can make another term its representative (a fresh run reads the base
+//!   as given, and a term new to an incremental run belongs to no class),
+//!   and the reasoner keeps the findings for as long as it keeps the canon.
+//!   So the representatives in the recent tuples are enough.
+//! - **Typed**: `r rdf:type dt` stands for `m rdf:type dt` for every member
+//!   `m` of `r`'s class, so each literal member is checked: those of a
+//!   recent typing's class, and each literal that joined a class in the
+//!   last step (the ids [`Round::moved`]) against the typings of its new
+//!   representative.
 
 use super::Context;
 use crate::engine::{Pair, Round, Variable, gallop};
@@ -61,12 +79,14 @@ const CHECKED: [TermId; 5] = [
 pub(crate) fn rules(round: &mut Round<'_>, cx: &mut Context<'_>) {
     // Every object index is asked for before any rule returns early, so
     // that all the missing ones are built for the next round together.
-    let types = round.by_object(vocab::RDF_TYPE.0);
-    let disjoint = round.by_object(vocab::OWL_DISJOINT_WITH.0);
-    let complement = round.by_object(vocab::OWL_COMPLEMENT_OF.0);
+    let ty = round.constant(vocab::RDF_TYPE.0);
+    let types = round.by_object(ty);
+    let disjoint = round.by_object(round.constant(vocab::OWL_DISJOINT_WITH.0));
+    let complement = round.by_object(round.constant(vocab::OWL_COMPLEMENT_OF.0));
 
     ill_typed(round, cx);
     property_disjoint(round, cx);
+    moved_literals(round, ty, cx);
     let Some(types) = types else { return };
     if let Some(axioms) = disjoint {
         class_pairs(types, axioms, |c1, c2, x| cx.report("cax-dw", &[x, c1, c2]));
@@ -74,12 +94,12 @@ pub(crate) fn rules(round: &mut Round<'_>, cx: &mut Context<'_>) {
     if let Some(axioms) = complement {
         class_pairs(types, axioms, |c1, c2, x| cx.report("cls-com", &[c1, c2, x]));
     }
-    for &(_, x) in with_key(types.recent(), vocab::OWL_NOTHING.0) {
+    for &(_, x) in with_key(types.recent(), round.constant(vocab::OWL_NOTHING.0)) {
         cx.report("cls-nothing2", &[x]);
     }
     asymmetric(round, types, cx);
     irreflexive(round, types, cx);
-    typed_literals(types, cx);
+    typed_literals(round, types, cx);
 }
 
 /// The pairs of a sorted slice whose first field is `key`.
@@ -153,7 +173,7 @@ fn common<K: Ord>(mut a: &[Pair], mut b: &[Pair], key: impl Fn(&Pair) -> K, mut 
 /// (recent with recent once). The axioms are schema: reading the earlier
 /// ones each round costs their number, not the data's.
 fn property_disjoint(round: &Round<'_>, cx: &mut Context<'_>) {
-    let Some(axioms) = round.by_subject(vocab::OWL_PROPERTY_DISJOINT_WITH.0) else {
+    let Some(axioms) = round.by_subject(round.constant(vocab::OWL_PROPERTY_DISJOINT_WITH.0)) else {
         return;
     };
     let tables = |p1: u32, p2: u32| Some((round.by_subject(p1)?, round.by_subject(p2)?));
@@ -183,16 +203,17 @@ fn property_disjoint(round: &Round<'_>, cx: &mut Context<'_>) {
     }
 }
 
-/// Calls `f(p, table, whole)` for each property `p` typed `class` that has
-/// a table: with `whole` when the typing is recent (the rule reads the
-/// whole table), without it when it is earlier and the table has a recent
-/// part (the rule reads that part).
+/// Calls `f(p, table, whole)` for each property `p` typed `class` (a
+/// constant, read through the round) that has a table: with `whole` when
+/// the typing is recent (the rule reads the whole table), without it when
+/// it is earlier and the table has a recent part (the rule reads that part).
 fn properties_of<'a>(
     round: &Round<'a>,
     types: &'a Variable<Pair>,
     class: TermId,
     mut f: impl FnMut(u32, &'a Variable<Pair>, bool),
 ) {
+    let class = TermId(round.constant(class.0));
     for &(_, p) in with_key(types.recent(), class.0) {
         if let Some(table) = round.by_subject(p) {
             f(p, table, true);
@@ -284,15 +305,45 @@ fn check_own(cx: &mut Context<'_>, id: u32) {
     }
 }
 
-/// dt-not-type, the typed half: a recent `lit rdf:type dt` for a checked
-/// `dt` whose value space does not hold `lit`.
-fn typed_literals(types: &Variable<Pair>, cx: &mut Context<'_>) {
+/// dt-not-type, the typed half: a recent `x rdf:type dt` for a checked
+/// `dt`, and each literal member of `x`'s class whose value `dt`'s value
+/// space does not hold.
+fn typed_literals(round: &Round<'_>, types: &Variable<Pair>, cx: &mut Context<'_>) {
+    let canon = round.canon();
     for dt in CHECKED {
-        for &(_, x) in with_key(types.recent(), dt.0) {
-            if in_value_space(cx.terms, TermId(x), dt) == Some(false) {
-                cx.report("dt-not-type", &[x, dt.0]);
+        for &(_, x) in with_key(types.recent(), round.constant(dt.0)) {
+            for m in canon.members(x).iter() {
+                if in_value_space(cx.terms, TermId(m), dt) == Some(false) {
+                    cx.report("dt-not-type", &[m, dt.0]);
+                }
             }
         }
+    }
+}
+
+/// dt-not-type, the typed half, for the literals that joined a class in the
+/// last step: against every checked datatype their new representative is
+/// typed with (read by subject, so no object index is needed).
+fn moved_literals(round: &Round<'_>, ty: u32, cx: &mut Context<'_>) {
+    let moved = round.moved();
+    if moved.is_empty() {
+        return;
+    }
+    let Some(types) = round.by_subject(ty) else { return };
+    let types = types.all();
+    let checked = CHECKED.map(|dt| (round.constant(dt.0), dt));
+    for &m in moved {
+        if cx.terms.kind(TermId(m)) != Kind::Literal {
+            continue;
+        }
+        let r = round.canon().find(m);
+        types.for_each_value(r, |class| {
+            for &(c, dt) in &checked {
+                if c == class && in_value_space(cx.terms, TermId(m), dt) == Some(false) {
+                    cx.report("dt-not-type", &[m, dt.0]);
+                }
+            }
+        });
     }
 }
 

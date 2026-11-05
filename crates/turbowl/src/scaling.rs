@@ -1144,6 +1144,76 @@ mod reasoner {
         e.r.reason().rounds
     }
 
+    /// One `owl:sameAs` clique of `n` aliases, as the bench's `sameas-clique`
+    /// draws it: a chain `a0 owl:sameAs a1`, ..., and 10 triples on each
+    /// alias with objects of its own.
+    fn clique(n: usize) -> String {
+        let mut text = String::with_capacity(n * 400);
+        text.push_str("@prefix ex: <http://example.org/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n");
+        for i in 0..n {
+            if i + 1 < n {
+                let _ = writeln!(text, "ex:a{i} owl:sameAs ex:a{} .", i + 1);
+            }
+            for j in 0..10 {
+                let _ = writeln!(text, "ex:a{i} ex:p{j} ex:v{i}-{j} .");
+            }
+        }
+        text
+    }
+
+    /// The eq-* closure of a clique of n aliases holds n² `owl:sameAs`
+    /// triples and 10 n² others; the store holds one class: its triples are
+    /// rewritten to the representative, `r owl:sameAs r` once and each
+    /// alias's 10 triples once (ADR 0003). Counted exactly, and the run
+    /// timed: both linear in n.
+    #[test]
+    fn scaling_reasoner_same_as_clique() {
+        let _lock = lock();
+        let sizes = sizes(256);
+        for &n in &sizes {
+            let mut r = loaded(&clique(n));
+            let s = r.reason();
+            // The base, then 1 `owl:sameAs` and 10 n triples stored, and
+            // the two facts of cls-thing and cls-nothing1.
+            assert_eq!(s.base, 11 * n - 1, "n = {n}");
+            assert_eq!(r.store().len(), 10 * n + 1 + 2, "n = {n}: stored tuples");
+            assert_eq!(s.base + s.inferred, 11 * n * n + 2, "n = {n}: the expanded closure");
+        }
+        let mut text = shared(clique);
+        linear(
+            "scaling_reasoner_same_as_clique",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+
+    /// Expanding a clique's closure on output (`triples()`) is n² triples by
+    /// definition: its time per output triple must not grow with n.
+    #[test]
+    fn scaling_reasoner_same_as_clique_expansion_per_triple() {
+        let _lock = lock();
+        let sizes = sizes(16);
+        let mut read = per_call(
+            |n| {
+                let mut r = loaded(&clique(n));
+                r.reason();
+                r
+            },
+            |r: &mut Reasoner| r.triples().count(),
+        );
+        let per_triple = move |n: usize| read(n) / (11 * n * n + 2) as f64;
+        check(
+            "scaling_reasoner_same_as_clique_expansion_per_triple",
+            Growth::Constant,
+            &sizes,
+            per_triple,
+        );
+    }
+
     #[test]
     fn scaling_reasoner_incremental_addition() {
         let _lock = lock();

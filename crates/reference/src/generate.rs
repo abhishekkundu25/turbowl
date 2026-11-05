@@ -5,8 +5,11 @@
 //! sizes grow with `size`. The kinds cover every rule family: class and
 //! property hierarchies, equivalences, domains and ranges, property
 //! characteristics, property chains (well-formed, cyclic, with shared tails,
-//! with IRI cells), intersections, unions, restrictions, `owl:sameAs`,
-//! disjointness and complements, container membership triples (which no
+//! with IRI cells), intersections, unions, restrictions, `owl:sameAs`
+//! (between individuals, classes or properties, and on vocabulary terms: a
+//! term made equal to a rule constant such as `rdf:type`, two rule
+//! constants made equal, a list cell made equal to `rdf:nil` or to another
+//! cell), disjointness and complements, container membership triples (which no
 //! rule of the set reads), and literals of checked and unchecked datatypes,
 //! well-formed or not. Some individuals, every list
 //! cell and every restriction are blank nodes.
@@ -98,6 +101,38 @@ const DATATYPES: &[&str] = &[
     RDF_XML_LITERAL,
     XSD_DECIMAL,
     "http://example.org/dt",
+];
+
+/// Rule constants `owl:sameAs` may name (ADR 0003's amendment): the
+/// predicates the rules read, the classes they test, and the datatypes.
+const VOCABULARY: &[&str] = &[
+    RDF_TYPE,
+    RDFS_SUB_CLASS_OF,
+    RDFS_SUB_PROPERTY_OF,
+    RDFS_DOMAIN,
+    RDFS_RANGE,
+    OWL_SAME_AS,
+    OWL_EQUIVALENT_CLASS,
+    OWL_EQUIVALENT_PROPERTY,
+    OWL_INVERSE_OF,
+    OWL_ON_PROPERTY,
+    OWL_SOME_VALUES_FROM,
+    OWL_ALL_VALUES_FROM,
+    OWL_HAS_VALUE,
+    OWL_INTERSECTION_OF,
+    OWL_UNION_OF,
+    OWL_DISJOINT_WITH,
+    RDF_FIRST,
+    RDF_REST,
+    RDF_NIL,
+    OWL_THING,
+    OWL_NOTHING,
+    OWL_FUNCTIONAL_PROPERTY,
+    OWL_TRANSITIVE_PROPERTY,
+    OWL_SYMMETRIC_PROPERTY,
+    XSD_INTEGER,
+    XSD_INT,
+    XSD_STRING,
 ];
 
 /// Container membership predicates, and names like them (`_0`, `_a`): no
@@ -442,10 +477,37 @@ impl Generator {
             }
             15 => {
                 // Mostly individuals, chained into cliques; now and then two
-                // classes or two properties of the same kind.
-                let (a, b) = match self.rng.below(10) {
+                // classes or two properties of the same kind; and now and
+                // then a vocabulary term.
+                let (a, b) = match self.rng.below(13) {
                     0 => (self.class(), self.class()),
                     1 => (self.object_property(), self.object_property()),
+                    10 => {
+                        let a = match self.rng.below(4) {
+                            0 => self.class(),
+                            1 => self.individual(),
+                            _ => self.property(),
+                        };
+                        (a, iri(self.rng.pick(VOCABULARY)))
+                    }
+                    11 => (iri(self.rng.pick(VOCABULARY)), iri(self.rng.pick(VOCABULARY))),
+                    12 => {
+                        let cell = if self.lists.is_empty() {
+                            self.individual()
+                        } else {
+                            let list = self.rng.pick(&self.lists).clone();
+                            list[self.rng.below(list.len())].clone()
+                        };
+                        let other = match self.rng.below(4) {
+                            0 | 1 => iri(RDF_NIL),
+                            2 if !self.lists.is_empty() => {
+                                let list = self.rng.pick(&self.lists).clone();
+                                list[self.rng.below(list.len())].clone()
+                            }
+                            _ => self.individual(),
+                        };
+                        (cell, other)
+                    }
                     _ => (self.individual(), self.individual()),
                 };
                 self.add(&a, OWL_SAME_AS, &b);

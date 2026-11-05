@@ -10,6 +10,13 @@
 //!   reaches from it without passing `rdf:nil`: `rdf:rest` stops at
 //!   `rdf:nil`, which is never a later cell, whatever triples it has (it can
 //!   be a head).
+//! - Equality (ADR 0003): cells are representatives. The W3C rules test
+//!   `rdf:nil` for identity (`?r != rdf:nil` in Datalog form), so when
+//!   `owl:sameAs` gives `rdf:nil` a class with other members, a cell equal
+//!   to `rdf:nil` but not `rdf:nil` itself can be a later cell: the
+//!   representative of `rdf:nil` then both ends a list and is read on as a
+//!   cell. The first merge into that class restarts the run (the canon
+//!   watches `rdf:nil`), so whether it is read on is fixed for a run.
 //! - A cell may have several `rdf:first` and several `rdf:rest`.
 //! - A cell is *well formed* when it has an `rdf:first` and an `rdf:rest`
 //!   that is `rdf:nil` or a well-formed cell. The members (cls-int2,
@@ -29,48 +36,44 @@
 //! last round. A changed list is joined with all of `rdf:type`, an unchanged
 //! one with the recent part only, so per-instance work stays semi-naive.
 
-use super::{TYPE, range};
+use super::range;
 use crate::engine::{Pair, Round, Variable, View, join_slices};
 use crate::term::vocab;
 use rustc_hash::FxHashMap;
-
-const FIRST: u32 = vocab::RDF_FIRST.0;
-const REST: u32 = vocab::RDF_REST.0;
-const NIL: u32 = vocab::RDF_NIL.0;
-const INTERSECTION_OF: u32 = vocab::OWL_INTERSECTION_OF.0;
-const UNION_OF: u32 = vocab::OWL_UNION_OF.0;
 
 /// Lists up to this many cells are searched for a cell seen before; longer
 /// ones use a map.
 const SHORT: usize = 16;
 
-/// cls-int1, cls-int2 and cls-uni, for one round. `instances` is `rdf:type`
-/// by object; all three rules need it.
-pub(super) fn rules(round: &mut Round<'_>, instances: Option<&Variable<Pair>>) {
+/// cls-int1, cls-int2 and cls-uni, for one round. `ty` is `rdf:type` and
+/// `instances` its table by object; all three rules need it.
+pub(super) fn rules(round: &mut Round<'_>, ty: u32, instances: Option<&Variable<Pair>>) {
     let Some(instances) = instances else { return };
-    let intersections = round.by_subject(INTERSECTION_OF);
-    let unions = round.by_subject(UNION_OF);
+    let intersections = round.by_subject(round.constant(vocab::OWL_INTERSECTION_OF.0));
+    let unions = round.by_subject(round.constant(vocab::OWL_UNION_OF.0));
     if intersections.is_none() && unions.is_none() {
         return;
     }
-    let first = round.by_subject(FIRST);
-    let rest = round.by_subject(REST);
+    let first = round.by_subject(round.constant(vocab::RDF_FIRST.0));
+    let rest = round.by_subject(round.constant(vocab::RDF_REST.0));
+    let nil = round.constant(vocab::RDF_NIL.0);
+    let nil_is_a_cell = round.canon().members(nil).len() > 1;
     let recent = |v: Option<&Variable<Pair>>| v.is_some_and(|v| !v.recent().is_empty());
     if instances.recent().is_empty() && !recent(intersections) && !recent(unions) && !recent(first) && !recent(rest) {
         return;
     }
-    let mut reader = Reader::new(first, rest);
+    let mut reader = Reader::new(first, rest, nil, nil_is_a_cell);
     if let Some(intersections) = intersections {
         let lists = reader.read(intersections);
-        let types = round.by_subject(TYPE).map(Variable::all);
+        let types = round.by_subject(ty).map(Variable::all);
         if let Some(types) = &types {
-            cls_int1(round, &lists, instances, types);
+            cls_int1(round, ty, &lists, instances, types);
         }
-        cls_int2(round, &lists, instances);
+        cls_int2(round, ty, &lists, instances);
     }
     if let Some(unions) = unions {
         let lists = reader.read(unions);
-        cls_uni(round, &lists, instances);
+        cls_uni(round, ty, &lists, instances);
     }
 }
 
@@ -87,7 +90,7 @@ pub(super) fn rules(round: &mut Round<'_>, instances: Option<&Variable<Pair>>) {
 /// `instances`' (by object), the index the joins of the lazy-index argument
 /// read (`class.rs`). Candidates are then grouped by `y`, whose types are
 /// read once from `types` (by subject) and checked against each list.
-fn cls_int1(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>, types: &View<'_, Pair>) {
+fn cls_int1(round: &mut Round<'_>, ty: u32, lists: &Lists, instances: &Variable<Pair>, types: &View<'_, Pair>) {
     let size = |k: u32| instances.parts().map(|part| range(part, k).len()).sum::<usize>();
     // (y, entry)
     let mut candidates: Vec<Pair> = Vec::new();
@@ -138,7 +141,7 @@ fn cls_int1(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>, ty
         for &(_, e) in &rest[..n] {
             let entry = &lists.entries[e as usize];
             if lists.every_member(entry, |k| classes.binary_search(&k).is_ok(), &mut scratch) {
-                round.emit(y, TYPE, entry.class);
+                round.emit(y, ty, entry.class);
             }
         }
         rest = &rest[n..];
@@ -149,7 +152,7 @@ fn cls_int1(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>, ty
 /// `y rdf:type ci` for each i. Join on c: (class, member) pairs with
 /// `rdf:type` by object, recent instances for unchanged lists, all for
 /// changed ones.
-fn cls_int2(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>) {
+fn cls_int2(round: &mut Round<'_>, ty: u32, lists: &Lists, instances: &Variable<Pair>) {
     let (mut unchanged, mut changed) = (Vec::new(), Vec::new());
     for entry in &lists.entries {
         let pairs = if entry.changed { &mut changed } else { &mut unchanged };
@@ -157,7 +160,7 @@ fn cls_int2(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>) {
     }
     sort(&mut unchanged);
     sort(&mut changed);
-    let mut emit = |_, k, y| round.emit(y, TYPE, k);
+    let mut emit = |_, k, y| round.emit(y, ty, k);
     join_slices(&unchanged, instances.recent(), &mut emit);
     if !changed.is_empty() {
         for part in instances.parts() {
@@ -169,7 +172,7 @@ fn cls_int2(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>) {
 /// cls-uni: `c owl:unionOf (c1 ... cn)`, `y rdf:type ci` → `y rdf:type c`.
 /// Join on ci: (member, class) pairs with `rdf:type` by object, recent
 /// instances for unchanged lists, all for changed ones.
-fn cls_uni(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>) {
+fn cls_uni(round: &mut Round<'_>, ty: u32, lists: &Lists, instances: &Variable<Pair>) {
     let (mut unchanged, mut changed) = (Vec::new(), Vec::new());
     for entry in &lists.entries {
         let pairs = if entry.changed { &mut changed } else { &mut unchanged };
@@ -177,7 +180,7 @@ fn cls_uni(round: &mut Round<'_>, lists: &Lists, instances: &Variable<Pair>) {
     }
     sort(&mut unchanged);
     sort(&mut changed);
-    let mut emit = |_, c, y| round.emit(y, TYPE, c);
+    let mut emit = |_, c, y| round.emit(y, ty, c);
     join_slices(&unchanged, instances.recent(), &mut emit);
     if !changed.is_empty() {
         for part in instances.parts() {
@@ -222,7 +225,8 @@ struct Cell {
     term: u32,
     firsts: (usize, usize),
     rests: (usize, usize),
-    /// An `rdf:rest` of this cell is `rdf:nil` (which `rests` leaves out).
+    /// An `rdf:rest` of this cell is `rdf:nil` (which `rests` leaves out,
+    /// unless `rdf:nil` is also a cell: see the module doc).
     to_nil: bool,
     /// An `rdf:first`, and an `rdf:rest` that is `rdf:nil` or a well-formed
     /// cell.
@@ -329,6 +333,9 @@ impl Lists {
 struct Reader<'a> {
     first: View<'a, Pair>,
     rest: View<'a, Pair>,
+    /// The representative of `rdf:nil`, and whether it is read on as a cell.
+    nil: u32,
+    nil_is_a_cell: bool,
     /// Cells with a recent `rdf:first` or `rdf:rest`, sorted.
     touched: Vec<u32>,
     /// A cell's term to its index among the cells of the list being read,
@@ -341,7 +348,7 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(first: Option<&'a Variable<Pair>>, rest: Option<&'a Variable<Pair>>) -> Self {
+    fn new(first: Option<&'a Variable<Pair>>, rest: Option<&'a Variable<Pair>>, nil: u32, nil_is_a_cell: bool) -> Self {
         let mut touched = Vec::new();
         for v in [first, rest].into_iter().flatten() {
             touched.extend(v.recent().iter().map(|&(cell, _)| cell));
@@ -352,6 +359,8 @@ impl<'a> Reader<'a> {
         Self {
             first: view(first),
             rest: view(rest),
+            nil,
+            nil_is_a_cell,
             touched,
             index: FxHashMap::default(),
             scratch: Vec::new(),
@@ -392,10 +401,13 @@ impl<'a> Reader<'a> {
                 cells, rests: tails, ..
             } = &mut *lists;
             let index = &mut self.index;
+            let (nil, nil_is_a_cell) = (self.nil, self.nil_is_a_cell);
             self.rest.for_each_value(term, |tail| {
-                if tail == NIL {
+                if tail == nil {
                     to_nil = true;
-                    return;
+                    if !nil_is_a_cell {
+                        return;
+                    }
                 }
                 let next = (cells.len() - start) as u32;
                 // A short list is searched; a long one gets a map.

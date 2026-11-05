@@ -24,6 +24,7 @@ pub const KNOWN: &[(&str, &str, Fault)] = &[
     ("dt-not-type", "OWL-RL: expectations", Fault::F3),
     ("chain-cyclic-list", "OWL-RL: expectations", Fault::F4),
     ("dt-not-type-range", "OWL-RL: expectations", Fault::F5),
+    ("eq-literal-typed", "OWL-RL: expectations", Fault::F5),
 ];
 
 /// The result of one check.
@@ -33,7 +34,7 @@ pub enum Status {
     Fail,
     /// A disagreement an oracle fault explains.
     Known(Fault),
-    /// Not run: an oracle was skipped or pending, or not asked to run.
+    /// Not run: an oracle was skipped, or not asked to run.
     NotRun(String),
 }
 
@@ -221,7 +222,7 @@ pub fn triangulate_input(name: &str, covers: &str, input: &Input, case: Option<&
 
 fn o_reason(o: &Outcome) -> String {
     match o {
-        Outcome::Skipped(r) | Outcome::Pending(r) | Outcome::Failed(r) => format!("{}: {r}", o.status()),
+        Outcome::Skipped(r) | Outcome::Failed(r) => format!("{}: {r}", o.status()),
         Outcome::Ran(_) => "ran".to_owned(),
     }
 }
@@ -368,20 +369,6 @@ impl Table {
                 );
                 let _ = writeln!(out, "```\n{}\n```", c.detail.trim_end());
             }
-        }
-        let pending: Vec<&Row> = self
-            .rows
-            .iter()
-            .filter(|r| r.outcomes.iter().any(|(_, o)| matches!(o, Outcome::Pending(_))))
-            .collect();
-        if !pending.is_empty() {
-            let _ = writeln!(
-                out,
-                "\nPending: {} of {} inputs, not run against the system under test (not failures): {}",
-                pending.len(),
-                self.rows.len(),
-                pending.iter().map(|r| r.case.as_str()).collect::<Vec<_>>().join(", ")
-            );
         }
         let skipped: Vec<String> = self
             .rows

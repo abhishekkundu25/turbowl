@@ -1,6 +1,6 @@
 //! The rule table: every rule family registers here, one line each.
 //!
-//! A family is a module (`class`, `property`, `datatype`, later `equality`)
+//! A family is a module (`class`, `property`, `datatype`, `equality`)
 //! with a [`RuleFn`] that runs one round of its rules, and the facts its
 //! rules with an empty body state. This table is the only place the
 //! reasoner learns which families exist.
@@ -24,6 +24,12 @@
 //! never filters a derived triple because its subject is a literal or its
 //! predicate is not an IRI; only the reasoner's output leaves those out.
 //!
+//! The tuples a family reads are in representatives (ADR 0003): the
+//! equality family merges the terms `owl:sameAs` makes equal, and the store
+//! rewrites its tuples. A family reads every constant it names through the
+//! round ([`Round::constant`]), never as a bare `vocab` id, so that a
+//! constant made equal to another term keeps its meaning.
+//!
 //! A family keeps no state between calls (`fn` pointers in a `static`):
 //! everything a run knows is in the store, so an incremental run (more
 //! inserts, then run again) sees all of it.
@@ -34,6 +40,7 @@
 
 pub(crate) mod class;
 pub(crate) mod datatype;
+pub(crate) mod equality;
 pub(crate) mod property;
 #[cfg(test)]
 pub(crate) mod testing;
@@ -90,5 +97,5 @@ pub(crate) static FAMILIES: &[Family] = &[
     Family { name: "class", rules: class::rules, facts: class::FACTS }, // ticket 07
     Family { name: "property", rules: property::rules, facts: property::FACTS }, // ticket 08
     Family { name: "datatype", rules: datatype::rules, facts: datatype::FACTS }, // ticket 09
-    // equality (ticket 11)
+    Family { name: "equality", rules: equality::rules, facts: equality::FACTS }, // ticket 11
 ];

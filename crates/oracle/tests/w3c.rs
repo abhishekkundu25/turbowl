@@ -40,9 +40,7 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     out.push_str(&"---|".repeat(oracles.len()));
     out.push('\n');
     let mut passes = [0usize; 3];
-    let mut pending = [0usize; 3];
     let mut required = 0;
-    let mut required_pending = 0;
     let mut rest = Vec::new();
     let mut failures = Vec::new();
     for case in &cases.cases {
@@ -57,19 +55,17 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
         let verdicts: Vec<String> = outcomes.iter().map(|o| verdict(case, o)).collect();
         for (i, v) in verdicts.iter().enumerate() {
             passes[i] += usize::from(v == "pass");
-            pending[i] += usize::from(v == "pending");
         }
         // What the version 1 rule set (Nemo) gets right, TurbOWL must get right too.
         if verdicts[0] == "pass" {
             required += 1;
-            // Pending is not run, not a failure (`ours::EQUALITY_PENDING`).
-            required_pending += usize::from(verdicts[2] == "pending");
-            if verdicts[2] == "FAIL" {
-                let why = match w3c::judge(case, outcomes[2].closure().expect("ran")) {
-                    Verdict::Fail(why) => why,
-                    Verdict::Pass => unreachable!(),
-                };
-                failures.push(format!("{}: {why}", case.id));
+            match &outcomes[2] {
+                Outcome::Ran(c) => {
+                    if let Verdict::Fail(why) = w3c::judge(case, c) {
+                        failures.push(format!("{}: {why}", case.id));
+                    }
+                }
+                other => failures.push(format!("{}: TurbOWL {}", case.id, other.status())),
             }
         } else {
             let missing = w3c::missing_rules(case);
@@ -99,22 +95,10 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     for (o, n) in oracles.iter().zip(passes) {
         let _ = write!(out, " {o} {n};");
     }
-    for (o, n) in oracles.iter().zip(pending) {
-        if n > 0 {
-            let _ = write!(out, " ({o} pending on {n})");
-        }
-    }
     let _ = writeln!(
         out,
         "\n\nThe version 1 rule set (Nemo) passes {required}; TurbOWL must pass each of them."
     );
-    if required_pending > 0 {
-        let _ = writeln!(
-            out,
-            "Of those, {required_pending} are pending for TurbOWL ({}), not run, not failed.",
-            ours::EQUALITY_REASON
-        );
-    }
     let _ = writeln!(
         out,
         "\nNemo fails {}, with the rules they likely need (from their vocabulary):",

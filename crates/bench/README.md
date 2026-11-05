@@ -80,11 +80,14 @@ nothing.
   problems.
 - A panic in an in-process engine is caught by the child and recorded as an
   `error` with its message: a problem.
-- This reasoner's counts are its rules' so far: until the equality rules
-  land (ticket 11) it does not close `owl:sameAs`, so on an input with
-  `sameAs`, `owl:FunctionalProperty` or `owl:InverseFunctionalProperty`
-  (the variants with `owl.n3`, `sameas-clique`) its closure is smaller and
-  its time is not comparable.
+- Every engine's closure is the full one on every scenario, `owl:sameAs`
+  included (ticket 11), so the times compare. This reasoner keeps one
+  representative per `owl:sameAs` class (ADR 0003): its reasoning time and
+  stored triples grow with the input, and the expanded closure (what
+  `triples()` gives and the check counts) is built only when read, never
+  stored. On `sameas-clique` the peak (read before the checks) follows the
+  10,003 stored triples, not the 11 M expanded ones, so its `B/triple`
+  is under 1.
 
 ### What each engine's time includes
 

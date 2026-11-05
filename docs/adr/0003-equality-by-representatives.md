@@ -1,7 +1,8 @@
 # ADR 0003: `owl:sameAs` by representatives, expanded on output
 
 Status: accepted, 2026-11-05; amended 2026-11-05 (vocabulary terms, from
-`docs/research/sota-algorithms-2026-11.md` §4.3).
+`docs/research/sota-algorithms-2026-11.md` §4.3); amended again 2026-11-05
+by ticket 11, as built (`rdf:nil`, restarts, findings).
 
 ## Context
 
@@ -48,3 +49,30 @@ them, so the closure equals the one the eq-* rules would give.
 - Incremental deletion of a `sameAs` triple must split classes; version 1
   answers any removal with a full run (as `reasonable` does), so the split is
   an experiment, not a v1 requirement.
+
+## Amendment: as built (ticket 11)
+
+- **The canon** (`crates/turbowl/src/engine/canon.rs`) is a union-find in
+  which every member points straight at its representative, so a rule reads
+  a representative with one array read. "Larger" counts members; a tie goes
+  to the smaller id.
+- **`rdf:nil` is watched.** The W3C list rules test `rdf:nil` for identity
+  (`?r != rdf:nil` in Datalog form), which the rewriting cannot see: a term
+  equal to `rdf:nil` but not `rdf:nil` itself can be a later list cell. So
+  when `rdf:nil`'s class holds another term, the list rules read its
+  representative both as the end of a list and as a cell. The first merge
+  that gives `rdf:nil` a class restarts the run, like a moved constant, so
+  that this reading is fixed for a run.
+- **A restart** keeps the canon and the findings found so far: both follow
+  from the base. A restart happens at most once per constant moved, plus
+  once for `rdf:nil`.
+- **Findings** are kept in representatives and expanded on output to every
+  choice of members, since the rule that concludes them matches each choice
+  in the expanded closure. dt-not-type is the exception: its rule looks
+  inside a literal and names a datatype constant, so the datatype family
+  checks each literal member of a typed class itself, and names the
+  literal.
+- **Counts.** The reasoner keeps the number of RDF triples in the expanded
+  closure (each stored triple counts the product of its classes' sizes, by
+  position), adds each round's deltas in a run without merges, and counts
+  the store again after a run that merged.

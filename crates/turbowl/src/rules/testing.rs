@@ -24,7 +24,7 @@
 // The families' tests (tickets 07 to 09) use what the harness's own tests do not.
 #![allow(dead_code)]
 
-use super::{Context, FAMILIES, Family, Finding};
+use super::{Context, FAMILIES, Family, Finding, equality};
 use crate::Format;
 use crate::engine::Store;
 use crate::term::{Dictionary, Term, TermId};
@@ -74,22 +74,26 @@ pub(crate) fn run_all(turtle: &str) -> Run {
 pub(crate) fn run_families(families: Vec<&'static Family>, turtle: &str) -> Run {
     let mut run = Run {
         dict: Dictionary::new(),
-        store: Store::new(),
+        store: Store::with_canon(equality::canon()),
         base: BTreeSet::new(),
         findings: Vec::new(),
         rounds: 0,
         families,
     };
-    for f in &run.families {
-        for [s, p, o] in f.facts {
-            run.store.insert(s.0, p.0, o.0);
-        }
-    }
+    run.facts();
     run.add(turtle);
     run
 }
 
 impl Run {
+    fn facts(&mut self) {
+        for f in &self.families {
+            for [s, p, o] in f.facts {
+                self.store.insert(s.0, p.0, o.0);
+            }
+        }
+    }
+
     /// Adds a Turtle document (a new document: its blank nodes are its own)
     /// to the base and runs again from where the last run stopped.
     pub(crate) fn add(&mut self, turtle: &str) {
@@ -108,19 +112,32 @@ impl Run {
                 self.store.insert(s.0, p.0, o.0);
             }
         }
-        let Run {
-            dict,
-            store,
-            findings,
-            families,
-            ..
-        } = self;
-        let mut cx = Context { terms: dict, findings };
-        self.rounds += store.run(|round| {
-            for f in families.iter() {
-                (f.rules)(round, &mut cx);
+        loop {
+            let Run {
+                dict,
+                store,
+                findings,
+                families,
+                ..
+            } = self;
+            let mut cx = Context { terms: dict, findings };
+            self.rounds += store.run(|round| {
+                for f in families.iter() {
+                    (f.rules)(round, &mut cx);
+                }
+            });
+            if !self.store.restarted() {
+                return;
             }
-        });
+            // A merge changed a rule constant: again from the base, as the
+            // reasoner does.
+            let canon = std::mem::take(&mut self.store).into_canon();
+            self.store = Store::with_canon(canon);
+            self.facts();
+            for &[s, p, o] in &self.base {
+                self.store.insert(s, p, o);
+            }
+        }
     }
 
     /// A term in the text form (see the module doc).
@@ -136,23 +153,35 @@ impl Run {
     }
 
     /// Every triple the store holds (base, facts and derived), generalized
-    /// triples included.
+    /// triples included, each expanded to the members of its terms' classes
+    /// as the reasoner's reads do.
     pub(crate) fn closure(&self) -> BTreeSet<String> {
-        self.store.triples().map(|(s, p, o)| self.line(&[s, p, o])).collect()
+        self.expanded().map(|(s, p, o)| self.line(&[s, p, o])).collect()
     }
 
     /// The closure without the base triples.
     pub(crate) fn inferred(&self) -> BTreeSet<String> {
-        self.store
-            .triples()
+        self.expanded()
             .filter(|&(s, p, o)| !self.base.contains(&[s, p, o]))
             .map(|(s, p, o)| self.line(&[s, p, o]))
             .collect()
     }
 
-    /// The findings, deduplicated: `code t1 t2 ...`.
+    fn expanded(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
+        equality::expanded(self.store.canon(), self.store.triples())
+    }
+
+    /// The findings, deduplicated and expanded as the reasoner expands
+    /// them: `code t1 t2 ...`.
     pub(crate) fn findings(&self) -> BTreeSet<String> {
-        self.findings
+        let canon = self.store.canon();
+        let mut expanded = Vec::new();
+        for f in &self.findings {
+            let mut f = f.clone();
+            equality::canonical(canon, &mut f);
+            equality::expand_finding(canon, &f, &mut expanded);
+        }
+        expanded
             .iter()
             .map(|f| {
                 let mut line = f.code.to_owned();

@@ -42,11 +42,38 @@ fn jar() -> PathBuf {
     tools_dir().join("hermit/HermiT.jar")
 }
 
+/// The namespaces of the reserved vocabulary (OWL 2 Structural Specification,
+/// section 2.4): IRIs in them cannot be individuals in OWL 2 DL.
+const RESERVED: [&str; 4] = [
+    "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "http://www.w3.org/2000/01/rdf-schema#",
+    "http://www.w3.org/2002/07/owl#",
+    "http://www.w3.org/2001/XMLSchema#",
+];
+
+/// An input triple that makes a reserved IRI `owl:sameAs` another term,
+/// if there is one. Such an input is not in OWL 2 DL (the reserved IRI
+/// would be an individual), so a DL reasoner has nothing to say about what
+/// the OWL 2 RL rules infer from it, as with `owl.n3`.
+pub fn reserved_same_as(input: &Input) -> Option<&Triple> {
+    let reserved = |t: &Term| matches!(t, Term::NamedNode(n) if RESERVED.iter().any(|ns| n.as_str().starts_with(ns)));
+    input.triples().iter().find(|t| {
+        t.predicate.as_str() == "http://www.w3.org/2002/07/owl#sameAs"
+            && (reserved(&t.subject.clone().into()) || reserved(&t.object))
+    })
+}
+
 /// Checks every inferred `rdfs:subClassOf`, `owl:equivalentClass`,
 /// `rdfs:subPropertyOf` and `owl:equivalentProperty` triple between IRIs in
 /// the closure (not in the input) against HermiT's classification of the
-/// input. `Err` is the outcome when HermiT is missing or fails.
+/// input. `Err` is the outcome when HermiT is missing or fails, or when the
+/// input is not OWL 2 DL ([`reserved_same_as`]: not run).
 pub fn check(input: &Input, closure: &Closure) -> Result<Subsumptions, Outcome> {
+    if let Some(t) = reserved_same_as(input) {
+        return Err(Outcome::Skipped(format!(
+            "HermiT: not OWL 2 DL, not judged ({t} makes a reserved IRI equal to another term)"
+        )));
+    }
     if fetched_version(&tools_dir().join("jre")).is_none() || !java().exists() {
         return Err(Outcome::skipped(
             "HermiT",
@@ -241,5 +268,30 @@ mod tests {
         assert!(t.entails(Kind::Class, &ex("U"), &ex("A")));
         assert!(t.entails(Kind::Property, &ex("p"), &ex("q")));
         assert!(!t.entails(Kind::Class, &ex("p"), &ex("q")));
+    }
+
+    #[test]
+    fn an_input_equating_reserved_iris_is_not_judged() {
+        let input = |turtle: &str| {
+            Input::turtle(
+                "t",
+                &format!(
+                    "@prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+                     @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\
+                     @prefix ex: <http://example.org/> .\n{turtle}"
+                ),
+            )
+        };
+        for turtle in [
+            "rdfs:subClassOf owl:sameAs owl:equivalentClass .",
+            "ex:t owl:sameAs rdfs:subClassOf .",
+        ] {
+            let i = input(turtle);
+            assert!(reserved_same_as(&i).is_some(), "{turtle}");
+            assert!(matches!(check(&i, &Closure::default()), Err(Outcome::Skipped(_))));
+        }
+        for turtle in ["ex:a owl:sameAs ex:b .", "ex:a rdfs:subClassOf owl:Thing ."] {
+            assert!(reserved_same_as(&input(turtle)).is_none(), "{turtle}");
+        }
     }
 }
