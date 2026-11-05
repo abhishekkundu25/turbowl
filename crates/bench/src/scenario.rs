@@ -25,6 +25,8 @@ pub(crate) struct Scenario {
     pub(crate) about: &'static str,
     input: Input,
     pub(crate) mode: Mode,
+    /// Left out of the default run; runs only when named with `--only`.
+    pub(crate) opt_in: bool,
 }
 
 pub(crate) const SCENARIOS: &[Scenario] = &[
@@ -33,54 +35,63 @@ pub(crate) const SCENARIOS: &[Scenario] = &[
         about: "Brick plus small1.n3 (reasonable's README example), one full run",
         input: Input::Brick("small1.n3"),
         mode: Mode::Full,
+        opt_in: false,
     },
     Scenario {
         name: "brick-soda-hall",
         about: "Brick plus soda_hall.n3 (a building model), one full run",
         input: Input::Brick("soda_hall.n3"),
         mode: Mode::Full,
+        opt_in: false,
     },
     Scenario {
         name: "brick-buildings",
         about: "Brick plus every building model of reasonable's Python benchmark, loaded together, one full run",
         input: Input::BrickBuildings,
         mode: Mode::Full,
+        opt_in: false,
     },
     Scenario {
         name: "lubm-1",
         about: "LUBM-style data, 1 university (about 0.1 M triples), with the univ-bench axioms",
         input: Input::Lubm(1),
         mode: Mode::Full,
+        opt_in: false,
     },
     Scenario {
         name: "lubm-10",
         about: "LUBM-style data, 10 universities (about 1.3 M triples)",
         input: Input::Lubm(10),
         mode: Mode::Full,
+        opt_in: false,
     },
     Scenario {
         name: "lubm-50",
         about: "LUBM-style data, 50 universities (about 6.5 M triples)",
         input: Input::Lubm(50),
         mode: Mode::Full,
+        opt_in: false,
     },
     Scenario {
         name: "incremental-add",
         about: "Brick plus small1, then single-triple additions, reason() after each; per-change median",
         input: Input::Brick("small1.n3"),
         mode: Mode::Add,
+        opt_in: false,
     },
     Scenario {
         name: "incremental-remove",
         about: "Brick plus small1, then single-triple removals, reason() after each; per-change median",
         input: Input::Brick("small1.n3"),
         mode: Mode::Remove,
+        opt_in: false,
     },
     Scenario {
         name: "sameas-clique",
         about: "one owl:sameAs clique of 1,000 aliases with 10 triples each (about 11 M closure triples expanded)",
         input: Input::SameAs(1000),
         mode: Mode::Full,
+        opt_in: true,
     },
 ];
 

@@ -15,15 +15,17 @@ pub(crate) fn load_average() -> Option<[f64; 3]> {
     (n == 3).then_some(loads)
 }
 
-/// This process's peak resident set size in bytes, as the kernel counts it.
-/// `ru_maxrss` is in bytes on macOS and in kilobytes on Linux and the BSDs.
-pub(crate) fn peak_rss_bytes() -> u64 {
+/// A peak resident set size in bytes, as the kernel counts it: this
+/// process's (`RUSAGE_SELF`) or the largest of its waited-for children's
+/// (`RUSAGE_CHILDREN`). `ru_maxrss` is in bytes on macOS and in kilobytes on
+/// Linux and the BSDs.
+pub(crate) fn peak_rss_bytes(who: libc::c_int) -> u64 {
     // SAFETY: `rusage` is plain data; all zeroes is a valid value.
     #[allow(unsafe_code)]
     let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
     // SAFETY: `getrusage` writes one `rusage` through a valid pointer.
     #[allow(unsafe_code)]
-    let rc = unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
+    let rc = unsafe { libc::getrusage(who, &mut usage) };
     if rc != 0 {
         return 0;
     }
@@ -141,6 +143,7 @@ pub(crate) fn describe(root: &Path) -> Value {
             "bench": env!("CARGO_PKG_VERSION"),
             "turtle_reasoner": env!("CARGO_PKG_VERSION"),
             "reasonable": crate::engine::REASONABLE_VERSION,
+            "nemo": crate::nemo::installed_version(),
             "rustc": env!("BENCH_RUSTC_VERSION"),
         },
     })

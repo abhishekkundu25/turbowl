@@ -4,8 +4,9 @@
 use oxrdf::Triple;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use std::time::Instant;
-use turtle_reasoner::{Profile, Reasoner};
+use turtle_reasoner::Reasoner;
 
 /// The `reasonable` release linked in (the exact pin in `Cargo.toml`).
 pub(crate) const REASONABLE_VERSION: &str = "0.5.0-a1";
@@ -26,22 +27,22 @@ trait Engine {
 /// The engines a scenario can run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EngineId {
-    /// This crate's reasoner, W3C OWL 2 RL profile.
-    OwlRl,
-    /// This crate's reasoner, `reasonable`'s conventions.
-    ReasonableProfile,
-    /// `reasonable` itself.
+    /// This repository's reasoner, in process.
+    TurtleReasoner,
+    /// `reasonable`, linked in, in process.
     Reasonable,
+    /// Nemo's `nmo` running `oracles/nemo/owl2rl.rls`, a subprocess.
+    Nemo,
 }
 
 impl EngineId {
-    pub(crate) const ALL: [EngineId; 3] = [EngineId::OwlRl, EngineId::ReasonableProfile, EngineId::Reasonable];
+    pub(crate) const ALL: [EngineId; 3] = [EngineId::TurtleReasoner, EngineId::Reasonable, EngineId::Nemo];
 
     pub(crate) fn name(self) -> &'static str {
         match self {
-            EngineId::OwlRl => "turtle-owl-rl",
-            EngineId::ReasonableProfile => "turtle-reasonable",
+            EngineId::TurtleReasoner => "turtle-reasoner",
             EngineId::Reasonable => "reasonable",
+            EngineId::Nemo => "nemo",
         }
     }
 
@@ -49,20 +50,24 @@ impl EngineId {
         Self::ALL.into_iter().find(|e| e.name() == name)
     }
 
-    fn make(self) -> Box<dyn Engine> {
+    /// Why the engine cannot run a scenario of this mode, if it cannot.
+    pub(crate) fn unsupported(self, mode: Mode) -> Option<&'static str> {
+        (self == EngineId::Nemo && mode != Mode::Full)
+            .then_some("Nemo runs a program once over its imports; it has no incremental changes")
+    }
+
+    /// The in-process engines; Nemo runs as a subprocess instead.
+    fn make(self) -> Option<Box<dyn Engine>> {
         match self {
-            EngineId::OwlRl => Box::new(Ours {
-                r: Reasoner::new(Profile::OwlRl),
+            EngineId::TurtleReasoner => Some(Box::new(Ours {
+                r: Reasoner::new(),
                 reported: 0,
-            }),
-            EngineId::ReasonableProfile => Box::new(Ours {
-                r: Reasoner::new(Profile::Reasonable),
-                reported: 0,
-            }),
-            EngineId::Reasonable => Box::new(Theirs {
+            })),
+            EngineId::Reasonable => Some(Box::new(Theirs {
                 r: reasonable::reasoner::Reasoner::new(),
                 base: Vec::new(),
-            }),
+            })),
+            EngineId::Nemo => None,
         }
     }
 }
@@ -125,7 +130,7 @@ impl Engine for Theirs {
 
 /// The number of distinct triples, counted by their 64-bit hashes (a fixed
 /// hasher, so a collision would show the same way on every run).
-fn distinct<T: std::borrow::Borrow<Triple>>(triples: impl Iterator<Item = T>) -> usize {
+pub(crate) fn distinct<T: std::borrow::Borrow<Triple>>(triples: impl Iterator<Item = T>) -> usize {
     use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher};
     let hasher = BuildHasherDefault::<DefaultHasher>::default();
     let hashes: std::collections::HashSet<u64> = triples.map(|t| hasher.hash_one(t.borrow())).collect();
@@ -216,9 +221,17 @@ fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, S
 }
 
 /// One measured run, as the child process does it. The result is one JSON
-/// object: `status` is `ok`, `unavailable` (our reasoner is still the stub) or
-/// `error`.
-pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: usize) -> Value {
+/// object: `status` is `ok`, `unavailable` (our reasoner is still the stub),
+/// `unsupported`, `skipped` (Nemo is not fetched), `timeout` (Nemo ran over
+/// `timeout`) or `error`.
+pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: usize, timeout: Duration) -> Value {
+    if let Some(why) = engine.unsupported(mode) {
+        return json!({ "status": "unsupported", "message": why });
+    }
+    if engine == EngineId::Nemo {
+        return crate::nemo::measure(files, timeout)
+            .unwrap_or_else(|message| json!({ "status": "error", "message": message }));
+    }
     // The stub panics with `unimplemented!`; report it, not a backtrace.
     std::panic::set_hook(Box::new(|_| {}));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(engine, mode, files, count)));
@@ -243,7 +256,7 @@ pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: us
 
 fn measure(id: EngineId, mode: Mode, files: &[PathBuf], count: usize) -> Result<Value, String> {
     let stream = changes(mode, files, count)?;
-    let mut engine = id.make();
+    let mut engine = id.make().ok_or("not an in-process engine")?;
 
     let start = Instant::now();
     for f in files {
@@ -269,7 +282,7 @@ fn measure(id: EngineId, mode: Mode, files: &[PathBuf], count: usize) -> Result<
         }
     }
     // Read the peak before the checks below, which hold their own copies.
-    let peak_rss_bytes = crate::machine::peak_rss_bytes();
+    let peak_rss_bytes = crate::machine::peak_rss_bytes(libc::RUSAGE_SELF);
     let (reported, counted) = engine.closure();
     Ok(json!({
         "status": "ok",

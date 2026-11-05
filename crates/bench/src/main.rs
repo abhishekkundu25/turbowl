@@ -1,6 +1,7 @@
-//! The benchmark: runs each scenario for this crate's reasoner (both
-//! profiles) and for `reasonable`, the same inputs in the same way, and
-//! reports median, spread, peak memory and closure size. See `README.md`.
+//! The benchmark: runs each scenario for this repository's reasoner and for
+//! its baselines, `reasonable` (linked in) and Nemo (the pinned `nmo`, a
+//! subprocess), on the same inputs, and reports median, spread, peak memory,
+//! closure size and each engine's ratio to this reasoner. See `README.md`.
 //!
 //! Every run is a fresh child process (this binary with the hidden `--one`
 //! mode), so that peak memory is one engine's on one input.
@@ -9,6 +10,7 @@ mod compare;
 mod engine;
 mod lubm;
 mod machine;
+mod nemo;
 mod scenario;
 
 use engine::{EngineId, Mode};
@@ -19,16 +21,22 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
-/// The results file's format version; `--compare` refuses others.
-const SCHEMA: u64 = 1;
+/// The results file's format version.
+const SCHEMA: u64 = 2;
+/// The versions `--compare` reads: 2 only adds to 1 (and renames engines).
+const READS: [u64; 2] = [1, 2];
+
+/// Extra time the parent gives a child over `--timeout` before killing it:
+/// the child stops Nemo itself at the timeout, and Nemo must not outlive it.
+const GRACE: Duration = Duration::from_secs(30);
 
 const USAGE: &str = "\
 usage: turtle-reasoner-bench [options]
        turtle-reasoner-bench --compare OLD.json NEW.json
 
   --list              print the scenarios and stop
-  --only A,B          run only these scenarios
-  --engines A,B       run only these engines (turtle-owl-rl, turtle-reasonable, reasonable)
+  --only A,B          run only these scenarios (opt-in ones run only this way)
+  --engines A,B       run only these engines (turtle-reasoner, reasonable, nemo)
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
@@ -118,7 +126,8 @@ fn main() -> ExitCode {
     };
     if args.list {
         for s in SCENARIOS {
-            println!("{:<20} {}", s.name, s.about);
+            let opt_in = if s.opt_in { " [opt-in: --only]" } else { "" };
+            println!("{:<20} {}{opt_in}", s.name, s.about);
         }
         return ExitCode::SUCCESS;
     }
@@ -128,28 +137,30 @@ fn main() -> ExitCode {
     run(&args)
 }
 
-/// The hidden `--one ENGINE MODE CHANGES FILE...` mode: one measured run,
-/// one JSON line on stdout.
+/// The hidden `--one ENGINE MODE CHANGES TIMEOUT_S FILE...` mode: one
+/// measured run, one JSON line on stdout.
 fn child(argv: &[String]) -> ExitCode {
-    let (Some(engine), Some(mode), Some(changes)) = (
+    let (Some(engine), Some(mode), Some(changes), Some(timeout)) = (
         argv.first().and_then(|e| EngineId::from_name(e)),
         argv.get(1).and_then(|m| Mode::from_name(m)),
         argv.get(2).and_then(|c| c.parse().ok()),
+        argv.get(3).and_then(|t| t.parse().ok()).map(Duration::from_secs),
     ) else {
-        eprintln!("--one ENGINE MODE CHANGES FILE...");
+        eprintln!("--one ENGINE MODE CHANGES TIMEOUT_S FILE...");
         return ExitCode::from(64);
     };
-    let files: Vec<PathBuf> = argv[3..].iter().map(PathBuf::from).collect();
-    println!("{}", engine::run_one(engine, mode, &files, changes));
+    let files: Vec<PathBuf> = argv[4..].iter().map(PathBuf::from).collect();
+    println!("{}", engine::run_one(engine, mode, &files, changes, timeout));
     ExitCode::SUCCESS
 }
 
-fn repo_root() -> PathBuf {
+pub(crate) fn repo_root() -> PathBuf {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     root.canonicalize().unwrap_or(root)
 }
 
-/// Spawns one run and waits for it, at most `timeout`.
+/// Spawns one run and waits for it, at most `timeout` (plus a grace period:
+/// a child running Nemo stops it at `timeout` and reports the timeout).
 fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], timeout: Duration) -> Value {
     let exe = match std::env::current_exe() {
         Ok(e) => e,
@@ -160,6 +171,7 @@ fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], ti
         .arg(engine.name())
         .arg(mode.name())
         .arg(changes.to_string())
+        .arg(timeout.as_secs().to_string())
         .args(files)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -173,7 +185,7 @@ fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], ti
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
-            Ok(None) if start.elapsed() > timeout => {
+            Ok(None) if start.elapsed() > timeout + GRACE => {
                 let _ = child.kill();
                 let _ = child.wait();
                 return json!({ "status": "timeout", "message": format!("over {} s", timeout.as_secs()) });
@@ -251,6 +263,11 @@ impl Row {
         let reason = of(&|r| field(r, "reason_ms"))?;
         let total = of(&|r| field(r, "load_ms") + field(r, "reason_ms"))?;
         let peak = of(&|r| field(r, "peak_rss_bytes"))?;
+        // Nemo's runs only: its export, and the subprocess's wall clock.
+        let nemo_only = |key: &str| {
+            let xs: Vec<f64> = self.runs.iter().filter_map(|r| r[key].as_f64()).collect();
+            spread(&xs).map(|s| round(s.0))
+        };
         let closure = self.runs.last().and_then(|r| r["closure"].as_u64());
         Some(json!({
             "measure": if self.scenario.mode == Mode::Full { "reason_ms" } else { "change_median_ms" },
@@ -260,6 +277,8 @@ impl Row {
             "load_median_ms": round(load.0),
             "reason_median_ms": round(reason.0),
             "total_median_ms": round(total.0),
+            "export_median_ms": nemo_only("export_ms"),
+            "wall_median_ms": nemo_only("wall_ms"),
             "peak_rss_bytes": peak.2 as u64,
             "peak_rss_min_bytes": peak.1 as u64,
             "closure": closure,
@@ -287,7 +306,10 @@ fn run(args: &Args) -> ExitCode {
 
     let chosen: Vec<&'static Scenario> = SCENARIOS
         .iter()
-        .filter(|s| args.only.as_ref().is_none_or(|o| o.iter().any(|n| n == s.name)))
+        .filter(|s| match &args.only {
+            Some(only) => only.iter().any(|n| n == s.name),
+            None => !s.opt_in,
+        })
         .collect();
 
     // Inputs first (generating them is not measured), then the load average.
@@ -319,12 +341,15 @@ fn run(args: &Args) -> ExitCode {
         let mut live: Vec<Row> = args
             .engines
             .iter()
-            .map(|&engine| Row {
-                scenario: s,
-                engine,
-                status: "ok".into(),
-                message: None,
-                runs: Vec::new(),
+            .map(|&engine| {
+                let unsupported = engine.unsupported(s.mode);
+                Row {
+                    scenario: s,
+                    engine,
+                    status: if unsupported.is_some() { "unsupported" } else { "ok" }.into(),
+                    message: unsupported.map(str::to_string),
+                    runs: Vec::new(),
+                }
             })
             .collect();
         // Runs alternate between engines, so drift during a scenario falls on all of them.
@@ -378,6 +403,7 @@ fn run(args: &Args) -> ExitCode {
                     "message": r.message,
                     "inputs": inputs.iter().find(|(s, _)| s.name == r.scenario.name).map(|(_, f)| f),
                     "summary": r.summary(),
+                    "x_turtle_reasoner": ratios(&rows, r),
                     "runs": r.runs,
                 })
             })
@@ -429,6 +455,29 @@ fn check(rows: &[Row]) -> Vec<String> {
     problems
 }
 
+/// One engine's ratios to this repository's reasoner on the same scenario:
+/// the median of the measure (`time`), of load plus first reasoning
+/// (`total`), and the largest peak memory (`peak_rss`). Over 1 means the
+/// engine is slower or larger. `null` when either has no finished run.
+fn ratios(rows: &[Row], r: &Row) -> Value {
+    let ours = rows
+        .iter()
+        .find(|o| o.scenario.name == r.scenario.name && o.engine == EngineId::TurtleReasoner)
+        .and_then(Row::summary);
+    let (Some(ours), Some(theirs)) = (ours, r.summary()) else {
+        return Value::Null;
+    };
+    let ratio = |key: &str| {
+        let (a, b) = (theirs[key].as_f64()?, ours[key].as_f64().filter(|&x| x > 0.0)?);
+        Some(round(a / b))
+    };
+    json!({
+        "time": ratio("median_ms"),
+        "total": ratio("total_median_ms"),
+        "peak_rss": ratio("peak_rss_bytes"),
+    })
+}
+
 fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Option<[f64; 3]>) {
     println!();
     println!(
@@ -437,41 +486,33 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
         load_text(before),
         load_text(after)
     );
-    println!("ms: reason() of a full run; for incremental-*, the median of one run's per-change times.");
-    println!("x reasonable: over reasonable's median time and largest peak (under 1 is better).");
+    println!("ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.");
+    println!("total: load + reasoning. Nemo's split is its own report; its export and process start are in neither.");
+    println!("x turtle: over turtle-reasoner's median time, total and largest peak (over 1: slower or larger).");
     println!();
     println!(
-        "| scenario | engine | n | load ms | ms (median) | min | max | peak MB | closure | B/triple | x reasonable time | x reasonable mem |"
+        "| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turtle time | x turtle total | x turtle mem |"
     );
-    println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+    println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
     for r in rows {
-        let Some(s) = r.summary() else {
-            println!(
-                "| {} | {} ({}) | 0 | | | | | | | | | |",
-                r.scenario.name,
-                r.engine.name(),
-                r.status
-            );
-            continue;
-        };
-        let theirs = rows
-            .iter()
-            .find(|o| o.scenario.name == r.scenario.name && o.engine == EngineId::Reasonable)
-            .and_then(Row::summary);
-        let ratio = |key: &str| {
-            theirs
-                .as_ref()
-                .and_then(|t| Some(s[key].as_f64()? / t[key].as_f64().filter(|&x| x > 0.0)?))
-                .map_or("-".into(), |x| format!("{x:.2}"))
-        };
         let status = if r.status == "ok" {
             String::new()
         } else {
             format!(" ({})", r.status)
         };
+        let Some(s) = r.summary() else {
+            println!(
+                "| {} | {}{status} | 0 | | | | | | | | | | | |",
+                r.scenario.name,
+                r.engine.name()
+            );
+            continue;
+        };
+        let x = ratios(rows, r);
+        let ratio = |key: &str| x[key].as_f64().map_or("-".into(), |v| format!("{v:.2}"));
         let n = |key: &str| s[key].as_f64().unwrap_or(f64::NAN);
         println!(
-            "| {} | {}{status} | {} | {:.1} | {:.1} | {:.1} | {:.1} | {} | {} | {:.0} | {} | {} |",
+            "| {} | {}{status} | {} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} | {} | {} | {:.0} | {} | {} | {} |",
             r.scenario.name,
             r.engine.name(),
             r.runs.len(),
@@ -479,11 +520,13 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
             n("median_ms"),
             n("min_ms"),
             n("max_ms"),
+            n("total_median_ms"),
             mb(n("peak_rss_bytes")),
             s["closure"],
             n("peak_bytes_per_closure_triple"),
-            ratio("median_ms"),
-            ratio("peak_rss_bytes"),
+            ratio("time"),
+            ratio("total"),
+            ratio("peak_rss"),
         );
     }
     println!();
@@ -493,9 +536,9 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
 pub(crate) fn read_results(path: &Path) -> Result<Value, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let v: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
-    if v["schema"].as_u64() != Some(SCHEMA) {
+    if !v["schema"].as_u64().is_some_and(|n| READS.contains(&n)) {
         return Err(format!(
-            "{}: schema {} (this bench reads {SCHEMA})",
+            "{}: schema {} (this bench reads {READS:?})",
             path.display(),
             v["schema"]
         ));
