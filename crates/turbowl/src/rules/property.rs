@@ -30,7 +30,15 @@
 //! - prp-ifp: `p`'s object index joined with itself on the object, so only
 //!   subjects with an equal object are made the same.
 //! - prp-trp: `p`'s object index `(y, x)` joined with its subject index
-//!   `(y, z)` on `y`.
+//!   `(y, z)` on `y`, while that join derives at most as many triples as
+//!   `p`'s table holds (counted first, without making them). Past that,
+//!   `p`'s whole table is closed in one step
+//!   ([`transitive_closure`]), which reports each missing pair once. The
+//!   join derives a pair once per middle term: on a strongly connected
+//!   component of k nodes (a symmetric, transitive property such as
+//!   OWL2Bench's `hasSameHomeTownWith`), k³ derivations for k² pairs, all
+//!   held until the round ends (ticket 25). Either way, every pair that
+//!   joins a recent one is derived this round, so the run stays complete.
 //!
 //! An object index ([`Round::by_object`]) is built the round after a rule
 //! first asks for it, with every pair recent then; a rule skips its join
@@ -48,7 +56,7 @@ pub(crate) mod chain;
 mod tests;
 
 use super::Context;
-use crate::engine::{Pair, Round, Variable, join, join_views};
+use crate::engine::{Pair, Round, Variable, join, join_count, join_views, join_views_count, transitive_closure};
 use crate::term::{TermId, vocab};
 
 /// The property rules have no empty-body rule.
@@ -227,12 +235,21 @@ fn characteristics(round: &mut Round<'_>) {
             round.emit(y, p, x);
         }
     });
-    // prp-trp: x p y, y p z => x p z, through p's object index.
+    // prp-trp: x p y, y p z => x p z, through p's object index; or p's
+    // table closed in one step, when the join would derive more triples
+    // than the table holds (see the module doc).
     each_typed(round, vocab::OWL_TRANSITIVE_PROPERTY.0, |round, p, recent| {
         let (Some(so), Some(os)) = (round.by_subject(p), round.by_object(p)) else {
             return;
         };
-        if recent {
+        let derivations = if recent {
+            join_views_count(&os.all(), &so.all())
+        } else {
+            join_count(os, so)
+        };
+        if derivations > so.len() {
+            transitive_closure(&so.all(), |x, z| round.emit(x, p, z));
+        } else if recent {
             join_views(&os.all(), &so.all(), |_, x, z| round.emit(x, p, z));
         } else {
             join(os, so, |_, x, z| round.emit(x, p, z));

@@ -154,6 +154,10 @@ impl Store {
                 pending: &mut pending,
             });
         }
+        // Empty now, with room for the largest round's derivations: given
+        // back, so that a stored closure does not keep it.
+        debug_assert!(pending.triples.is_empty() && pending.merges.is_empty());
+        pending.triples = Vec::new();
         self.pending = pending;
         rounds
     }
@@ -323,6 +327,13 @@ impl Store {
             t.so.parts()
                 .flat_map(move |part| part.iter().map(move |&(s, o)| (s, p, o)))
         })
+    }
+
+    /// The triples the round buffer has room for: what it holds between
+    /// runs, queued triples or not.
+    #[cfg(test)]
+    pub(crate) fn buffered(&self) -> usize {
+        self.pending.triples.capacity()
     }
 
     /// Rounds run since the store was made.

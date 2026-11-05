@@ -57,6 +57,7 @@
 #![allow(dead_code, unused_imports)]
 
 mod canon;
+mod closure;
 mod join;
 mod leapjoin;
 mod relation;
@@ -67,7 +68,11 @@ mod variable;
 mod tests;
 
 pub(crate) use canon::{Canon, Members, Merged};
-pub(crate) use join::{antijoin, antijoin_slices, join, join_slices, join_static, join_views};
+pub(crate) use closure::transitive_closure;
+pub(crate) use join::{
+    antijoin, antijoin_slices, join, join_count, join_slices, join_slices_count, join_static, join_views,
+    join_views_count,
+};
 pub(crate) use leapjoin::{
     ExtendAnti, ExtendWith, FilterAnti, FilterWith, Leaper, Leapers, ValueFilter, extend_anti, extend_with,
     filter_anti, filter_with, leapjoin, value_filter,

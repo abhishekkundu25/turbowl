@@ -202,6 +202,27 @@ fn store_transitive_closure_matches_naive_incrementally() {
     }
 }
 
+/// The round buffer grows to the largest round's derivations, duplicates
+/// included: on OpenCyc, 3.5 GB of the 5.2 GB a reasoned store held
+/// (ticket 25). A run gives it back when it ends; the next run grows it
+/// again.
+#[test]
+fn a_run_keeps_no_round_buffer() {
+    const P: u32 = 7;
+    let mut store = Store::new();
+    // A chain of 200: its closure is derived many times over.
+    store.extend((0..200).map(|i| (i, P, i + 1)));
+    store.run(|round| store_transitive(round, P));
+    assert_eq!(store.len(), 200 * 201 / 2);
+    assert_eq!(store.buffered(), 0, "the buffer is released when the run ends");
+    // Queued triples still wait in it for the next run.
+    store.insert(500, P, 0);
+    assert!(store.buffered() > 0);
+    store.run(|round| store_transitive(round, P));
+    assert_eq!(store.len(), 200 * 201 / 2 + 201);
+    assert_eq!(store.buffered(), 0);
+}
+
 /// out(a, d) :- r(a, b), s(b, c), t(c, d), with r, s and t all growing over
 /// rounds, as two semi-naive binary joins through an intermediate variable.
 #[test]

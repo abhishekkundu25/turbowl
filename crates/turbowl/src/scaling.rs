@@ -1242,4 +1242,49 @@ mod reasoner {
             per_call(make, add_one),
         );
     }
+
+    /// A symmetric, transitive property over one chain of `n` people, as
+    /// OWL2Bench's and UOBM's `hasSameHomeTownWith` (ticket 25): its closure
+    /// is all n² pairs. Joined on its middle term, prp-trp derives each pair
+    /// once per middle node, n³ in all, and the round buffers every
+    /// derivation: 9,300 bytes per closure triple on `owl2bench-rl-1`. What
+    /// the property family emits over the run is counted exactly against
+    /// the closure, and the run's time per closure pair must not grow with n.
+    #[test]
+    fn scaling_reasoner_symmetric_transitive_per_closure_pair() {
+        let _lock = lock();
+        let hometown = |n: usize| {
+            let mut text = String::with_capacity(n * 80);
+            text.push_str(
+                "@prefix ex: <http://example.org/> .\n\
+                 @prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+                 ex:town a owl:SymmetricProperty , owl:TransitiveProperty .\n",
+            );
+            for i in 1..n {
+                let _ = writeln!(text, "ex:p{} ex:town ex:p{i} .", i - 1);
+            }
+            text
+        };
+        let sizes = sizes(32);
+        for &n in &sizes {
+            let mut r = loaded(&hometown(n));
+            r.reason();
+            let town = r.terms().get_iri(&format!("{EX}town")).unwrap().0;
+            let pairs = r.store().table(town).map_or(0, |t| t.by_subject().len());
+            assert_eq!(pairs, n * n, "n = {n}: every pair, each person with itself included");
+            let emitted: usize = r.counters().emitted_by("property").iter().sum();
+            assert!(
+                emitted <= 4 * n * n,
+                "n = {n}: the property rules emitted {emitted} triples for a closure of {pairs} pairs"
+            );
+        }
+        let mut text = shared(hometown);
+        let mut run = per_input(move |n| loaded(&text(n)), |mut r: Reasoner| (r.reason(), r));
+        check(
+            "scaling_reasoner_symmetric_transitive_per_closure_pair",
+            Growth::Constant,
+            &sizes,
+            move |n| run(n) / (n * n) as f64,
+        );
+    }
 }
