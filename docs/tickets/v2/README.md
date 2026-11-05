@@ -263,3 +263,27 @@ Departures from the plan, as they happen.
 
   On landing: W3C OWL 2 RL 100, every case Nemo passes; RDF-MT unchanged.
   Brick's complete closure is contained in OWL-RL's with F1 alone.
+- **26.** Eight faults, F7 to F14 (the id F7 was free again: ticket 08's
+  was withdrawn). Each was checked against the text of XML Schema 1.1, RDF
+  Concepts and OWL 2, and against the installed owlrl and rdflib sources,
+  before it was listed. Departures:
+  - The ticket's cardinality item is a fault only for a double, float or
+    boolean cardinality (F14). With dt-eq, the W3C rules too read
+    `"1"^^xsd:integer` as the cardinality 1.
+  - Top-level CDATA in an `rdf:XMLLiteral` is left out of F11: RDF 2004,
+    which OWL 2 cites, requires exclusive canonical XML, where CDATA is
+    ill-typed, while RDF 1.1 allows it.
+  - Where OWL-RL only derives or reports more (F8, F11, F13, F14, and
+    parts of F9 and F10), the fault filters nothing. `CONTEXT.md` now says
+    so.
+  - `reason.py` now reads OWL-RL's message for an empty lexical form.
+  - Only `"a  b"^^xsd:token` returned to the minimal inputs: the
+    expectation check allows one known fault per case and check, so each
+    other faulted literal has its own fault test.
+  - For ticket 10, sent to its agent: OWL-RL skips dt-eq and dt-diff on
+    purpose (OWLRL.py:234-237), a fault 10 lists as F15, and the case
+    `cls-maxc2-other-numbers` needs a double, not an integer, once dt-eq
+    is on.
+
+  On landing: the oracle library has 35 tests (26 before); Brick and the
+  W3C counts are unchanged.

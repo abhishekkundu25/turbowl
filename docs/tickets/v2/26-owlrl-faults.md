@@ -1,6 +1,6 @@
 # 26: OWL-RL's datatype and identity faults
 
-Status: todo. Blocked by: 08.
+Status: done. Blocked by: 08.
 
 Tickets 06 and 09 found OWL-RL (owlrl 7.6.2, rdflib 7.6.0) wrong in ways
 no test filters yet, because the minimal inputs avoid them or OWL-RL
@@ -30,5 +30,5 @@ where OWL-RL does not:
 - Its cardinality rules compare values, so `"1"^^xsd:integer` fires.
 
 ## Acceptance
-- [ ] Each fault has an id, a description citing the OWLRL.py or rdflib lines, a one-input test, and a filter that removes exactly what it explains (none where nothing needs filtering).
-- [ ] The minimal inputs regain the literals ticket 09 removed to avoid them (the `xsd:token` form), now covered by their fault.
+- [x] Each fault has an id, a description citing the OWLRL.py or rdflib lines, a one-input test, and a filter that removes exactly what it explains (none where nothing needs filtering).
+- [x] The minimal inputs regain the literals ticket 09 removed to avoid them (the `xsd:token` form), now covered by their fault.

@@ -83,9 +83,11 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Triangulation**: when two oracles agree with each other and not with this
   project, the bug is here; when one oracle disagrees with all the others, it
   is investigated and, if it is wrong, becomes an oracle fault.
-- **Oracle fault**: a place where an oracle is wrong and this project is
-  right. Each one has an id (`F1`, `F2`, ...), a test, and a filter in the
-  oracle comparison.
+- **Oracle fault**: a place where an oracle departs from the W3C rules or
+  the datatype definitions they rest on, shown against their text. Each
+  one has an id (`F1`, `F2`, ...) and a test. It has a filter in the oracle
+  comparison only where the oracle misses something: an oracle that
+  derives more is invisible to containment.
 - **Competitor**: another reasoner measured against this one on the same
   inputs, for speed and memory, never for correctness. Nemo is both an
   oracle and a competitor.
