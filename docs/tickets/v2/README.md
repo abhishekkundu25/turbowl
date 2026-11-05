@@ -109,6 +109,27 @@ Departures from the plan, as they happen.
   prefactor on `v2`, the generator gave each file's new shapes their own
   stream, drawn after version 1's: the fingerprint of version 1's part
   stays, and no two rule tickets edit the same value.
+- **05, 06: shared files the plan missed.** Ticket 05 stopped before
+  writing code. The rules' literals (`"0"` and `"1"` of
+  `xsd:nonNegativeInteger`) cannot be named in `oracles/rules/`, because the
+  oracle renames every literal for Nemo. So the codec now gives those two
+  fixed IRIs (`NAMED_LITERALS`), committed on `v2` and applied to 05 and 06.
+  The new finding codes live in shared files (`closure.rs`' codes,
+  `diagnostics.rs`' term orders, `reason.py`, `differences.rs`), which ticket
+  05 now owns alone. Its term orders were accepted:
+  - eq-diff1: x, y;
+  - eq-diff2 and eq-diff3: the AllDifferent node, then the two members in
+    list order;
+  - cax-adc: the individual, then the two classes in list order;
+  - prp-adp: the two properties in list order, then subject and object;
+  - prp-npa1 and prp-npa2: source, property, target;
+  - cls-maxc1, cls-maxqc1 and cls-maxqc2: restriction, individual, value.
+
+  OWL-RL's new faults (it never pairs a list's last member in eq-diff2/3
+  and prp-adp, and its messages for the new rules name fewer terms) become
+  listed faults with tests. With `trivial` on, eq-ref meets the checks in
+  ticket 08. List positions count only along a path that reaches
+  `rdf:nil`, as the existing list reader reads them.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
   minutes while showing 2 GB, until the agent stopped it. The cap now
