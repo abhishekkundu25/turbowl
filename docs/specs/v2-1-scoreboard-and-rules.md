@@ -245,8 +245,12 @@ Correctness (gates):
 - The W3C OWL 2 RL suite passes at least 113 of its 119 runnable cases in
   the complete configuration, every case Nemo passes among them. Each case
   that fails is listed with the reason it is beyond the rules.
-- The RDF-MT suite passes at least 37 cases, and no consistent case is
-  reported inconsistent.
+- The RDF-MT suite passes at least 35 cases in the complete
+  configuration, and no consistent case is reported inconsistent. Two of
+  version 1's 37 (`rdfs-domain-and-range-intensionality-domain` and
+  `-range`) test that RDFS does not carry a domain or range up the class
+  hierarchy; OWL 2 RL's scm-dom1 and scm-rng1 do, so TurbOWL, Nemo and
+  OWL-RL all entail them once `schema` is on, as the W3C rules say.
 - 100,000 full and 100,000 incremental chaos iterations pass, each drawing
   its configuration from the seed.
 - On every scoreboard scenario, every competitor's closure in the same

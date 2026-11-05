@@ -206,6 +206,11 @@ Departures from the plan, as they happen.
   iteration 8181 (an `owl:sameAs owl:equivalentClass` input) spends 16 s in
   the reference evaluator and passes the 30 s watchdog only below a load
   of about 27.
+  On landing: W3C OWL 2 RL 99, every case Nemo passes. RDF-MT went from
+  37 to 35, and Nemo's from 30 to 28. The two
+  `rdfs-domain-and-range-intensionality` cases are RDFS non-entailments
+  that scm-dom1 and scm-rng1 entail by design, so the spec's budget now
+  says so.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
   minutes while showing 2 GB, until the agent stopped it. The cap now
