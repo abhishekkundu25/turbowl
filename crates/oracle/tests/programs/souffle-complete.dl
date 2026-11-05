@@ -4,19 +4,35 @@
 .decl T(a0: symbol, a1: symbol, a2: symbol)
 .decl Tp(a0: symbol, a1: symbol, a2: symbol)
 .decl allTypes(a0: symbol, a1: symbol)
+.decl caxAdc(a0: symbol, a1: symbol, a2: symbol)
 .decl caxDw(a0: symbol, a1: symbol, a2: symbol)
 .decl chainCell(a0: symbol)
 .decl chainFrom(a0: symbol, a1: symbol, a2: symbol)
 .decl clsCom(a0: symbol, a1: symbol, a2: symbol)
+.decl clsMaxc1(a0: symbol, a1: symbol, a2: symbol)
+.decl clsMaxqc1(a0: symbol, a1: symbol, a2: symbol)
+.decl clsMaxqc2(a0: symbol, a1: symbol, a2: symbol)
 .decl clsNothing(a0: symbol)
+.decl eqDiff1(a0: symbol, a1: symbol)
+.decl eqDiff2(a0: symbol, a1: symbol, a2: symbol)
+.decl eqDiff3(a0: symbol, a1: symbol, a2: symbol)
 .decl equivalentClassOf(a0: symbol, a1: symbol)
 .decl input_(a0: symbol, a1: symbol, a2: symbol)
 .decl listCell(a0: symbol, a1: symbol)
 .decl member(a0: symbol, a1: symbol)
 .decl memberFrom(a0: symbol, a1: symbol)
+.decl prpAdp(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
 .decl prpAsyp(a0: symbol, a1: symbol, a2: symbol)
 .decl prpIrp(a0: symbol, a1: symbol)
+.decl prpNpa1(a0: symbol, a1: symbol, a2: symbol)
+.decl prpNpa2(a0: symbol, a1: symbol, a2: symbol)
 .decl prpPdw(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
+.decl setAfter(a0: symbol, a1: symbol)
+.decl setBefore(a0: symbol, a1: symbol, a2: symbol)
+.decl setCell(a0: symbol, a1: symbol)
+.decl setList(a0: symbol)
+.decl setLive(a0: symbol, a1: symbol)
+.decl setWellFormed(a0: symbol)
 .decl usedProp(a0: symbol)
 .decl wellFormed(a0: symbol)
 
@@ -191,8 +207,41 @@ clsNothing(x) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<htt
 prpAsyp(p, x, y) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AsymmetricProperty>"), Tp(p, x, y), Tp(p, y, x).  // prp-asyp
 prpIrp(p, x) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#IrreflexiveProperty>"), Tp(p, x, x).  // prp-irp
 clsCom(c1, c2, x) :- T(c1, "<http://www.w3.org/2002/07/owl#complementOf>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2).  // cls-com
-// to come: cax-adc, cls-maxc1, cls-maxqc1, cls-maxqc2, prp-adp, prp-npa1, prp-npa2
-// to come: eq-diff1, eq-diff2, eq-diff3
+
+// The lists of owl:AllDifferent, owl:AllDisjointClasses and
+// owl:AllDisjointProperties, by position, read as the core reads its lists:
+// rdf:rest stops at rdf:nil, a cell is well formed when it has an rdf:first
+// and a rest that is rdf:nil or well formed, and the live cells of a head are
+// those reached from a well-formed head through well-formed cells (the cells
+// on a path to rdf:nil). setAfter(?l, ?m): ?m follows ?l along live cells, one
+// rdf:rest or more (in a list that loops through live cells, a cell follows
+// itself). setBefore(?h, ?a, ?b): in the list at ?h, ?a is at a position before
+// one of ?b.
+setList(h) :- T(_, "<http://www.w3.org/2002/07/owl#members>", h).
+setList(h) :- T(_, "<http://www.w3.org/2002/07/owl#distinctMembers>", h).
+setCell(h, h) :- setList(h).
+setCell(h, r) :- setCell(h, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".
+setWellFormed(l) :- setCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", _), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>").
+setWellFormed(l) :- setCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", _), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", setWellFormed(r).
+setLive(h, h) :- setList(h), setWellFormed(h).
+setLive(h, r) :- setLive(h, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", setWellFormed(r).
+setAfter(l, r) :- setLive(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", setWellFormed(r).
+setAfter(l, m) :- setAfter(l, r), T(r, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", m), m != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", setWellFormed(m).
+setBefore(h, a, b) :- setLive(h, l), setAfter(l, m), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", a), T(m, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", b).
+
+eqDiff1(x, y) :- T(x, "<http://www.w3.org/2002/07/owl#sameAs>", y), T(x, "<http://www.w3.org/2002/07/owl#differentFrom>", y).  // eq-diff1
+eqDiff2(x, zi, zj) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AllDifferent>"), T(x, "<http://www.w3.org/2002/07/owl#members>", h), setBefore(h, zi, zj), T(zi, "<http://www.w3.org/2002/07/owl#sameAs>", zj).  // eq-diff2
+eqDiff3(x, zi, zj) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AllDifferent>"), T(x, "<http://www.w3.org/2002/07/owl#distinctMembers>", h), setBefore(h, zi, zj), T(zi, "<http://www.w3.org/2002/07/owl#sameAs>", zj).  // eq-diff3
+caxAdc(z, ci, cj) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AllDisjointClasses>"), T(x, "<http://www.w3.org/2002/07/owl#members>", h), setBefore(h, ci, cj), T(z, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", ci), T(z, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", cj).  // cax-adc
+prpAdp(pi, pj, u, v) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AllDisjointProperties>"), T(x, "<http://www.w3.org/2002/07/owl#members>", h), setBefore(h, pi, pj), Tp(pi, u, v), Tp(pj, u, v).  // prp-adp
+prpNpa1(i1, p, i2) :- T(x, "<http://www.w3.org/2002/07/owl#sourceIndividual>", i1), T(x, "<http://www.w3.org/2002/07/owl#assertionProperty>", p), T(x, "<http://www.w3.org/2002/07/owl#targetIndividual>", i2), Tp(p, i1, i2).  // prp-npa1
+prpNpa2(i, p, lt) :- T(x, "<http://www.w3.org/2002/07/owl#sourceIndividual>", i), T(x, "<http://www.w3.org/2002/07/owl#assertionProperty>", p), T(x, "<http://www.w3.org/2002/07/owl#targetValue>", lt), Tp(p, i, lt).  // prp-npa2
+
+// The cardinality "0"^^xsd:nonNegativeInteger, as crates/oracle names it
+// (turbowl_oracle::NAMED_LITERALS).
+clsMaxc1(x, u, y) :- T(x, "<http://www.w3.org/2002/07/owl#maxCardinality>", "<urn:x-turbowl-oracle:term:nonNegativeInteger-0>"), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x), Tp(p, u, y).  // cls-maxc1
+clsMaxqc1(x, u, y) :- T(x, "<http://www.w3.org/2002/07/owl#maxQualifiedCardinality>", "<urn:x-turbowl-oracle:term:nonNegativeInteger-0>"), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(x, "<http://www.w3.org/2002/07/owl#onClass>", c), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x), Tp(p, u, y), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c).  // cls-maxqc1
+clsMaxqc2(x, u, y) :- T(x, "<http://www.w3.org/2002/07/owl#maxQualifiedCardinality>", "<urn:x-turbowl-oracle:term:nonNegativeInteger-0>"), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(x, "<http://www.w3.org/2002/07/owl#onClass>", "<http://www.w3.org/2002/07/owl#Thing>"), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x), Tp(p, u, y).  // cls-maxqc2
 
 // The engines have no datatype checks: literals reach them as opaque IRIs.
 // dt-not-type is judged by OWL-RL, the W3C tests and the reference evaluator.
@@ -203,6 +252,10 @@ usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http:
 usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#IrreflexiveProperty>").
 usedProp(p) :- T(p, "<http://www.w3.org/2002/07/owl#propertyDisjointWith>", _).
 usedProp(q) :- T(_, "<http://www.w3.org/2002/07/owl#propertyDisjointWith>", q).
+// prp-adp, prp-npa1 and prp-npa2 read Tp too (the cardinality rules' ?p is
+// the core's: owl:onProperty).
+usedProp(p) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AllDisjointProperties>"), T(x, "<http://www.w3.org/2002/07/owl#members>", h), setLive(h, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", p).
+usedProp(p) :- T(_, "<http://www.w3.org/2002/07/owl#assertionProperty>", p).
 
 .output caxDw(IO=file, filename="cax-dw.tsv", delimiter="\t")
 .output prpPdw(IO=file, filename="prp-pdw.tsv", delimiter="\t")
@@ -210,6 +263,16 @@ usedProp(q) :- T(_, "<http://www.w3.org/2002/07/owl#propertyDisjointWith>", q).
 .output prpAsyp(IO=file, filename="prp-asyp.tsv", delimiter="\t")
 .output prpIrp(IO=file, filename="prp-irp.tsv", delimiter="\t")
 .output clsCom(IO=file, filename="cls-com.tsv", delimiter="\t")
+.output eqDiff1(IO=file, filename="eq-diff1.tsv", delimiter="\t")
+.output eqDiff2(IO=file, filename="eq-diff2.tsv", delimiter="\t")
+.output eqDiff3(IO=file, filename="eq-diff3.tsv", delimiter="\t")
+.output caxAdc(IO=file, filename="cax-adc.tsv", delimiter="\t")
+.output prpAdp(IO=file, filename="prp-adp.tsv", delimiter="\t")
+.output prpNpa1(IO=file, filename="prp-npa1.tsv", delimiter="\t")
+.output prpNpa2(IO=file, filename="prp-npa2.tsv", delimiter="\t")
+.output clsMaxc1(IO=file, filename="cls-maxc1.tsv", delimiter="\t")
+.output clsMaxqc1(IO=file, filename="cls-maxqc1.tsv", delimiter="\t")
+.output clsMaxqc2(IO=file, filename="cls-maxqc2.tsv", delimiter="\t")
 
 // oracles/rules/identity.rls
 

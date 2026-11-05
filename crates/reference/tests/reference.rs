@@ -571,6 +571,16 @@ fn a_switch_off_turns_its_rules_off() {
         "prp-irp",
         "cls-com",
         "dt-not-type",
+        "eq-diff1",
+        "eq-diff2",
+        "eq-diff3",
+        "cax-adc",
+        "prp-adp",
+        "prp-npa1",
+        "prp-npa2",
+        "cls-maxc1",
+        "cls-maxqc1",
+        "cls-maxqc2",
     ];
     let groups: &[(Switch, &[&str])] = &[
         (

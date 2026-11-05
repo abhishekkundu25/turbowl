@@ -272,9 +272,26 @@ fn the_w3c_reports_map_names_every_rule() {
 #[test]
 fn a_configurations_program_lists_its_codes_and_rules() {
     let default = Switches::default();
-    let six = ["cax-dw", "prp-pdw", "cls-nothing2", "prp-asyp", "prp-irp", "cls-com"];
-    assert_eq!(programs::codes(default), six);
-    assert_eq!(nemo::codes(default), six);
+    let checks = [
+        "cax-dw",
+        "prp-pdw",
+        "cls-nothing2",
+        "prp-asyp",
+        "prp-irp",
+        "cls-com",
+        "eq-diff1",
+        "eq-diff2",
+        "eq-diff3",
+        "cax-adc",
+        "prp-adp",
+        "prp-npa1",
+        "prp-npa2",
+        "cls-maxc1",
+        "cls-maxqc1",
+        "cls-maxqc2",
+    ];
+    assert_eq!(programs::codes(default), checks);
+    assert_eq!(nemo::codes(default), checks);
     let no_checks = default.off(Switch::Checks);
     assert!(programs::codes(no_checks).is_empty());
     assert!(nemo::codes(no_checks).is_empty());

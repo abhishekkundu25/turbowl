@@ -29,6 +29,12 @@ pub enum Severity {
 /// | `prp-irp` | property, individual |
 /// | `cls-com` | class 1, class 2 (as stated in `class1 owl:complementOf class2`), individual |
 /// | `dt-not-type` | literal, datatype (the literal's own when it is ill-typed, or a checked datatype the closure types it with, as by `rdfs:range`) |
+/// | `eq-diff1` | x, y (as stated in `x owl:differentFrom y`, and `x owl:sameAs y` holds) |
+/// | `eq-diff2`, `eq-diff3` | the `owl:AllDifferent` node, then two terms of its `owl:members` (eq-diff2) or `owl:distinctMembers` (eq-diff3) list made `owl:sameAs`, the one at the earlier position first |
+/// | `cax-adc` | individual, then two classes of an `owl:AllDisjointClasses` list, the one at the earlier position first |
+/// | `prp-adp` | two properties of an `owl:AllDisjointProperties` list, the one at the earlier position first, then subject, object |
+/// | `prp-npa1`, `prp-npa2` | source individual, property, target individual (prp-npa1) or value (prp-npa2): the triple a negative property assertion denies |
+/// | `cls-maxc1`, `cls-maxqc1`, `cls-maxqc2` | restriction (of cardinality `"0"^^xsd:nonNegativeInteger`), individual, value |
 ///
 /// dt-not-type checks `xsd:string`, `xsd:integer`, `xsd:int`,
 /// `rdf:langString` and `rdf:XMLLiteral`; a literal of another datatype is
@@ -89,6 +95,22 @@ fn message(code: &str, terms: &[Term]) -> String {
         }
         ("dt-not-type", [literal, datatype]) => {
             format!("{literal} is not a value of the datatype {datatype}.")
+        }
+        ("eq-diff1", [x, y]) => format!("{x} and {y} are the same individual and declared different."),
+        ("eq-diff2" | "eq-diff3", [list, x, y]) => {
+            format!("{x} and {y} are the same individual and declared different by {list}.")
+        }
+        ("cax-adc", [x, c1, c2]) => {
+            format!("{x} is an instance of {c1} and of {c2}, which are disjoint classes.")
+        }
+        ("prp-adp", [p1, p2, x, y]) => {
+            format!("{x} is linked to {y} by both {p1} and {p2}, which are disjoint properties.")
+        }
+        ("prp-npa1" | "prp-npa2", [x, p, y]) => {
+            format!("{x} is linked to {y} by {p}, which a negative property assertion denies.")
+        }
+        ("cls-maxc1" | "cls-maxqc1" | "cls-maxqc2", [r, x, y]) => {
+            format!("{x} is an instance of {r}, which allows no value, and has the value {y}.")
         }
         _ => format!("{code}: {}.", names.join(", ")),
     }
@@ -170,7 +192,7 @@ mod tests {
         let tagged = d.intern_lang_literal("chat", "fr");
         let dt = d.intern_iri(&format!("{EX}dt"));
         let custom = d.intern_typed_literal("1", dt);
-        let cases: [(&'static str, Vec<TermId>, &str); 9] = [
+        let cases: [(&'static str, Vec<TermId>, &str); 15] = [
             (
                 "prp-pdw",
                 vec![p, q, x, y],
@@ -219,6 +241,42 @@ mod tests {
                 vec![bad, vocab::OWL_THING, vocab::RDFS_LITERAL],
                 "\"abc\"^^xsd:integer is an instance of owl:Thing and of rdfs:Literal, which are \
                  disjoint classes.",
+            ),
+            (
+                "eq-diff1",
+                vec![x, y],
+                "<http://example.org/x> and <http://example.org/y> are the same individual and declared \
+                 different.",
+            ),
+            (
+                "eq-diff3",
+                vec![blank, x, y],
+                "<http://example.org/x> and <http://example.org/y> are the same individual and declared \
+                 different by _:b1_3.",
+            ),
+            (
+                "cax-adc",
+                vec![x, a, b],
+                "<http://example.org/x> is an instance of <http://example.org/A> and of \
+                 <http://example.org/B>, which are disjoint classes.",
+            ),
+            (
+                "prp-adp",
+                vec![p, q, x, y],
+                "<http://example.org/x> is linked to <http://example.org/y> by both \
+                 <http://example.org/p> and <http://example.org/q>, which are disjoint properties.",
+            ),
+            (
+                "prp-npa2",
+                vec![x, p, plain],
+                "<http://example.org/x> is linked to \"say \\\"hi\\\"\" by <http://example.org/p>, which a \
+                 negative property assertion denies.",
+            ),
+            (
+                "cls-maxqc1",
+                vec![a, x, y],
+                "<http://example.org/x> is an instance of <http://example.org/A>, which allows no value, \
+                 and has the value <http://example.org/y>.",
             ),
         ];
         for (code, ids, message) in cases {

@@ -4,7 +4,7 @@
 //! the affected triples or findings before a closure is compared with the
 //! faulty oracle's. There are no other filters (ADR 0004).
 //!
-//! All five are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo, HermiT
+//! All six are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo, HermiT
 //! and the W3C tests have none so far.
 
 use crate::{Closure, Finding, Input};
@@ -26,10 +26,12 @@ pub enum Fault {
     F4,
     /// OWL-RL's dt-not-type checks a literal only against its own datatype.
     F5,
+    /// OWL-RL's eq-diff2, eq-diff3 and prp-adp miss positions of a list.
+    F6,
 }
 
 impl Fault {
-    pub const ALL: [Self; 5] = [Self::F1, Self::F2, Self::F3, Self::F4, Self::F5];
+    pub const ALL: [Self; 6] = [Self::F1, Self::F2, Self::F3, Self::F4, Self::F5, Self::F6];
 
     /// The oracle at fault, as the triangulation table names it.
     pub fn oracle(self) -> &'static str {
@@ -66,6 +68,14 @@ impl Fault {
                  datatypes-range-clash expects \"25\"^^xsd:integer in an xsd:string range to be \
                  inconsistent"
             }
+            Self::F6 => {
+                "owlrl 7.6.2 reads the list of eq-diff2, eq-diff3 (OWLRL.py:416-436) and prp-adp \
+                 (OWLRL.py:517-531) through rdflib's `items`, one rdf:first per cell, pairs positions \
+                 with `for j in range(i + 1, len(list) - 1)`, which never reaches the last member, and \
+                 for eq-diff2 and eq-diff3 skips zi = zj; the W3C rules pair every two positions \
+                 i < j of the list, with every rdf:first of each cell, so `(a b c)` with \
+                 `a owl:sameAs b` gives (a, a), (a, b), (b, a) and (b, b), and `(p q)` gives prp-adp"
+            }
         }
     }
 
@@ -83,6 +93,7 @@ impl Fault {
                 "drops dt-not-type findings OWL-RL does not have whose datatype is not the literal's own \
                  from the other closure"
             }
+            Self::F6 => "drops eq-diff2, eq-diff3 and prp-adp findings OWL-RL does not have from the other closure",
         }
     }
 
@@ -108,6 +119,10 @@ impl Fault {
                 .findings
                 .iter()
                 .any(|f| typed_elsewhere(f) && !theirs.findings.contains(f)),
+            Self::F6 => ours
+                .findings
+                .iter()
+                .any(|f| by_list_position(f) && !theirs.findings.contains(f)),
         }
     }
 
@@ -141,6 +156,9 @@ impl Fault {
             Self::F5 => ours
                 .findings
                 .retain(|f| !typed_elsewhere(f) || theirs.findings.contains(f)),
+            Self::F6 => ours
+                .findings
+                .retain(|f| !by_list_position(f) || theirs.findings.contains(f)),
         }
     }
 }
@@ -199,6 +217,11 @@ fn typed_elsewhere(f: &Finding) -> bool {
         ("dt-not-type", [Term::Literal(l), Term::NamedNode(dt)]) => l.datatype() != dt.as_ref(),
         _ => false,
     }
+}
+
+/// A finding of a rule that pairs list positions as F6 says OWL-RL does not.
+fn by_list_position(f: &Finding) -> bool {
+    matches!(f.code.as_str(), "eq-diff2" | "eq-diff3" | "prp-adp")
 }
 
 /// True when following `rdf:rest` from some list cell comes back to it.
@@ -443,6 +466,61 @@ mod tests {
         let mut theirs = owlrl;
         assert_eq!(apply("OWL-RL", &input, &mut ours, &mut theirs), [Fault::F5]);
         assert!(ours.findings.is_empty());
+    }
+
+    /// Nemo, the reference evaluator and TurbOWL agree on the W3C findings;
+    /// OWL-RL reports fewer, and only those the others report.
+    #[test]
+    fn f6_owlrl_misses_list_positions() {
+        let input = input(
+            "f6",
+            "ex:d a owl:AllDifferent ; owl:members ( ex:a ex:b ex:c ) ; owl:distinctMembers ( ex:c ex:c ) .
+             ex:a owl:sameAs ex:b . ex:c owl:sameAs ex:c .
+             ex:x a owl:AllDisjointProperties ; owl:members ( ex:p ex:q ) . ex:u ex:p ex:v ; ex:q ex:v .",
+        );
+        let Some((nemo, owlrl)) = both(&input) else { return };
+        let owlrl = ran(owlrl);
+        let switches = turbowl::Switches::default();
+        let ours = match crate::ours::run(&input, switches) {
+            Outcome::Ran(c) => c,
+            other => panic!("TurbOWL: {other:?}"),
+        };
+        let base: HashSet<_> = input.triples().iter().cloned().collect();
+        let evaluation = turbowl_reference::evaluate_within(&base, switches, 10_000).expect("a small closure");
+        let listed = |findings: &mut dyn Iterator<Item = Finding>| -> HashSet<Finding> {
+            findings.filter(by_list_position).collect()
+        };
+        let reference = listed(
+            &mut evaluation
+                .diagnostics
+                .iter()
+                .map(|(c, t)| Finding::new(c.clone(), t.clone())),
+        );
+        let (nemo_found, ours_found) = (
+            listed(&mut nemo.findings.iter().cloned()),
+            listed(&mut ours.findings.iter().cloned()),
+        );
+        let [a, b, c, d, p, q, u, v] = ["a", "b", "c", "d", "p", "q", "u", "v"].map(ex);
+        let mut expected: HashSet<Finding> = [
+            ("eq-diff3", vec![d.clone(), c.clone(), c.clone()]),
+            ("prp-adp", vec![p, q, u, v]),
+        ]
+        .into_iter()
+        .map(|(code, terms)| Finding::new(code, terms))
+        .collect();
+        for (zi, zj) in [(&a, &a), (&a, &b), (&b, &a), (&b, &b)] {
+            expected.insert(Finding::new("eq-diff2", vec![d.clone(), zi.clone(), zj.clone()]));
+        }
+        assert_eq!(nemo_found, expected, "the W3C rules (Nemo)");
+        assert_eq!(reference, expected, "the reference evaluator");
+        assert_eq!(ours_found, expected, "TurbOWL");
+        let theirs = listed(&mut owlrl.findings.iter().cloned());
+        assert!(theirs.is_subset(&expected), "OWL-RL reports {theirs:?}");
+        assert!(
+            theirs.len() < expected.len(),
+            "OWL-RL now reports every position: F6 is gone"
+        );
+        filter_is_needed_and_enough(Fault::F6, &input, &nemo, &owlrl);
     }
 
     #[test]

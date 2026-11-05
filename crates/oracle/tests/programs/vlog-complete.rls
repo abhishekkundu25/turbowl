@@ -173,8 +173,41 @@ clsNothing(?x) :- T(?x, rdf:type, owl:Nothing) .  % cls-nothing2
 prpAsyp(?p, ?x, ?y) :- T(?p, rdf:type, owl:AsymmetricProperty), Tp(?p, ?x, ?y), Tp(?p, ?y, ?x) .  % prp-asyp
 prpIrp(?p, ?x) :- T(?p, rdf:type, owl:IrreflexiveProperty), Tp(?p, ?x, ?x) .  % prp-irp
 clsCom(?c1, ?c2, ?x) :- T(?c1, owl:complementOf, ?c2), T(?x, rdf:type, ?c1), T(?x, rdf:type, ?c2) .  % cls-com
-% to come: cax-adc, cls-maxc1, cls-maxqc1, cls-maxqc2, prp-adp, prp-npa1, prp-npa2
-% to come: eq-diff1, eq-diff2, eq-diff3
+
+% The lists of owl:AllDifferent, owl:AllDisjointClasses and
+% owl:AllDisjointProperties, by position, read as the core reads its lists:
+% rdf:rest stops at rdf:nil, a cell is well formed when it has an rdf:first
+% and a rest that is rdf:nil or well formed, and the live cells of a head are
+% those reached from a well-formed head through well-formed cells (the cells
+% on a path to rdf:nil). setAfter(?l, ?m): ?m follows ?l along live cells, one
+% rdf:rest or more (in a list that loops through live cells, a cell follows
+% itself). setBefore(?h, ?a, ?b): in the list at ?h, ?a is at a position before
+% one of ?b.
+setList(?h) :- T(?x, owl:members, ?h) .
+setList(?h) :- T(?x, owl:distinctMembers, ?h) .
+setCell(?h, ?h) :- setList(?h) .
+setCell(?h, ?r) :- setCell(?h, ?l), T(?l, rdf:rest, ?r), ~sameTerm(?r, rdf:nil) .
+setWellFormed(?l) :- setCell(?h, ?l), T(?l, rdf:first, ?c), T(?l, rdf:rest, rdf:nil) .
+setWellFormed(?l) :- setCell(?h, ?l), T(?l, rdf:first, ?c), T(?l, rdf:rest, ?r), ~sameTerm(?r, rdf:nil), setWellFormed(?r) .
+setLive(?h, ?h) :- setList(?h), setWellFormed(?h) .
+setLive(?h, ?r) :- setLive(?h, ?l), T(?l, rdf:rest, ?r), ~sameTerm(?r, rdf:nil), setWellFormed(?r) .
+setAfter(?l, ?r) :- setLive(?h, ?l), T(?l, rdf:rest, ?r), ~sameTerm(?r, rdf:nil), setWellFormed(?r) .
+setAfter(?l, ?m) :- setAfter(?l, ?r), T(?r, rdf:rest, ?m), ~sameTerm(?m, rdf:nil), setWellFormed(?m) .
+setBefore(?h, ?a, ?b) :- setLive(?h, ?l), setAfter(?l, ?m), T(?l, rdf:first, ?a), T(?m, rdf:first, ?b) .
+
+eqDiff1(?x, ?y) :- T(?x, owl:sameAs, ?y), T(?x, owl:differentFrom, ?y) .  % eq-diff1
+eqDiff2(?x, ?zi, ?zj) :- T(?x, rdf:type, owl:AllDifferent), T(?x, owl:members, ?h), setBefore(?h, ?zi, ?zj), T(?zi, owl:sameAs, ?zj) .  % eq-diff2
+eqDiff3(?x, ?zi, ?zj) :- T(?x, rdf:type, owl:AllDifferent), T(?x, owl:distinctMembers, ?h), setBefore(?h, ?zi, ?zj), T(?zi, owl:sameAs, ?zj) .  % eq-diff3
+caxAdc(?z, ?ci, ?cj) :- T(?x, rdf:type, owl:AllDisjointClasses), T(?x, owl:members, ?h), setBefore(?h, ?ci, ?cj), T(?z, rdf:type, ?ci), T(?z, rdf:type, ?cj) .  % cax-adc
+prpAdp(?pi, ?pj, ?u, ?v) :- T(?x, rdf:type, owl:AllDisjointProperties), T(?x, owl:members, ?h), setBefore(?h, ?pi, ?pj), Tp(?pi, ?u, ?v), Tp(?pj, ?u, ?v) .  % prp-adp
+prpNpa1(?i1, ?p, ?i2) :- T(?x, owl:sourceIndividual, ?i1), T(?x, owl:assertionProperty, ?p), T(?x, owl:targetIndividual, ?i2), Tp(?p, ?i1, ?i2) .  % prp-npa1
+prpNpa2(?i, ?p, ?lt) :- T(?x, owl:sourceIndividual, ?i), T(?x, owl:assertionProperty, ?p), T(?x, owl:targetValue, ?lt), Tp(?p, ?i, ?lt) .  % prp-npa2
+
+% The cardinality "0"^^xsd:nonNegativeInteger, as crates/oracle names it
+% (turbowl_oracle::NAMED_LITERALS).
+clsMaxc1(?x, ?u, ?y) :- T(?x, owl:maxCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>), T(?x, owl:onProperty, ?p), T(?u, rdf:type, ?x), Tp(?p, ?u, ?y) .  % cls-maxc1
+clsMaxqc1(?x, ?u, ?y) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>), T(?x, owl:onProperty, ?p), T(?x, owl:onClass, ?c), T(?u, rdf:type, ?x), Tp(?p, ?u, ?y), T(?y, rdf:type, ?c) .  % cls-maxqc1
+clsMaxqc2(?x, ?u, ?y) :- T(?x, owl:maxQualifiedCardinality, <urn:x-turbowl-oracle:term:nonNegativeInteger-0>), T(?x, owl:onProperty, ?p), T(?x, owl:onClass, owl:Thing), T(?u, rdf:type, ?x), Tp(?p, ?u, ?y) .  % cls-maxqc2
 
 % The engines have no datatype checks: literals reach them as opaque IRIs.
 % dt-not-type is judged by OWL-RL, the W3C tests and the reference evaluator.
@@ -185,6 +218,10 @@ usedProp(?p) :- T(?p, rdf:type, owl:AsymmetricProperty) .
 usedProp(?p) :- T(?p, rdf:type, owl:IrreflexiveProperty) .
 usedProp(?p) :- T(?p, owl:propertyDisjointWith, ?q) .
 usedProp(?q) :- T(?p, owl:propertyDisjointWith, ?q) .
+% prp-adp, prp-npa1 and prp-npa2 read Tp too (the cardinality rules' ?p is
+% the core's: owl:onProperty).
+usedProp(?p) :- T(?x, rdf:type, owl:AllDisjointProperties), T(?x, owl:members, ?h), setLive(?h, ?l), T(?l, rdf:first, ?p) .
+usedProp(?p) :- T(?x, owl:assertionProperty, ?p) .
 
 % oracles/rules/identity.rls
 
@@ -220,3 +257,13 @@ sameTerm(rdf:nil, rdf:nil) .
 % @query prpAsyp(?x1, ?x2, ?x3) EXPORTCSV "prp-asyp.csv" .
 % @query prpIrp(?x1, ?x2) EXPORTCSV "prp-irp.csv" .
 % @query clsCom(?x1, ?x2, ?x3) EXPORTCSV "cls-com.csv" .
+% @query eqDiff1(?x1, ?x2) EXPORTCSV "eq-diff1.csv" .
+% @query eqDiff2(?x1, ?x2, ?x3) EXPORTCSV "eq-diff2.csv" .
+% @query eqDiff3(?x1, ?x2, ?x3) EXPORTCSV "eq-diff3.csv" .
+% @query caxAdc(?x1, ?x2, ?x3) EXPORTCSV "cax-adc.csv" .
+% @query prpAdp(?x1, ?x2, ?x3, ?x4) EXPORTCSV "prp-adp.csv" .
+% @query prpNpa1(?x1, ?x2, ?x3) EXPORTCSV "prp-npa1.csv" .
+% @query prpNpa2(?x1, ?x2, ?x3) EXPORTCSV "prp-npa2.csv" .
+% @query clsMaxc1(?x1, ?x2, ?x3) EXPORTCSV "cls-maxc1.csv" .
+% @query clsMaxqc1(?x1, ?x2, ?x3) EXPORTCSV "cls-maxqc1.csv" .
+% @query clsMaxqc2(?x1, ?x2, ?x3) EXPORTCSV "cls-maxqc2.csv" .

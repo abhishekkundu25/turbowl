@@ -73,6 +73,16 @@ pub const CODES: &[&str] = &[
     "prp-irp",
     "cls-com",
     "dt-not-type",
+    "eq-diff1",
+    "eq-diff2",
+    "eq-diff3",
+    "cax-adc",
+    "prp-adp",
+    "prp-npa1",
+    "prp-npa2",
+    "cls-maxc1",
+    "cls-maxqc1",
+    "cls-maxqc2",
 ];
 
 /// The codes of [`CODES`] a configuration reports: every one is a rule of
@@ -93,6 +103,12 @@ pub fn codes(switches: Switches) -> &'static [&'static str] {
 /// | `prp-irp` | property, individual |
 /// | `cls-com` | class 1, class 2, individual |
 /// | `dt-not-type` | literal, datatype (the literal's own, or a type such as one from prp-rng) |
+/// | `eq-diff1` | x, y (as stated in `x owl:differentFrom y`) |
+/// | `eq-diff2`, `eq-diff3` | the `owl:AllDifferent` node, zi, zj (zi at the earlier list position) |
+/// | `cax-adc` | individual, class i, class j (class i at the earlier list position) |
+/// | `prp-adp` | property i, property j (property i at the earlier list position), subject, object |
+/// | `prp-npa1`, `prp-npa2` | source individual, property, target (individual or value) |
+/// | `cls-maxc1`, `cls-maxqc1`, `cls-maxqc2` | restriction, individual, value |
 /// | `other` | the message, as a literal (OWL-RL findings outside the rule set) |
 ///
 /// TurbOWL's `Diagnostic` maps onto it by `code` and `terms` (ticket

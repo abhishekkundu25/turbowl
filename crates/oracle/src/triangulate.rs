@@ -38,6 +38,8 @@ pub const KNOWN: &[(&str, &str, Fault)] = &[
     ("chain-cyclic-list", "OWL-RL: expectations", Fault::F4),
     ("dt-not-type-range", "OWL-RL: expectations", Fault::F5),
     ("eq-literal-typed", "OWL-RL: expectations", Fault::F5),
+    ("eq-diff2", "OWL-RL: expectations", Fault::F6),
+    ("eq-diff3", "OWL-RL: expectations", Fault::F6),
 ];
 
 /// The result of one check.

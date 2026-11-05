@@ -57,6 +57,17 @@ use turbowl::Switches;
 ///   individual.
 /// - `dt-not-type`: the literal, the datatype whose value space it is not
 ///   in (its own when it is ill-typed).
+/// - `eq-diff1`: x, y, as `x owl:differentFrom y` states them.
+/// - `eq-diff2`, `eq-diff3`: the `owl:AllDifferent` node, then the two
+///   terms, the one at the earlier list position first.
+/// - `cax-adc`: the individual, then the two classes, the one at the
+///   earlier list position first.
+/// - `prp-adp`: the two properties, the one at the earlier list position
+///   first, then the subject and the object.
+/// - `prp-npa1`, `prp-npa2`: the source individual, the property, the
+///   target individual or value.
+/// - `cls-maxc1`, `cls-maxqc1`, `cls-maxqc2`: the restriction, the
+///   individual, the value.
 pub type Diagnostics = HashSet<(String, Vec<Term>)>;
 
 /// One evaluation: the closure, the diagnostics, and what each rule added.
