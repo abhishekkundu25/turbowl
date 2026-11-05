@@ -1,0 +1,15 @@
+[package]
+name = "turtle-reasoner-bench"
+description = "Benchmarks against reasonable and other reasoners"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+turtle-reasoner.workspace = true
+oxrdf.workspace = true
+
+[lints]
+workspace = true

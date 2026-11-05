@@ -1,0 +1,15 @@
+[package]
+name = "turtle-reasoner-oracle"
+description = "Oracles for verification: reasonable, OWL-RL, Nemo, a DL reasoner, the W3C tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+turtle-reasoner.workspace = true
+oxrdf.workspace = true
+
+[lints]
+workspace = true

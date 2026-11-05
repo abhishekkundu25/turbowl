@@ -1,0 +1,18 @@
+[package]
+name = "turtle-reasoner-cli"
+description = "The turtle-reasoner command line, with reasonable's options"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = true
+[[bin]]
+name = "turtle-reasoner"
+path = "src/main.rs"
+
+[dependencies]
+turtle-reasoner.workspace = true
+oxrdf.workspace = true
+
+[lints]
+workspace = true
