@@ -11,5 +11,10 @@ publish = false
 turtle-reasoner.workspace = true
 oxrdf.workspace = true
 
+[dev-dependencies]
+# The parity oracle for tests/reasonable.rs: the pinned release the parity
+# research read (`docs/research/reasonable-parity.md`).
+reasonable = "=0.5.0-a1"
+
 [lints]
 workspace = true
