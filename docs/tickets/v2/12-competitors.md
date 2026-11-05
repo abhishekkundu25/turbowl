@@ -1,11 +1,20 @@
-# 12: Competitors: VLog, Soufflé, GraphDB
+# 12: Competitors: VLog, Soufflé, Nemo (GraphDB if licensed)
 
 Status: todo. Blocked by: 03, 13.
 
-Each competitor is fetched and pinned into `tools/` by version and checksum, with no system install, as `docs/research/competitors-2026-11.md` says each can be. GraphDB comes in only if its licence allows publishing numbers. Each runs the composed program for a configuration as a subprocess. Its closure is checked against TurbOWL's, and its times and peak memory are recorded as Nemo's are. Where an engine runs in parallel, all-cores rows are added. Where it has its own OWL mode, that mode gets its own rows. A competitor that is not fetched is `skipped`.
+Each competitor is fetched and pinned into `tools/` by version and checksum, with no system install. `docs/research/competitors-2026-11.md` §2 to §6 says how each can run on this machine:
+
+- **VLog** through Rulewerk's published jars, whose VLog libraries are universal (x86_64 and arm64), on the fetched JRE. VLog has no prebuilt arm64 command line, and its source build does not pass on CMake 4.
+- **Soufflé** 2.5 from the Homebrew bottle, unpacked into `tools/`. It is single-threaded on Apple silicon: upstream turns OpenMP off there because of crash issue #2476.
+- **Nemo**, already fetched.
+- **GraphDB Free** only if the owner obtains a licence, which comes by e-mail. It is capped at one core, and its numbers are not published without Graphwise's written consent.
+
+RDFox and Stardog are not run (§1, §5). Jena's OWL rules predate OWL 2 RL, so it does not enter the same-rules race.
+
+Each competitor runs the composed program for a configuration as a subprocess. Its closure is checked against TurbOWL's, and its times and peak memory are recorded as Nemo's are. A competitor that is not fetched is `skipped`. An engine gets all-cores rows only where it can run in parallel on this machine; none of the competitors can today.
 
 ## Acceptance
-- [ ] `--list` shows each engine and whether it is fetched.
-- [ ] On brick-small1 and lubm-1, every fetched competitor's closure count equals TurbOWL's in the default and the complete configuration.
-- [ ] Unit tests for each adapter's output parsing and its error and timeout paths.
-- [ ] The bench README says, for each competitor, its version, how it is run, and what its time includes.
+- [ ] `--list` shows each engine, its pinned version, and whether it is fetched.
+- [ ] On brick-small1 and lubm-1, every fetched competitor's closure count equals TurbOWL's, in the default and the complete configuration.
+- [ ] Unit tests for each adapter's output parsing, and for its error and timeout paths.
+- [ ] The bench README says, for each competitor, its version, how it runs, what its time includes, and why it has no all-cores row.
