@@ -44,8 +44,12 @@ leverage, locality) follow the codebase-design vocabulary.
   because a merge changed what a rule constant (`rdf:type`, `rdf:nil`, ...)
   means. Rare: two vocabulary terms made equal, or `rdf:nil` made equal to
   another term.
-- **Rule set**: the W3C OWL 2 RL rules version 1 implements (listed in
-  `docs/specs/v1.md`). There is one; ADR 0004 removed the profiles.
+- **Rule set**: the W3C OWL 2 RL rules TurbOWL implements. Version 1 has
+  part of them (`docs/specs/v1.md`); version 2 has all of them.
+- **Switch**: a named group of rules that a caller turns on or off. A group
+  is off by default when other reasoners rarely implement it or when it
+  slows reasoning down; everything else is on. Not a profile: in OWL 2, a
+  profile is EL, QL or RL.
 
 ## Results
 
@@ -82,8 +86,21 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Oracle fault**: a place where an oracle is wrong and this project is
   right. Each one has an id (`F1`, `F2`, ...), a test, and a filter in the
   oracle comparison.
-- **Baseline**: a reasoner this project is measured against for speed and
-  memory, never for correctness: `reasonable` and Nemo (ADR 0004).
+- **Competitor**: another reasoner measured against this one on the same
+  inputs, for speed and memory, never for correctness. Nemo is both an
+  oracle and a competitor.
+- **Scoreboard**: what the claim "the best OWL 2 RL reasoner" is measured
+  on: the competitors, the scenarios, and the measures. Correctness and
+  coverage are gates; then reasoning time, total time (loading plus
+  reasoning), time per incremental change, and peak memory, single-threaded
+  and on all cores.
+- **Published result**: a competitor's number taken from its paper instead
+  of measured here. It counts only on the same dataset, with the same fact
+  counts before and after reasoning, scaled to this machine through a
+  **bridge** (an engine that ran next to it in the paper and runs here
+  too), and it is always labelled an estimate.
+- **Baseline**: this project's own last kept version, which each experiment
+  is compared against.
 - **Chaos run**: generated inputs from a seed, checked against the reference
   evaluator; a failure prints the seed to replay it.
 - **Experiment**: one measured change after version 1, with a hypothesis, a

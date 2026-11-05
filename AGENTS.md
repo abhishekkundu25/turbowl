@@ -13,6 +13,10 @@ verification suite that judges it against several independent oracles.
    - Version 1, a fast OWL 2 RL reasoner: `docs/specs/v1.md`, tickets
      in `docs/tickets/v1/` (the README there has the table, the waves and
      the log of departures).
+   - Version 2, the best OWL 2 RL reasoner, in three phases:
+     `docs/specs/v2-1-scoreboard-and-rules.md`, `v2-2-speed.md` and
+     `v2-3-removals.md`, tickets in `docs/tickets/v2/` (ADRs 0005 and
+     0006). It is built on the `v2` branch; `main` holds version 1.
    - After version 1, **the improvement loop** (rate, find, change,
      evaluate, decide, record): `docs/specs/experiments.md`. This is how the
      project improves; its table is the history, and its last section says
