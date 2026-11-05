@@ -17,6 +17,13 @@ faster sorting, a filter per tier) have not been tried. A user with a large
 dataset waits on parsing and on a single core, and the scoreboard shows
 where the competitors lead.
 
+Memory is the widest gap. On lubm-50, TurbOWL's peak is about 150 bytes per
+closure triple. The papers put RDFox at 51 bytes per triple on LUBM-1K L
+(AAAI 2014: 9.3 GB for 182.4 M triples) and VLog at about 12 (AAAI 2016:
+2,198 MB). At 150 bytes, LUBM-1K, the dataset that bridges to RDFox's
+published numbers, needs about 27 GB and does not fit under the 16 GB cap
+(`docs/research/competitors-2026-11.md` §1.2, §8.3).
+
 ## Solution
 
 - **Fast loading.** TurbOWL parses N-Triples and Turtle with its own
@@ -50,6 +57,7 @@ where the competitors lead.
 13. As the owner, I want the scoreboard rerun at the end of the phase, so that I see where TurbOWL now leads.
 14. As a maintainer, I want parsing, the dictionary, the snapshot and the parallel rounds covered by `scaling_*` tests, so that none of them grows worse than n log n.
 15. As a future agent, I want each experiment recorded in the loop's table, kept or reverted, so that the next round starts from what was learned.
+16. As the owner, I want peak memory per triple halved, so that LUBM-1K runs under the 16 GB cap and TurbOWL can be compared with RDFox's published numbers on it.
 
 ## Implementation Decisions
 
@@ -110,6 +118,8 @@ where the competitors lead.
   change.
 - Loading a snapshot of lubm-50's reasoned state is at least 10 times
   faster than parsing and reasoning it.
+- Peak memory on lubm-50 is at most 85 bytes per closure triple, so that
+  LUBM-1K L (182.4 M triples) fits under the 16 GB cap.
 - Every oracle agrees at every thread count, and 100,000 full and 100,000
   incremental chaos iterations pass.
 - The WebAssembly build passes; fmt and clippy are clean.
