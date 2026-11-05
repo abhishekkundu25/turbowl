@@ -26,6 +26,8 @@ mod error;
 mod io;
 mod reasoner;
 mod rules;
+#[cfg(test)]
+mod scaling;
 mod term;
 
 pub use diagnostics::{Diagnostic, Severity};

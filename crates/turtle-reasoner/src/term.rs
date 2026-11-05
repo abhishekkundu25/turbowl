@@ -196,6 +196,21 @@ impl Dictionary {
         self.entries.len()
     }
 
+    /// The bytes the dictionary holds on the heap: the arena's, the
+    /// entries' and the slots' capacities (the scaling tests check its growth).
+    #[cfg(test)]
+    pub(crate) fn heap_bytes(&self) -> usize {
+        self.text.capacity()
+            + self.entries.capacity() * std::mem::size_of::<Entry>()
+            + self.slots.capacity() * std::mem::size_of::<u64>()
+    }
+
+    /// The bytes of term text in the arena.
+    #[cfg(test)]
+    pub(crate) fn text_bytes(&self) -> usize {
+        self.text.len()
+    }
+
     /// Starts a document: its blank nodes are its own.
     pub(crate) fn new_document(&mut self) -> DocId {
         self.documents += 1;

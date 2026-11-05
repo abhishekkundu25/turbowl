@@ -106,11 +106,13 @@ The program Nemo runs is `oracles/nemo/owl2rl.rls` with its one
 (`turtle` for `.ttl` and `.n3`, `ntriples` for `.nt`), written with the
 results under `target/bench-nemo/<pid>/` and removed after the run.
 
-Nemo is slow where its join order is poor: on `lubm-1` (2026-11-05) one
-rule, cls-svf1 (`T(?u, ?p, ?v)` with the predicate a variable), took 99% of
-a 110 to 200 s run, against `reasonable`'s 0.1 s. A Nemo run over
-`--timeout` is a `timeout` result, not a problem; lower `--timeout` to keep a
-run short.
+Since `owl2rl.rls` binds variable predicates through the properties the
+schema names and joins cax-eqc2 like cax-eqc1, Nemo finishes every LUBM
+size. In one run on 2026-11-05, on a heavily loaded machine (1-minute load
+average 175 before, 63 after), its reasoning took 1.1 s on `lubm-1`, 10.7 s
+on `lubm-10` and 52 s on `lubm-50`, against `reasonable`'s 0.1 s, 1.8 s and
+9.7 s. A Nemo run over `--timeout` is a `timeout` result, not a problem;
+lower `--timeout` to keep a run short.
 
 ### How each engine makes a change
 
@@ -157,20 +159,43 @@ Names are neutral (`http://example.org/univ-bench#`,
 **This is LUBM-style data, not the official UBA output.** Compare its numbers
 only with other runs of this generator, never with published LUBM figures.
 
+## The Scaling table
+
+When one run includes two or more sizes of a scenario family (today only
+`lubm`: `lubm-1`, `lubm-10`, `lubm-50`), the bench prints a **Scaling**
+table after the main one: for each engine, the fitted growth exponent of
+its total time (load plus reasoning, the median over the runs) and of its
+peak memory (the largest peak) against the number of input triples. The
+exponent is the least-squares slope of ln(value) against ln(input triples):
+1 is linear, 2 quadratic. With two sizes it is the slope between them; an
+engine with fewer than two finished sizes has no exponent, and its other
+sizes are listed with their status (a stub reasoner shows `unavailable`).
+
+- The input triples are counted after all the runs, by parsing each input
+  file with `oxttl` (Turtle, N-Triples or N3, by extension); the count is
+  not timed and includes the univ-bench ontology's triples.
+- The peak memory of the in-process engines includes the bench binary
+  itself, a constant that pulls their memory exponent below 1 on small
+  inputs. Nemo's is the `nmo` process alone.
+- The spec's budget (`docs/specs/v1.md`, Performance) is a time exponent of
+  at most 1.2 for this reasoner over LUBM 1, 10 and 50, recorded beside the
+  baselines' exponents.
+
 ## The results file (`--json`)
 
-Schema version 2. Times are in milliseconds, memory in bytes.
+Schema version 3. Times are in milliseconds, memory in bytes.
 
-Version 2 changed from 1: the engines are `turtle-reasoner`, `reasonable`
-and `nemo` (version 1 had `turtle-owl-rl` and `turtle-reasonable`); a
-result's `status` can be `unsupported`; each result has
-`x_turtle_reasoner`; the summary has `export_median_ms` and
+Version 3 adds the top-level `scaling` list (the Scaling table) to version
+2, and changes nothing else. Version 2 changed from 1: the engines are
+`turtle-reasoner`, `reasonable` and `nemo` (version 1 had `turtle-owl-rl`
+and `turtle-reasonable`); a result's `status` can be `unsupported`; each
+result has `x_turtle_reasoner`; the summary has `export_median_ms` and
 `wall_median_ms`; Nemo's runs have `export_ms` and `wall_ms`; and
-`meta.versions` has `nemo`. `--compare` reads versions 1 and 2.
+`meta.versions` has `nemo`. `--compare` reads versions 1 to 3.
 
 ```jsonc
 {
-  "schema": 2,
+  "schema": 3,
   "meta": {
     "date": "2026-11-05T10:00:00Z",          // UTC, when the file was written
     "commit": "fcca1da…", "dirty": false,     // the repository's HEAD; tracked files changed?
@@ -217,6 +242,21 @@ result's `status` can be `unsupported`; each result has
           // Nemo's runs also have "export_ms" and "wall_ms".
           "closure": 204521,                  // what the engine reports
           "closure_counted": 204521 }         // distinct triples counted
+      ]
+    }
+  ],
+  "scaling": [                                // one per family and engine; [] when no family ran at two sizes
+    {
+      "family": "lubm",
+      "engine": "reasonable",
+      "time_exponent": 1.04,                  // of total_median_ms; null with fewer than 2 points
+      "memory_exponent": 0.92,                // of peak_rss_bytes; null likewise
+      "points": [                             // the sizes with a finished run, by input triples
+        { "scenario": "lubm-1", "input_triples": 104097,
+          "total_median_ms": 292.6, "peak_rss_bytes": 268468224 }
+      ],
+      "missing": [                            // the sizes without one, and why
+        { "scenario": "lubm-50", "status": "timeout" }
       ]
     }
   ],

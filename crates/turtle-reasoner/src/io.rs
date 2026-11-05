@@ -603,6 +603,8 @@ mod tests {
     /// dictionary and prints triples per second, beside the parser alone.
     #[test]
     fn timing_intern_load() {
+        // Not beside a scaling test: neither would time alone.
+        let _lock = crate::scaling::lock();
         const TRIPLES: usize = 1_000_000;
         let mut text = String::with_capacity(TRIPLES * 90);
         for i in 0..TRIPLES {

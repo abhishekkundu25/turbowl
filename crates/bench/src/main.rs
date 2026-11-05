@@ -11,6 +11,7 @@ mod engine;
 mod lubm;
 mod machine;
 mod nemo;
+mod scaling;
 mod scenario;
 
 use engine::{EngineId, Mode};
@@ -22,9 +23,10 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 /// The results file's format version.
-const SCHEMA: u64 = 2;
-/// The versions `--compare` reads: 2 only adds to 1 (and renames engines).
-const READS: [u64; 2] = [1, 2];
+const SCHEMA: u64 = 3;
+/// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
+/// 3 only adds the `scaling` table to 2.
+const READS: [u64; 3] = [1, 2, 3];
 
 /// Extra time the parent gives a child over `--timeout` before killing it:
 /// the child stops Nemo itself at the timeout, and Nemo must not outlive it.
@@ -378,8 +380,35 @@ fn run(args: &Args) -> ExitCode {
         eprintln!("warning: load average over 1 after the runs");
     }
 
+    // The input sizes of the scenario families that ran at two sizes or
+    // more, counted after every run: parsing them is not measured.
+    let families = scaling::families(inputs.iter().map(|(s, _)| *s));
+    let mut triples: Vec<(&str, u64)> = Vec::new();
+    for (s, files) in inputs
+        .iter()
+        .filter(|(s, _)| s.family().is_some_and(|f| families.contains(&f)))
+    {
+        match scaling::count_triples(files) {
+            Ok(n) => triples.push((s.name, n)),
+            Err(e) => eprintln!("{}: counting the input triples: {e}", s.name),
+        }
+    }
+    let measured: Vec<scaling::Measured<'_>> = rows
+        .iter()
+        .map(|r| scaling::Measured {
+            scenario: r.scenario,
+            engine: r.engine,
+            status: &r.status,
+            summary: r.summary(),
+        })
+        .collect();
+    let scaling = scaling::entries(&families, &measured, &|name| {
+        triples.iter().find(|(n, _)| *n == name).map(|&(_, t)| t)
+    });
+
     let problems = check(&rows);
     print_table(&rows, args, load_before, load_after);
+    scaling::print(&scaling);
     for p in &problems {
         println!("problem: {p}");
     }
@@ -408,7 +437,13 @@ fn run(args: &Args) -> ExitCode {
                 })
             })
             .collect();
-        let doc = json!({ "schema": SCHEMA, "meta": meta, "results": results, "problems": problems });
+        let doc = json!({
+            "schema": SCHEMA,
+            "meta": meta,
+            "results": results,
+            "scaling": scaling,
+            "problems": problems,
+        });
         let text = serde_json::to_string_pretty(&doc).expect("JSON values serialize") + "\n";
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
             let _ = std::fs::create_dir_all(dir);

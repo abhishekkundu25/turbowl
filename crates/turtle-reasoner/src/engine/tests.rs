@@ -377,6 +377,8 @@ fn store_linear_closure(round: &mut Round<'_>, path: u32, edge: u32) {
 /// 100 edges (5,050,000 pairs in 100 rounds: the join and merge throughput).
 #[test]
 fn timing_transitive_closure_100k_edge_chain() {
+    // Not beside a scaling test: neither would time alone.
+    let _lock = crate::scaling::lock();
     const EDGES: u32 = 100_000;
     const PATH: u32 = 1;
     const EDGE: u32 = 2;
@@ -430,6 +432,8 @@ fn timing_transitive_closure_100k_edge_chain() {
 /// graph. Plus the store's self-join form (as prp-trp) on a shorter chain.
 #[test]
 fn timing_engine_transitive_chain() {
+    // Not beside a scaling test: neither would time alone.
+    let _lock = crate::scaling::lock();
     const N: u32 = 2_000;
     let chain: Vec<(u32, u32)> = (0..N - 1).map(|i| (i, i + 1)).collect();
     let started = Instant::now();

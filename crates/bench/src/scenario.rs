@@ -125,6 +125,15 @@ fn missing(data: &Path, what: &str) -> String {
 }
 
 impl Scenario {
+    /// The family of scenarios that differ only in input size, whose growth
+    /// the "Scaling" table fits (`lubm-1`, `lubm-10`, `lubm-50`).
+    pub(crate) fn family(&self) -> Option<&'static str> {
+        match self.input {
+            Input::Lubm(_) => Some("lubm"),
+            _ => None,
+        }
+    }
+
     /// The files to load, in order, generating them first when needed.
     /// `Err` is the reason the scenario is skipped.
     pub(crate) fn inputs(&self, data: &Path, generated: &Path) -> Result<Vec<PathBuf>, String> {
