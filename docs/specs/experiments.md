@@ -91,3 +91,12 @@ are listed below; a new reviewer may reuse or replace them.
 ### Open candidates
 
 (filled by each round's reviewer)
+
+Before the first round: `docs/research/sota-algorithms-2026-11.md` §10 ranks
+the starting candidates with hypotheses, expected effects and how to measure
+them on `crates/bench`. In order: P0 (counters and a memory breakdown, before
+any claim), E2 (a closure module for scm-sco), E8 (drop cax-eqc1/2), E1
+(cax-sco only from types it did not produce), E3 (schema first), E9 (inverse
+tables as views), E4 (DRed for removals), E5 (parallel rounds, native only),
+E6 (a faster sort, if the profile says so) and E7 (a compact `rdf:type`
+object index). §11 lists what not to do and why.

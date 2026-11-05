@@ -94,3 +94,10 @@ Departures from the plan, as they happen.
   same closure). W3C targets: the 93 OWL 2 RL and 30 RDF-MT cases Nemo
   passes, plus the dt-not-type cases within the checked datatypes. The
   bench runs Nemo as a second baseline; `sameas-clique` is opt-in.
+- **Research before wave 3.** `docs/research/sota-algorithms-2026-11.md`
+  (drafted, then verified against the primary sources) ranks the first
+  experiments and changed four tickets: 07 keeps scm-sco, cax-sco and
+  cax-eqc as separate functions; 08 copies prp-inv1/2 without a join; 10
+  counts tuples per family and round; 11 follows ADR 0003's amendment for
+  `sameAs` on vocabulary terms. The spec's 18.7 s sentence was reasonable
+  0.2.6's README log from 2023; 0.5.0-a1 takes about 13 ms on that input.
