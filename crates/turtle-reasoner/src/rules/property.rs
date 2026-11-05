@@ -1,15 +1,242 @@
 //! The property family (ticket 08): prp-dom, prp-rng, prp-fp, prp-ifp,
 //! prp-symp, prp-trp, prp-spo1, prp-spo2, prp-eqp1/2 and prp-inv1/2, in
-//! their W3C forms. Not written yet.
+//! their W3C forms, over generalized triples.
+//!
+//! # Semi-naive on both sides
+//!
+//! Every rule here has a schema atom that names the property `p` (`p
+//! rdfs:domain c`, `p rdf:type owl:FunctionalProperty`, ...) and one or two
+//! atoms over `p`'s own table. The schema atom is read from the subject
+//! index of its predicate (`rdfs:domain`, ...) or, for the property
+//! characteristics, from the object index of `rdf:type`
+//! (`(owl:FunctionalProperty, p)`). A schema tuple new this round joins
+//! with all of `p`'s table; one seen before joins only with `p`'s recent
+//! part (for a self-join, the engine's [`join`]: recent × stable, stable ×
+//! recent, recent × recent). So each derivation is made once over a run.
+//! A property's table is looked up once per schema tuple, never inside a
+//! loop over its pairs.
+//!
+//! Each round walks the family's schema tuples (a few dozen on Brick) to
+//! find the properties whose tables have a recent part; it never scans an
+//! instance table it does not join.
+//!
+//! # Join plans
+//!
+//! - prp-dom, prp-rng, prp-symp, prp-spo1, prp-eqp1/2, prp-inv1/2: copies,
+//!   no join. Each pair of `p` (its recent part, or all of it when the
+//!   schema tuple is recent) is emitted rewritten.
+//! - prp-fp: `p`'s subject index joined with itself on the subject.
+//! - prp-ifp: `p`'s object index joined with itself on the object, so only
+//!   subjects with an equal object are made the same.
+//! - prp-trp: `p`'s object index `(y, x)` joined with its subject index
+//!   `(y, z)` on `y`.
+//! - prp-spo2: see the `chain` module.
+//!
+//! An object index ([`Round::by_object`]) is built the round after a rule
+//! first asks for it, with every pair recent then; a rule skips its join
+//! until it exists and loses nothing.
+//!
+//! prp-fp and prp-ifp derive `y owl:sameAs y` too (the W3C rules have no
+//! inequality). Their `owl:sameAs` triples stay in the store as they are
+//! until equality (ticket 11) rewrites them.
+//!
+//! The vocabulary is read as bare `vocab` ids. Once equality lands, ADR 0003
+//! asks for each constant through the round (its representative).
+
+#[cfg(feature = "prp-spo2")]
+mod chain;
+#[cfg(test)]
+mod tests;
 
 use super::Context;
-use crate::engine::Round;
-use crate::term::TermId;
+use crate::engine::{Pair, Round, Variable, join, join_views};
+use crate::term::{TermId, vocab};
 
 /// The property rules have no empty-body rule.
 pub(crate) const FACTS: &[[TermId; 3]] = &[];
 
+const RDF_TYPE: u32 = vocab::RDF_TYPE.0;
+const SAME_AS: u32 = vocab::OWL_SAME_AS.0;
+
 /// One round of the property rules.
-pub(crate) fn rules(round: &mut Round<'_>, cx: &mut Context<'_>) {
-    let _ = (round, cx);
+pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
+    copies(round);
+    characteristics(round);
+    #[cfg(feature = "prp-spo2")]
+    chain::rules(round);
+}
+
+/// A variable's sorted parts, each with whether it is the recent one.
+fn tagged(v: &Variable<Pair>) -> impl Iterator<Item = (&[Pair], bool)> {
+    v.stable()
+        .iter()
+        .map(|b| (&b[..], false))
+        .chain(Some((&v.recent()[..], true)))
+}
+
+/// The pairs of `table` a rule joins this round: all of them when the
+/// schema tuple that names the table is `recent`, else its recent part.
+fn pairs_for(table: &Variable<Pair>, recent: bool) -> impl Iterator<Item = &Pair> {
+    let stable: &[_] = if recent { table.stable() } else { &[] };
+    stable.iter().flat_map(|b| b.iter()).chain(table.recent().iter())
+}
+
+/// A schema tuple that names a property: the property's subject index
+/// (`table`), the property itself (`key`), the tuple's other term
+/// (`other`), and whether the tuple is new this round (`recent`).
+struct Axiom<'a> {
+    table: &'a Variable<Pair>,
+    key: u32,
+    other: u32,
+    recent: bool,
+}
+
+/// Calls `f` for each tuple `(key, other)` of the schema predicate `schema`
+/// (read the other way round, `(other, key)`, when `reversed`) whose
+/// property `key` has a table. A tuple seen before is skipped when `key`'s
+/// table has no recent part: it has nothing new to join.
+fn each_axiom<'a>(round: &mut Round<'a>, schema: u32, reversed: bool, mut f: impl FnMut(&mut Round<'a>, Axiom<'a>)) {
+    let store = round.store();
+    let Some(axioms) = round.by_subject(schema) else {
+        return;
+    };
+    for (part, recent) in tagged(axioms) {
+        // Consecutive tuples often share their key: look its table up once.
+        let mut last: Option<(u32, Option<&'a Variable<Pair>>)> = None;
+        for &(s, o) in part {
+            let (key, other) = if reversed { (o, s) } else { (s, o) };
+            let table = match last {
+                Some((k, table)) if k == key => table,
+                _ => {
+                    let table = store.table(key).map(|t| t.by_subject());
+                    last = Some((key, table));
+                    table
+                }
+            };
+            if let Some(table) = table
+                && (recent || !table.recent().is_empty())
+            {
+                f(
+                    round,
+                    Axiom {
+                        table,
+                        key,
+                        other,
+                        recent,
+                    },
+                );
+            }
+        }
+    }
+}
+
+/// prp-dom, prp-rng, prp-spo1, prp-eqp1/2, prp-inv1/2: rules that copy a
+/// property's pairs, rewritten, with no join.
+fn copies(round: &mut Round<'_>) {
+    // prp-dom: p rdfs:domain c, x p y => x rdf:type c. Pairs are sorted by
+    // subject within a part, so a subject's run gives one triple.
+    each_axiom(round, vocab::RDFS_DOMAIN.0, false, |round, a| {
+        let mut last = None;
+        for &(x, _) in pairs_for(a.table, a.recent) {
+            if last != Some(x) {
+                round.emit(x, RDF_TYPE, a.other);
+                last = Some(x);
+            }
+        }
+    });
+    // prp-rng: p rdfs:range c, x p y => y rdf:type c.
+    each_axiom(round, vocab::RDFS_RANGE.0, false, |round, a| {
+        for &(_, y) in pairs_for(a.table, a.recent) {
+            round.emit(y, RDF_TYPE, a.other);
+        }
+    });
+    // prp-spo1: p1 rdfs:subPropertyOf p2, x p1 y => x p2 y.
+    each_axiom(round, vocab::RDFS_SUB_PROPERTY_OF.0, false, |round, a| {
+        copy(round, &a, false)
+    });
+    // prp-eqp1: p1 owl:equivalentProperty p2, x p1 y => x p2 y.
+    each_axiom(round, vocab::OWL_EQUIVALENT_PROPERTY.0, false, |round, a| {
+        copy(round, &a, false)
+    });
+    // prp-eqp2: p1 owl:equivalentProperty p2, x p2 y => x p1 y.
+    each_axiom(round, vocab::OWL_EQUIVALENT_PROPERTY.0, true, |round, a| {
+        copy(round, &a, false)
+    });
+    // prp-inv1: p1 owl:inverseOf p2, x p1 y => y p2 x.
+    each_axiom(round, vocab::OWL_INVERSE_OF.0, false, |round, a| copy(round, &a, true));
+    // prp-inv2: p1 owl:inverseOf p2, x p2 y => y p1 x.
+    each_axiom(round, vocab::OWL_INVERSE_OF.0, true, |round, a| copy(round, &a, true));
+}
+
+/// Emits each pair of the axiom's table that the rule joins this round as a
+/// triple of `a.other`, the pair `reversed` or not. A copy of a table into
+/// itself (`p rdfs:subPropertyOf p`) derives nothing new and is skipped.
+fn copy(round: &mut Round<'_>, a: &Axiom<'_>, reversed: bool) {
+    let to = a.other;
+    if reversed {
+        for &(x, y) in pairs_for(a.table, a.recent) {
+            round.emit(y, to, x);
+        }
+    } else if a.key != to {
+        for &(x, y) in pairs_for(a.table, a.recent) {
+            round.emit(x, to, y);
+        }
+    }
+}
+
+/// Calls `f(round, p, recent)` for each `p rdf:type class`, `recent` when
+/// that triple is new this round. Reads `rdf:type`'s object index; the
+/// round it is first asked for there is none, and nothing is called (the
+/// next round sees every typing as recent).
+fn each_typed<'a>(round: &mut Round<'a>, class: u32, mut f: impl FnMut(&mut Round<'a>, u32, bool)) {
+    let Some(types) = round.by_object(RDF_TYPE) else {
+        return;
+    };
+    for (part, recent) in tagged(types) {
+        let start = part.partition_point(|t| t.0 < class);
+        for &(_, p) in part[start..].iter().take_while(|t| t.0 == class) {
+            f(round, p, recent);
+        }
+    }
+}
+
+/// prp-fp, prp-ifp, prp-symp, prp-trp: the rules on a property typed with
+/// one of the OWL property characteristics.
+fn characteristics(round: &mut Round<'_>) {
+    // prp-fp: x p y1, x p y2 => y1 owl:sameAs y2.
+    each_typed(round, vocab::OWL_FUNCTIONAL_PROPERTY.0, |round, p, recent| {
+        let Some(so) = round.by_subject(p) else { return };
+        if recent {
+            join_views(&so.all(), &so.all(), |_, y1, y2| round.emit(y1, SAME_AS, y2));
+        } else {
+            join(so, so, |_, y1, y2| round.emit(y1, SAME_AS, y2));
+        }
+    });
+    // prp-ifp: x1 p y, x2 p y => x1 owl:sameAs x2.
+    each_typed(round, vocab::OWL_INVERSE_FUNCTIONAL_PROPERTY.0, |round, p, recent| {
+        let Some(os) = round.by_object(p) else { return };
+        if recent {
+            join_views(&os.all(), &os.all(), |_, x1, x2| round.emit(x1, SAME_AS, x2));
+        } else {
+            join(os, os, |_, x1, x2| round.emit(x1, SAME_AS, x2));
+        }
+    });
+    // prp-symp: x p y => y p x.
+    each_typed(round, vocab::OWL_SYMMETRIC_PROPERTY.0, |round, p, recent| {
+        let Some(so) = round.by_subject(p) else { return };
+        for &(x, y) in pairs_for(so, recent) {
+            round.emit(y, p, x);
+        }
+    });
+    // prp-trp: x p y, y p z => x p z, through p's object index.
+    each_typed(round, vocab::OWL_TRANSITIVE_PROPERTY.0, |round, p, recent| {
+        let (Some(so), Some(os)) = (round.by_subject(p), round.by_object(p)) else {
+            return;
+        };
+        if recent {
+            join_views(&os.all(), &so.all(), |_, x, z| round.emit(x, p, z));
+        } else {
+            join(os, so, |_, x, z| round.emit(x, p, z));
+        }
+    });
 }
