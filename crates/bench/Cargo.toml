@@ -9,11 +9,15 @@ publish = false
 
 [dependencies]
 turbowl.workspace = true
-# The rule program Nemo runs, composed from oracles/rules/.
+# The rule programs the competitors run, composed from oracles/rules/, and
+# the codec that renames their input's literals and blank nodes.
 turbowl-oracle = { path = "../oracle" }
 oxrdf.workspace = true
-# Reads the change streams of the incremental scenarios from the input files.
+# Reads the change streams of the incremental scenarios from the input files,
+# and the inputs the competitors get converted.
 oxttl.workspace = true
+# Reads the RDF/XML inputs (the datasets' ontologies) the competitors get converted.
+oxrdfxml.workspace = true
 # The results file and the one-run protocol between the bench and its children.
 serde_json = "1"
 # getrusage (peak memory) and getloadavg: no safe std equivalent.

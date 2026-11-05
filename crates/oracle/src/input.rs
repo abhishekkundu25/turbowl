@@ -171,13 +171,37 @@ pub(crate) fn ntriples<'a>(triples: impl Iterator<Item = &'a Triple>) -> String 
 /// `oracles/rules/` can name them; every other literal gets the next
 /// number.
 #[derive(Debug)]
-pub(crate) struct Codec {
+pub struct Codec {
     literals: bool,
     to: HashMap<Term, NamedNode>,
     from: HashMap<String, Term>,
 }
 
-const CODEC_PREFIX: &str = "urn:x-turbowl-oracle:term:";
+pub const CODEC_PREFIX: &str = "urn:x-turbowl-oracle:term:";
+
+/// The literals the W3C OWL 2 RL rules name, as (lexical form, datatype),
+/// and the fixed IRI each is renamed to: what `oracles/rules/` writes for it.
+pub const NAMED_LITERALS: [(&str, &str, &str); 2] = [
+    (
+        "0",
+        "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+        "urn:x-turbowl-oracle:term:nonNegativeInteger-0",
+    ),
+    (
+        "1",
+        "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+        "urn:x-turbowl-oracle:term:nonNegativeInteger-1",
+    ),
+];
+
+/// The fixed IRI of a literal the rules name, if `term` is one.
+fn named_literal(term: &Term) -> Option<NamedNode> {
+    let Term::Literal(l) = term else { return None };
+    NAMED_LITERALS
+        .iter()
+        .find(|(lexical, datatype, _)| l.value() == *lexical && l.datatype().as_str() == *datatype)
+        .map(|(_, _, iri)| NamedNode::new_unchecked(*iri))
+}
 
 /// The literals the W3C OWL 2 RL rules name, as (lexical form, datatype),
 /// and the fixed IRI each is renamed to: what `oracles/rules/` writes for it.
@@ -205,7 +229,7 @@ fn named_literal(term: &Term) -> Option<NamedNode> {
 
 impl Codec {
     /// `literals`: rename literals too, not only blank nodes.
-    pub(crate) fn new(literals: bool) -> Self {
+    pub fn new(literals: bool) -> Self {
         Self {
             literals,
             to: HashMap::new(),
@@ -235,7 +259,7 @@ impl Codec {
     }
 
     /// The triple with its blank nodes (and literals) renamed to IRIs.
-    pub(crate) fn encode_triple(&mut self, t: &Triple) -> Triple {
+    pub fn encode_triple(&mut self, t: &Triple) -> Triple {
         let s = self.encode(t.subject.clone().into());
         let o = self.encode(t.object.clone());
         let Term::NamedNode(s) = s else {

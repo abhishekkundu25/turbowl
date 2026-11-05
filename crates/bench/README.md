@@ -1,18 +1,40 @@
 # turbowl-bench
 
-Runs fixed scenarios for this repository's reasoner and its competitor Nemo
-(`CONTEXT.md`, ADR 0006), on the same input files, and reports the median and
-spread of the times, the peak memory, the closure size and each engine's ratio
-to this reasoner. Every speed claim, and every step of the improvement loop
+Runs fixed scenarios for this repository's reasoner and its competitors Nemo,
+Soufflé and VLog (`CONTEXT.md`, ADR 0006), on the same inputs and the same
+rules, and reports the median and spread of the times, the peak memory, the
+closure size and each engine's ratio to this reasoner. Each competitor's
+closure must equal this reasoner's. Every speed claim, and every step of the improvement loop
 (`docs/specs/experiments.md`), is judged by these numbers. Its scenarios
 include the public datasets the RDFox papers measured
 ([Public datasets](#public-datasets)), and no run passes the memory cap
 (16 GB by default; ADR 0006).
 
-| Engine | What runs | How |
-|---|---|---|
-| `turbowl` | this repository's `Reasoner` (one rule set) | in process |
-| `nemo` | the pinned `nmo` 0.10.1 (`tools/nemo/`, from `scripts/fetch-tools.sh`) with `oracles/nemo/owl2rl.rls`, the W3C forms of the v1 rule set | a subprocess. Without `tools/nemo` (or at another version) it is reported `skipped`. Full runs only: the incremental scenarios are `unsupported` (Nemo runs a program once over its imports; it has no change stream). |
+| Engine | Version | What runs | How | Threads here |
+|---|---|---|---|---|
+| `turbowl` | this build | this repository's `Reasoner`, with the configuration's switches | in process | one |
+| `nemo` | `nmo` 0.10.1 | the configuration's program, composed from `oracles/rules/` (`turbowl_oracle::programs::nemo`) | a subprocess: `nmo -I <input dir> -D <out dir> --report short` | one: its CPU time matches its wall clock (a smoke run on `uobm-010-l`) |
+| `souffle` | Soufflé 2.5, Homebrew's bottle for macOS 27 on arm64 | the same program emitted for Soufflé (`programs::souffle`), compiled to a binary | a subprocess: the compiled binary, `-F <input dir> -D <out dir>` | one: the bottle is built without OpenMP (upstream turns it off on Apple silicon, issue #2476), so it refuses `-j` above 1 |
+| `vlog` | VLog 1.3.7, inside Rulewerk 0.9.0's command-line client | the same program emitted in Rulewerk's syntax (`programs::vlog`) | a subprocess: `java -jar rulewerk-client-0.9.0.jar shell` on the fetched JRE, driven through its standard input | one: Rulewerk exposes none of VLog's thread options |
+
+Each competitor is fetched into `tools/` by `scripts/fetch-tools.sh`, pinned
+by version and SHA-256, with no system install; `--list` shows each engine,
+its pinned version and whether it is fetched. One that is not fetched (or is
+at another version) is reported `skipped`. The competitors run full runs
+only: the incremental scenarios are `unsupported` (a Datalog engine runs a
+program once over its input; it has no change stream). None of them runs on
+more than one core on this machine, so no engine has an all-cores row yet.
+
+**Smoke runs, not measurements** (2026-11-06, one run each, `--memory-cap
+8`, 1-minute load average 12 to 52): every competitor's closure count
+equals this reasoner's on `brick-small1` (26,381) and `lubm-1` (184,086), in
+the default and the complete configuration; Nemo's equals it on
+`uobm-010-l` (4,602,841) and `lubm-uba-10-l` (1,961,993).
+
+**GraphDB** is not run. GraphDB Free needs a licence sent by e-mail, which
+the owner has not obtained. With one, it would run on one core only (its
+licence's limit), and its numbers could not be published without Graphwise's
+written consent (`docs/research/competitors-2026-11.md` §4).
 
 ## Run it on a quiet machine
 
@@ -34,10 +56,11 @@ cargo run --release -p turbowl-bench -- --compare old.json new.json
 |---|---|
 | `--list` | Print the scenarios and the engines, and stop. |
 | `--only A,B` | Run only these scenarios. The opt-in ones (`sameas-clique` and every public dataset) run only this way. |
-| `--engines A,B` | Run only these engines: `turbowl`, `nemo`. |
+| `--engines A,B` | Run only these engines: `turbowl`, `nemo`, `souffle`, `vlog`. |
+| `--complete` | Run the complete configuration (every switch on: the complete W3C rule set) instead of the default switches, in every engine. |
 | `--runs N` | Runs per scenario and engine (default 5; the improvement loop needs 5 or more). |
 | `--changes N` | Changes in the incremental scenarios (default 100). |
-| `--timeout SECS` | Stop a run after this long and record `timeout` (default 600). Nemo is stopped by the child at this time; the child itself gets 30 s more. |
+| `--timeout SECS` | Stop a run after this long and record `timeout` (default 600). A competitor is stopped by the child at this time; the child itself gets 30 s more. |
 | `--memory-cap GB` | Stop a run whose memory passes this many GB (2^30 bytes) and record `over-memory` (default 16). |
 | `--data-dir DIR` | Where the fetched models are (default `data/` at the repository root). |
 | `--json FILE` | Also write the results file described below. |
@@ -52,18 +75,25 @@ nothing.
   `--one` mode, which loads the files, runs the scenario, and prints one JSON
   line. A fresh process gives each run its own peak memory and a cold
   allocator, the same for every engine.
-- **Peak memory** is a peak resident set size (`getrusage`, `ru_maxrss`,
-  which macOS reports in bytes and Linux in kilobytes; the bench converts to
-  bytes). For this reasoner it is the child's own (`RUSAGE_SELF`), read
-  just after the last `reason()`, before the closure checks, which hold
-  their own copies; it includes the bench binary itself. For Nemo it is
-  `nmo`'s (`RUSAGE_CHILDREN` of the child, read after waiting for `nmo`, its
-  only child): Nemo's whole process, output writing included. The table's `B/triple` column (`peak_bytes_per_closure_triple` in the results
-  file) is the largest peak over the closure size: the memory rubric of
-  `docs/specs/experiments.md`.
+- **Peak memory** is, on macOS, the peak of a process's physical footprint
+  over its lifetime (`proc_pid_rusage`, `ri_lifetime_max_phys_footprint`):
+  what the memory cap reads (below), at its highest. It counts the memory
+  the process owns, compressed or swapped out included, and leaves out
+  clean pages mapped from files (its own executable). The resident size
+  (`ru_maxrss`, results files before schema 6) reads low under memory
+  pressure: one run held 9.9 GB, 5.4 GB of it compressed, against a 7.6 GB
+  peak resident size. For this reasoner it is the child's own, read just
+  after the last `reason()`, before the closure check. For a competitor it
+  is the engine's process (`nmo`, the compiled Soufflé program, the JVM
+  running VLog), read once it has exited and before it is reaped: the whole
+  process, output writing included. On Linux it is the peak resident size,
+  as before. The table's `B/triple` column (`peak_bytes_per_closure_triple`
+  in the results file) is the largest peak over the closure size: the
+  memory rubric of `docs/specs/experiments.md`.
 - **Load time** covers loading every input file in order (each engine's own
   parser). **Reasoning time** covers the first `reason()`. Both are wall
-  clock. The headline number of a full run is the reasoning time; the
+  clock. Soufflé and VLog report one number for both, recorded as the
+  total; their load and reasoning times are blank. The headline number of a full run is the reasoning time; the
   results file also has the load time and their sum (`total`). See
   [What each engine's time includes](#what-each-engines-time-includes).
 - In the incremental scenarios, each change (`insert` or `remove` of one
@@ -73,7 +103,7 @@ nothing.
 - Runs alternate between the engines (run 1 of each engine, then run 2, ...),
   so a drift in the machine falls on all of them.
 - **The memory cap.** Every 20 ms the bench sums the memory held by the
-  run's processes: the child and everything it started (Nemo's `nmo`),
+  run's processes: the child and everything it started (a competitor's process),
   found with `proc_listchildpids` on macOS and `/proc/PID/task/*/children`
   on Linux. Held means in RAM or not: the physical footprint on macOS
   (`proc_pid_rusage`, `ri_phys_footprint`), `VmRSS` plus `VmSwap` on Linux.
@@ -87,18 +117,23 @@ nothing.
   run a little past the cap before it is stopped. A parent-side timeout
   stops the same processes.
 - **Checks.** After each run, the child counts the distinct closure triples
-  (by a 64-bit hash) and compares that count with what the engine reports:
-  `Summary::base + Summary::inferred` for this reasoner, the number of
-  lines Nemo wrote to `closure.nt` for Nemo (parsed back with `oxttl`,
-  outside the timings). A mismatch, a closure size that differs between
-  runs of the same engine, or a failed run is a **problem**: it is printed,
-  listed in the results file, and makes the bench exit 1. A timeout, a run
-  over the memory cap, a skipped scenario and an unsupported one are
-  results, not problems.
+  and compares that count with what the engine reports:
+  `Summary::base + Summary::inferred` for this reasoner, the rows a
+  competitor wrote to its closure file for a competitor (read back a line
+  at a time, outside the timings). The count holds one 64-bit hash per
+  triple (8 bytes, sorted; never the triples) and nothing more. A
+  competitor's count must also equal this reasoner's on the same scenario.
+  A mismatch, a closure size that differs between runs of the same engine,
+  or a failed run is a **problem**: it is printed, listed in the results
+  file, and makes the bench exit 1. A timeout, a run over the memory cap, a
+  skipped scenario and an unsupported one are results, not problems.
 - A panic in this reasoner is caught by the child and recorded as an
   `error` with its message: a problem.
 - Every engine's closure is the full one on every scenario, `owl:sameAs`
-  included (ticket 11), so the times compare. This reasoner keeps one
+  included (ticket 11), so the times compare. A competitor's closure file
+  also holds generalized triples (a literal subject, or a predicate that is
+  not an IRI), which the rules derive; the count leaves them out, as this
+  reasoner's reads do. This reasoner keeps one
   representative per `owl:sameAs` class (ADR 0003): its reasoning time and
   stored triples grow with the input, and the expanded closure (what
   `triples()` gives and the check counts) is built only when read, never
@@ -111,26 +146,55 @@ nothing.
 The engines do not split their work at the same places, so compare the
 columns that mean the same thing:
 
-| | `turbowl` | `nemo` |
-|---|---|---|
-| load | parsing every file into the reasoner (`load_file`) | Nemo's `Data import` (its own report, `--report short`, whole milliseconds) |
-| reasoning (the headline) | the first `reason()`: rules to fixpoint and the closure materialised in memory | Nemo's `Reasoning`: rules to fixpoint. Nemo loads tables lazily, so part of its parsing can fall here. |
-| not in load or reasoning | process start, the closure checks | process start, reading the program, writing `closure.nt` and the finding CSVs (`Data export`, in `export_median_ms`), process exit; all of it is in `wall_median_ms` |
-| peak memory | the bench child, engine included | the `nmo` process, export included |
+| | `turbowl` | `nemo` | `souffle` | `vlog` |
+|---|---|---|---|---|
+| load | parsing every file into the reasoner (`load_file`) | Nemo's `Data import` (its own report, `--report short`, whole milliseconds) | not split: in the total | not split: in the total |
+| reasoning (the headline) | the first `reason()`: rules to fixpoint and the closure materialised in memory | Nemo's `Reasoning`: rules to fixpoint. Nemo loads tables lazily, so part of its parsing can fall here. | not split: in the total | not split: in the total |
+| total | load plus reasoning | load plus reasoning | the compiled program's wall clock: process start (a few milliseconds), reading `input.tsv`, rules to fixpoint, and writing `closure.tsv` and the findings | VLog's own "Loading and materializing inferences ... finished in" (whole milliseconds): reading `input.nt` and rules to fixpoint |
+| not in the total | process start, the closure check | process start, reading the program, writing `closure.nt` and the finding CSVs (`Data export`, in `export_median_ms`), process exit; all of it is in `wall_median_ms` | compiling the program (once per program, cached in `target/bench-souffle/bin/`; its first launch, which macOS checks, is also before any measured one) | starting the JVM and the shell, reading the program, exporting `closure.csv` and the finding CSVs (the shell's own times, summed in `export_median_ms`); all of it is in `wall_median_ms` |
+| peak memory | the bench child, engine included | the `nmo` process, export included | the compiled program's process, writing included | the JVM's process, VLog's native memory and the exports included |
 
-So `total` (load plus reasoning) is the fairest single comparison of the
-two; the headline compares reasoning alone, where Nemo may carry some of
-its parsing. Nemo's wall clock is recorded but not compared. Nemo also reads
-the files with its own parser: it interprets typed literals as values (it
-would write `"01"^^xsd:integer` as `"1"^^xsd:integer`), so its closure size
-can differ from the others' by literals that are equal as values.
+So `total` (load plus reasoning) is the fairest single comparison of all
+four, and the only one for Soufflé and VLog; the headline compares
+reasoning alone, between this reasoner and Nemo, where Nemo may carry some
+of its parsing. Soufflé's total also holds its output writing, which the
+others leave out. The wall clocks are recorded but not compared.
 
-The program Nemo runs is `oracles/nemo/owl2rl.rls` with its one
-`@import input` line replaced by one import per input file, in order
-(`turtle` for `.ttl` and `.n3`, `ntriples` for `.nt`), written with the
-results under `target/bench-nemo/<pid>/` and removed after the run.
+### What the competitors read
 
-Since `owl2rl.rls` binds variable predicates through the properties the
+Every competitor reads the same converted input, written once per list of
+input files before any run (not timed) and cached under
+`target/bench-input/<key>/` (`src/convert.rs`). The key is the files'
+paths, sizes and modification times; a conversion is written under a
+temporary name and renamed whole, so a crashed one is redone, never read.
+
+- The files are parsed with Oxigraph's parsers as this reasoner reads them:
+  the format from the extension (Turtle, N-Triples, RDF/XML; `.n3` as
+  Turtle), no base IRI, blank nodes scoped per file.
+- Every literal and blank node is renamed to an IRI by the oracle's codec
+  (`turbowl_oracle::Codec`), as the oracle feeds Nemo: the engines match
+  terms as the W3C rules and this reasoner do, never by value (Nemo would
+  read `"01"^^xsd:integer` as 1), and the literals the rules name get their
+  fixed IRIs (`turbowl_oracle::NAMED_LITERALS`).
+- `input.nt` holds the encoded triples as N-Triples (Nemo and VLog);
+  `input.tsv` the same triples with the three terms separated by tabs
+  (Soufflé); `literals.bin` a bit per number the codec gave, set for the
+  literals.
+- A closure is counted in its encoded form: the codec is a bijection, so
+  distinct encoded triples are distinct triples. The bits tell which
+  encoded terms are literals, so the count drops the generalized triples
+  without holding the codec.
+
+Each program is the configuration's, composed from `oracles/rules/`, run in
+`target/bench-<engine>/<pid>/` and removed after the run. Nemo finds
+`input.nt` through `-I`, Soufflé `input.tsv` through `-F`; VLog's program
+names `input.nt` by its full path, since Rulewerk does not resolve a
+relative path against the working directory. Rulewerk's shell exits 0 after
+an error, so an `Error:` line in its output fails the run. Its
+`materialize` command cannot be used: the client hands the subcommand's
+name to the subcommand's own parser, which rejects it.
+
+Since the program binds variable predicates through the properties the
 schema names and joins cax-eqc2 like cax-eqc1, Nemo finishes every LUBM
 size. In one run on 2026-11-05, on a heavily loaded machine (1-minute load
 average 175 before, 63 after), its reasoning took 1.1 s on `lubm-1`, 10.7 s
@@ -284,16 +348,24 @@ sizes are listed with their status.
   file with `oxttl` (Turtle, N-Triples or N3, by extension); the count is
   not timed and includes the univ-bench ontology's triples.
 - This reasoner's peak memory includes the bench binary itself, a
-  constant that pulls its memory exponent below 1 on small inputs. Nemo's is the `nmo` process alone.
+  constant that pulls its memory exponent below 1 on small inputs. A competitor's is its engine's process alone.
 - The spec's budget (`docs/specs/v1.md`, Performance) is a time exponent of
   at most 1.2 for this reasoner over LUBM 1, 10 and 50, recorded beside the
   competitors' exponents.
 
 ## The results file (`--json`)
 
-Schema version 5. Times are in milliseconds, memory in bytes.
+Schema version 6. Times are in milliseconds, memory in bytes.
 
-Version 5 adds the status `over-memory` and `meta.memory_cap_bytes` to
+Version 6 adds the engines `souffle` and `vlog` (and their entries in
+`meta.versions`), `meta.configuration` (`default` or `complete`) and
+`meta.peak_memory` (what the peak memory fields measure), and a run's
+`total_ms`, for an engine that reports loading and reasoning as one number
+(its `load_ms` and `reason_ms` are null). The peak memory fields keep their
+names, but on macOS they now hold the lifetime peak physical footprint, not
+the peak resident size: `--compare` warns when the two files measure peak
+memory differently, or ran different configurations (a file before version
+6 ran the default one). Version 5 adds the status `over-memory` and `meta.memory_cap_bytes` to
 version 4, and changes nothing else. Version 4 renames this reasoner (the project was called turtle-reasoner
 before 2026-11-05): the engine `turtle-reasoner` is now `turbowl`,
 `x_turtle_reasoner` is `x_turbowl` and `meta.versions.turtle_reasoner` is
@@ -323,15 +395,18 @@ skipped from which file, and compares the rest.
     "load_after": [0.95, 0.70, 0.72],
     "runs": 5, "changes": 100, "timeout_s": 600,
     "memory_cap_bytes": 17179869184,          // --memory-cap
+    "configuration": "default",               // or "complete" (--complete)
+    "peak_memory": "lifetime peak physical footprint", // on Linux: "peak resident size"
     "data_dir": "/…/data",
     "versions": { "bench": "0.1.0", "turbowl": "0.1.0",
-                  "nemo": "0.10.1",           // null when not fetched
+                  "nemo": "0.10.1",           // each competitor's; null when not fetched
+                  "souffle": "2.5", "vlog": "1.3.7",
                   "rustc": "rustc 1.99.0 (…)" }
   },
   "results": [
     {
       "scenario": "lubm-1",
-      "engine": "nemo",                       // turbowl | nemo
+      "engine": "nemo",                       // turbowl | nemo | souffle | vlog
       "status": "ok",                         // ok | unsupported | skipped | timeout | over-memory | error
                                               //   (files from before ticket 10 also have unavailable: the stub)
       "message": null,                        // why, when not ok
@@ -341,10 +416,10 @@ skipped from which file, and compares the rest.
         "median_ms": 70.1, "min_ms": 68.9, "max_ms": 74.0,   // of the measure, over the runs
         "load_median_ms": 222.5,
         "reason_median_ms": 70.1,             // the first reason() (the full run)
-        "total_median_ms": 292.6,             // load + first reason(), per run
-        "export_median_ms": 95.0,             // Nemo only (else null): writing its output
-        "wall_median_ms": 410.3,              // Nemo only (else null): the nmo process, start to exit
-        "peak_rss_bytes": 268468224,          // the largest peak of the runs
+        "total_median_ms": 292.6,             // load + first reason(), per run (or the run's total_ms)
+        "export_median_ms": 95.0,             // Nemo and VLog only (else null): writing its output
+        "wall_median_ms": 410.3,              // competitors only (else null): the engine's process, start to exit
+        "peak_rss_bytes": 268468224,          // the largest peak of the runs (meta.peak_memory)
         "peak_rss_min_bytes": 266000000,      // the smallest
         "closure": 204521,                    // closure triples (base + inferred), last run
         "peak_bytes_per_closure_triple": 1312.7 // peak_rss_bytes / closure; null when the closure is 0
@@ -358,7 +433,8 @@ skipped from which file, and compares the rest.
         { "status": "ok", "load_ms": 222.5, "reason_ms": 70.1,
           "change_ms": [],                    // per change, in order (incremental-*)
           "peak_rss_bytes": 268468224,
-          "export_ms": 95.0, "wall_ms": 410.3, // Nemo's runs only
+          "export_ms": 95.0, "wall_ms": 410.3, // competitors' runs only
+          // "total_ms": 300.0,               // Souffle's and VLog's runs: load_ms and reason_ms are null
           "closure": 204521,                  // what the engine reports
           "closure_counted": 204521 }         // distinct triples counted
       ]

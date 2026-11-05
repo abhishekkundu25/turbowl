@@ -1,10 +1,11 @@
 //! What the numbers were measured on: CPU, cores, OS, memory, load average,
-//! the repository's commit, the versions. And memory: the process's peak, and
+//! the repository's commit, the versions. And memory: a process's peak, and
 //! what a run holds now (for the memory cap).
 
 use serde_json::{Value, json};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Child, Command};
+use std::time::Duration;
 
 /// The 1, 5 and 15 minute load averages, or `None` where the system has none.
 pub(crate) fn load_average() -> Option<[f64; 3]> {
@@ -16,22 +17,116 @@ pub(crate) fn load_average() -> Option<[f64; 3]> {
     (n == 3).then_some(loads)
 }
 
-/// A peak resident set size in bytes, as the kernel counts it: this
-/// process's (`RUSAGE_SELF`) or the largest of its waited-for children's
-/// (`RUSAGE_CHILDREN`). `ru_maxrss` is in bytes on macOS and in kilobytes on
-/// Linux and the BSDs.
-pub(crate) fn peak_rss_bytes(who: libc::c_int) -> u64 {
+/// This process's peak memory so far, in bytes. On macOS it is the peak of
+/// its physical footprint over its lifetime (`ri_lifetime_max_phys_footprint`),
+/// the measure the memory cap reads ([`footprint_bytes`]) at its highest.
+/// Elsewhere it is the peak resident size (`ru_maxrss`, in kilobytes on
+/// Linux), which leaves out what was swapped out.
+pub(crate) fn own_peak_bytes() -> u64 {
+    #[cfg(target_os = "macos")]
+    {
+        lifetime_peak_footprint(std::process::id())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        max_rss_kb(libc::RUSAGE_SELF) * 1024
+    }
+}
+
+/// The largest `ru_maxrss` of this process (`RUSAGE_SELF`) or of its
+/// waited-for descendants (`RUSAGE_CHILDREN`), in kilobytes (Linux).
+#[cfg(not(target_os = "macos"))]
+fn max_rss_kb(who: libc::c_int) -> u64 {
     // SAFETY: `rusage` is plain data; all zeroes is a valid value.
     #[allow(unsafe_code)]
     let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
     // SAFETY: `getrusage` writes one `rusage` through a valid pointer.
     #[allow(unsafe_code)]
     let rc = unsafe { libc::getrusage(who, &mut usage) };
-    if rc != 0 {
-        return 0;
+    if rc != 0 { 0 } else { usage.ru_maxrss.max(0) as u64 }
+}
+
+/// The peak physical footprint of a process over its lifetime, in bytes,
+/// also once it has exited and until it is reaped; 0 when it cannot be read.
+#[cfg(target_os = "macos")]
+fn lifetime_peak_footprint(pid: u32) -> u64 {
+    // SAFETY: `rusage_info_v4` is plain data; all zeroes is a valid value.
+    #[allow(unsafe_code)]
+    let mut info: libc::rusage_info_v4 = unsafe { std::mem::zeroed() };
+    let buffer: *mut libc::rusage_info_v4 = &mut info;
+    // SAFETY: with flavor RUSAGE_INFO_V4 the call writes one `rusage_info_v4`.
+    #[allow(unsafe_code)]
+    let rc = unsafe { libc::proc_pid_rusage(pid as libc::c_int, libc::RUSAGE_INFO_V4, buffer.cast()) };
+    if rc == 0 {
+        info.ri_lifetime_max_phys_footprint
+    } else {
+        0
     }
-    let max = usage.ru_maxrss.max(0) as u64;
-    if cfg!(target_os = "macos") { max } else { max * 1024 }
+}
+
+/// Waits for a child to exit, at most `timeout`, and returns its exit status
+/// and its peak memory in bytes; `None` when it ran over `timeout`, after
+/// stopping it. The peak is read as [`own_peak_bytes`] reads this process's:
+/// on macOS the child's lifetime peak footprint, read after it exits and
+/// before it is reaped; elsewhere the largest `ru_maxrss` of this process's
+/// waited-for children (call it with one child at a time).
+pub(crate) fn wait_with_peak(
+    child: &mut Child,
+    timeout: Duration,
+) -> std::io::Result<Option<(std::process::ExitStatus, u64)>> {
+    let start = std::time::Instant::now();
+    loop {
+        if let Some(done) = exited(child)? {
+            return Ok(Some(done));
+        }
+        if start.elapsed() > timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(None);
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// The exit status and peak memory of a child that has exited, reaping it.
+#[cfg(target_os = "macos")]
+fn exited(child: &mut Child) -> std::io::Result<Option<(std::process::ExitStatus, u64)>> {
+    // SAFETY: `siginfo_t` is plain data; all zeroes is a valid value, and
+    // `si_pid` stays 0 when no child has exited (WNOHANG).
+    #[allow(unsafe_code)]
+    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    // WNOWAIT leaves the child a zombie, so its usage can still be read.
+    // SAFETY: `waitid` writes one `siginfo_t` through a valid pointer.
+    #[allow(unsafe_code)]
+    let rc = unsafe {
+        libc::waitid(
+            libc::P_PID,
+            child.id() as libc::id_t,
+            &mut info,
+            libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+        )
+    };
+    if rc != 0 {
+        let e = std::io::Error::last_os_error();
+        return if e.kind() == std::io::ErrorKind::Interrupted {
+            Ok(None)
+        } else {
+            Err(e)
+        };
+    }
+    if info.si_pid == 0 {
+        return Ok(None);
+    }
+    let peak = lifetime_peak_footprint(child.id());
+    Ok(Some((child.wait()?, peak)))
+}
+
+/// The exit status and peak memory of a child that has exited, reaping it.
+#[cfg(not(target_os = "macos"))]
+fn exited(child: &mut Child) -> std::io::Result<Option<(std::process::ExitStatus, u64)>> {
+    Ok(child
+        .try_wait()?
+        .map(|status| (status, max_rss_kb(libc::RUSAGE_CHILDREN) * 1024)))
 }
 
 /// A process and its descendants, the process first: a run and the engine
@@ -211,6 +306,17 @@ pub(crate) fn utc_now() -> String {
 /// The machine and build, for the results file's `meta`.
 pub(crate) fn describe(root: &Path) -> Value {
     let (commit, dirty) = git(root);
+    let mut versions = json!({
+        "bench": env!("CARGO_PKG_VERSION"),
+        "turbowl": env!("CARGO_PKG_VERSION"),
+        "rustc": env!("BENCH_RUSTC_VERSION"),
+    });
+    // Each competitor's fetched version; null when it is not fetched.
+    for e in crate::engine::EngineId::ALL {
+        if let Some(tool) = e.tool() {
+            versions[e.name()] = json!(tool.installed_version());
+        }
+    }
     json!({
         "cpu": cpu_model(),
         "cores": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
@@ -219,11 +325,32 @@ pub(crate) fn describe(root: &Path) -> Value {
         "commit": commit,
         "dirty": dirty,
         "build": if cfg!(debug_assertions) { "debug" } else { "release" },
-        "versions": {
-            "bench": env!("CARGO_PKG_VERSION"),
-            "turbowl": env!("CARGO_PKG_VERSION"),
-            "nemo": crate::nemo::installed_version(),
-            "rustc": env!("BENCH_RUSTC_VERSION"),
-        },
+        "versions": versions,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A child that fills a 64 MB buffer has a peak of at least that, read
+    /// after it exits; one that outlasts its timeout is stopped.
+    #[test]
+    fn reads_a_childs_peak_and_stops_a_slow_one() {
+        let mut dd = Command::new("dd")
+            .args(["if=/dev/zero", "of=/dev/null", "bs=67108864", "count=4"])
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let (status, peak) = wait_with_peak(&mut dd, Duration::from_secs(60)).unwrap().unwrap();
+        assert!(status.success());
+        assert!(peak >= 64 << 20, "{peak}");
+        assert!(own_peak_bytes() > 0);
+
+        let mut slow = Command::new("sleep").arg("10").spawn().unwrap();
+        let start = std::time::Instant::now();
+        assert!(wait_with_peak(&mut slow, Duration::from_millis(100)).unwrap().is_none());
+        assert!(start.elapsed() < Duration::from_secs(5));
+        assert!(slow.try_wait().unwrap().is_some(), "the slow child was reaped");
+    }
 }

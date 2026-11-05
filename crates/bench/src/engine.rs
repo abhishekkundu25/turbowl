@@ -1,29 +1,36 @@
 //! The engines, and one measured run of one engine (the child process's
-//! work: the `--one` mode).
+//! work: the `--one` mode): this reasoner in process, each competitor as a
+//! subprocess on the converted input (`convert.rs`), run by [`run_tool`].
 
 use oxrdf::Triple;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
-use std::time::Instant;
-use turbowl::Reasoner;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+use turbowl::{Reasoner, Switches};
 
 /// The engines a scenario can run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EngineId {
     /// This repository's reasoner, in process.
     Turbowl,
-    /// Nemo's `nmo` running the rule program of `oracles/rules/`, a subprocess.
+    /// Nemo's `nmo`, a subprocess.
     Nemo,
+    /// Soufflé, the program compiled to a binary, a subprocess.
+    Souffle,
+    /// VLog through Rulewerk's command-line client on the JRE, a subprocess.
+    Vlog,
 }
 
 impl EngineId {
-    pub(crate) const ALL: [EngineId; 2] = [EngineId::Turbowl, EngineId::Nemo];
+    pub(crate) const ALL: [EngineId; 4] = [EngineId::Turbowl, EngineId::Nemo, EngineId::Souffle, EngineId::Vlog];
 
     pub(crate) fn name(self) -> &'static str {
         match self {
             EngineId::Turbowl => "turbowl",
             EngineId::Nemo => "nemo",
+            EngineId::Souffle => "souffle",
+            EngineId::Vlog => "vlog",
         }
     }
 
@@ -31,20 +38,144 @@ impl EngineId {
         Self::ALL.into_iter().find(|e| e.name() == name)
     }
 
+    /// The pinned tool a competitor runs; `None` for this reasoner.
+    pub(crate) fn tool(self) -> Option<&'static Tool> {
+        match self {
+            EngineId::Turbowl => None,
+            EngineId::Nemo => Some(&crate::nemo::TOOL),
+            EngineId::Souffle => Some(&crate::souffle::TOOL),
+            EngineId::Vlog => Some(&crate::vlog::TOOL),
+        }
+    }
+
     /// Why the engine cannot run a scenario of this mode, if it cannot.
     pub(crate) fn unsupported(self, mode: Mode) -> Option<&'static str> {
-        (self == EngineId::Nemo && mode != Mode::Full)
-            .then_some("Nemo runs a program once over its imports; it has no incremental changes")
+        (self != EngineId::Turbowl && mode != Mode::Full)
+            .then_some("a Datalog engine runs a program once over its input; it has no incremental changes")
     }
+}
+
+/// A competitor's pinned tool: `tools/<dir>/`, fetched by
+/// `scripts/fetch-tools.sh`, which writes the version into `VERSION`.
+#[derive(Debug)]
+pub(crate) struct Tool {
+    pub(crate) dir: &'static str,
+    pub(crate) version: &'static str,
+    /// The file that runs, under the directory.
+    pub(crate) file: &'static str,
+}
+
+impl Tool {
+    /// The version in `tools/<dir>/VERSION`, when the tool is fetched.
+    pub(crate) fn installed_version(&self) -> Option<String> {
+        std::fs::read_to_string(crate::repo_root().join("tools").join(self.dir).join("VERSION"))
+            .ok()
+            .map(|v| v.trim().to_string())
+    }
+
+    /// The tool's file, or why the engine is skipped.
+    pub(crate) fn path(&self) -> Result<PathBuf, String> {
+        let path = crate::repo_root().join("tools").join(self.dir).join(self.file);
+        match self.installed_version() {
+            Some(v) if v == self.version && path.is_file() => Ok(path),
+            Some(v) => Err(format!(
+                "tools/{} is {v}, not {}: run scripts/fetch-tools.sh",
+                self.dir, self.version
+            )),
+            None => Err(format!(
+                "tools/{}/{} is missing: run scripts/fetch-tools.sh",
+                self.dir, self.file
+            )),
+        }
+    }
+}
+
+/// The number of distinct values among 64-bit hashes: sorted in place, so
+/// it holds 8 bytes per hash and nothing more.
+pub(crate) fn distinct(mut hashes: Vec<u64>) -> usize {
+    hashes.sort_unstable();
+    hashes.dedup();
+    hashes.len()
 }
 
 /// The number of distinct triples, counted by their 64-bit hashes (a fixed
 /// hasher, so a collision would show the same way on every run).
-pub(crate) fn distinct<T: std::borrow::Borrow<Triple>>(triples: impl Iterator<Item = T>) -> usize {
+fn distinct_triples(triples: impl Iterator<Item = Triple>, expected: usize) -> usize {
     use std::hash::{BuildHasher, BuildHasherDefault, DefaultHasher};
     let hasher = BuildHasherDefault::<DefaultHasher>::default();
-    let hashes: std::collections::HashSet<u64> = triples.map(|t| hasher.hash_one(t.borrow())).collect();
-    hashes.len()
+    let mut hashes = Vec::with_capacity(expected);
+    hashes.extend(triples.map(|t| hasher.hash_one(&t)));
+    distinct(hashes)
+}
+
+/// What a competitor's process left: what it printed, its wall clock and its
+/// peak memory.
+#[derive(Debug)]
+pub(crate) struct Ran {
+    pub(crate) stdout: String,
+    pub(crate) wall_ms: f64,
+    pub(crate) peak_bytes: u64,
+}
+
+/// Runs a competitor's command in `dir`, its standard output and error into
+/// files there and its standard input from `stdin` (or nothing), for at most
+/// `timeout`. `Ok(None)` when it ran over `timeout` and was stopped; `Err`
+/// when it did not start or exited with a failure, with the end of its
+/// standard error.
+pub(crate) fn run_tool(
+    cmd: &mut Command,
+    dir: &Path,
+    stdin: Option<&Path>,
+    timeout: Duration,
+) -> Result<Option<Ran>, String> {
+    let io = |p: &Path, e: std::io::Error| format!("{}: {e}", p.display());
+    let (out, err) = (dir.join("stdout.txt"), dir.join("stderr.txt"));
+    let stdout = std::fs::File::create(&out).map_err(|e| io(&out, e))?;
+    let stderr = std::fs::File::create(&err).map_err(|e| io(&err, e))?;
+    let stdin = match stdin {
+        Some(path) => Stdio::from(std::fs::File::open(path).map_err(|e| io(path, e))?),
+        None => Stdio::null(),
+    };
+    let program = cmd.get_program().to_string_lossy().into_owned();
+    let start = Instant::now();
+    let mut child = cmd
+        .current_dir(dir)
+        .stdin(stdin)
+        .stdout(stdout)
+        .stderr(stderr)
+        .spawn()
+        .map_err(|e| format!("{program}: {e}"))?;
+    let Some((status, peak_bytes)) =
+        crate::machine::wait_with_peak(&mut child, timeout).map_err(|e| format!("{program}: {e}"))?
+    else {
+        return Ok(None);
+    };
+    let wall_ms = ms(start);
+    if !status.success() {
+        let text = std::fs::read_to_string(&err).unwrap_or_default();
+        let tail: Vec<&str> = text.lines().rev().take(5).collect();
+        let tail: Vec<&str> = tail.into_iter().rev().collect();
+        return Err(format!("{program} exited with {status}: {}", tail.join(" / ")));
+    }
+    Ok(Some(Ran {
+        stdout: std::fs::read_to_string(&out).unwrap_or_default(),
+        wall_ms,
+        peak_bytes,
+    }))
+}
+
+/// A run stopped at `timeout`.
+pub(crate) fn timed_out(timeout: Duration) -> Value {
+    json!({ "status": "timeout", "message": format!("over {} s", timeout.as_secs()) })
+}
+
+/// A fresh scratch directory for one run of a competitor:
+/// `target/bench-<engine>/<pid>/`, emptied first.
+pub(crate) fn scratch(engine: EngineId) -> Result<PathBuf, String> {
+    let dir = crate::repo_root().join(format!("target/bench-{}/{}", engine.name(), std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    Ok(dir)
 }
 
 /// What a run does after loading and the first `reason()`.
@@ -135,21 +266,37 @@ fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, S
     }
 }
 
-/// One measured run, as the child process does it. The result is one JSON
-/// object: `status` is `ok`, `unsupported`, `skipped` (Nemo is not fetched),
-/// `timeout` (Nemo ran over `timeout`) or `error` (a failed load, or a panic
-/// in this reasoner).
-pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: usize, timeout: Duration) -> Value {
+/// One measured run, as the child process does it, in the configuration
+/// `switches`. The result is one JSON object: `status` is `ok`,
+/// `unsupported`, `skipped` (a competitor is not fetched), `timeout` (a
+/// competitor ran over `timeout`) or `error` (a failed load or run, or a
+/// panic in this reasoner).
+pub(crate) fn run_one(
+    engine: EngineId,
+    mode: Mode,
+    switches: Switches,
+    files: &[PathBuf],
+    count: usize,
+    timeout: Duration,
+) -> Value {
     if let Some(why) = engine.unsupported(mode) {
         return json!({ "status": "unsupported", "message": why });
     }
-    if engine == EngineId::Nemo {
-        return crate::nemo::measure(files, timeout)
-            .unwrap_or_else(|message| json!({ "status": "error", "message": message }));
+    if engine != EngineId::Turbowl {
+        let competitor = || -> Result<Value, String> {
+            let input = crate::convert::encoded(files)?;
+            match engine {
+                EngineId::Nemo => crate::nemo::measure(&input, switches, timeout),
+                EngineId::Souffle => crate::souffle::measure(&input, switches, timeout),
+                EngineId::Vlog => crate::vlog::measure(&input, switches, timeout),
+                EngineId::Turbowl => unreachable!("this reasoner runs in process"),
+            }
+        };
+        return competitor().unwrap_or_else(|message| json!({ "status": "error", "message": message }));
     }
     // A panic is reported as an error result, not a backtrace.
     std::panic::set_hook(Box::new(|_| {}));
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(mode, files, count)));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(mode, switches, files, count)));
     match result {
         Ok(Ok(v)) => v,
         Ok(Err(message)) => json!({ "status": "error", "message": message }),
@@ -165,9 +312,9 @@ pub(crate) fn run_one(engine: EngineId, mode: Mode, files: &[PathBuf], count: us
 }
 
 /// One run of this reasoner, in process.
-fn measure(mode: Mode, files: &[PathBuf], count: usize) -> Result<Value, String> {
+fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> Result<Value, String> {
     let stream = changes(mode, files, count)?;
-    let mut r = Reasoner::new();
+    let mut r = Reasoner::with_switches(switches);
 
     let start = Instant::now();
     for f in files {
@@ -189,9 +336,10 @@ fn measure(mode: Mode, files: &[PathBuf], count: usize) -> Result<Value, String>
         summary = r.reason();
         change_ms.push(ms(start));
     }
-    // Read the peak before the checks below, which hold their own copies.
-    let peak_rss_bytes = crate::machine::peak_rss_bytes(libc::RUSAGE_SELF);
-    let (reported, counted) = (summary.base + summary.inferred, distinct(r.triples()));
+    // Read the peak before the check below, which holds a hash per triple.
+    let peak_rss_bytes = crate::machine::own_peak_bytes();
+    let reported = summary.base + summary.inferred;
+    let counted = distinct_triples(r.triples(), reported);
     Ok(json!({
         "status": "ok",
         "load_ms": load_ms,

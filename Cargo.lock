@@ -349,6 +349,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "oxrdf",
+ "oxrdfxml",
  "oxttl",
  "serde_json",
  "turbowl",

@@ -1,13 +1,16 @@
 //! The benchmark: runs each scenario for this repository's reasoner and for
-//! its competitor Nemo (the pinned `nmo`, a subprocess), on the same inputs,
-//! and reports median, spread, peak memory, closure size and each engine's
-//! ratio to this reasoner. See `README.md`.
+//! its competitors Nemo, Soufflé and VLog (pinned tools, each a subprocess,
+//! on the scenario's inputs converted once), in one configuration of the
+//! rules, and reports median, spread, peak memory, closure size and each
+//! engine's ratio to this reasoner; each competitor's closure must equal
+//! this reasoner's. See `README.md`.
 //!
 //! Every run is a fresh child process (this binary with the hidden `--one`
 //! mode), so that peak memory is one engine's on one input. The parent
 //! watches the memory each run holds and stops it past the memory cap.
 
 mod compare;
+mod convert;
 mod datasets;
 mod engine;
 mod lubm;
@@ -15,6 +18,8 @@ mod machine;
 mod nemo;
 mod scaling;
 mod scenario;
+mod souffle;
+mod vlog;
 
 use engine::{EngineId, Mode};
 use scenario::Scenario;
@@ -23,20 +28,25 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
+use turbowl::Switches;
 
 /// The results file's format version.
-const SCHEMA: u64 = 5;
+const SCHEMA: u64 = 6;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
 /// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
 /// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name
 /// and skips the rows of engines this bench no longer runs), 5 only adds the
-/// status `over-memory` and `meta.memory_cap_bytes`.
-const READS: [u64; 5] = [1, 2, 3, 4, 5];
+/// status `over-memory` and `meta.memory_cap_bytes`, 6 adds the engines
+/// `souffle` and `vlog`, `meta.configuration` and `meta.peak_memory`, a run's
+/// `total_ms` (an engine that does not split loading from reasoning), and
+/// the peak memory becomes the peak physical footprint on macOS.
+const READS: [u64; 6] = [1, 2, 3, 4, 5, 6];
 /// This reasoner's engine name in results files before version 4.
 const OLD_NAME: &str = "turtle-reasoner";
 
 /// Extra time the parent gives a child over `--timeout` before killing it:
-/// the child stops Nemo itself at the timeout, and Nemo must not outlive it.
+/// the child stops a competitor itself at the timeout, and the competitor
+/// must not outlive it.
 const GRACE: Duration = Duration::from_secs(30);
 
 /// A gigabyte as `--memory-cap` counts it: 2^30 bytes, as the bench's MB is 2^20.
@@ -48,7 +58,9 @@ usage: turbowl-bench [options]
 
   --list              print the scenarios and the engines, and stop
   --only A,B          run only these scenarios (opt-in ones run only this way)
-  --engines A,B       run only these engines (turbowl, nemo)
+  --engines A,B       run only these engines (turbowl, nemo, souffle, vlog)
+  --complete          every switch on, the complete W3C rule set (default:
+                      the default switches)
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
@@ -64,6 +76,8 @@ struct Args {
     list: bool,
     only: Option<Vec<String>>,
     engines: Vec<EngineId>,
+    /// The complete configuration (every switch on), else the default one.
+    complete: bool,
     runs: usize,
     changes: usize,
     timeout: Duration,
@@ -79,6 +93,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         list: false,
         only: None,
         engines: EngineId::ALL.to_vec(),
+        complete: false,
         runs: 5,
         changes: 100,
         timeout: Duration::from_secs(600),
@@ -105,6 +120,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
                     .map(|e| EngineId::from_name(e).ok_or(format!("unknown engine {e}")))
                     .collect::<Result<_, _>>()?
             }
+            "--complete" => a.complete = true,
             "--runs" => a.runs = number(value()?)?,
             "--changes" => a.changes = number(value()?)?,
             "--timeout" => a.timeout = Duration::from_secs(number(value()?)? as u64),
@@ -157,8 +173,19 @@ fn main() -> ExitCode {
                 println!("{:<20} papers: {published}", "");
             }
         }
-        let engines: Vec<&str> = EngineId::ALL.iter().map(|e| e.name()).collect();
-        println!("\nengines: {}", engines.join(", "));
+        println!("\nengines:");
+        for e in EngineId::ALL {
+            let Some(tool) = e.tool() else {
+                println!("  {:<10} this build, in process", e.name());
+                continue;
+            };
+            let fetched = match tool.path() {
+                Ok(path) => format!("fetched: {}", path.display()),
+                Err(why) => format!("not fetched ({why})"),
+            };
+            println!("  {:<10} {:<8} {fetched}", e.name(), tool.version);
+        }
+        println!("  graphdb    not run: GraphDB Free needs a licence by e-mail, which the owner has not obtained");
         return ExitCode::SUCCESS;
     }
     if let Some((old, new)) = &args.compare {
@@ -167,21 +194,38 @@ fn main() -> ExitCode {
     run(&args)
 }
 
-/// The hidden `--one ENGINE MODE CHANGES TIMEOUT_S FILE...` mode: one
-/// measured run, one JSON line on stdout.
+/// The hidden `--one ENGINE MODE CONFIGURATION CHANGES TIMEOUT_S FILE...`
+/// mode: one measured run, one JSON line on stdout.
 fn child(argv: &[String]) -> ExitCode {
-    let (Some(engine), Some(mode), Some(changes), Some(timeout)) = (
+    let (Some(engine), Some(mode), Some(complete), Some(changes), Some(timeout)) = (
         argv.first().and_then(|e| EngineId::from_name(e)),
         argv.get(1).and_then(|m| Mode::from_name(m)),
-        argv.get(2).and_then(|c| c.parse().ok()),
-        argv.get(3).and_then(|t| t.parse().ok()).map(Duration::from_secs),
+        argv.get(2)
+            .and_then(|c| ["default", "complete"].iter().position(|n| n == c)),
+        argv.get(3).and_then(|c| c.parse().ok()),
+        argv.get(4).and_then(|t| t.parse().ok()).map(Duration::from_secs),
     ) else {
-        eprintln!("--one ENGINE MODE CHANGES TIMEOUT_S FILE...");
+        eprintln!("--one ENGINE MODE default|complete CHANGES TIMEOUT_S FILE...");
         return ExitCode::from(64);
     };
-    let files: Vec<PathBuf> = argv[4..].iter().map(PathBuf::from).collect();
-    println!("{}", engine::run_one(engine, mode, &files, changes, timeout));
+    let files: Vec<PathBuf> = argv[5..].iter().map(PathBuf::from).collect();
+    let switches = switches(complete == 1);
+    println!("{}", engine::run_one(engine, mode, switches, &files, changes, timeout));
     ExitCode::SUCCESS
+}
+
+/// The configuration's switches: every one on, or the defaults.
+fn switches(complete: bool) -> Switches {
+    if complete {
+        Switches::complete()
+    } else {
+        Switches::default()
+    }
+}
+
+/// The configuration's name, as `--one` and the results file spell it.
+fn configuration(complete: bool) -> &'static str {
+    if complete { "complete" } else { "default" }
 }
 
 pub(crate) fn repo_root() -> PathBuf {
@@ -190,9 +234,10 @@ pub(crate) fn repo_root() -> PathBuf {
 }
 
 /// Spawns one run and waits for it, at most `timeout` (plus a grace period:
-/// a child running Nemo stops it at `timeout` and reports the timeout) and
-/// while the memory it holds stays within `cap` bytes.
-fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], timeout: Duration, cap: u64) -> Value {
+/// a child running a competitor stops it at `timeout` and reports the
+/// timeout) and while the memory it holds stays within `cap` bytes.
+fn spawn_run(engine: EngineId, mode: Mode, args: &Args, files: &[PathBuf]) -> Value {
+    let (timeout, cap) = (args.timeout, args.memory_cap);
     let exe = match std::env::current_exe() {
         Ok(e) => e,
         Err(e) => return json!({ "status": "error", "message": format!("current_exe: {e}") }),
@@ -201,7 +246,8 @@ fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], ti
         .arg("--one")
         .arg(engine.name())
         .arg(mode.name())
-        .arg(changes.to_string())
+        .arg(configuration(args.complete))
+        .arg(args.changes.to_string())
         .arg(timeout.as_secs().to_string())
         .args(files)
         .stdin(Stdio::null())
@@ -231,7 +277,7 @@ fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], ti
 }
 
 /// Waits for a run to exit. It stops the run, with every process the run
-/// started (Nemo's `nmo`), when it outlasts `timeout` plus the grace period
+/// started (a competitor), when it outlasts `timeout` plus the grace period
 /// (status `timeout`) or when the memory they hold together passes `cap`
 /// bytes (status `over-memory`): both are results, not problems, and neither
 /// counts a time.
@@ -324,10 +370,10 @@ impl Row {
         let (median, min, max) = of(&|r| self.measure(r))?;
         let load = of(&|r| field(r, "load_ms"))?;
         let reason = of(&|r| field(r, "reason_ms"))?;
-        let total = of(&|r| field(r, "load_ms") + field(r, "reason_ms"))?;
+        let total = of(&|r| total_ms(r))?;
         let peak = of(&|r| field(r, "peak_rss_bytes"))?;
-        // Nemo's runs only: its export, and the subprocess's wall clock.
-        let nemo_only = |key: &str| {
+        // The competitors' runs only: the export, and the subprocess's wall clock.
+        let competitor_only = |key: &str| {
             let xs: Vec<f64> = self.runs.iter().filter_map(|r| r[key].as_f64()).collect();
             spread(&xs).map(|s| round(s.0))
         };
@@ -340,8 +386,8 @@ impl Row {
             "load_median_ms": round(load.0),
             "reason_median_ms": round(reason.0),
             "total_median_ms": round(total.0),
-            "export_median_ms": nemo_only("export_ms"),
-            "wall_median_ms": nemo_only("wall_ms"),
+            "export_median_ms": competitor_only("export_ms"),
+            "wall_median_ms": competitor_only("wall_ms"),
             "peak_rss_bytes": peak.2 as u64,
             "peak_rss_min_bytes": peak.1 as u64,
             "closure": closure,
@@ -349,6 +395,14 @@ impl Row {
             "peak_bytes_per_closure_triple": closure.filter(|&c| c > 0).map(|c| round(peak.2 / c as f64)),
         }))
     }
+}
+
+/// A run's load plus first reasoning: its `total_ms` where the engine
+/// reports only that (Soufflé, VLog), else the sum.
+fn total_ms(run: &Value) -> f64 {
+    run["total_ms"]
+        .as_f64()
+        .unwrap_or_else(|| field(run, "load_ms") + field(run, "reason_ms"))
 }
 
 pub(crate) fn mb(bytes: f64) -> String {
@@ -393,6 +447,16 @@ fn run(args: &Args) -> ExitCode {
         }
     }
 
+    // The competitors' inputs, converted once (not measured): the children
+    // read them from the cache.
+    if args.engines.iter().any(|&e| e != EngineId::Turbowl) {
+        for (s, files) in inputs.iter().filter(|(s, _)| s.mode == Mode::Full) {
+            if let Err(e) = convert::encoded(files) {
+                eprintln!("{}: converting the inputs: {e}", s.name);
+            }
+        }
+    }
+
     let load_before = machine::load_average();
     eprintln!("load average before: {}", load_text(load_before));
     if load_before.is_some_and(|l| l[0] > 1.0) {
@@ -418,10 +482,13 @@ fn run(args: &Args) -> ExitCode {
         for i in 0..args.runs {
             for row in live.iter_mut().filter(|r| r.status == "ok") {
                 eprint!("{} {} run {}/{} ... ", s.name, row.engine.name(), i + 1, args.runs);
-                let result = spawn_run(row.engine, s.mode, args.changes, files, args.timeout, args.memory_cap);
+                let result = spawn_run(row.engine, s.mode, args, files);
                 let status = result["status"].as_str().unwrap_or("error").to_string();
                 if status == "ok" {
-                    eprintln!("{:.1} ms", row.measure(&result));
+                    match row.measure(&result) {
+                        ms if ms.is_nan() => eprintln!("{:.1} ms in all (no split)", total_ms(&result)),
+                        ms => eprintln!("{ms:.1} ms"),
+                    }
                     row.runs.push(result);
                 } else {
                     let message = result["message"].as_str().unwrap_or("").to_string();
@@ -482,6 +549,12 @@ fn run(args: &Args) -> ExitCode {
         meta["changes"] = json!(args.changes);
         meta["timeout_s"] = json!(args.timeout.as_secs());
         meta["memory_cap_bytes"] = json!(args.memory_cap);
+        meta["configuration"] = json!(configuration(args.complete));
+        meta["peak_memory"] = json!(if cfg!(target_os = "macos") {
+            "lifetime peak physical footprint"
+        } else {
+            "peak resident size"
+        });
         meta["data_dir"] = json!(data);
         let results: Vec<Value> = rows
             .iter()
@@ -522,13 +595,29 @@ fn run(args: &Args) -> ExitCode {
     }
 }
 
-/// Failed runs, closures that differ from what the engine reports, and
-/// closures that differ between runs of the same engine. A timeout, a run
-/// over the memory cap, a skipped scenario and an unsupported one are
-/// results, not problems.
+/// Failed runs, closures that differ from what the engine reports,
+/// closures that differ between runs of the same engine, and a competitor's
+/// closure that differs from this reasoner's on the same scenario. A
+/// timeout, a run over the memory cap, a skipped scenario and an unsupported
+/// one are results, not problems.
 fn check(rows: &[Row]) -> Vec<String> {
     let mut problems = Vec::new();
+    let closure = |r: &Row| r.runs.last().and_then(|run| run["closure_counted"].as_u64());
     for r in rows {
+        let ours = rows
+            .iter()
+            .find(|o| o.scenario.name == r.scenario.name && o.engine == EngineId::Turbowl)
+            .and_then(closure);
+        if let (Some(ours), Some(theirs)) = (ours, closure(r).filter(|_| r.engine != EngineId::Turbowl))
+            && ours != theirs
+        {
+            problems.push(format!(
+                "{} {}: {theirs} closure triples, turbowl's {ours} ({:+})",
+                r.scenario.name,
+                r.engine.name(),
+                theirs as i64 - ours as i64
+            ));
+        }
         let at = format!("{} {}", r.scenario.name, r.engine.name());
         if r.status == "error" {
             problems.push(format!("{at}: {}", r.message.as_deref().unwrap_or("error")));
@@ -578,13 +667,17 @@ fn ratios(rows: &[Row], r: &Row) -> Value {
 fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Option<[f64; 3]>) {
     println!();
     println!(
-        "TurbOWL bench: {} runs each; load average {} before, {} after",
+        "TurbOWL bench: {} configuration, {} runs each; load average {} before, {} after",
+        configuration(args.complete),
         args.runs,
         load_text(before),
         load_text(after)
     );
     println!("ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.");
-    println!("total: load + reasoning. Nemo's split is its own report; its export and process start are in neither.");
+    println!(
+        "total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither."
+    );
+    println!("Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.");
     println!("x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).");
     println!();
     println!(
@@ -608,16 +701,18 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
         let x = ratios(rows, r);
         let ratio = |key: &str| x[key].as_f64().map_or("-".into(), |v| format!("{v:.2}"));
         let n = |key: &str| s[key].as_f64().unwrap_or(f64::NAN);
+        // Blank where the engine does not report the number.
+        let t = |key: &str| s[key].as_f64().map_or(String::new(), |v| format!("{v:.1}"));
         println!(
-            "| {} | {}{status} | {} | {:.1} | {:.1} | {:.1} | {:.1} | {:.1} | {} | {} | {:.0} | {} | {} | {} |",
+            "| {} | {}{status} | {} | {} | {} | {} | {} | {} | {} | {} | {:.0} | {} | {} | {} |",
             r.scenario.name,
             r.engine.name(),
             r.runs.len(),
-            n("load_median_ms"),
-            n("median_ms"),
-            n("min_ms"),
-            n("max_ms"),
-            n("total_median_ms"),
+            t("load_median_ms"),
+            t("median_ms"),
+            t("min_ms"),
+            t("max_ms"),
+            t("total_median_ms"),
             mb(n("peak_rss_bytes")),
             s["closure"],
             n("peak_bytes_per_closure_triple"),

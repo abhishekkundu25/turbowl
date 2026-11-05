@@ -65,12 +65,23 @@ pub(crate) fn run(old_path: &Path, new_path: &Path) -> ExitCode {
         load(&nm["load_before"]),
         load(&nm["load_after"])
     );
-    for field in ["cpu", "os", "build", "changes"] {
-        if om[field] != nm[field] {
-            println!(
-                "warning: {field} differs ({} vs {}): the numbers are not comparable",
-                om[field], nm[field]
-            );
+    // A file from before schema 6 ran the default rules and read the peak
+    // resident size.
+    let or = |v: &Value, old: &str| if v.is_null() { Value::from(old) } else { v.clone() };
+    for (field, before) in [
+        ("cpu", None),
+        ("os", None),
+        ("build", None),
+        ("changes", None),
+        ("configuration", Some("default")),
+        ("peak_memory", Some("peak resident size")),
+    ] {
+        let (o, n) = match before {
+            Some(b) => (or(&om[field], b), or(&nm[field], b)),
+            None => (om[field].clone(), nm[field].clone()),
+        };
+        if o != n {
+            println!("warning: {field} differs ({o} vs {n}): the numbers are not comparable");
         }
     }
     for (name, meta) in [("old", om), ("new", nm)] {
