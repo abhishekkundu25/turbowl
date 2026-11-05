@@ -100,3 +100,11 @@ any claim), E2 (a closure module for scm-sco), E8 (drop cax-eqc1/2), E1
 tables as views), E4 (DRed for removals), E5 (parallel rounds, native only),
 E6 (a faster sort, if the profile says so) and E7 (a compact `rdf:type`
 object index). §11 lists what not to do and why.
+
+Found by the scaling tests: E10, a blocked Bloom filter on each large stable
+tier of a variable, so a round's duplicate check costs O(1) per tier instead
+of a gallop. Hypothesis: many-round inputs (long chains, incremental edits)
+go from N·log²(N/b) to N log N in the duplicate check, for about 12 to 15%
+more memory. Measure: `scaling_variable_small_batches_comparisons`, the
+chain and incremental scenarios, and peak memory on brick-buildings and
+lubm-50. Few-round inputs (Brick, LUBM) should not change.
