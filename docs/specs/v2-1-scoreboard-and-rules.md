@@ -202,7 +202,7 @@ Verification
   as sets.
 - **Minimal inputs per rule**: one or more for each new rule, with the
   expected inferences or findings written out, as in
-  `crates/oracle/src/cases.rs`. They run in the default and the complete
+  `crates/oracle/src/cases/` (one file per group). They run in the default and the complete
   configuration against Nemo, OWL-RL and the reference evaluator
   (`crates/oracle/tests/minimal.rs`).
 - **Configurations**: the oracle suite runs every input in both

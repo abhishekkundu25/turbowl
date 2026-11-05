@@ -2,7 +2,7 @@
 //! cls-thing, cls-nothing1, cls-int1/2, cls-uni, cls-svf1/2, cls-avf,
 //! cls-hv1/2, cls-oo, scm-sco and scm-eqc1, in their W3C forms
 //! (`docs/specs/v1.md`, the rule set). The contract is the reference evaluator
-//! (`crates/reference/src/evaluate.rs`, `classes()`), which equals Nemo
+//! (`crates/reference/src/rules/core.rs`), which equals Nemo
 //! running the rule program of `oracles/rules/`.
 //!
 //! Every rule is semi-naive: each round it joins the recent part of one body

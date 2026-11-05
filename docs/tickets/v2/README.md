@@ -90,13 +90,25 @@ Departures from the plan, as they happen.
 - **03.** The group files are compiled into the oracle crate
   (`include_str!`), so editing a rule needs a rebuild, which cargo does by
   itself. Nemo's runner reads whatever outputs the program exports, so a
-  configuration without `checks` exports no diagnostic files; `nemo::CODES`
-  stays as the default configuration's codes. The Soufflé and VLog programs
+  configuration without `checks` exports no diagnostic files (ticket 04
+  replaced `nemo::CODES` with `nemo::codes(switches)`). The Soufflé and VLog programs
   are checked against each engine's grammar but have not run: ticket 12
   runs them. Rulewerk has no `!=`, so the VLog program writes
   `?x != c` as `~sameTerm(?x, c)` over facts; Soufflé reads tab-separated
   terms, not N-Triples. A test reads the spec's switch table and checks
   that every rule sits in exactly one group file.
+- **04.** The W3C suites run in the complete configuration only (the
+  spec's choice; the ticket's acceptance said both). A case's written
+  expectations count only where its group is on, and an expected finding
+  only where its code's group is on. Version 1's cases went where their
+  rules live: `scm-sco-cycle` and `not-scm-spo` in `schema`, `not-eq-ref` in
+  `trivial`, the dt-not-type cases in `datatypes`. The core cases `empty` and
+  `no-thing-typing` state the exact closure, so ticket 08 must exempt the
+  `trivial` group from them when it fills it. Chaos draws its configuration
+  from a stream of its own, so every input is as before. Then, as a
+  prefactor on `v2`, the generator gave each file's new shapes their own
+  stream, drawn after version 1's: the fingerprint of version 1's part
+  stays, and no two rule tickets edit the same value.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
   minutes while showing 2 GB, until the agent stopped it. The cap now

@@ -30,10 +30,12 @@
 //! configuration a caller then evaluates.
 //!
 //! Version 1's shapes keep their place in version 1's table
-//! ([`Shape::version_1`]), so every seed gives the same input as in version
-//! 1 until a group adds a shape. A shape added since is drawn after them, in
-//! group order. A group with no shape draws nothing from the random
-//! generator.
+//! ([`Shape::version_1`]) and draw from the seed's stream exactly as version
+//! 1 did, so the first part of every input is version 1's. A shape added
+//! since belongs to its file's own stream (the seed mixed with the file's
+//! name): after version 1's draws, each file with new shapes draws its
+//! statements from that stream. A rule ticket that adds shapes to its file
+//! changes no other file's draws and leaves version 1's part alone.
 
 mod checks;
 mod core;
@@ -102,46 +104,78 @@ const EX: &str = "http://example.org/";
 /// what it adds.
 struct Shape {
     /// Its place in version 1's table (0 to 20), or `None` for a shape added
-    /// since. Version 1's shapes are drawn in that order, which keeps every
-    /// seed's input; the others come after them, in group order.
+    /// since, which its file draws from its own stream ([`generate`]).
     version_1: Option<u8>,
     weight: usize,
     draw: fn(&mut Generator),
 }
 
-/// The files of a group (`None`: the core), each a list of shapes. A match,
-/// so a new switch draws nothing until it has its file.
-fn files(group: Option<Switch>) -> &'static [&'static [Shape]] {
+/// The files of a group (`None`: the core), each a name and its shapes. A
+/// match, so a new switch draws nothing until it has its file.
+fn files(group: Option<Switch>) -> &'static [(&'static str, &'static [Shape])] {
     match group {
-        None => &[self::core::SHAPES],
-        Some(Switch::Equality) => &[equality::SHAPES],
-        Some(Switch::PropertyChains) => &[property_chains::SHAPES],
-        Some(Switch::Checks) => &[checks::SHAPES, datatypes::SHAPES],
-        Some(Switch::Identity) => &[identity::SHAPES],
-        Some(Switch::Schema) => &[schema::SHAPES],
-        Some(Switch::Trivial) => &[trivial::SHAPES],
-        Some(Switch::LiteralValues) => &[literal_values::SHAPES],
+        None => &[("core", self::core::SHAPES)],
+        Some(Switch::Equality) => &[("equality", equality::SHAPES)],
+        Some(Switch::PropertyChains) => &[("property_chains", property_chains::SHAPES)],
+        Some(Switch::Checks) => &[("checks", checks::SHAPES), ("datatypes", datatypes::SHAPES)],
+        Some(Switch::Identity) => &[("identity", identity::SHAPES)],
+        Some(Switch::Schema) => &[("schema", schema::SHAPES)],
+        Some(Switch::Trivial) => &[("trivial", trivial::SHAPES)],
+        Some(Switch::LiteralValues) => &[("literal_values", literal_values::SHAPES)],
     }
 }
 
-/// Every shape, in the order a draw reads them: version 1's in their places,
-/// then the others in group order (the core, then [`Switch::ALL`]).
+/// Every file, in group order: the core, then [`Switch::ALL`].
+fn all_files() -> impl Iterator<Item = &'static (&'static str, &'static [Shape])> {
+    std::iter::once(None)
+        .chain(Switch::ALL.into_iter().map(Some))
+        .flat_map(files)
+}
+
+/// Version 1's shapes, in their places in version 1's table.
 fn table() -> Vec<&'static Shape> {
-    let groups = std::iter::once(None).chain(Switch::ALL.into_iter().map(Some));
-    let mut shapes: Vec<&Shape> = groups.flat_map(files).flat_map(|file| file.iter()).collect();
-    shapes.sort_by_key(|s| s.version_1.map_or(u16::MAX, u16::from));
+    let mut shapes: Vec<&Shape> = all_files()
+        .flat_map(|(_, shapes)| shapes.iter())
+        .filter(|s| s.version_1.is_some())
+        .collect();
+    shapes.sort_by_key(|s| s.version_1);
     shapes
 }
 
-/// `size` statements drawn from the seed: the same seed and size always give
-/// the same triples, in the same order, without duplicates.
+/// `size` statements drawn from the seed, then each file's new shapes from
+/// its own stream: the same seed and size always give the same triples, in
+/// the same order, without duplicates.
 pub fn generate(seed: u64, size: usize) -> Vec<Triple> {
-    let table = table();
-    let total: usize = table.iter().map(|s| s.weight).sum();
+    generate_parts(seed, size).1
+}
+
+/// The input of `generate`, and how many of its triples version 1's draws
+/// gave (the first ones).
+fn generate_parts(seed: u64, size: usize) -> (usize, Vec<Triple>) {
     let mut g = Generator::new(Rng::new(seed), size);
-    for _ in 0..size {
+    draw(&mut g, &table(), size);
+    let version_1 = g.out.len();
+    for (name, shapes) in all_files() {
+        let new: Vec<&Shape> = shapes.iter().filter(|s| s.version_1.is_none()).collect();
+        draw_own(&mut g, seed, name, &new, extra(size));
+    }
+    (version_1, g.out)
+}
+
+/// How many statements a file with new shapes draws from its own stream.
+fn extra(size: usize) -> usize {
+    size.div_ceil(12)
+}
+
+/// `count` statements from `shapes`, by weight, with the generator's stream.
+fn draw(g: &mut Generator, shapes: &[&Shape], count: usize) {
+    let total: usize = shapes.iter().map(|s| s.weight).sum();
+    if total == 0 {
+        return;
+    }
+    for _ in 0..count {
         let mut roll = g.rng.below(total);
-        let shape = table
+        let shape = shapes
             .iter()
             .find(|s| {
                 let hit = roll < s.weight;
@@ -149,9 +183,23 @@ pub fn generate(seed: u64, size: usize) -> Vec<Triple> {
                 hit
             })
             .expect("the roll is below the total weight");
-        (shape.draw)(&mut g);
+        (shape.draw)(g);
     }
-    g.out
+}
+
+/// `count` statements from a file's new `shapes`, with the file's own
+/// stream (the seed mixed with the file's name, FNV-1a), leaving the
+/// generator's stream where it was. A file with no new shape draws nothing.
+fn draw_own(g: &mut Generator, seed: u64, name: &str, shapes: &[&Shape], count: usize) {
+    if shapes.is_empty() {
+        return;
+    }
+    let salt = name.bytes().fold(0xCBF2_9CE4_8422_2325_u64, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01B3)
+    });
+    let main = std::mem::replace(&mut g.rng, Rng::new(seed ^ salt));
+    draw(g, shapes, count);
+    g.rng = main;
 }
 
 struct Generator {
@@ -352,11 +400,10 @@ mod tests {
     }
 
     /// The inputs of the chaos test's first 300 seeds (both seeds, sizes 1
-    /// to 48 as it draws them) are those of the generator of version 1:
-    /// their N-Triples lines hash (FNV-1a, 64 bits) to the value that
-    /// generator gave. A group with no shape draws nothing, so splitting
-    /// the shapes into files changed no input. A ticket that adds a shape
-    /// changes the inputs on purpose and replaces this value.
+    /// to 48 as it draws them) begin with those of the generator of version
+    /// 1: the N-Triples lines of version 1's part hash (FNV-1a, 64 bits) to
+    /// the value that generator gave. New shapes draw from their files' own
+    /// streams after it, so no ticket that adds a shape changes this value.
     #[test]
     fn the_first_300_seeds_give_version_1_inputs() {
         let mut hash = 0xCBF2_9CE4_8422_2325_u64;
@@ -370,12 +417,44 @@ mod tests {
             for i in 0..300 {
                 let mut rng = Rng::at(seed, i);
                 let size = 1 + rng.below(48);
-                for t in generate(rng.next_u64(), size) {
+                let (version_1, input) = generate_parts(rng.next_u64(), size);
+                for t in &input[..version_1] {
                     feed(&format!("{t} .\n"));
                 }
                 feed("#\n");
             }
         }
         assert_eq!(hash, 0x772F_272B_CFE6_C083, "the generator's inputs changed");
+    }
+
+    /// A file's new shapes draw from the file's own stream: the generator's
+    /// stream is where it was before, and the same file and seed draw the
+    /// same statements.
+    #[test]
+    fn new_shapes_draw_from_their_files_own_stream() {
+        fn one(g: &mut Generator) {
+            let (s, o) = (g.individual(), g.individual());
+            g.add(&s, "http://example.org/q", &o);
+        }
+        let shape = Shape {
+            version_1: None,
+            weight: 1,
+            draw: one,
+        };
+        let run = |name: &str| {
+            let mut g = Generator::new(Rng::new(7), 24);
+            let before = g.rng.clone().next_u64();
+            draw_own(&mut g, 7, name, &[&shape], 5);
+            (g.rng.clone().next_u64() == before, g.out)
+        };
+        let (kept, first) = run("identity");
+        assert!(kept, "the generator's stream moved");
+        assert!(!first.is_empty());
+        assert_eq!(run("identity").1, first);
+        assert_ne!(run("schema").1, first, "two files share a stream");
+        // A file with no new shape draws nothing.
+        let mut g = Generator::new(Rng::new(7), 24);
+        draw_own(&mut g, 7, "identity", &[], 5);
+        assert!(g.out.is_empty());
     }
 }
