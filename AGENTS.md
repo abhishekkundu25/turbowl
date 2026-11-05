@@ -33,7 +33,11 @@ verification suite that judges it against several independent oracles.
   `rules/mod.rs`), `diagnostics.rs`, `reasoner.rs`.
 - Adapters: `crates/cli` (the `turbowl` binary; `--help` and the crate
   doc in `src/main.rs` define its report, the JSON fields and the exit
-  codes 0, 1, 2 and 64), `crates/python`.
+  codes 0, 1, 2 and 64), `crates/python` (the `turbowl` Python package:
+  `src/lib.rs` is the native module `turbowl._native`, `python/turbowl/`
+  the API and its documentation, `tests/` the pytest suite, and
+  `examples/minimal_cases.rs` the Rust side of its comparison on the
+  minimal inputs).
 - Verification: `crates/oracle` (the oracles), `crates/reference` (the
   reference evaluator, the generator, chaos), `crates/bench` (benchmarks).
 - Oracle tools and data are fetched, never committed:
@@ -55,12 +59,13 @@ name, which sits under a module path) before believing it.
 ```sh
 cargo build --release --locked
 cargo fmt --check
-cargo clippy --release --locked --all-targets -- -D warnings
+cargo clippy --release --locked --workspace --all-targets -- -D warnings
 scripts/check-wasm.sh                                   # the core for wasm32
 timeout 120 cargo test --release --locked -p turbowl
 timeout 120 cargo test --release --locked -p turbowl-oracle
 timeout 120 cargo test --release --locked -p turbowl-reference --test chaos
 timeout 120 cargo test --release --locked -p turbowl-cli  # runs the built binary
+(cd crates/python && uv sync && timeout 120 uv run pytest)  # builds with maturin into .venv
 cargo run --release -p turbowl-bench -- --list
 ```
 
@@ -70,6 +75,10 @@ cargo run --release -p turbowl-bench -- --list
   a check.
 - An oracle that is not installed is reported `skipped`; with `CI=true` it
   fails.
+- `--workspace` builds the Python bindings too. Their build script (pyo3's)
+  needs Python 3.10 or later on PATH.
+- After a clean of ignored files deletes the built native module,
+  `uv sync --reinstall-package turbowl` in `crates/python` builds it again.
 - Benchmarks run only on a quiet machine (load average under 1), never next
   to a build or a test run.
 - Every full verification is stored: `docs/verification/<date>-<name>.md`

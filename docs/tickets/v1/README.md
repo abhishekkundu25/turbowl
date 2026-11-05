@@ -204,3 +204,22 @@ Departures from the plan, as they happen.
   statements dropped on load, which the interface does not expose; and
   `Severity::as_str` and `Ord` on `Severity`, so that the CLI and Python
   need no mappings of their own.
+- **13.** The slice decided the API's shape.
+  - `triples()` and `inferred()` return lists of rdflib tuples, and
+    `graph()` returns an rdflib `Graph`.
+  - `serialize` and `write` stand for `Reasoner::write`.
+  - A literal of `xsd:string` comes back with no datatype, as rdflib's
+    parsers read `"x"`. Typed literals keep their lexical form
+    (`normalize=False`). Language tags come back lowercase, as oxrdf holds
+    them.
+  - pyo3 0.30 has no `extension-module` feature: maturin sets
+    `PYO3_BUILD_EXTENSION_MODULE`. So `cargo --workspace` links libpython
+    and needs a Python on PATH; AGENTS.md's clippy line is now
+    `--workspace`.
+  - The minimal-input comparison runs `examples/minimal_cases.rs`, which
+    writes each case and the Rust library's results as N-Triples. pytest
+    compares them exactly; rdflib's parser would rename blank nodes and
+    normalise literals.
+
+  Left for later: abi3 wheels (only for publishing), and `write_file` and
+  `Severity::as_str` in the interface.
