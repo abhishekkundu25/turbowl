@@ -1,15 +1,18 @@
 //! The W3C tests: the OWL 2 conformance tests in the RL profile and the RDF
-//! 1.1 Semantics entailment tests, run on every oracle. Reports go to
-//! `target/oracle/w3c-*.md`.
+//! 1.1 Semantics entailment tests, run on every oracle in the complete
+//! configuration (every switch on: the W3C rule set, ADR 0005). Reports go
+//! to `target/oracle/w3c-*.md`.
 //!
-//! Nemo runs exactly the version 1 rule set, so every case Nemo passes is
-//! required of TurbOWL. The cases Nemo fails are listed with the
-//! rules they likely need (`w3c::missing_rules`). The oracles' own verdicts
-//! are reported, not asserted.
+//! Nemo runs exactly the rules of the configuration, so every case Nemo
+//! passes is required of TurbOWL. The cases Nemo fails are listed with the
+//! rules they likely need that the program does not hold yet
+//! (`w3c::missing_rules`). The oracles' own verdicts are reported, not
+//! asserted.
 
 mod support;
 
 use std::fmt::Write as _;
+use turbowl::Switches;
 use turbowl_oracle::w3c::{self, Cases, Expect, Verdict};
 use turbowl_oracle::{Outcome, nemo, ours, owlrl};
 
@@ -32,6 +35,7 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
         }
         Err(o) => panic!("{suite}: {o:?}"),
     };
+    let switches = Switches::complete();
     let oracles = ["Nemo", "OWL-RL", "ours"];
     let mut out = format!(
         "| Case | Expects | Approved | Regime | {} |\n|---|---|---|---|",
@@ -45,9 +49,9 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     let mut failures = Vec::new();
     for case in &cases.cases {
         let outcomes = [
-            nemo::run(&case.premise),
+            nemo::run_with(&case.premise, switches),
             owlrl::run(&case.premise),
-            ours::run(&case.premise),
+            ours::run(&case.premise, switches),
         ];
         if let Outcome::Failed(why) = &outcomes[0] {
             panic!("{}: Nemo failed: {why}", case.id);
@@ -56,7 +60,7 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
         for (i, v) in verdicts.iter().enumerate() {
             passes[i] += usize::from(v == "pass");
         }
-        // What the version 1 rule set (Nemo) gets right, TurbOWL must get right too.
+        // What the rules of the configuration (Nemo) get right, TurbOWL must get right too.
         if verdicts[0] == "pass" {
             required += 1;
             match &outcomes[2] {
@@ -68,11 +72,11 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
                 other => failures.push(format!("{}: TurbOWL {}", case.id, other.status())),
             }
         } else {
-            let missing = w3c::missing_rules(case);
+            let missing = w3c::missing_rules(case, switches);
             let missing = if missing.is_empty() {
                 "unknown".to_owned()
             } else {
-                missing.join("; ")
+                missing.join(", ")
             };
             rest.push(format!("- {} (OWL-RL: {}): {missing}", case.id, verdicts[1]));
         }
@@ -97,11 +101,11 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     }
     let _ = writeln!(
         out,
-        "\n\nThe version 1 rule set (Nemo) passes {required}; TurbOWL must pass each of them."
+        "\n\nIn the complete configuration, the rule program (Nemo) passes {required}; TurbOWL must pass each of them."
     );
     let _ = writeln!(
         out,
-        "\nNemo fails {}, with the rules they likely need (from their vocabulary):",
+        "\nNemo fails {}, with the rules they likely need that the program does not hold yet (from their vocabulary):",
         rest.len()
     );
     for r in &rest {
@@ -117,7 +121,7 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     println!("{out}\n(written to {})", path.display());
     assert!(
         failures.is_empty(),
-        "TurbOWL fails W3C cases the version 1 rule set passes:\n{}",
+        "TurbOWL fails W3C cases the rule program of the configuration passes:\n{}",
         failures.join("\n")
     );
 }

@@ -16,9 +16,29 @@ use turbowl::Switches;
 /// The pinned version.
 pub const VERSION: &str = "0.10.1";
 
-/// The finding codes the program derives in the default configuration (no
-/// datatype checks: literals reach Nemo as opaque IRIs).
-pub const CODES: &[&str] = &["cax-dw", "prp-pdw", "cls-nothing2", "prp-asyp", "prp-irp", "cls-com"];
+/// The finding codes the program of a configuration exports
+/// ([`crate::programs::codes`]): those of [`crate::codes`] but dt-not-type
+/// (literals reach Nemo as opaque IRIs), none with `checks` off.
+///
+/// # Panics
+///
+/// When the program exports a code that [`crate::CODES`] does not list: a
+/// new code goes there too, with its terms' order on [`Finding`].
+pub fn codes(switches: Switches) -> Vec<&'static str> {
+    let exported = crate::programs::codes(switches);
+    let known = crate::codes(switches);
+    for code in &exported {
+        assert!(
+            known.contains(&code.as_str()),
+            "oracles/rules/ exports {code}, which crate::CODES does not list in {switches:?}"
+        );
+    }
+    known
+        .iter()
+        .copied()
+        .filter(|c| exported.iter().any(|e| e == c))
+        .collect()
+}
 
 /// `tools/nemo/nmo`.
 pub fn binary() -> PathBuf {

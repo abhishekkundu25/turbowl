@@ -33,6 +33,39 @@ pub fn nemo(switches: Switches) -> String {
     out
 }
 
+/// The finding codes the program of a configuration exports: each rule
+/// that concludes `false` has a CSV output named after it.
+pub fn codes(switches: Switches) -> Vec<String> {
+    Program::parse(switches)
+        .statements()
+        .filter_map(|(statement, _)| match statement {
+            Statement::Export { resource, .. } => resource.strip_suffix(".csv").map(str::to_owned),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The rules the program of a configuration holds: the W3C names that end
+/// its rules as comments (`% cax-sco`), not those listed as to come or left
+/// out.
+pub fn rules(switches: Switches) -> std::collections::BTreeSet<String> {
+    let is_rule = |r: &str| {
+        r.contains('-')
+            && r.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    };
+    Program::parse(switches)
+        .statements()
+        .filter_map(|(statement, trailing)| match statement {
+            Statement::Rule(_) => trailing.as_deref(),
+            _ => None,
+        })
+        .flat_map(|comment| comment.split(',').map(str::trim))
+        .filter(|name| is_rule(name))
+        .map(str::to_owned)
+        .collect()
+}
+
 /// The Soufflé program (souffle-lang.github.io): a `.decl` for each relation
 /// (every attribute a `symbol`), then the rules.
 ///
@@ -478,6 +511,16 @@ impl Program {
             program.groups.push((name, items));
         }
         program
+    }
+
+    /// Every statement, in order, with the comment on the line it ends.
+    fn statements(&self) -> impl Iterator<Item = (&Statement, &Option<String>)> {
+        self.groups.iter().flat_map(|(_, items)| {
+            items.iter().filter_map(|item| match item {
+                Item::Statement(statement, trailing) => Some((statement, trailing)),
+                _ => None,
+            })
+        })
     }
 
     /// Records a statement's prefix or relations, checking each relation

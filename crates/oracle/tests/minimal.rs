@@ -1,5 +1,6 @@
-//! Every oracle on the minimal inputs (`cases::minimal`), triangulated.
-//! The table is printed and written to `target/oracle/minimal.md`.
+//! Every oracle on the minimal inputs (`cases::minimal`), triangulated in
+//! the default and the complete configuration. The table is printed and
+//! written to `target/oracle/minimal.md`.
 
 mod support;
 
@@ -9,7 +10,7 @@ use turbowl_oracle::{Table, cases, triangulate};
 fn oracles_agree_on_the_minimal_inputs() {
     let mut table = Table::default();
     for case in cases::minimal() {
-        table.rows.push(triangulate(&case));
+        table.rows.extend(triangulate(&case));
     }
     let text = table.markdown();
     let path = support::report("minimal", &text);

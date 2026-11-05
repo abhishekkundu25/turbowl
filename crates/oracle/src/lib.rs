@@ -40,12 +40,12 @@ pub mod programs;
 mod triangulate;
 pub mod w3c;
 
-pub use closure::{CODES, Closure, Finding, triple};
+pub use closure::{CODES, Closure, Finding, codes, triple};
 pub use compare::{Diff, Relation, compare};
 pub use differences::{Fault, apply as apply_faults, explains_failure};
 pub use input::{Document, Input};
 use std::path::{Path, PathBuf};
-pub use triangulate::{Check, KNOWN, Options, Row, Status, Table, triangulate, triangulate_input};
+pub use triangulate::{Check, KNOWN, Options, Row, Status, Table, configurations, triangulate, triangulate_input};
 
 /// What running an oracle gave.
 #[derive(Debug, Clone)]

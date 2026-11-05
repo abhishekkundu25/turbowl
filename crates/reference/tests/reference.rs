@@ -1,14 +1,16 @@
 //! The reference evaluator on one minimal input per rule and per
 //! diagnostic, with the expected output written out by hand from the W3C
 //! OWL 2 RL rule tables (OWL 2 Profiles, section 4.3) for the version 1
-//! rule set (`docs/specs/v1.md`).
+//! rule set (`docs/specs/v1.md`), in the default configuration; and the
+//! switches, each of which turns its group's rules off.
 
 mod common;
 
 use common::{lines, parse, term};
 use oxrdf::{Term, Triple};
 use std::collections::{BTreeSet, HashSet};
-use turbowl_reference::{DIAGNOSTIC_RULES, RULES, evaluate, evaluate_counted, evaluate_within, generate};
+use turbowl::{Switch, Switches};
+use turbowl_reference::{diagnostic_rules, evaluate, evaluate_counted, evaluate_within, generate, rules};
 
 /// cls-thing and cls-nothing1, the rules with an empty body.
 const SEEDS: &str = "owl:Thing a owl:Class . owl:Nothing a owl:Class .";
@@ -481,9 +483,9 @@ fn generator_is_deterministic_and_reaches_a_fixpoint() {
 }
 
 /// The generator exercises every rule: over 300 seeds (COVERAGE_SEEDS
-/// overrides), each deriving and diagnostic rule fires for some seed, and
-/// some seed derives a triple that is not RDF. Prints, per rule, the number
-/// of seeds it fired for.
+/// overrides), in the complete configuration, each deriving and diagnostic
+/// rule fires for some seed, and some seed derives a triple that is not
+/// RDF. Prints, per rule, the number of seeds it fired for.
 #[test]
 fn generator_exercises_every_rule() {
     let seeds: u64 = std::env::var("COVERAGE_SEEDS")
@@ -496,7 +498,7 @@ fn generator_exercises_every_rule() {
         let mut rng = turbowl_reference::Rng::at(0x5EED_0005, seed as usize);
         let size = 1 + rng.below(48);
         let input: HashSet<Triple> = generate(rng.next_u64(), size).into_iter().collect();
-        let Some(evaluation) = evaluate_within(&input, 20_000) else {
+        let Some(evaluation) = evaluate_within(&input, Switches::complete(), 20_000) else {
             too_large += 1;
             continue;
         };
@@ -510,7 +512,8 @@ fn generator_exercises_every_rule() {
         "{seeds} seeds ({too_large} too large, {not_rdf} with triples that are not RDF): {}",
         report.join(", ")
     );
-    for rule in RULES.iter().chain(DIAGNOSTIC_RULES) {
+    let complete = Switches::complete();
+    for rule in rules(complete).iter().chain(&diagnostic_rules(complete)) {
         assert!(seeds_fired.contains_key(rule), "{rule} never fires");
     }
     assert!(not_rdf > 0, "no seed derives a literal subject");
@@ -549,6 +552,66 @@ fn generator_makes_vocabulary_terms_equal() {
     }
     eprintln!("of 300 inputs: {one} make a term equal to a constant, {two} two constants, {to_nil} a term rdf:nil");
     assert!(one > 0 && two > 0 && to_nil > 0, "{one} {two} {to_nil}");
+}
+
+/// The rules of each switch: a switch off takes exactly its rules out of
+/// the lists, and over 100 generated inputs none of them fires; the other
+/// rules fire as they do in the complete configuration, apart from what
+/// the group's triples fed them.
+#[test]
+fn a_switch_off_turns_its_rules_off() {
+    let complete = Switches::complete();
+    let all: BTreeSet<&str> = rules(complete).into_iter().chain(diagnostic_rules(complete)).collect();
+    // The rules of every group with rules, by switch.
+    let checks = [
+        "cax-dw",
+        "prp-pdw",
+        "cls-nothing2",
+        "prp-asyp",
+        "prp-irp",
+        "cls-com",
+        "dt-not-type",
+    ];
+    let groups: &[(Switch, &[&str])] = &[
+        (
+            Switch::Equality,
+            &["eq-sym", "eq-trans", "eq-rep-s", "eq-rep-p", "eq-rep-o"],
+        ),
+        (Switch::PropertyChains, &["prp-spo2"]),
+        (Switch::Checks, &checks),
+    ];
+    for &(switch, group) in groups {
+        let off = complete.off(switch);
+        let left: BTreeSet<&str> = rules(off).into_iter().chain(diagnostic_rules(off)).collect();
+        let expected: BTreeSet<&str> = all.iter().copied().filter(|r| !group.contains(r)).collect();
+        assert_eq!(left, expected, "{switch:?} off");
+        for seed in 0..100 {
+            let input: HashSet<Triple> = generate(seed, 30).into_iter().collect();
+            let Some(e) = evaluate_within(&input, off, 20_000) else {
+                continue;
+            };
+            let fired: Vec<&&str> = e.fired.keys().filter(|r| group.contains(r)).collect();
+            assert!(fired.is_empty(), "{switch:?} off, seed {seed}: {fired:?} fired");
+            assert!(e.closure.is_superset(&input));
+        }
+    }
+    // With `checks` off, nothing is reported.
+    let (closure, _) = evaluate(&parse("ex:x a owl:Nothing ."));
+    let e = evaluate_within(
+        &parse("ex:x a owl:Nothing ."),
+        Switches::default().off(Switch::Checks),
+        usize::MAX,
+    )
+    .expect("no limit");
+    assert!(e.diagnostics.is_empty());
+    assert_eq!(e.closure, closure);
+    // The default configuration is `evaluate`'s.
+    for seed in 0..20 {
+        let input: HashSet<Triple> = generate(seed, 30).into_iter().collect();
+        let a = evaluate_counted(&input);
+        let b = evaluate_within(&input, Switches::default(), usize::MAX).expect("no limit");
+        assert!(a.closure == b.closure && a.diagnostics == b.diagnostics, "seed {seed}");
+    }
 }
 
 /// The parser these tests use reads what they write.

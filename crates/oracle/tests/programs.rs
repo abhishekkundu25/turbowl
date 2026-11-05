@@ -5,13 +5,16 @@
 //!   configuration equal the golden programs in `tests/programs/`
 //!   (`BLESS=1` rewrites them; read the diff before keeping it);
 //! - every rule of the spec's switch table is named in exactly one group
-//!   file, its own group's;
+//!   file, its own group's, and in the W3C report's map;
+//! - every group has its file in the rule source, the reference evaluator,
+//!   the generator and the minimal inputs;
+//! - the codes and rules a configuration's program holds;
 //! - Nemo runs the complete configuration.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use turbowl::{Switch, Switches};
-use turbowl_oracle::{Input, Outcome, nemo, programs, workspace_root};
+use turbowl_oracle::{Input, Outcome, nemo, programs, w3c, workspace_root};
 
 /// Compares `text` with the golden file `tests/programs/<name>`, or
 /// rewrites the file when `BLESS=1`.
@@ -187,4 +190,103 @@ fn nemo_runs_the_complete_configuration() {
     };
     assert!(closure.has("<http://example.org/a> <http://example.org/p> <http://example.org/d>"));
     assert_eq!(closure.findings.len(), 1, "{:?}", closure.findings);
+}
+
+/// The groups: the core, then every switch, by name.
+fn group_names() -> Vec<&'static str> {
+    std::iter::once("core")
+        .chain(Switch::ALL.into_iter().map(Switch::name))
+        .collect()
+}
+
+/// Each group has a file in each place it is split: the rule source
+/// (`oracles/rules/<name>.rls`), the reference evaluator's rules and the
+/// generator's shapes (`crates/reference/src/{rules,generate}/`), and the
+/// minimal inputs (`crates/oracle/src/cases/`), a Rust file named with `_`
+/// for `-` and declared by its `mod.rs`. Besides those, the Rust
+/// directories hold only `mod.rs` and `datatypes.rs` (dt-not-type, in the
+/// `checks` group).
+#[test]
+fn every_group_has_its_file_everywhere() {
+    let root = workspace_root();
+    let mut problems = Vec::new();
+    for dir in [
+        "crates/reference/src/rules",
+        "crates/reference/src/generate",
+        "crates/oracle/src/cases",
+    ] {
+        let dir = root.join(dir);
+        let module = std::fs::read_to_string(dir.join("mod.rs")).unwrap_or_else(|e| panic!("{}: {e}", dir.display()));
+        let mut expected: BTreeSet<String> = group_names()
+            .into_iter()
+            .map(|g| format!("{}.rs", g.replace('-', "_")))
+            .collect();
+        expected.insert("datatypes.rs".to_owned());
+        for file in &expected {
+            let stem = file.trim_end_matches(".rs");
+            if !dir.join(file).is_file() {
+                problems.push(format!("{} has no {file}", dir.display()));
+            } else if !module.lines().any(|l| l.trim() == format!("mod {stem};")) {
+                problems.push(format!("{}/mod.rs does not declare mod {stem}", dir.display()));
+            }
+        }
+        expected.insert("mod.rs".to_owned());
+        for entry in std::fs::read_dir(&dir).expect("a directory") {
+            let name = entry.expect("an entry").file_name().to_string_lossy().into_owned();
+            if !expected.contains(&name) {
+                problems.push(format!("{} holds {name}, which is no group's file", dir.display()));
+            }
+        }
+    }
+    let rules = root.join("oracles/rules");
+    for group in group_names() {
+        if !rules.join(format!("{group}.rls")).is_file() {
+            problems.push(format!("oracles/rules/ has no {group}.rls"));
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
+fn the_w3c_reports_map_names_every_rule() {
+    let mapped: BTreeSet<&str> = w3c::LIKELY_RULES
+        .iter()
+        .flat_map(|(_, _, rules)| rules.iter().copied())
+        .collect();
+    let table = spec_table();
+    let missing: Vec<&String> = table
+        .values()
+        .flatten()
+        .filter(|r| !mapped.contains(r.as_str()))
+        .collect();
+    assert!(missing.is_empty(), "w3c::LIKELY_RULES does not map {missing:?}");
+    let known: BTreeSet<&str> = table.values().flatten().map(String::as_str).collect();
+    let unknown: Vec<&&str> = mapped.iter().filter(|r| !known.contains(**r)).collect();
+    assert!(
+        unknown.is_empty(),
+        "w3c::LIKELY_RULES names {unknown:?}, which the spec's table does not list"
+    );
+}
+
+/// The codes a configuration's program exports and the rules it holds.
+#[test]
+fn a_configurations_program_lists_its_codes_and_rules() {
+    let default = Switches::default();
+    let six = ["cax-dw", "prp-pdw", "cls-nothing2", "prp-asyp", "prp-irp", "cls-com"];
+    assert_eq!(programs::codes(default), six);
+    assert_eq!(nemo::codes(default), six);
+    let no_checks = default.off(Switch::Checks);
+    assert!(programs::codes(no_checks).is_empty());
+    assert!(nemo::codes(no_checks).is_empty());
+    let rules = programs::rules(default);
+    for rule in ["cax-sco", "cls-thing", "prp-spo2", "eq-rep-o", "cax-dw"] {
+        assert!(rules.contains(rule), "{rule}");
+    }
+    // dt-not-type is left out, the identity rules are to come.
+    assert!(
+        !rules.contains("dt-not-type") && !rules.contains("prp-key"),
+        "{rules:?}"
+    );
+    let chains = programs::rules(default.off(Switch::PropertyChains));
+    assert!(!chains.contains("prp-spo2"));
 }

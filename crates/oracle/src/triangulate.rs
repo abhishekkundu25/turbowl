@@ -1,19 +1,32 @@
 //! Triangulation: every oracle on one input, each checked against the case's
-//! expectations and compared with the others.
+//! expectations and compared with the others, in each of the
+//! [`configurations`]: the default and the complete one (ADR 0005). Nemo and
+//! TurbOWL run each configuration; OWL-RL, which implements every rule and
+//! has no switches, runs once per input. Each configuration gives a [`Row`].
 //!
 //! | Check | Relation | Filters |
 //! |---|---|---|
-//! | `<oracle>: expectations` | the case's lines ([`crate::cases`]) | none; a fault listed in [`KNOWN`] is reported as known |
+//! | `<oracle>: expectations` | the case's lines ([`crate::cases`]), where the case's group is on | none; a fault listed in [`KNOWN`] is reported as known |
 //! | `Nemo ⊆ OWL-RL` | containment (OWL-RL implements more rules) | the OWL-RL faults ([`Fault`]) |
 //! | `ours = Nemo` | equal closures and findings, dt-not-type aside | none |
 //! | `ours ⊆ OWL-RL` | containment | the OWL-RL faults |
 //! | `HermiT entails <oracle>'s subsumptions` | soundness of inferred class and property subsumptions | none |
+//!
+//! Findings are compared on the codes both sides report in the
+//! configuration ([`crate::codes`], [`nemo::codes`]).
 
 use crate::cases::{Case, Kind};
 use crate::compare::{Relation, compare};
 use crate::differences::{Fault, apply, explains_failure};
-use crate::{CODES, Closure, Input, Outcome, hermit, nemo, ours, owlrl};
+use crate::{Closure, Input, Outcome, hermit, nemo, ours, owlrl};
 use std::fmt::Write as _;
+use turbowl::Switches;
+
+/// The configurations every input runs in, with their names: the default
+/// and the complete one.
+pub fn configurations() -> [(&'static str, Switches); 2] {
+    [("default", Switches::default()), ("complete", Switches::complete())]
+}
 
 /// Expectation checks an oracle fault makes fail: (case, check, fault). A
 /// check listed here is reported as `known`, not as a failure; the closure
@@ -47,10 +60,12 @@ pub struct Check {
     pub detail: String,
 }
 
-/// Every oracle on one input.
+/// Every oracle on one input, in one configuration.
 #[derive(Debug, Clone)]
 pub struct Row {
     pub case: String,
+    /// The configuration's name ([`configurations`]).
+    pub configuration: &'static str,
     /// What the input covers (the rules of a minimal case, or the data set).
     pub covers: String,
     /// (oracle, outcome).
@@ -84,12 +99,12 @@ const ORACLES: &[(&str, Kind)] = &[
     ("ours", Kind::RuleSet),
 ];
 
-/// The finding codes an oracle covers.
-fn codes(oracle: &str) -> &'static [&'static str] {
+/// The finding codes an oracle covers in the configuration.
+fn codes(oracle: &str, switches: Switches) -> Vec<&'static str> {
     match oracle {
-        "Nemo" => nemo::CODES,
-        "OWL-RL" => owlrl::CODES,
-        _ => CODES,
+        "Nemo" => nemo::codes(switches),
+        "OWL-RL" => owlrl::CODES.to_vec(),
+        _ => crate::codes(switches).to_vec(),
     }
 }
 
@@ -111,17 +126,20 @@ impl Default for Options {
     }
 }
 
-/// Runs every oracle on a minimal case and checks them.
-pub fn triangulate(case: &Case) -> Row {
+/// Runs every oracle on a minimal case and checks them: a row per
+/// configuration.
+pub fn triangulate(case: &Case) -> Vec<Row> {
     triangulate_input(case.name, case.covers, &case.input(), Some(case), Options::default())
 }
 
-/// Runs every oracle on an input and compares them; with a case, also checks
-/// its expectations.
-pub fn triangulate_input(name: &str, covers: &str, input: &Input, case: Option<&Case>, options: Options) -> Row {
+/// Runs every oracle on an input in each of the [`configurations`] and
+/// compares them; with a case, also checks its expectations. A row per
+/// configuration.
+pub fn triangulate_input(name: &str, covers: &str, input: &Input, case: Option<&Case>, options: Options) -> Vec<Row> {
     // The external oracles run side by side; each is a separate process.
-    let (nemo, full) = std::thread::scope(|s| {
-        let n = s.spawn(|| nemo::run(input));
+    let join =
+        |h: std::thread::ScopedJoinHandle<'_, Outcome>| h.join().unwrap_or_else(|p| std::panic::resume_unwind(p));
+    let (full, nemo) = std::thread::scope(|s| {
         let o = s.spawn(|| {
             if options.owlrl {
                 owlrl::run(input)
@@ -129,25 +147,43 @@ pub fn triangulate_input(name: &str, covers: &str, input: &Input, case: Option<&
                 Outcome::Skipped("OWL-RL: not run on this input (see Options)".to_owned())
             }
         });
-        let join =
-            |h: std::thread::ScopedJoinHandle<'_, Outcome>| h.join().unwrap_or_else(|p| std::panic::resume_unwind(p));
-        (join(n), join(o))
+        let n: Vec<_> = configurations()
+            .into_iter()
+            .map(|(_, switches)| s.spawn(move || nemo::run_with(input, switches)))
+            .collect();
+        (join(o), n.into_iter().map(join).collect::<Vec<_>>())
     });
-    let outcomes = vec![("Nemo", nemo), ("OWL-RL", full), ("ours", ours::run(input))];
-    let mut row = Row {
-        case: name.to_owned(),
-        covers: covers.to_owned(),
-        outcomes,
-        faults: Vec::new(),
-        checks: Vec::new(),
-    };
+    configurations()
+        .into_iter()
+        .zip(nemo)
+        .map(|((configuration, switches), nemo)| {
+            let outcomes = vec![
+                ("Nemo", nemo),
+                ("OWL-RL", full.clone()),
+                ("ours", ours::run(input, switches)),
+            ];
+            let row = Row {
+                case: name.to_owned(),
+                configuration,
+                covers: covers.to_owned(),
+                outcomes,
+                faults: Vec::new(),
+                checks: Vec::new(),
+            };
+            check(row, input, case, options, switches)
+        })
+        .collect()
+}
 
+/// The checks of a row whose oracles have run, in its configuration.
+fn check(mut row: Row, input: &Input, case: Option<&Case>, options: Options, switches: Switches) -> Row {
     for &(oracle, kind) in ORACLES {
         let Some(case) = case else { break };
         let name = format!("{oracle}: expectations");
         let check = match row.outcome(oracle) {
+            _ if !case.checked_in(switches) => not_run(name, "the case's group is off"),
             Outcome::Ran(c) => {
-                let failed = case.check(c, kind, codes(oracle));
+                let failed = case.check(c, kind, &codes(oracle, switches));
                 finish(case.name, name, failed.is_empty(), failed.join("\n"))
             }
             Outcome::Failed(why) => failed(oracle, input, case.name, name, why),
@@ -166,10 +202,10 @@ pub fn triangulate_input(name: &str, covers: &str, input: &Input, case: Option<&
         let name = format!("{left} {sym} {right}");
         let check = match (row.outcome(left), row.outcome(right)) {
             (Outcome::Ran(l), Outcome::Ran(r)) => {
-                let shared: Vec<&str> = codes(left)
-                    .iter()
-                    .copied()
-                    .filter(|c| codes(right).contains(c))
+                let right_codes = codes(right, switches);
+                let shared: Vec<&str> = codes(left, switches)
+                    .into_iter()
+                    .filter(|c| right_codes.contains(c))
                     .collect();
                 let (mut l, mut r) = (only_codes(l, &shared), only_codes(r, &shared));
                 for f in apply(right, input, &mut l, &mut r) {
@@ -271,12 +307,13 @@ fn finish(case: &str, name: String, ok: bool, detail: String) -> Check {
 }
 
 impl Table {
-    /// The failed checks: (case, check).
-    pub fn failures(&self) -> Vec<(&str, &Check)> {
+    /// The failed checks: (case and configuration, check).
+    pub fn failures(&self) -> Vec<(String, &Check)> {
         self.rows
             .iter()
-            .flat_map(|r| r.checks.iter().map(move |c| (r.case.as_str(), c)))
+            .flat_map(|r| r.checks.iter().map(move |c| (r, c)))
             .filter(|(_, c)| c.status == Status::Fail)
+            .map(|(r, c)| (format!("{} ({})", r.case, r.configuration), c))
             .collect()
     }
 
@@ -301,17 +338,17 @@ impl Table {
     /// oracle faults that showed.
     pub fn markdown(&self) -> String {
         let mut out = String::new();
-        out.push_str("| Case | Covers |");
+        out.push_str("| Case | Configuration | Covers |");
         for (o, _) in ORACLES {
             let _ = write!(out, " {o} |");
         }
-        out.push_str(" Checks |\n|---|---|");
+        out.push_str(" Checks |\n|---|---|---|");
         for _ in ORACLES {
             out.push_str("---|");
         }
         out.push_str("---|\n");
         for r in &self.rows {
-            let _ = write!(out, "| {} | {} |", r.case, r.covers);
+            let _ = write!(out, "| {} | {} | {} |", r.case, r.configuration, r.covers);
             for (o, _) in ORACLES {
                 let cell = match r.outcome(o) {
                     Outcome::Ran(c) => format!("{} · {}", c.triples.len(), c.finding_summary()),
@@ -347,8 +384,9 @@ impl Table {
             );
         }
         out.push_str(
-            "\nCells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full \
-             W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this \
+            "\nCells: closure triples · findings. Nemo and ours run the rules of the row's configuration \
+             (default: turbowl::Switches::default(); complete: every switch on); OWL-RL the full W3C rule set, \
+             once per input. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this \
              input.\n",
         );
         for r in &self.rows {
@@ -359,8 +397,9 @@ impl Table {
             {
                 let _ = writeln!(
                     out,
-                    "\n### {}: {} ({})\n",
+                    "\n### {} ({}): {} ({})\n",
                     r.case,
+                    r.configuration,
                     c.name,
                     match &c.status {
                         Status::Known(f) => format!("known: {f:?}, {}", f.description()),

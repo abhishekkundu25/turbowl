@@ -16,7 +16,7 @@ use oxrdf::{BlankNode, NamedNode, NamedNodeRef, NamedOrBlankNode, Term, Triple};
 use oxrdfxml::RdfXmlParser;
 use oxttl::TurtleParser;
 use std::collections::HashMap;
-use turbowl::Format;
+use turbowl::{Format, Switches};
 
 const TEST: &str = "http://www.w3.org/2007/OWL/testOntology#";
 const MF: &str = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#";
@@ -311,64 +311,177 @@ pub fn judge(case: &Case, closure: &Closure) -> Verdict {
     }
 }
 
-/// The rules outside version 1 that a case likely needs, read from the
-/// vocabulary of its premise and its conclusion (a report for the cases Nemo
-/// fails, not a proof). Empty when no such vocabulary shows.
-pub fn missing_rules(case: &Case) -> Vec<&'static str> {
-    const BY_TERM: &[(&str, &str)] = &[
-        ("owl#differentFrom", "eq-diff1"),
-        ("owl#AllDifferent", "eq-diff2, eq-diff3"),
-        ("owl#hasKey", "prp-key"),
-        ("owl#sourceIndividual", "prp-npa1, prp-npa2"),
-        ("owl#AllDisjointProperties", "prp-adp"),
-        ("owl#AllDisjointClasses", "cax-adc"),
-        ("owl#maxCardinality", "cls-maxc1, cls-maxc2"),
-        ("owl#maxQualifiedCardinality", "cls-maxqc1 to cls-maxqc4"),
-        ("owl#oneOf", "cls-oo"),
-        ("owl#Restriction", "scm-* for restrictions"),
-    ];
-    const BY_CONCLUSION: &[(&str, &str)] = &[
-        ("rdf-schema#subPropertyOf", "scm-spo, scm-eqp1"),
-        ("owl#equivalentProperty", "scm-eqp2"),
-        ("owl#equivalentClass", "scm-eqc2"),
-        ("rdf-schema#domain", "scm-dom1, scm-dom2"),
-        ("rdf-schema#range", "scm-rng1, scm-rng2"),
-        (
-            "rdf-schema#subClassOf",
-            "scm-cls, scm-int, scm-uni, scm-svf, scm-avf, scm-hv",
-        ),
-    ];
-    let iris = |g: &Input| -> Vec<String> {
-        g.triples()
-            .iter()
-            .flat_map(|t| [Term::from(t.predicate.clone()), t.object.clone()])
-            .filter_map(|t| match t {
-                Term::NamedNode(n) => Some(n.into_string()),
-                _ => None,
-            })
-            .collect()
-    };
-    let premise = iris(&case.premise);
-    let has = |terms: &[String], suffix: &str| terms.iter().any(|t| t.ends_with(suffix));
-    let mut out: Vec<&'static str> = BY_TERM
+/// Where the vocabulary of an entry of [`LIKELY_RULES`] shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Shows {
+    /// An IRI of the premise, as a predicate or an object.
+    Premise,
+    /// A predicate of the conclusion.
+    Conclusion,
+    /// The datatype of a literal of the premise. These rules are listed
+    /// only when no other entry shows: most inputs have literals.
+    Literal,
+}
+
+/// The map from vocabulary to the rules that read or derive it: where it
+/// shows, a part of the IRI, and the rules. Every rule of the spec's switch
+/// table (`docs/specs/v2-1-scoreboard-and-rules.md`, "The switches") is in
+/// it (`tests/programs.rs` checks this).
+pub const LIKELY_RULES: &[(Shows, &str, &[&str])] = &[
+    (Shows::Premise, "rdf-schema#subClassOf", &["cax-sco", "scm-sco"]),
+    (
+        Shows::Premise,
+        "owl#equivalentClass",
+        &["cax-eqc1", "cax-eqc2", "scm-eqc1"],
+    ),
+    (Shows::Premise, "owl#Thing", &["cls-thing", "cls-svf2"]),
+    (Shows::Premise, "owl#Nothing", &["cls-nothing1", "cls-nothing2"]),
+    (
+        Shows::Premise,
+        "owl#intersectionOf",
+        &["cls-int1", "cls-int2", "scm-int"],
+    ),
+    (Shows::Premise, "owl#unionOf", &["cls-uni", "scm-uni"]),
+    (
+        Shows::Premise,
+        "owl#someValuesFrom",
+        &["cls-svf1", "cls-svf2", "scm-svf1", "scm-svf2"],
+    ),
+    (
+        Shows::Premise,
+        "owl#allValuesFrom",
+        &["cls-avf", "scm-avf1", "scm-avf2"],
+    ),
+    (Shows::Premise, "owl#hasValue", &["cls-hv1", "cls-hv2", "scm-hv"]),
+    (Shows::Premise, "owl#oneOf", &["cls-oo"]),
+    (
+        Shows::Premise,
+        "rdf-schema#domain",
+        &["prp-dom", "scm-dom1", "scm-dom2"],
+    ),
+    (Shows::Premise, "rdf-schema#range", &["prp-rng", "scm-rng1", "scm-rng2"]),
+    (Shows::Premise, "owl#FunctionalProperty", &["prp-fp"]),
+    (Shows::Premise, "owl#InverseFunctionalProperty", &["prp-ifp"]),
+    (Shows::Premise, "owl#SymmetricProperty", &["prp-symp"]),
+    (Shows::Premise, "owl#TransitiveProperty", &["prp-trp"]),
+    (Shows::Premise, "rdf-schema#subPropertyOf", &["prp-spo1", "scm-spo"]),
+    (
+        Shows::Premise,
+        "owl#equivalentProperty",
+        &["prp-eqp1", "prp-eqp2", "scm-eqp1", "scm-eqp2"],
+    ),
+    (Shows::Premise, "owl#inverseOf", &["prp-inv1", "prp-inv2"]),
+    (Shows::Premise, "owl#propertyChainAxiom", &["prp-spo2"]),
+    (
+        Shows::Premise,
+        "owl#sameAs",
+        &["eq-sym", "eq-trans", "eq-rep-s", "eq-rep-p", "eq-rep-o"],
+    ),
+    (Shows::Premise, "owl#disjointWith", &["cax-dw"]),
+    (Shows::Premise, "owl#AllDisjointClasses", &["cax-adc"]),
+    (Shows::Premise, "owl#complementOf", &["cls-com"]),
+    (Shows::Premise, "owl#maxCardinality", &["cls-maxc1", "cls-maxc2"]),
+    (
+        Shows::Premise,
+        "owl#maxQualifiedCardinality",
+        &["cls-maxqc1", "cls-maxqc2", "cls-maxqc3", "cls-maxqc4"],
+    ),
+    (Shows::Premise, "owl#IrreflexiveProperty", &["prp-irp"]),
+    (Shows::Premise, "owl#AsymmetricProperty", &["prp-asyp"]),
+    (Shows::Premise, "owl#propertyDisjointWith", &["prp-pdw"]),
+    (Shows::Premise, "owl#AllDisjointProperties", &["prp-adp"]),
+    (Shows::Premise, "owl#targetIndividual", &["prp-npa1"]),
+    (Shows::Premise, "owl#targetValue", &["prp-npa2"]),
+    (Shows::Premise, "owl#differentFrom", &["eq-diff1"]),
+    (Shows::Premise, "owl#AllDifferent", &["eq-diff2", "eq-diff3"]),
+    (Shows::Premise, "owl#hasKey", &["prp-key"]),
+    (Shows::Premise, "owl#Class", &["scm-cls"]),
+    (Shows::Premise, "owl#ObjectProperty", &["scm-op"]),
+    (Shows::Premise, "owl#DatatypeProperty", &["scm-dp"]),
+    (Shows::Premise, "owl#AnnotationProperty", &["prp-ap"]),
+    (Shows::Premise, "rdf-schema#label", &["prp-ap"]),
+    (Shows::Premise, "rdf-schema#comment", &["prp-ap"]),
+    (
+        Shows::Conclusion,
+        "rdf-schema#subPropertyOf",
+        &["scm-spo", "scm-eqp1", "scm-op", "scm-dp"],
+    ),
+    (Shows::Conclusion, "owl#equivalentProperty", &["scm-eqp2"]),
+    (Shows::Conclusion, "owl#equivalentClass", &["scm-eqc2"]),
+    (Shows::Conclusion, "rdf-schema#domain", &["scm-dom1", "scm-dom2"]),
+    (Shows::Conclusion, "rdf-schema#range", &["scm-rng1", "scm-rng2"]),
+    (
+        Shows::Conclusion,
+        "rdf-schema#subClassOf",
+        &[
+            "scm-cls", "scm-int", "scm-uni", "scm-svf1", "scm-svf2", "scm-avf1", "scm-avf2", "scm-hv",
+        ],
+    ),
+    (Shows::Conclusion, "owl#sameAs", &["eq-ref"]),
+    (
+        Shows::Literal,
+        "XMLSchema#",
+        &["dt-type1", "dt-type2", "dt-eq", "dt-diff", "dt-not-type"],
+    ),
+    (
+        Shows::Literal,
+        "rdf-syntax-ns#",
+        &["dt-type1", "dt-type2", "dt-eq", "dt-diff", "dt-not-type"],
+    ),
+];
+
+/// The rules a case likely needs that the program of the configuration
+/// does not hold ([`crate::programs::rules`]), read from the vocabulary of
+/// its premise and its conclusion with [`LIKELY_RULES`] (a report for the
+/// cases Nemo fails, not a proof). Empty when no such vocabulary shows.
+pub fn missing_rules(case: &Case, switches: Switches) -> Vec<&'static str> {
+    let held = crate::programs::rules(switches);
+    let premise: Vec<String> = case
+        .premise
+        .triples()
         .iter()
-        .filter(|(term, _)| has(&premise, term))
-        .map(|(_, rule)| *rule)
+        .flat_map(|t| [Term::from(t.predicate.clone()), t.object.clone()])
+        .filter_map(|t| match t {
+            Term::NamedNode(n) => Some(n.into_string()),
+            _ => None,
+        })
         .collect();
-    if let Expect::Entails(c) | Expect::NotEntails(c) = &case.expect {
-        let conclusion: Vec<String> = c.triples().iter().map(|t| t.predicate.as_str().to_owned()).collect();
-        out.extend(
-            BY_CONCLUSION
-                .iter()
-                .filter(|(term, _)| has(&conclusion, term))
-                .map(|(_, rule)| *rule),
-        );
-        if c.triples()
-            .iter()
-            .any(|t| t.predicate.as_str() == format!("{OWL}sameAs") && Term::from(t.subject.clone()) == t.object)
-        {
-            out.push("eq-ref");
+    let literals: Vec<String> = case
+        .premise
+        .triples()
+        .iter()
+        .filter_map(|t| match &t.object {
+            Term::Literal(l) => Some(l.datatype().as_str().to_owned()),
+            _ => None,
+        })
+        .collect();
+    let conclusion: Vec<String> = match &case.expect {
+        Expect::Entails(c) | Expect::NotEntails(c) => {
+            c.triples().iter().map(|t| t.predicate.as_str().to_owned()).collect()
         }
+        _ => Vec::new(),
+    };
+    let likely = |kinds: &[Shows]| -> Vec<&'static str> {
+        let mut out = Vec::new();
+        for (shows, part, rules) in LIKELY_RULES.iter().filter(|(s, _, _)| kinds.contains(s)) {
+            let iris = match shows {
+                Shows::Premise => &premise,
+                Shows::Conclusion => &conclusion,
+                Shows::Literal => &literals,
+            };
+            if iris.iter().any(|iri| iri.contains(part)) {
+                for rule in *rules {
+                    if !held.contains(*rule) && !out.contains(rule) {
+                        out.push(*rule);
+                    }
+                }
+            }
+        }
+        out
+    };
+    let mut out = likely(&[Shows::Premise, Shows::Conclusion]);
+    if out.is_empty() {
+        out = likely(&[Shows::Literal]);
     }
     let container = |g: &Input| {
         g.triples().iter().any(|t| {
@@ -395,15 +508,6 @@ pub fn missing_rules(case: &Case) -> Vec<&'static str> {
     if container(&case.premise) || conclusion_container {
         out.push("rdfs12 and RDFS axioms (container membership; not OWL 2 RL rules)");
     }
-    let literal = case
-        .premise
-        .triples()
-        .iter()
-        .any(|t| matches!(t.object, Term::Literal(_)));
-    if literal && out.is_empty() {
-        out.push("dt-* (Nemo has no datatype checks; dt-not-type is in version 1)");
-    }
-    out.dedup();
     out
 }
 

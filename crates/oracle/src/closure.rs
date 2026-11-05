@@ -6,6 +6,7 @@ use oxttl::NTriplesParser;
 use std::collections::HashSet;
 use std::fmt;
 use std::str::FromStr;
+use turbowl::{Switch, Switches};
 
 /// A closure (base, seed and inferred triples) and its findings.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -73,6 +74,12 @@ pub const CODES: &[&str] = &[
     "cls-com",
     "dt-not-type",
 ];
+
+/// The codes of [`CODES`] a configuration reports: every one is a rule of
+/// the `checks` switch, so all of them or none.
+pub fn codes(switches: Switches) -> &'static [&'static str] {
+    if switches.is_on(Switch::Checks) { CODES } else { &[] }
+}
 
 /// A diagnostic, reduced to what every oracle can say: its code (the W3C rule
 /// name) and the terms involved, in one order per code.

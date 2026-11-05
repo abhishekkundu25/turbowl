@@ -2,18 +2,26 @@
 //! generated inputs.
 //!
 //! Each iteration draws an input from the seed (`generate`, sizes 1 to 48)
-//! and compares closures and diagnostics, as sets, with
-//! `turbowl_reference::evaluate`; each run's `Summary` must count what the
-//! reads give. The full test runs the core once;
-//! the incremental test inserts the input in random batches with `reason()`
-//! between, then removes a random part and runs again, then puts it back and
-//! runs again, and each state must equal a full evaluation of its base.
+//! and a configuration (ADR 0005): the default, the complete one, or a
+//! random one (each switch on or off), about a third each, from a stream of
+//! its own so that the input and the incremental test's splits stay as they
+//! were. It runs the core's `Reasoner` with those switches and compares
+//! closures and diagnostics, as sets, with
+//! `turbowl_reference::evaluate_within` in the same configuration; each
+//! run's `Summary` must count what the reads give. The full test runs the
+//! core once; the incremental test inserts the input in random batches with
+//! `reason()` between, then removes a random part and runs again, then puts
+//! it back and runs again, and each state must equal a full evaluation of
+//! its base.
 //!
 //! Deterministic: CHAOS_SEED and CHAOS_ITERS override the seed and the
-//! count; CHAOS_ONLY=<i> runs iteration i alone. A failure prints the line
-//! that replays it and saves the input as N-Triples under `target/chaos/`.
-//! An iteration past its budget (CHAOS_ITERATION_BUDGET_MS) is reported the
-//! same way by a watchdog, which then exits the process.
+//! count; CHAOS_ONLY=<i> runs iteration i alone; CHAOS_SWITCHES runs every
+//! iteration in one configuration (`default`, `complete`, `none`, or the
+//! switches that are on, comma-separated: `equality,checks`). A failure
+//! prints the line that replays it, its configuration included, and saves
+//! the input as N-Triples under `target/chaos/`. An iteration past its
+//! budget (CHAOS_ITERATION_BUDGET_MS) is reported the same way by a
+//! watchdog, which then exits the process.
 //!
 //! Inputs whose reference closure would pass `MAX_CLOSURE` triples are
 //! skipped and counted: the reference has no representatives, so a large
@@ -29,7 +37,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use turbowl::Reasoner;
+use turbowl::{Reasoner, Switch, Switches};
 use turbowl_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
 
 /// The largest reference closure an iteration is compared on.
@@ -70,6 +78,61 @@ fn input_of(seed: u64, i: usize) -> (Vec<Triple>, Rng) {
     (input, rng)
 }
 
+/// Mixed into the seed for the configurations' stream, so that drawing a
+/// configuration leaves the inputs and the splits as they were.
+const CONFIGURATIONS: u64 = 0xC0F1_6A7E_5717_C4E5;
+
+/// The configuration of iteration `i`: CHAOS_SWITCHES when it is set,
+/// otherwise drawn from the seed: the default, the complete one, or each
+/// switch on or off at random, a third each.
+fn configuration_of(seed: u64, i: usize) -> Switches {
+    if let Ok(names) = std::env::var("CHAOS_SWITCHES") {
+        return parse_switches(&names).unwrap_or_else(|e| panic!("CHAOS_SWITCHES={names}: {e}"));
+    }
+    let mut rng = Rng::at(seed ^ CONFIGURATIONS, i);
+    match rng.below(3) {
+        0 => Switches::default(),
+        1 => Switches::complete(),
+        _ => Switch::ALL
+            .into_iter()
+            .fold(Switches::complete(), |on, s| if rng.one_in(2) { on.off(s) } else { on }),
+    }
+}
+
+/// A configuration as CHAOS_SWITCHES writes it: `default`, `complete`,
+/// `none`, or the switches that are on, comma-separated.
+fn switches_name(switches: Switches) -> String {
+    let on: Vec<&str> = Switch::ALL
+        .into_iter()
+        .filter(|&s| switches.is_on(s))
+        .map(Switch::name)
+        .collect();
+    if switches == Switches::default() {
+        "default".to_owned()
+    } else if switches == Switches::complete() {
+        "complete".to_owned()
+    } else if on.is_empty() {
+        "none".to_owned()
+    } else {
+        on.join(",")
+    }
+}
+
+/// The configuration [`switches_name`] wrote.
+fn parse_switches(names: &str) -> Result<Switches, String> {
+    let none = Switch::ALL.into_iter().fold(Switches::complete(), Switches::off);
+    match names.trim() {
+        "default" => Ok(Switches::default()),
+        "complete" => Ok(Switches::complete()),
+        "none" => Ok(none),
+        list => list.split(',').try_fold(none, |on, name| {
+            Switch::from_name(name.trim())
+                .map(|s| on.on(s))
+                .ok_or_else(|| format!("no switch is called {name:?}"))
+        }),
+    }
+}
+
 /// What one iteration did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Done {
@@ -91,9 +154,10 @@ fn say(line: &str) {
     let _ = std::io::stderr().lock().write_all(format!("{line}\n").as_bytes());
 }
 
-/// What the reference says, or `None` when the input is too large for it.
-fn reference(base: &HashSet<Triple>) -> Option<(HashSet<Triple>, Diagnostics)> {
-    evaluate_within(base, MAX_CLOSURE).map(|e| (e.closure, e.diagnostics))
+/// What the reference says in the configuration, or `None` when the input
+/// is too large for it.
+fn reference(base: &HashSet<Triple>, switches: Switches) -> Option<(HashSet<Triple>, Diagnostics)> {
+    evaluate_within(base, switches, MAX_CLOSURE).map(|e| (e.closure, e.diagnostics))
 }
 
 /// Runs the reasoner, and checks that its summary counts what its reads
@@ -126,9 +190,24 @@ fn chaos_dir() -> PathBuf {
     tmp.parent().map_or(tmp.clone(), |target| target.join("chaos"))
 }
 
-/// Saves the input and returns the report: what failed, the replay line,
-/// and where the input is.
-fn failure_report(kind: &str, seed: u64, iters: usize, i: usize, input: &[Triple], why: &str) -> String {
+/// The iteration a report is about.
+#[derive(Debug, Clone, Copy)]
+struct Iteration {
+    seed: u64,
+    iters: usize,
+    i: usize,
+    switches: Switches,
+}
+
+/// Saves the input and returns the report: what failed, the replay line
+/// (with the configuration), and where the input is.
+fn failure_report(kind: &str, at: Iteration, input: &[Triple], why: &str) -> String {
+    let Iteration {
+        seed,
+        iters,
+        i,
+        switches,
+    } = at;
     let dir = chaos_dir();
     let path = dir.join(format!("{kind}-seed{seed}-iteration{i}.nt"));
     let saved = std::fs::create_dir_all(&dir)
@@ -138,8 +217,9 @@ fn failure_report(kind: &str, seed: u64, iters: usize, i: usize, input: &[Triple
             |()| format!("saved to {}", path.display()),
         );
     format!(
-        "{kind} iteration {i} (seed {seed}; replay with CHAOS_SEED={seed} CHAOS_ITERS={iters} CHAOS_ONLY={i}) \
-         failed: {why}\n  input: {} triples, {saved}",
+        "{kind} iteration {i} (seed {seed}, switches {switches:?}; replay with CHAOS_SEED={seed} \
+         CHAOS_ITERS={iters} CHAOS_ONLY={i} CHAOS_SWITCHES={}) failed: {why}\n  input: {} triples, {saved}",
+        switches_name(switches),
         input.len()
     )
 }
@@ -171,8 +251,8 @@ fn difference(expected: &(HashSet<Triple>, Diagnostics), actual: &(HashSet<Tripl
     (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
-/// The iteration a shard is running: its number, start and input.
-type Running = Option<(usize, Instant, Arc<Vec<Triple>>)>;
+/// The iteration a shard is running: which, its start and its input.
+type Running = Option<(Iteration, Instant, Arc<Vec<Triple>>)>;
 
 /// A shard's watchdog: a thread that wakes every 100 ms and, when the
 /// iteration in the slot has run past the budget, reports it and exits the
@@ -185,7 +265,7 @@ struct Watchdog {
 }
 
 impl Watchdog {
-    fn new(kind: &'static str, seed: u64, iters: usize) -> Watchdog {
+    fn new(kind: &'static str) -> Watchdog {
         let budget = Duration::from_millis(env_or("CHAOS_ITERATION_BUDGET_MS", ITERATION_BUDGET.as_millis() as u64));
         let slot: Arc<Mutex<Running>> = Arc::default();
         let weak = Arc::downgrade(&slot);
@@ -194,10 +274,12 @@ impl Watchdog {
                 std::thread::sleep(Duration::from_millis(100));
                 let Some(slot) = weak.upgrade() else { return };
                 let running = slot.lock().unwrap_or_else(|e| e.into_inner());
-                let Some((i, started, input)) = &*running else { continue };
+                let Some((at, started, input)) = &*running else {
+                    continue;
+                };
                 if started.elapsed() > budget {
                     let why = format!("still running after {:.2?} (budget {budget:?})", started.elapsed());
-                    let report = failure_report(kind, seed, iters, *i, input, &why);
+                    let report = failure_report(kind, *at, input, &why);
                     // libtest captures `eprintln!` from this thread too, and the exit drops it.
                     let _ = std::io::stderr().lock().write_all(format!("{report}\n").as_bytes());
                     std::process::exit(101);
@@ -211,16 +293,16 @@ impl Watchdog {
         }
     }
 
-    /// Iteration `i` starts on `input`.
-    fn start(&mut self, i: usize, input: &[Triple]) {
-        let next = Some((i, Instant::now(), Arc::new(input.to_vec())));
+    /// Iteration `at` starts on `input`.
+    fn start(&mut self, at: Iteration, input: &[Triple]) {
+        let next = Some((at, Instant::now(), Arc::new(input.to_vec())));
         let last = std::mem::replace(&mut *self.slot.lock().unwrap_or_else(|e| e.into_inner()), next);
         self.time(last);
     }
 
     fn time(&mut self, last: Running) {
-        if let Some((i, started, _)) = last {
-            self.slowest.push((started.elapsed(), i));
+        if let Some((at, started, _)) = last {
+            self.slowest.push((started.elapsed(), at.i));
             self.slowest.sort_by(|a, b| b.cmp(a));
             self.slowest.truncate(5);
         }
@@ -241,45 +323,60 @@ impl Drop for Watchdog {
     }
 }
 
-/// Runs `check` on every iteration of shard `k`: a returned error or a
-/// panic fails the test with the replay line.
-fn run(kind: &'static str, default_seed: u64, k: usize, check: impl Fn(&[Triple], &mut Rng) -> Result<Done, String>) {
+/// Runs `check` on every iteration of shard `k`, in the iteration's
+/// configuration: a returned error or a panic fails the test with the
+/// replay line.
+fn run(
+    kind: &'static str,
+    default_seed: u64,
+    k: usize,
+    check: impl Fn(&[Triple], Switches, &mut Rng) -> Result<Done, String>,
+) {
     let seed = env_or("CHAOS_SEED", default_seed);
     let iters = env_or("CHAOS_ITERS", 400usize);
-    let mut watchdog = Watchdog::new(kind, seed, iters);
-    let (mut compared, mut too_large) = (0, 0);
+    let mut watchdog = Watchdog::new(kind);
+    // Compared iterations by configuration: default, complete or random.
+    let (mut too_large, mut compared) = (0, std::collections::BTreeMap::<String, usize>::new());
     for i in iterations(iters, k) {
         let (input, mut rng) = input_of(seed, i);
-        watchdog.start(i, &input);
-        match catch_unwind(AssertUnwindSafe(|| check(&input, &mut rng))) {
-            Ok(Ok(Done::Compared)) => compared += 1,
+        let switches = configuration_of(seed, i);
+        let at = Iteration {
+            seed,
+            iters,
+            i,
+            switches,
+        };
+        watchdog.start(at, &input);
+        match catch_unwind(AssertUnwindSafe(|| check(&input, switches, &mut rng))) {
+            Ok(Ok(Done::Compared)) => {
+                let name = switches_name(switches);
+                let label = match name.as_str() {
+                    "default" | "complete" => name,
+                    _ => "random".to_owned(),
+                };
+                *compared.entry(label).or_default() += 1;
+            }
             Ok(Ok(Done::TooLarge)) => too_large += 1,
-            Ok(Err(why)) => panic!("{}", failure_report(kind, seed, iters, i, &input, &why)),
+            Ok(Err(why)) => panic!("{}", failure_report(kind, at, &input, &why)),
             Err(payload) => panic!(
                 "{}",
-                failure_report(
-                    kind,
-                    seed,
-                    iters,
-                    i,
-                    &input,
-                    &format!("panicked: {}", panic_message(&*payload))
-                )
+                failure_report(kind, at, &input, &format!("panicked: {}", panic_message(&*payload)))
             ),
         }
     }
+    let total: usize = compared.values().sum();
     say(&format!(
-        "{kind} shard {k}: {compared} compared; not compared: {too_large} too large for the reference"
+        "{kind} shard {k}: {total} compared ({compared:?}); not compared: {too_large} too large for the reference"
     ));
 }
 
 /// One full run equals the reference.
-fn full(input: &[Triple], _rng: &mut Rng) -> Result<Done, String> {
+fn full(input: &[Triple], switches: Switches, _rng: &mut Rng) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
-    let Some(expected) = reference(&base) else {
+    let Some(expected) = reference(&base, switches) else {
         return Ok(Done::TooLarge);
     };
-    let mut reasoner = Reasoner::new();
+    let mut reasoner = Reasoner::with_switches(switches);
     reasoner.insert(input.iter().map(Triple::as_ref));
     reason(&mut reasoner)?;
     if let Some(diff) = difference(&expected, &core_state(&reasoner)) {
@@ -290,7 +387,7 @@ fn full(input: &[Triple], _rng: &mut Rng) -> Result<Done, String> {
 
 /// Batches of insertions, then a removal, then the removed triples put
 /// back, each followed by `reason()`, equal a full evaluation of the base.
-fn incremental(input: &[Triple], rng: &mut Rng) -> Result<Done, String> {
+fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let batches = 1 + rng.below(4);
     let mut split: Vec<Vec<&Triple>> = vec![Vec::new(); batches];
@@ -300,10 +397,10 @@ fn incremental(input: &[Triple], rng: &mut Rng) -> Result<Done, String> {
     let removed: Vec<&Triple> = input.iter().filter(|_| rng.one_in(4)).collect();
     let kept: HashSet<Triple> = base.iter().filter(|t| !removed.contains(t)).cloned().collect();
 
-    let (Some(whole), Some(after_removal)) = (reference(&base), reference(&kept)) else {
+    let (Some(whole), Some(after_removal)) = (reference(&base, switches), reference(&kept, switches)) else {
         return Ok(Done::TooLarge);
     };
-    let mut reasoner = Reasoner::new();
+    let mut reasoner = Reasoner::with_switches(switches);
     for batch in &split {
         reasoner.insert(batch.iter().map(|t| t.as_ref()));
         reason(&mut reasoner)?;
@@ -361,16 +458,63 @@ fn shards_cover_every_iteration_once() {
     }
 }
 
+/// The configurations: drawn from the seed, the default, the complete one
+/// and random ones each about a third of the time over 300 iterations;
+/// every name [`switches_name`] writes reads back as the same switches.
+#[test]
+fn configurations_are_drawn_from_the_seed_and_replay() {
+    if std::env::var_os("CHAOS_SWITCHES").is_some() {
+        return;
+    }
+    let (mut default, mut complete, mut other) = (0, 0, 0);
+    for i in 0..300 {
+        let switches = configuration_of(FULL_SEED, i);
+        assert_eq!(
+            switches,
+            configuration_of(FULL_SEED, i),
+            "the same seed gives the same configuration"
+        );
+        match switches_name(switches).as_str() {
+            "default" => default += 1,
+            "complete" => complete += 1,
+            _ => other += 1,
+        }
+        assert_eq!(parse_switches(&switches_name(switches)), Ok(switches));
+    }
+    for count in [default, complete, other] {
+        assert!(
+            (70..=130).contains(&count),
+            "{default} default, {complete} complete, {other} other"
+        );
+    }
+    let none = Switch::ALL.into_iter().fold(Switches::complete(), Switches::off);
+    assert_eq!(parse_switches("none"), Ok(none));
+    assert_eq!(
+        parse_switches("equality, checks"),
+        Ok(none.on(Switch::Equality).on(Switch::Checks))
+    );
+    assert!(parse_switches("equality,unknown").is_err());
+}
+
 /// An iteration past its budget: the child (this test binary, run again on
 /// this test alone) starts an iteration that sleeps past a 100 ms budget;
-/// the watchdog must name the iteration and the replay line, save the input
-/// and exit 101.
+/// the watchdog must name the iteration and the replay line with its
+/// configuration, save the input and exit 101.
 #[test]
 fn watchdog_reports_a_stuck_iteration() {
     if std::env::var_os("CHAOS_WATCHDOG_CHILD").is_some() {
-        let mut watchdog = Watchdog::new("watchdog", 7, 2000);
+        let mut watchdog = Watchdog::new("watchdog");
         let (input, _) = input_of(7, 5);
-        watchdog.start(5, &input);
+        let switches = Switches::default().off(Switch::Equality);
+        watchdog.start(
+            Iteration {
+                seed: 7,
+                iters: 2000,
+                i: 5,
+                switches,
+            },
+            &input,
+        );
         std::thread::sleep(Duration::from_secs(5));
         unreachable!("the watchdog exits first");
     }
@@ -388,7 +532,9 @@ fn watchdog_reports_a_stuck_iteration() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(101), "{stderr}");
     assert!(
-        stderr.contains("CHAOS_SEED=7 CHAOS_ITERS=2000 CHAOS_ONLY=5"),
+        stderr.contains(
+            "CHAOS_SEED=7 CHAOS_ITERS=2000 CHAOS_ONLY=5 CHAOS_SWITCHES=property-chains,checks,identity,schema"
+        ),
         "{stderr}"
     );
     assert!(stderr.contains("budget 100ms"), "{stderr}");

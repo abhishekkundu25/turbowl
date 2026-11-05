@@ -52,7 +52,8 @@ pub fn input(name: &str, files: &[&str]) -> Option<Input> {
 /// running the scenarios side by side makes the file slower, not faster.
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Every oracle on the files under `data/reasonable/`, compared; panics on a failed check.
+/// Every oracle on the files under `data/reasonable/`, compared in the
+/// default and the complete configuration; panics on a failed check.
 pub fn check(name: &str, covers: &str, files: &[&str]) {
     let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let Some(input) = input(name, files) else { return };
@@ -63,8 +64,8 @@ pub fn check(name: &str, covers: &str, files: &[&str]) {
         hermit: !files.contains(&OWL),
     };
     let start = std::time::Instant::now();
-    let row = triangulate_input(name, covers, &input, None, options);
-    let table = Table { rows: vec![row] };
+    let rows = triangulate_input(name, covers, &input, None, options);
+    let table = Table { rows };
     let text = format!(
         "{}\nInput: {} triples from {}. The oracles took {:.1} s.\n",
         table.markdown(),
@@ -77,7 +78,7 @@ pub fn check(name: &str, covers: &str, files: &[&str]) {
     let failures: Vec<String> = table
         .failures()
         .iter()
-        .map(|(_, c)| format!("{}\n{}", c.name, c.detail))
+        .map(|(row, c)| format!("{row}: {}\n{}", c.name, c.detail))
         .collect();
     assert!(
         failures.is_empty(),
