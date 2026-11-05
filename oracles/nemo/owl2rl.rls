@@ -91,10 +91,12 @@ chainCell(?l) :- T(?p, owl:propertyChainAxiom, ?l) .
 chainCell(?r) :- chainCell(?l), T(?l, rdf:rest, ?r), ?r != rdf:nil .
 chainFrom(?l, ?u, ?v) :- chainCell(?l), T(?l, rdf:rest, rdf:nil), T(?l, rdf:first, ?q), Tp(?q, ?u, ?v) .
 chainFrom(?l, ?u, ?w) :- chainCell(?l), T(?l, rdf:first, ?q), Tp(?q, ?u, ?v),
-    T(?l, rdf:rest, ?r), chainFrom(?r, ?v, ?w) .
+    T(?l, rdf:rest, ?r), ?r != rdf:nil, chainFrom(?r, ?v, ?w) .
 T(?u, ?p, ?w) :- T(?p, owl:propertyChainAxiom, ?l), chainFrom(?l, ?u, ?w) .
 
 % Lists read from the heads of intersections and unions (asserted or derived).
+% rdf:rest stops at rdf:nil: it is never a later cell, whatever triples it
+% has, though it can be a head (so every recursion over rdf:rest excludes it).
 % member(?h, ?c): ?c is a member of the well-formed list whose head is ?h.
 listCell(?h, ?h) :- T(?c, owl:intersectionOf, ?h) .
 listCell(?h, ?h) :- T(?c, owl:unionOf, ?h) .
@@ -102,16 +104,16 @@ listCell(?h, ?r) :- listCell(?h, ?l), T(?l, rdf:rest, ?r), ?r != rdf:nil .
 % wellFormed(?l): from cell ?l, every cell has an rdf:first and the rdf:rest
 % path reaches rdf:nil (the W3C LIST[...] form).
 wellFormed(?l) :- listCell(?h, ?l), T(?l, rdf:first, ?c), T(?l, rdf:rest, rdf:nil) .
-wellFormed(?l) :- listCell(?h, ?l), T(?l, rdf:first, ?c), T(?l, rdf:rest, ?r), wellFormed(?r) .
+wellFormed(?l) :- listCell(?h, ?l), T(?l, rdf:first, ?c), T(?l, rdf:rest, ?r), ?r != rdf:nil, wellFormed(?r) .
 % memberFrom(?l, ?c): ?c is the rdf:first of ?l or of a later cell, on a
 % well-formed path from ?l to rdf:nil.
 memberFrom(?l, ?c) :- wellFormed(?l), T(?l, rdf:first, ?c) .
-memberFrom(?l, ?c) :- wellFormed(?l), T(?l, rdf:rest, ?r), memberFrom(?r, ?c) .
+memberFrom(?l, ?c) :- wellFormed(?l), T(?l, rdf:rest, ?r), ?r != rdf:nil, memberFrom(?r, ?c) .
 member(?h, ?c) :- listCell(?h, ?h), memberFrom(?h, ?c) .
 % allTypes(?l, ?y): ?y has every type from cell ?l to the end of the list.
 allTypes(?l, ?y) :- listCell(?h, ?l), T(?l, rdf:first, ?c), T(?l, rdf:rest, rdf:nil), T(?y, rdf:type, ?c) .
 allTypes(?l, ?y) :- listCell(?h, ?l), T(?l, rdf:first, ?c), T(?y, rdf:type, ?c),
-    T(?l, rdf:rest, ?r), allTypes(?r, ?y) .
+    T(?l, rdf:rest, ?r), ?r != rdf:nil, allTypes(?r, ?y) .
 
 % Table 6: classes
 T(?y, rdf:type, ?c) :- T(?c, owl:intersectionOf, ?h), allTypes(?h, ?y) .          % cls-int1

@@ -212,6 +212,42 @@ fn class_rules() {
     );
 }
 
+/// Lists are read as the W3C `LIST[...]` patterns: every cell on the path
+/// from the head to `rdf:nil` needs an `rdf:first`, and `rdf:rest` stops at
+/// `rdf:nil`.
+#[test]
+fn lists_need_a_first_in_every_cell_and_stop_at_nil() {
+    // (a) A cell without an rdf:first on the only path: no member counts,
+    // for a union (cls-uni) and an intersection (cls-int1, cls-int2).
+    expect_derived(
+        "ex:U owl:unionOf ex:u1 . ex:u1 rdf:first ex:A ; rdf:rest ex:u2 . ex:u2 rdf:rest rdf:nil .
+         ex:I owl:intersectionOf ex:u1 . ex:x a ex:A . ex:y a ex:I .",
+        "",
+    );
+    // (a) A first-less cell on one branch, a well-formed branch beside it:
+    // the well-formed path's members count, the other branch's do not.
+    expect_derived(
+        "ex:U owl:unionOf ex:b1 . ex:b1 rdf:first ex:A ; rdf:rest ex:b2 , ex:b3 .
+         ex:b2 rdf:rest ex:b4 . ex:b4 rdf:first ex:B ; rdf:rest rdf:nil .
+         ex:b3 rdf:first ex:D ; rdf:rest rdf:nil .
+         ex:x a ex:A . ex:y a ex:B . ex:z a ex:D .",
+        "ex:x a ex:U . ex:z a ex:U .",
+    );
+    // (b) rdf:nil reached by rdf:rest contributes nothing, even with an
+    // rdf:first and an rdf:rest of its own.
+    expect_derived(
+        "ex:U owl:unionOf ex:n1 . ex:n1 rdf:first ex:A ; rdf:rest rdf:nil .
+         rdf:nil rdf:first ex:B ; rdf:rest rdf:nil .
+         ex:I owl:intersectionOf ex:n1 . ex:x a ex:B . ex:y a ex:I .",
+        "ex:y a ex:A . ex:y a ex:U .",
+    );
+    // rdf:nil as a head, with a first and a rest of its own, is a list.
+    expect_derived(
+        "ex:U owl:unionOf rdf:nil . rdf:nil rdf:first ex:B ; rdf:rest rdf:nil . ex:x a ex:B .",
+        "ex:x a ex:U .",
+    );
+}
+
 /// Rules outside the version 1 rule set add nothing: scm-spo, scm-sco's
 /// equivalence (scm-eqc2), eq-diff*, cls-oo.
 #[test]

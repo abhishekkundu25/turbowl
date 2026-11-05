@@ -334,6 +334,58 @@ fn the_empty_list_has_no_members() {
 }
 
 #[test]
+fn a_cell_without_a_first_breaks_the_list() {
+    // (a) The only path from _:l1 to rdf:nil passes _:l2, which has no
+    // rdf:first: the list has no members, so A counts for neither class.
+    infers(
+        "ex:U owl:unionOf _:l1 . ex:C owl:intersectionOf _:l1 .
+         _:l1 rdf:first ex:A ; rdf:rest _:l2 . _:l2 rdf:rest rdf:nil .
+         ex:x a ex:A . ex:y a ex:C .",
+        "",
+    );
+}
+
+#[test]
+fn a_union_reads_the_well_formed_branch_beside_a_broken_one() {
+    // From _:b1, the branch through _:b2 has no rdf:first at _:b2 (so its
+    // later cell _:b4 is not read from this head); the branch through _:b3
+    // is well formed. The members are A and D.
+    infers(
+        "ex:U owl:unionOf _:b1 .
+         _:b1 rdf:first ex:A ; rdf:rest _:b2 , _:b3 .
+         _:b2 rdf:rest _:b4 . _:b4 rdf:first ex:B ; rdf:rest rdf:nil .
+         _:b3 rdf:first ex:D ; rdf:rest rdf:nil .
+         ex:x a ex:A . ex:y a ex:B . ex:z a ex:D .",
+        "ex:x a ex:U
+         ex:z a ex:U",
+    );
+}
+
+#[test]
+fn rdf_nil_reached_by_rest_contributes_nothing() {
+    // (b) rdf:nil has an rdf:first and an rdf:rest of its own, but rdf:rest
+    // stops at it: the list (A) has one member, B is none.
+    infers(
+        "ex:U owl:unionOf _:n1 . ex:C owl:intersectionOf _:n1 .
+         _:n1 rdf:first ex:A ; rdf:rest rdf:nil .
+         rdf:nil rdf:first ex:B ; rdf:rest rdf:nil .
+         ex:x a ex:B . ex:y a ex:C . ex:z a ex:A .",
+        "ex:y a ex:A
+         ex:y a ex:U
+         ex:z a ex:U
+         ex:z a ex:C",
+    );
+}
+
+#[test]
+fn rdf_nil_as_a_head_is_read_like_any_cell() {
+    infers(
+        "ex:U owl:unionOf rdf:nil . rdf:nil rdf:first ex:B ; rdf:rest rdf:nil . ex:x a ex:B .",
+        "ex:x a ex:U",
+    );
+}
+
+#[test]
 fn a_list_derived_during_the_run_counts() {
     // cls-hv1 derives the intersection pair, the list cells' rdf:first and
     // rdf:rest, and so the list (A B) of ex:C, one round at a time.

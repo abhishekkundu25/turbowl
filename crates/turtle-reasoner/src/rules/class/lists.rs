@@ -1,19 +1,25 @@
 //! cls-int1, cls-int2 and cls-uni: the rules that read the lists of
 //! `owl:intersectionOf` and `owl:unionOf`.
 //!
-//! Lists are read as the reference evaluator reads them (the W3C `LIST[...]`
-//! patterns in Datalog form):
-//! - the cells of a list are its head and every cell an `rdf:rest` path
-//!   reaches from it (`rdf:nil` included, as a cell with no `rdf:rest`
-//!   unless the data gives it one);
-//! - a cell may have several `rdf:first` and several `rdf:rest`;
-//! - a member is an `rdf:first` of a cell from which some `rdf:rest` path
-//!   reaches `rdf:nil`, so a cyclic list that never reaches `rdf:nil` has no
-//!   member, and `rdf:nil` has none unless the data says otherwise;
-//! - shared tails are read once per head (each list is read on its own);
+//! Lists are read as the W3C `LIST[...]` patterns, in Datalog form, as
+//! `oracles/nemo/owl2rl.rls` and the reference evaluator read them: a list
+//! is matched along a path `z1` (the head), `z2`, ..., `zn` with
+//! `zi rdf:rest z(i+1)` and `zn rdf:rest rdf:nil`, every cell having at
+//! least one `rdf:first`, each cell contributing the first chosen for it.
+//! - The cells of a list are its head and every cell an `rdf:rest` path
+//!   reaches from it without passing `rdf:nil`: `rdf:rest` stops at
+//!   `rdf:nil`, which is never a later cell, whatever triples it has (it can
+//!   be a head).
+//! - A cell may have several `rdf:first` and several `rdf:rest`.
+//! - A cell is *well formed* when it has an `rdf:first` and an `rdf:rest`
+//!   that is `rdf:nil` or a well-formed cell. The members (cls-int2,
+//!   cls-uni) are the firsts of the well-formed cells reached from the head
+//!   through well-formed cells: a cyclic list that never reaches `rdf:nil`,
+//!   or one whose every path has a cell without an `rdf:first`, has none.
+//! - Shared tails are read once per head (each list is read on its own).
 //! - cls-int1 holds for `y` when some path from the head to `rdf:nil` has, at
-//!   every cell, an `rdf:first` that `y` is typed with;
-//! - every `(class, head)` pair counts, and list triples derived during the
+//!   every cell, an `rdf:first` that `y` is typed with.
+//! - Every `(class, head)` pair counts, and list triples derived during the
 //!   run count from the round after they are derived.
 //!
 //! Lists are schema-sized, so they are read again each round in which a
@@ -216,10 +222,11 @@ struct Cell {
     term: u32,
     firsts: (usize, usize),
     rests: (usize, usize),
-    /// An `rdf:rest` of this cell is `rdf:nil`.
+    /// An `rdf:rest` of this cell is `rdf:nil` (which `rests` leaves out).
     to_nil: bool,
-    /// Some `rdf:rest` path from this cell reaches `rdf:nil`.
-    reaches_nil: bool,
+    /// An `rdf:first`, and an `rdf:rest` that is `rdf:nil` or a well-formed
+    /// cell.
+    well_formed: bool,
 }
 
 impl Cell {
@@ -229,7 +236,7 @@ impl Cell {
             firsts: (0, 0),
             rests: (0, 0),
             to_nil: false,
-            reaches_nil: false,
+            well_formed: false,
         }
     }
 }
@@ -254,10 +261,12 @@ impl Lists {
     /// cells every path from the head to `rdf:nil` passes through (the head,
     /// then each cell's only `rdf:rest` while there is one), the one whose
     /// members have the fewest instances (`size` of each, summed). `None`
-    /// when the head reaches no `rdf:nil`.
+    /// when the head is not well formed. Every cell on that chain is well
+    /// formed (a well-formed cell's only rest is well formed), so the
+    /// pivot's firsts are members.
     fn pivot(&self, entry: &Entry, size: impl Fn(u32) -> usize) -> Option<(&Cell, usize)> {
         let cells = &self.cells[entry.cells.0..entry.cells.1];
-        if !cells[0].reaches_nil {
+        if !cells[0].well_formed {
             return None;
         }
         let mut best = (0, usize::MAX);
@@ -286,14 +295,15 @@ impl Lists {
         held.extend(
             cells
                 .iter()
-                .map(|c| c.reaches_nil && self.firsts[c.firsts.0..c.firsts.1].iter().any(|&k| holds(k))),
+                .map(|c| c.well_formed && self.firsts[c.firsts.0..c.firsts.1].iter().any(|&k| holds(k))),
         );
         if !held[0] {
             return false;
         }
         good.clear();
         good.resize(cells.len(), false);
-        // A cell is good when a member holds and a rest is nil or good. The
+        // A cell is good when a member holds and a rest is nil or good (so
+        // it is well formed, which `held` already asks). The
         // cells are in breadth-first order, so a backward pass settles a
         // simple list at once; repeat until nothing changes.
         loop {
@@ -325,6 +335,9 @@ struct Reader<'a> {
     /// once the list is longer than [`SHORT`].
     index: FxHashMap<u32, u32>,
     scratch: Vec<u32>,
+    /// The cells (local indexes) reached through well-formed cells.
+    reached: Vec<u32>,
+    seen: Vec<bool>,
 }
 
 impl<'a> Reader<'a> {
@@ -342,6 +355,8 @@ impl<'a> Reader<'a> {
             touched,
             index: FxHashMap::default(),
             scratch: Vec::new(),
+            reached: Vec::new(),
+            seen: Vec::new(),
         }
     }
 
@@ -364,7 +379,7 @@ impl<'a> Reader<'a> {
         let mut changed = recent;
         self.index.clear();
         lists.cells.push(Cell::new(head));
-        // Breadth first along rdf:rest, each cell once.
+        // Breadth first along rdf:rest, each cell once, stopping at rdf:nil.
         let mut i = start;
         while i < lists.cells.len() {
             let term = lists.cells[i].term;
@@ -378,7 +393,10 @@ impl<'a> Reader<'a> {
             } = &mut *lists;
             let index = &mut self.index;
             self.rest.for_each_value(term, |tail| {
-                to_nil |= tail == NIL;
+                if tail == NIL {
+                    to_nil = true;
+                    return;
+                }
                 let next = (cells.len() - start) as u32;
                 // A short list is searched; a long one gets a map.
                 let seen = if next as usize <= SHORT {
@@ -405,21 +423,21 @@ impl<'a> Reader<'a> {
             i += 1;
         }
         let end = lists.cells.len();
-        // Which cells reach rdf:nil: a backward pass settles a simple list;
+        // Which cells are well formed: a backward pass settles a simple list;
         // repeat until nothing changes.
         loop {
             let mut grew = false;
             for i in (start..end).rev() {
                 let c = lists.cells[i];
-                if c.reaches_nil {
+                if c.well_formed || c.firsts.0 == c.firsts.1 {
                     continue;
                 }
                 if c.to_nil
                     || lists.rests[c.rests.0..c.rests.1]
                         .iter()
-                        .any(|&r| lists.cells[start + r as usize].reaches_nil)
+                        .any(|&r| lists.cells[start + r as usize].well_formed)
                 {
-                    lists.cells[i].reaches_nil = true;
+                    lists.cells[i].well_formed = true;
                     grew = true;
                 }
             }
@@ -427,10 +445,26 @@ impl<'a> Reader<'a> {
                 break;
             }
         }
+        // The members: the firsts of the well-formed cells reached from a
+        // well-formed head through well-formed cells.
         self.scratch.clear();
-        for c in &lists.cells[start..end] {
-            if c.reaches_nil {
+        if lists.cells[start].well_formed {
+            self.seen.clear();
+            self.seen.resize(end - start, false);
+            self.seen[0] = true;
+            self.reached.clear();
+            self.reached.push(0);
+            let mut k = 0;
+            while k < self.reached.len() {
+                let c = lists.cells[start + self.reached[k] as usize];
                 self.scratch.extend_from_slice(&lists.firsts[c.firsts.0..c.firsts.1]);
+                for &r in &lists.rests[c.rests.0..c.rests.1] {
+                    if !self.seen[r as usize] && lists.cells[start + r as usize].well_formed {
+                        self.seen[r as usize] = true;
+                        self.reached.push(r);
+                    }
+                }
+                k += 1;
             }
         }
         self.scratch.sort_unstable();

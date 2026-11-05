@@ -20,11 +20,20 @@
 //!   triples by eq-rep-o (`ex:y ex:q "a"` gives `ex:y ex:q "b"`); a literal
 //!   made equal to an IRI shows as `ex:i owl:sameAs "a"` by eq-sym.
 //! - Lists are read as the W3C rules read `LIST[...]` patterns, in Datalog
-//!   form: a list is any path of `rdf:rest` from its head to `rdf:nil`. A
-//!   cyclic list that never reaches `rdf:nil` matches nothing, shared tails
-//!   are read once per head, and an empty list (`rdf:nil` itself) has no
-//!   members. Every list of a class or property is read, and list triples
-//!   derived during the run count from the next round on.
+//!   form (as `oracles/nemo/owl2rl.rls` does): a list is matched along a
+//!   path `z1` (the head), `z2`, ..., `zn` with `zi rdf:rest z(i+1)` and
+//!   `zn rdf:rest rdf:nil`, where every cell has at least one `rdf:first`
+//!   and each cell contributes the first chosen for it. `rdf:rest` stops at
+//!   `rdf:nil`: `rdf:nil` is never a later cell, whatever triples it has,
+//!   though it can be a head. So a cell is *well formed* when it has an
+//!   `rdf:first` and an `rdf:rest` that is `rdf:nil` or a well-formed cell
+//!   other than `rdf:nil`, and the members of a list (cls-int2, cls-uni) are
+//!   the firsts of the well-formed cells reached from its head through
+//!   well-formed cells. A cyclic list that never reaches `rdf:nil` matches
+//!   nothing, a cell without an `rdf:first` breaks every path through it,
+//!   shared tails are read once per head, and an empty list (`rdf:nil`
+//!   itself) has no members. Every list of a class or property is read, and
+//!   list triples derived during the run count from the next round on.
 
 use crate::datatype;
 use crate::vocab::*;
@@ -201,8 +210,9 @@ struct View {
     sp: HashMap<(Term, Term), Vec<Term>>,
     po: HashMap<(Term, Term), Vec<Term>>,
     all: HashSet<(Term, Term, Term)>,
-    /// List cells from which a path of `rdf:rest` reaches `rdf:nil`.
-    reaches_nil: HashSet<Term>,
+    /// Well-formed list cells: an `rdf:first`, and an `rdf:rest` that is
+    /// `rdf:nil` or a well-formed cell other than `rdf:nil`.
+    well_formed: HashSet<Term>,
 }
 
 const NONE: &[Term] = &[];
@@ -217,7 +227,7 @@ impl View {
             sp: HashMap::new(),
             po: HashMap::new(),
             all: HashSet::new(),
-            reaches_nil: HashSet::new(),
+            well_formed: HashSet::new(),
         };
         for (s, p, o) in closure {
             view.by_p.entry(p.clone()).or_default().push((s.clone(), o.clone()));
@@ -227,21 +237,24 @@ impl View {
             view.po.entry((p.clone(), o.clone())).or_default().push(s.clone());
             view.all.insert((s.clone(), p.clone(), o.clone()));
         }
-        // A cell reaches nil when its rest is nil or a cell that reaches nil.
-        let nil = iri(RDF_NIL);
-        let rest = iri(RDF_REST);
-        let mut reaches_nil = HashSet::new();
+        // A cell is well formed when it has a first, and its rest is nil or
+        // a well-formed cell other than nil.
+        let (first, rest, nil) = (iri(RDF_FIRST), iri(RDF_REST), iri(RDF_NIL));
+        let mut well_formed = HashSet::new();
         let mut changed = true;
         while changed {
             changed = false;
             for (cell, tail) in view.pairs(&rest) {
-                if !reaches_nil.contains(cell) && (*tail == nil || reaches_nil.contains(tail)) {
-                    reaches_nil.insert(cell.clone());
+                if !well_formed.contains(cell)
+                    && !view.objects(cell, &first).is_empty()
+                    && (*tail == nil || well_formed.contains(tail))
+                {
+                    well_formed.insert(cell.clone());
                     changed = true;
                 }
             }
         }
-        view.reaches_nil = reaches_nil;
+        view.well_formed = well_formed;
         view
     }
 
@@ -290,17 +303,30 @@ impl View {
         cells
     }
 
-    /// The members of the list at `head`: the `rdf:first` of every cell on a
-    /// path from `head` to `rdf:nil`.
+    /// The members of the list at `head`: the `rdf:first` of every
+    /// well-formed cell reached from `head` (itself well formed) through
+    /// well-formed cells, never through `rdf:nil`. These are the cells on
+    /// some path from `head` to `rdf:nil` whose every cell has a first.
     fn members(&self, head: &Term) -> Vec<Term> {
-        let first = iri(RDF_FIRST);
-        let mut members = Vec::new();
-        for cell in self.cells(head) {
-            if self.reaches_nil.contains(&cell) {
-                members.extend(self.objects(&cell, &first).iter().cloned());
-            }
+        let (first, rest, nil) = (iri(RDF_FIRST), iri(RDF_REST), iri(RDF_NIL));
+        if !self.well_formed.contains(head) {
+            return Vec::new();
         }
-        members
+        let mut seen = HashSet::from([head.clone()]);
+        let mut cells = vec![head.clone()];
+        let mut i = 0;
+        while i < cells.len() {
+            for tail in self.objects(&cells[i], &rest) {
+                if *tail != nil && self.well_formed.contains(tail) && seen.insert(tail.clone()) {
+                    cells.push(tail.clone());
+                }
+            }
+            i += 1;
+        }
+        cells
+            .iter()
+            .flat_map(|cell| self.objects(cell, &first).iter().cloned())
+            .collect()
     }
 
     /// Whether some path from `head` to `rdf:nil` has, at every cell, a

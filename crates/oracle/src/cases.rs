@@ -330,6 +330,60 @@ pub fn minimal() -> Vec<Case> {
                      ex:J owl:intersectionOf _:l2 . ex:x a ex:B .",
             expect: &["+ ex:x rdf:type ex:J", "- ex:x rdf:type ex:I"],
         },
+        // A list whose only path to rdf:nil passes a cell without an
+        // rdf:first matches nothing (the W3C LIST[...] form): A is a member of
+        // neither the union nor the intersection.
+        Case {
+            name: "list-cell-without-first",
+            covers: "cls-int1, cls-int2, cls-uni, lists",
+            turtle: "ex:U owl:unionOf ex:l1 . ex:I owl:intersectionOf ex:l1 .
+                     ex:l1 rdf:first ex:A ; rdf:rest ex:l2 . ex:l2 rdf:rest rdf:nil .
+                     ex:x a ex:A . ex:y a ex:I .",
+            expect: &[
+                "- ex:x rdf:type ex:U",
+                "- ex:x rdf:type ex:I",
+                "- ex:y rdf:type ex:A",
+                "- ex:y rdf:type ex:U",
+            ],
+        },
+        // rdf:rest stops at rdf:nil: its own rdf:first and rdf:rest add no
+        // member to a list that ends there.
+        Case {
+            name: "list-rest-stops-at-nil",
+            covers: "cls-int1, cls-int2, cls-uni, lists",
+            turtle: "ex:U owl:unionOf ex:n1 . ex:I owl:intersectionOf ex:n1 .
+                     ex:n1 rdf:first ex:A ; rdf:rest rdf:nil . rdf:nil rdf:first ex:B ; rdf:rest rdf:nil .
+                     ex:x a ex:B . ex:y a ex:I . ex:z a ex:A .",
+            expect: &[
+                "+V ex:y rdf:type ex:A",
+                "+V ex:z rdf:type ex:U",
+                "+V ex:z rdf:type ex:I",
+                "- ex:x rdf:type ex:U",
+                "- ex:x rdf:type ex:I",
+                "- ex:y rdf:type ex:B",
+            ],
+        },
+        // rdf:nil can head a list and is read like any cell there, but a list
+        // that ends at rdf:nil never reads on into it: B is a member of V's
+        // union only.
+        Case {
+            name: "list-nil-head",
+            covers: "cls-uni, lists",
+            turtle: "ex:U owl:unionOf ex:n1 . ex:n1 rdf:first ex:A ; rdf:rest rdf:nil .
+                     ex:V owl:unionOf rdf:nil . rdf:nil rdf:first ex:B ; rdf:rest rdf:nil .
+                     ex:x a ex:B . ex:z a ex:A .",
+            expect: &["+V ex:x rdf:type ex:V", "+V ex:z rdf:type ex:U", "- ex:x rdf:type ex:U"],
+        },
+        // The same for property chains: (q) ends at rdf:nil and does not read
+        // on into the chain rdf:nil heads.
+        Case {
+            name: "chain-nil-head",
+            covers: "prp-spo2, lists",
+            turtle: "ex:p owl:propertyChainAxiom ex:l1 . ex:l1 rdf:first ex:q ; rdf:rest rdf:nil .
+                     ex:p2 owl:propertyChainAxiom rdf:nil . rdf:nil rdf:first ex:r ; rdf:rest rdf:nil .
+                     ex:a ex:q ex:b . ex:b ex:r ex:c .",
+            expect: &["+V ex:a ex:p ex:b", "+V ex:b ex:p2 ex:c", "- ex:a ex:p ex:c"],
+        },
         // List triples derived during the run count: the list's rdf:first
         // comes from prp-spo1, its head from prp-eqp1.
         Case {
