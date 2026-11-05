@@ -23,7 +23,7 @@ verification suite that judges it against several independent oracles.
 ## Where things live
 
 - The public interface: `crates/turtle-reasoner/src/lib.rs` (the
-  `Reasoner`, `Profile`, `Format`, `Summary`, `Diagnostic`, `Error`).
+  `Reasoner`, `Format`, `Summary`, `Diagnostic`, `Severity`, `Error`).
   Everything else in the crate is `pub(crate)`. Add to the interface only
   when an adapter (CLI, Python, oracle, bench) needs it, and say so in the
   crate doc.

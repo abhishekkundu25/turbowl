@@ -80,3 +80,9 @@ Departures from the plan, as they happen.
   container axioms, N3 and RDF/XML output, and `reasonable`'s ranges are
   settled by it: no `reasonable` faults are filtered or copied, no
   container axioms, all four output formats stay.
+- **Reference evaluator (ADR 0004).** Rules run over generalized triples;
+  only the returned closure drops triples that are not RDF (the spec now
+  says so). dt-not-type checks five datatypes, so a literal of another
+  datatype (`"3.5"^^xsd:decimal` typed `xsd:string`) is not reported,
+  though the W3C rule would report it. Ticket 09 matches the reference's
+  value-space rules.
