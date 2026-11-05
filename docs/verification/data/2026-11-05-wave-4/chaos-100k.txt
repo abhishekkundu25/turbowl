@@ -1,0 +1,40 @@
+==> full_runs_match_the_reference_0
+
+running 1 test
+test full_runs_match_the_reference_0 ... full shard 0: 49987 compared; not compared: 13 too large for the reference
+full slowest iterations: 22621 (11.68s), 29099 (9.95s), 24465 (5.67s), 17691 (3.38s), 38442 (1.60s)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 75.95s
+
+
+==> full_runs_match_the_reference_1
+
+running 1 test
+test full_runs_match_the_reference_1 ... full shard 1: 49993 compared; not compared: 7 too large for the reference
+full slowest iterations: 54937 (2.74s), 87241 (2.18s), 78059 (1.73s), 52258 (1.69s), 77396 (1.52s)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 55.88s
+
+
+==> incremental_runs_match_a_full_run_0
+
+running 1 test
+test incremental_runs_match_a_full_run_0 ... incremental shard 0: 49990 compared; not compared: 10 too large for the reference
+incremental slowest iterations: 27981 (1.86s), 38796 (1.85s), 34545 (1.81s), 2689 (1.71s), 45528 (1.71s)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 74.55s
+
+
+==> incremental_runs_match_a_full_run_1
+
+running 1 test
+test incremental_runs_match_a_full_run_1 ... incremental shard 1: 49989 compared; not compared: 11 too large for the reference
+incremental slowest iterations: 76564 (2.47s), 98267 (2.05s), 85489 (911.75ms), 96175 (659.75ms), 73204 (556.66ms)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 57.98s
+
+

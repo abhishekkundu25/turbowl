@@ -1,0 +1,978 @@
+
+running 1 test
+test building_models ... | Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ACADv11 | Brick + owl.n3 + rdfs.ttl + building | 95861 · - | 127385 · - | 95861 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 23437 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ACAD(v1.1).ttl. The oracles took 25.4 s.
+
+(written to <repo>/target/oracle/data-building-ACADv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-AMRLv11 | Brick + owl.n3 + rdfs.ttl + building | 34115 · - | 61921 · - | 34115 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15633 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/AMRL(v1.1).ttl. The oracles took 11.4 s.
+
+(written to <repo>/target/oracle/data-building-AMRLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-AOB4v11 | Brick + owl.n3 + rdfs.ttl + building | 32995 · - | 60687 · - | 32995 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15416 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/AOB4(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-AOB4v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-AQUAv11 | Brick + owl.n3 + rdfs.ttl + building | 32642 · - | 60312 · - | 32642 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15380 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/AQUA(v1.1).ttl. The oracles took 11.1 s.
+
+(written to <repo>/target/oracle/data-building-AQUAv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ARCv11 | Brick + owl.n3 + rdfs.ttl + building | 53012 · - | 81990 · - | 53012 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 18117 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ARC(v1.1).ttl. The oracles took 15.9 s.
+
+(written to <repo>/target/oracle/data-building-ARCv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ARTv11 | Brick + owl.n3 + rdfs.ttl + building | 33520 · - | 61244 · - | 33520 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15496 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ART(v1.1).ttl. The oracles took 11.7 s.
+
+(written to <repo>/target/oracle/data-building-ARTv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ARTXv11 | Brick + owl.n3 + rdfs.ttl + building | 36772 · - | 64692 · - | 36772 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15907 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ARTX(v1.1).ttl. The oracles took 12.6 s.
+
+(written to <repo>/target/oracle/data-building-ARTXv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ASMUNv11 | Brick + owl.n3 + rdfs.ttl + building | 35511 · - | 63523 · - | 35511 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16017 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ASMUN(v1.1).ttl. The oracles took 14.2 s.
+
+(written to <repo>/target/oracle/data-building-ASMUNv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-BIXBv11 | Brick + owl.n3 + rdfs.ttl + building | 33114 · - | 60818 · - | 33114 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15438 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/BIXB(v1.1).ttl. The oracles took 14.0 s.
+
+(written to <repo>/target/oracle/data-building-BIXBv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-BRIGv11 | Brick + owl.n3 + rdfs.ttl + building | 118352 · - | 151782 · - | 118352 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 27390 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/BRIG(v1.1).ttl. The oracles took 38.9 s.
+
+(written to <repo>/target/oracle/data-building-BRIGv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-BWFPv11 | Brick + owl.n3 + rdfs.ttl + building | 39583 · - | 67723 · - | 39583 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16323 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/BWFP(v1.1).ttl. The oracles took 12.9 s.
+
+(written to <repo>/target/oracle/data-building-BWFPv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-Bainerv11 | Brick + owl.n3 + rdfs.ttl + building | 49572 · - | 78094 · - | 49572 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 17319 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/Bainer(v1.1).ttl. The oracles took 14.4 s.
+
+(written to <repo>/target/oracle/data-building-Bainerv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-C113v11 | Brick + owl.n3 + rdfs.ttl + building | 32686 · - | 60364 · - | 32686 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15386 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/C113(v1.1).ttl. The oracles took 10.6 s.
+
+(written to <repo>/target/oracle/data-building-C113v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-CHEMv11 | Brick + owl.n3 + rdfs.ttl + building | 63318 · - | 93072 · - | 63318 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 19713 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/CHEM(v1.1).ttl. The oracles took 17.2 s.
+
+(written to <repo>/target/oracle/data-building-CHEMv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-CHEMXv11 | Brick + owl.n3 + rdfs.ttl + building | 55971 · - | 85453 · - | 55971 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 19082 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/CHEMX(v1.1).ttl. The oracles took 15.7 s.
+
+(written to <repo>/target/oracle/data-building-CHEMXv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-CONTv11 | Brick + owl.n3 + rdfs.ttl + building | 36066 · - | 63938 · - | 36066 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15830 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/CONT(v1.1).ttl. The oracles took 12.1 s.
+
+(written to <repo>/target/oracle/data-building-CONTv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-COWLv11 | Brick + owl.n3 + rdfs.ttl + building | 34730 · - | 62614 · - | 34730 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15799 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/COWL(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-COWLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-CRUSv11 | Brick + owl.n3 + rdfs.ttl + building | 40551 · - | 68715 · - | 40551 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16401 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/CRUS(v1.1).ttl. The oracles took 12.6 s.
+
+(written to <repo>/target/oracle/data-building-CRUSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-CURRv11 | Brick + owl.n3 + rdfs.ttl + building | 32723 · - | 60401 · - | 32723 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15387 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/CURR(v1.1).ttl. The oracles took 10.9 s.
+
+(written to <repo>/target/oracle/data-building-CURRv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-DHv11 | Brick + owl.n3 + rdfs.ttl + building | 60600 · - | 90150 · - | 60600 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 19178 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/DH(v1.1).ttl. The oracles took 20.4 s.
+
+(written to <repo>/target/oracle/data-building-DHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-EPSv11 | Brick + owl.n3 + rdfs.ttl + building | 90809 · - | 122413 · - | 90809 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 23437 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/EPS(v1.1).ttl. The oracles took 28.0 s.
+
+(written to <repo>/target/oracle/data-building-EPSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-FDPDv11 | Brick + owl.n3 + rdfs.ttl + building | 36521 · - | 64431 · - | 36521 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15879 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/FDPD(v1.1).ttl. The oracles took 12.0 s.
+
+(written to <repo>/target/oracle/data-building-FDPDv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-GBSFv11 | Brick + owl.n3 + rdfs.ttl + building | 106119 · - | 138933 · - | 106119 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 25772 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/GBSF(v1.1).ttl. The oracles took 27.0 s.
+
+(written to <repo>/target/oracle/data-building-GBSFv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-GHA_ICSv11 | Brick + owl.n3 + rdfs.ttl + building | 61621 · - | 91091 · - | 61621 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 19128 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/GHA_ICS(v1.1).ttl. The oracles took 17.4 s.
+
+(written to <repo>/target/oracle/data-building-GHA_ICSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-GIEDTv11 | Brick + owl.n3 + rdfs.ttl + building | 38964 · - | 67062 · - | 38964 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16240 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/GIEDT(v1.1).ttl. The oracles took 12.6 s.
+
+(written to <repo>/target/oracle/data-building-GIEDTv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-GILMv11 | Brick + owl.n3 + rdfs.ttl + building | 33124 · - | 60828 · - | 33124 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15439 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/GILM(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-GILMv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-HARTv11 | Brick + owl.n3 + rdfs.ttl + building | 71311 · - | 101619 · - | 71311 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 20942 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/HART(v1.1).ttl. The oracles took 19.7 s.
+
+(written to <repo>/target/oracle/data-building-HARTv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-HICKv11 | Brick + owl.n3 + rdfs.ttl + building | 33424 · - | 61154 · - | 33424 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15484 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/HICK(v1.1).ttl. The oracles took 11.4 s.
+
+(written to <repo>/target/oracle/data-building-HICKv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-HUNTv11 | Brick + owl.n3 + rdfs.ttl + building | 33143 · - | 60845 · - | 33143 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15436 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/HUNT(v1.1).ttl. The oracles took 11.1 s.
+
+(written to <repo>/target/oracle/data-building-HUNTv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-HUTCHv11 | Brick + owl.n3 + rdfs.ttl + building | 69778 · - | 100078 · - | 69778 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 20837 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/HUTCH(v1.1).ttl. The oracles took 19.6 s.
+
+(written to <repo>/target/oracle/data-building-HUTCHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-HWCv11 | Brick + owl.n3 + rdfs.ttl + building | 54135 · - | 83677 · - | 54135 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 19131 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/HWC(v1.1).ttl. The oracles took 19.7 s.
+
+(written to <repo>/target/oracle/data-building-HWCv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-JUNGERv11 | Brick + owl.n3 + rdfs.ttl + building | 40041 · - | 68225 · - | 40041 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16408 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/JUNGER(v1.1).ttl. The oracles took 16.3 s.
+
+(written to <repo>/target/oracle/data-building-JUNGERv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-KERRv11 | Brick + owl.n3 + rdfs.ttl + building | 33140 · - | 60850 · - | 33140 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15444 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/KERR(v1.1).ttl. The oracles took 12.2 s.
+
+(written to <repo>/target/oracle/data-building-KERRv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-KINGv11 | Brick + owl.n3 + rdfs.ttl + building | 33551 · - | 61263 · - | 33551 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15461 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/KING(v1.1).ttl. The oracles took 11.6 s.
+
+(written to <repo>/target/oracle/data-building-KINGv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-KLEIBERv11 | Brick + owl.n3 + rdfs.ttl + building | 33324 · - | 61032 · - | 33324 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15451 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/KLEIBER(v1.1).ttl. The oracles took 11.0 s.
+
+(written to <repo>/target/oracle/data-building-KLEIBERv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-LFHv11 | Brick + owl.n3 + rdfs.ttl + building | 34952 · - | 62768 · - | 34952 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15688 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/LFH(v1.1).ttl. The oracles took 11.6 s.
+
+(written to <repo>/target/oracle/data-building-LFHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-LSAv11 | Brick + owl.n3 + rdfs.ttl + building | 34784 · - | 62596 · - | 34784 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15683 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/LSA(v1.1).ttl. The oracles took 11.6 s.
+
+(written to <repo>/target/oracle/data-building-LSAv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MADDYv11 | Brick + owl.n3 + rdfs.ttl + building | 43142 · - | 71500 · - | 43142 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16818 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MADDY(v1.1).ttl. The oracles took 13.7 s.
+
+(written to <repo>/target/oracle/data-building-MADDYv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MANNv11 | Brick + owl.n3 + rdfs.ttl + building | 36221 · - | 64143 · - | 36221 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15873 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MANN(v1.1).ttl. The oracles took 12.4 s.
+
+(written to <repo>/target/oracle/data-building-MANNv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MATHv11 | Brick + owl.n3 + rdfs.ttl + building | 34539 · - | 62323 · - | 34539 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15620 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MATH(v1.1).ttl. The oracles took 12.0 s.
+
+(written to <repo>/target/oracle/data-building-MATHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MEYRv11 | Brick + owl.n3 + rdfs.ttl + building | 48535 · - | 77445 · - | 48535 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 17851 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MEYR(v1.1).ttl. The oracles took 15.0 s.
+
+(written to <repo>/target/oracle/data-building-MEYRv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MIWFv11 | Brick + owl.n3 + rdfs.ttl + building | 35750 · - | 63596 · - | 35750 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15773 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MIWF(v1.1).ttl. The oracles took 11.8 s.
+
+(written to <repo>/target/oracle/data-building-MIWFv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MRAKv11 | Brick + owl.n3 + rdfs.ttl + building | 50812 · - | 79940 · - | 50812 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 18384 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MRAK(v1.1).ttl. The oracles took 14.7 s.
+
+(written to <repo>/target/oracle/data-building-MRAKv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MSBv11 | Brick + owl.n3 + rdfs.ttl + building | 35151 · - | 62967 · - | 35151 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15686 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MSB(v1.1).ttl. The oracles took 11.6 s.
+
+(written to <repo>/target/oracle/data-building-MSBv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MSCv11 | Brick + owl.n3 + rdfs.ttl + building | 34129 · - | 61883 · - | 34129 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15550 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MSC(v1.1).ttl. The oracles took 11.5 s.
+
+(written to <repo>/target/oracle/data-building-MSCv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MSDv11 | Brick + owl.n3 + rdfs.ttl + building | 32697 · - | 60377 · - | 32697 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15393 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MSD(v1.1).ttl. The oracles took 12.6 s.
+
+(written to <repo>/target/oracle/data-building-MSDv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MUv11 | Brick + owl.n3 + rdfs.ttl + building | 37907 · - | 65955 · - | 37907 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16160 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MU(v1.1).ttl. The oracles took 14.9 s.
+
+(written to <repo>/target/oracle/data-building-MUv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-MUSICv11 | Brick + owl.n3 + rdfs.ttl + building | 33521 · - | 61251 · - | 33521 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15493 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/MUSIC(v1.1).ttl. The oracles took 14.0 s.
+
+(written to <repo>/target/oracle/data-building-MUSICv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-OLSv11 | Brick + owl.n3 + rdfs.ttl + building | 34042 · - | 61816 · - | 34042 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15595 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/OLS(v1.1).ttl. The oracles took 13.8 s.
+
+(written to <repo>/target/oracle/data-building-OLSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-PES_ICSv11 | Brick + owl.n3 + rdfs.ttl + building | 93344 · - | 125044 · - | 93344 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 23704 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/PES_ICS(v1.1).ttl. The oracles took 28.5 s.
+
+(written to <repo>/target/oracle/data-building-PES_ICSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-PHSLv11 | Brick + owl.n3 + rdfs.ttl + building | 33338 · - | 61062 · - | 33338 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15476 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/PHSL(v1.1).ttl. The oracles took 13.6 s.
+
+(written to <repo>/target/oracle/data-building-PHSLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-PINEv11 | Brick + owl.n3 + rdfs.ttl + building | 32723 · - | 60401 · - | 32723 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15387 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/PINE(v1.1).ttl. The oracles took 13.8 s.
+
+(written to <repo>/target/oracle/data-building-PINEv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-PRBv11 | Brick + owl.n3 + rdfs.ttl + building | 43800 · - | 72252 · - | 43800 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16990 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/PRB(v1.1).ttl. The oracles took 17.1 s.
+
+(written to <repo>/target/oracle/data-building-PRBv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-RECHv11 | Brick + owl.n3 + rdfs.ttl + building | 35311 · - | 63127 · - | 35311 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15709 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/RECH(v1.1).ttl. The oracles took 14.6 s.
+
+(written to <repo>/target/oracle/data-building-RECHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ROESv11 | Brick + owl.n3 + rdfs.ttl + building | 37430 · - | 65474 · - | 37430 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16129 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ROES(v1.1).ttl. The oracles took 15.2 s.
+
+(written to <repo>/target/oracle/data-building-ROESv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-RPLv11 | Brick + owl.n3 + rdfs.ttl + building | 32642 · - | 60312 · - | 32642 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15380 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/RPL(v1.1).ttl. The oracles took 14.0 s.
+
+(written to <repo>/target/oracle/data-building-RPLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-RYERv11 | Brick + owl.n3 + rdfs.ttl + building | 33099 · - | 60801 · - | 33099 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15433 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/RYER(v1.1).ttl. The oracles took 14.0 s.
+
+(written to <repo>/target/oracle/data-building-RYERv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SCCv11 | Brick + owl.n3 + rdfs.ttl + building | 37768 · - | 65994 · - | 37768 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16392 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SCC(v1.1).ttl. The oracles took 14.9 s.
+
+(written to <repo>/target/oracle/data-building-SCCv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SCHMv11 | Brick + owl.n3 + rdfs.ttl + building | 33384 · - | 61094 · - | 33384 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15456 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SCHM(v1.1).ttl. The oracles took 13.9 s.
+
+(written to <repo>/target/oracle/data-building-SCHMv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SEQUv11 | Brick + owl.n3 + rdfs.ttl + building | 32723 · - | 60401 · - | 32723 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15387 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SEQU(v1.1).ttl. The oracles took 13.8 s.
+
+(written to <repo>/target/oracle/data-building-SEQUv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SHIELDSv11 | Brick + owl.n3 + rdfs.ttl + building | 61732 · - | 92202 · - | 61732 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 20735 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SHIELDS(v1.1).ttl. The oracles took 21.7 s.
+
+(written to <repo>/target/oracle/data-building-SHIELDSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SLABv11 | Brick + owl.n3 + rdfs.ttl + building | 58082 · - | 87618 · - | 58082 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 18961 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SLAB(v1.1).ttl. The oracles took 20.5 s.
+
+(written to <repo>/target/oracle/data-building-SLABv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SLECv11 | Brick + owl.n3 + rdfs.ttl + building | 33182 · - | 60890 · - | 33182 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15451 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SLEC(v1.1).ttl. The oracles took 14.2 s.
+
+(written to <repo>/target/oracle/data-building-SLECv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SMOAv11 | Brick + owl.n3 + rdfs.ttl + building | 43268 · - | 71510 · - | 43268 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16582 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SMOA(v1.1).ttl. The oracles took 16.8 s.
+
+(written to <repo>/target/oracle/data-building-SMOAv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SOCSv11 | Brick + owl.n3 + rdfs.ttl + building | 85215 · - | 117473 · - | 85215 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 24604 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SOCS(v1.1).ttl. The oracles took 27.7 s.
+
+(written to <repo>/target/oracle/data-building-SOCSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SPRLv11 | Brick + owl.n3 + rdfs.ttl + building | 32981 · - | 60671 · - | 32981 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15415 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SPRL(v1.1).ttl. The oracles took 13.6 s.
+
+(written to <repo>/target/oracle/data-building-SPRLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-STORv11 | Brick + owl.n3 + rdfs.ttl + building | 58549 · - | 88131 · - | 58549 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 19327 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/STOR(v1.1).ttl. The oracles took 21.0 s.
+
+(written to <repo>/target/oracle/data-building-STORv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SURGE3v11 | Brick + owl.n3 + rdfs.ttl + building | 36396 · - | 64334 · - | 36396 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15924 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SURGE3(v1.1).ttl. The oracles took 14.8 s.
+
+(written to <repo>/target/oracle/data-building-SURGE3v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-SWLv11 | Brick + owl.n3 + rdfs.ttl + building | 32805 · - | 60495 · - | 32805 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15406 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/SWL(v1.1).ttl. The oracles took 13.8 s.
+
+(written to <repo>/target/oracle/data-building-SWLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-TAPSv11 | Brick + owl.n3 + rdfs.ttl + building | 42091 · - | 70399 · - | 42091 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16700 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/TAPS(v1.1).ttl. The oracles took 16.2 s.
+
+(written to <repo>/target/oracle/data-building-TAPSv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-THORv11 | Brick + owl.n3 + rdfs.ttl + building | 32642 · - | 60312 · - | 32642 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15380 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/THOR(v1.1).ttl. The oracles took 13.7 s.
+
+(written to <repo>/target/oracle/data-building-THORv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-THURv11 | Brick + owl.n3 + rdfs.ttl + building | 42449 · - | 70945 · - | 42449 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 17074 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/THUR(v1.1).ttl. The oracles took 12.7 s.
+
+(written to <repo>/target/oracle/data-building-THURv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-TUPPv11 | Brick + owl.n3 + rdfs.ttl + building | 35495 · - | 63363 · - | 35495 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15844 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/TUPP(v1.1).ttl. The oracles took 10.9 s.
+
+(written to <repo>/target/oracle/data-building-TUPPv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VEIHv11 | Brick + owl.n3 + rdfs.ttl + building | 38019 · - | 66085 · - | 38019 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16119 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VEIH(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-VEIHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VM2v11 | Brick + owl.n3 + rdfs.ttl + building | 47227 · - | 76223 · - | 47227 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 18018 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VM2(v1.1).ttl. The oracles took 13.3 s.
+
+(written to <repo>/target/oracle/data-building-VM2v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VM3Av11 | Brick + owl.n3 + rdfs.ttl + building | 144807 · - | 180229 · - | 144807 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 32833 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VM3A(v1.1).ttl. The oracles took 33.0 s.
+
+(written to <repo>/target/oracle/data-building-VM3Av11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VM3Bv11 | Brick + owl.n3 + rdfs.ttl + building | 33187 · - | 60899 · - | 33187 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15467 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VM3B(v1.1).ttl. The oracles took 10.3 s.
+
+(written to <repo>/target/oracle/data-building-VM3Bv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VMEPv11 | Brick + owl.n3 + rdfs.ttl + building | 36713 · - | 64731 · - | 36713 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16055 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VMEP(v1.1).ttl. The oracles took 11.0 s.
+
+(written to <repo>/target/oracle/data-building-VMEPv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VMIFv11 | Brick + owl.n3 + rdfs.ttl + building | 50073 · - | 78965 · - | 50073 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 17847 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VMIF(v1.1).ttl. The oracles took 13.8 s.
+
+(written to <repo>/target/oracle/data-building-VMIFv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VMLFv11 | Brick + owl.n3 + rdfs.ttl + building | 34203 · - | 61971 · - | 34203 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15570 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VMLF(v1.1).ttl. The oracles took 10.6 s.
+
+(written to <repo>/target/oracle/data-building-VMLFv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VMTHv11 | Brick + owl.n3 + rdfs.ttl + building | 38777 · - | 66913 · - | 38777 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16367 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VMTH(v1.1).ttl. The oracles took 11.6 s.
+
+(written to <repo>/target/oracle/data-building-VMTHv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VMTHBv11 | Brick + owl.n3 + rdfs.ttl + building | 32929 · - | 60617 · - | 32929 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15411 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VMTHB(v1.1).ttl. The oracles took 10.4 s.
+
+(written to <repo>/target/oracle/data-building-VMTHBv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-VMTHCv11 | Brick + owl.n3 + rdfs.ttl + building | 32929 · - | 60617 · - | 32929 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15411 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/VMTHC(v1.1).ttl. The oracles took 10.4 s.
+
+(written to <repo>/target/oracle/data-building-VMTHCv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-WELLv11 | Brick + owl.n3 + rdfs.ttl + building | 42112 · - | 70642 · - | 42112 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 17078 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/WELL(v1.1).ttl. The oracles took 12.4 s.
+
+(written to <repo>/target/oracle/data-building-WELLv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-WICKv11 | Brick + owl.n3 + rdfs.ttl + building | 35673 · - | 63555 · - | 35673 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15848 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/WICK(v1.1).ttl. The oracles took 11.0 s.
+
+(written to <repo>/target/oracle/data-building-WICKv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-WSRCv11 | Brick + owl.n3 + rdfs.ttl + building | 42411 · - | 70745 · - | 42411 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16730 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/WSRC(v1.1).ttl. The oracles took 12.4 s.
+
+(written to <repo>/target/oracle/data-building-WSRCv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-YOUNGv11 | Brick + owl.n3 + rdfs.ttl + building | 35296 · - | 63142 · - | 35296 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15776 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/YOUNG(v1.1).ttl. The oracles took 10.9 s.
+
+(written to <repo>/target/oracle/data-building-YOUNGv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-avenal-animal-shelterv11 | Brick + owl.n3 + rdfs.ttl + building | 33555 · - | 61361 · - | 33555 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15597 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/avenal-animal-shelter(v1.1).ttl. The oracles took 10.5 s.
+
+(written to <repo>/target/oracle/data-building-avenal-animal-shelterv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-avenal-movie-theatrev11 | Brick + owl.n3 + rdfs.ttl + building | 35182 · - | 63242 · - | 35182 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16062 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/avenal-movie-theatre(v1.1).ttl. The oracles took 10.8 s.
+
+(written to <repo>/target/oracle/data-building-avenal-movie-theatrev11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-avenal-public-works-yardv11 | Brick + owl.n3 + rdfs.ttl + building | 33388 · - | 61168 · - | 33388 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15526 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/avenal-public-works-yard(v1.1).ttl. The oracles took 10.5 s.
+
+(written to <repo>/target/oracle/data-building-avenal-public-works-yardv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-avenal-recreation-centerv11 | Brick + owl.n3 + rdfs.ttl + building | 33613 · - | 61427 · - | 33613 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15596 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/avenal-recreation-center(v1.1).ttl. The oracles took 10.5 s.
+
+(written to <repo>/target/oracle/data-building-avenal-recreation-centerv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-avenal-veterans-hallv11 | Brick + owl.n3 + rdfs.ttl + building | 34518 · - | 62452 · - | 34518 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15837 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/avenal-veterans-hall(v1.1).ttl. The oracles took 10.7 s.
+
+(written to <repo>/target/oracle/data-building-avenal-veterans-hallv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-berkeley-corporate-yardv11 | Brick + owl.n3 + rdfs.ttl + building | 34454 · - | 62346 · - | 34454 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15788 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/berkeley-corporate-yard(v1.1).ttl. The oracles took 10.7 s.
+
+(written to <repo>/target/oracle/data-building-berkeley-corporate-yardv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-cieev11 | Brick + owl.n3 + rdfs.ttl + building | 39465 · - | 67851 · - | 39465 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16922 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ciee(v1.1).ttl. The oracles took 12.0 s.
+
+(written to <repo>/target/oracle/data-building-cieev11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-ciee-13-dec-2019v11 | Brick + owl.n3 + rdfs.ttl + building | 39227 · - | 67577 · - | 39227 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16889 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/ciee-13-dec-2019(v1.1).ttl. The oracles took 12.2 s.
+
+(written to <repo>/target/oracle/data-building-ciee-13-dec-2019v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-csu-dominguez-hillsv11 | Brick + owl.n3 + rdfs.ttl + building | 58097 · - | 89361 · - | 58097 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 23352 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/csu-dominguez-hills(v1.1).ttl. The oracles took 16.3 s.
+
+(written to <repo>/target/oracle/data-building-csu-dominguez-hillsv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-garberv11 | Brick + owl.n3 + rdfs.ttl + building | 33573 · - | 61363 · - | 33573 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15567 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/garber(v1.1).ttl. The oracles took 10.9 s.
+
+(written to <repo>/target/oracle/data-building-garberv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-hayward-station-1v11 | Brick + owl.n3 + rdfs.ttl + building | 34276 · - | 62146 · - | 34276 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15742 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/hayward-station-1(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-hayward-station-1v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-hayward-station-8v11 | Brick + owl.n3 + rdfs.ttl + building | 34043 · - | 61909 · - | 34043 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15708 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/hayward-station-8(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-hayward-station-8v11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-jesse-turner-centerv11 | Brick + owl.n3 + rdfs.ttl + building | 37262 · - | 65470 · - | 37262 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16487 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/jesse-turner-center(v1.1).ttl. The oracles took 11.9 s.
+
+(written to <repo>/target/oracle/data-building-jesse-turner-centerv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-local-butcher-shopv11 | Brick + owl.n3 + rdfs.ttl + building | 33359 · - | 61133 · - | 33359 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15521 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/local-butcher-shop(v1.1).ttl. The oracles took 11.0 s.
+
+(written to <repo>/target/oracle/data-building-local-butcher-shopv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-north-berkeley-senior-centerv11 | Brick + owl.n3 + rdfs.ttl + building | 34158 · - | 62042 · - | 34158 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15772 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/north-berkeley-senior-center(v1.1).ttl. The oracles took 11.2 s.
+
+(written to <repo>/target/oracle/data-building-north-berkeley-senior-centerv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-orinda-community-centerv11 | Brick + owl.n3 + rdfs.ttl + building | 37286 · - | 65466 · - | 37286 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 16394 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/orinda-community-center(v1.1).ttl. The oracles took 12.0 s.
+
+(written to <repo>/target/oracle/data-building-orinda-community-centerv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-orinda-public-libraryv11 | Brick + owl.n3 + rdfs.ttl + building | 47315 · - | 76071 · - | 47315 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 17234 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/orinda-public-library(v1.1).ttl. The oracles took 14.1 s.
+
+(written to <repo>/target/oracle/data-building-orinda-public-libraryv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-rfsv11 | Brick + owl.n3 + rdfs.ttl + building | 34014 · - | 61872 · - | 34014 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15699 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/rfs(v1.1).ttl. The oracles took 11.3 s.
+
+(written to <repo>/target/oracle/data-building-rfsv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-sdhv11 | Brick + owl.n3 + rdfs.ttl + building | 93002 · prp-asyp×8 | 124978 · prp-asyp×8 | 93002 · prp-asyp×8 | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 24884 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/sdh(v1.1).ttl. The oracles took 24.2 s.
+
+(written to <repo>/target/oracle/data-building-sdhv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-south-berkeley-senior-centerv11 | Brick + owl.n3 + rdfs.ttl + building | 34645 · - | 62693 · - | 34645 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15998 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/south-berkeley-senior-center(v1.1).ttl. The oracles took 11.5 s.
+
+(written to <repo>/target/oracle/data-building-south-berkeley-senior-centerv11.md)
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| building-word-of-faith-ccv11 | Brick + owl.n3 + rdfs.ttl + building | 34746 · - | 62704 · - | 34746 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15934 triples from example_models/ontologies/Brick.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl + benches/python/buildings/word-of-faith-cc(v1.1).ttl. The oracles took 11.4 s.
+
+(written to <repo>/target/oracle/data-building-word-of-faith-ccv11.md)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1558.03s
+

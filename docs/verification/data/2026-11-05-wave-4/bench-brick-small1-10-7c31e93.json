@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "build": "release",
+    "changes": 100,
+    "commit": "7c31e933c72af550b35674d8a81e1851f8cfc771",
+    "cores": 12,
+    "cpu": "Apple M6",
+    "data_dir": "<repo>/data",
+    "date": "2026-11-05T16:02:33Z",
+    "dirty": false,
+    "load_after": [
+      2.68408203125,
+      3.9541015625,
+      5.78076171875
+    ],
+    "load_before": [
+      2.68408203125,
+      3.9541015625,
+      5.78076171875
+    ],
+    "memory_bytes": 34359738368,
+    "os": "macOS 27.0 (kernel 27.0.0, aarch64)",
+    "runs": 10,
+    "timeout_s": 600,
+    "versions": {
+      "bench": "0.1.0",
+      "nemo": "0.10.1",
+      "reasonable": "0.5.0-a1",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "turbowl": "0.1.0"
+    }
+  },
+  "problems": [],
+  "results": [
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 9.560375,
+          "peak_rss_bytes": 7274496,
+          "reason_ms": 3.135542,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.732040999999999,
+          "peak_rss_bytes": 7290880,
+          "reason_ms": 3.093209,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.723416,
+          "peak_rss_bytes": 7290880,
+          "reason_ms": 3.09675,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.723208,
+          "peak_rss_bytes": 7274496,
+          "reason_ms": 3.084834,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.836833,
+          "peak_rss_bytes": 7290880,
+          "reason_ms": 3.2577499999999997,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.67975,
+          "peak_rss_bytes": 7307264,
+          "reason_ms": 3.106042,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.649084,
+          "peak_rss_bytes": 7307264,
+          "reason_ms": 3.1466670000000003,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.746792,
+          "peak_rss_bytes": 7290880,
+          "reason_ms": 3.165208,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.683375,
+          "peak_rss_bytes": 7290880,
+          "reason_ms": 3.110584,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 26381,
+          "closure_counted": 26381,
+          "load_ms": 8.930625,
+          "peak_rss_bytes": 7290880,
+          "reason_ms": 3.175167,
+          "status": "ok"
+        }
+      ],
+      "scenario": "brick-small1",
+      "status": "ok",
+      "summary": {
+        "closure": 26381,
+        "export_median_ms": null,
+        "load_median_ms": 8.728,
+        "max_ms": 3.258,
+        "measure": "reason_ms",
+        "median_ms": 3.123,
+        "min_ms": 3.085,
+        "peak_bytes_per_closure_triple": 276.99,
+        "peak_rss_bytes": 7307264,
+        "peak_rss_min_bytes": 7274496,
+        "reason_median_ms": 3.123,
+        "total_median_ms": 11.823,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    }
+  ],
+  "scaling": [],
+  "schema": 4
+}

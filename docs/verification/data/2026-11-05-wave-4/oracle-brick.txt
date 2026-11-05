@@ -1,0 +1,94 @@
+==> data_brick
+
+running 4 tests
+brick-small1-owl: slow tier, not run (ORACLE_SLOW=1 runs it)
+brick-small1-rdfs: slow tier, not run (ORACLE_SLOW=1 runs it)
+brick-small1-owl-rdfs: slow tier, not run (ORACLE_SLOW=1 runs it)
+test brick_small1_owl ... ok
+test brick_small1_rdfs ... ok
+test brick_small1_owl_rdfs ... ok
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| brick-small1 | Brick + small1 | 26381 · - | skipped | 26381 · - | 3 pass, 0 fail, 0 known, 2 not run |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Not run:
+- skipped: OWL-RL: not run on this input (see Options)
+
+Input: 14817 triples from example_models/ontologies/Brick.n3 + example_models/small1.n3. The oracles took 6.5 s.
+
+(written to <repo>/target/oracle/data-brick-small1.md)
+test brick_small1 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.59s
+
+
+==> brick_small1_owl
+
+running 1 test
+test brick_small1_owl ... | Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| brick-small1-owl | Brick + small1 + owl.n3 | 30374 · - | 57813 · - | 30374 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15267 triples from example_models/ontologies/Brick.n3 + example_models/small1.n3 + example_models/ontologies/owl.n3. The oracles took 9.0 s.
+
+(written to <repo>/target/oracle/data-brick-small1-owl.md)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 9.06s
+
+
+==> brick_small1_rdfs
+
+running 1 test
+test brick_small1_rdfs ... | Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| brick-small1-rdfs | Brick + small1 + rdfs.ttl | 30088 · - | 52135 · - | 30088 · - | 5 pass, 0 fail, 0 known, 0 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 14904 triples from example_models/ontologies/Brick.n3 + example_models/small1.n3 + example_models/ontologies/rdfs.ttl. The oracles took 15.4 s.
+
+(written to <repo>/target/oracle/data-brick-small1-rdfs.md)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 15.45s
+
+
+==> brick_small1_owl_rdfs
+
+running 1 test
+test brick_small1_owl_rdfs ... | Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| brick-small1-owl-rdfs | Brick + small1 + owl.n3 + rdfs.ttl | 32657 · - | 60231 · - | 32657 · - | 3 pass, 0 fail, 0 known, 2 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 15354 triples from example_models/ontologies/Brick.n3 + example_models/small1.n3 + example_models/ontologies/owl.n3 + example_models/ontologies/rdfs.ttl. The oracles took 10.8 s.
+
+(written to <repo>/target/oracle/data-brick-small1-owl-rdfs.md)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 10.78s
+
+
+==> brick_soda_hall
+
+running 1 test
+test brick_soda_hall ... | Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| brick-soda-hall | Brick + soda_hall | 57652 · - | 82209 · - | 57652 · - | 5 pass, 0 fail, 0 known, 0 not run; F1 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+Input: 18577 triples from example_models/ontologies/Brick.n3 + example_models/soda_hall.n3. The oracles took 40.2 s.
+
+(written to <repo>/target/oracle/data-brick-soda-hall.md)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 40.25s
+
+

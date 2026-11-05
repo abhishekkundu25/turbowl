@@ -1,0 +1,25 @@
+load average before: 2.68 3.95 5.78
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+brick-small1 turbowl run 1/10 ... 3.1 ms
+brick-small1 turbowl run 2/10 ... 3.1 ms
+brick-small1 turbowl run 3/10 ... 3.1 ms
+brick-small1 turbowl run 4/10 ... 3.1 ms
+brick-small1 turbowl run 5/10 ... 3.3 ms
+brick-small1 turbowl run 6/10 ... 3.1 ms
+brick-small1 turbowl run 7/10 ... 3.1 ms
+brick-small1 turbowl run 8/10 ... 3.2 ms
+brick-small1 turbowl run 9/10 ... 3.1 ms
+brick-small1 turbowl run 10/10 ... 3.2 ms
+load average after: 2.68 3.95 5.78
+warning: load average over 1 after the runs
+
+TurbOWL bench: 10 runs each; load average 2.68 3.95 5.78 before, 2.68 3.95 5.78 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. Nemo's split is its own report; its export and process start are in neither.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | turbowl | 10 | 8.7 | 3.1 | 3.1 | 3.3 | 11.8 | 7 | 26381 | 277 | 1.00 | 1.00 | 1.00 |
+
+wrote <scratch>/bench-brick-small1-10-7c31e93.json

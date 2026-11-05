@@ -1,0 +1,9 @@
+
+running 2 tests
+reference = Nemo on 51 minimal inputs
+test reference_equals_nemo_on_the_minimal_inputs ... ok
+reference = Nemo on 150 generated inputs (0 not compared)
+test reference_equals_nemo_on_generated_inputs ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.70s
+

@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "build": "release",
+    "changes": 100,
+    "commit": "7c31e933c72af550b35674d8a81e1851f8cfc771",
+    "cores": 12,
+    "cpu": "Apple M6",
+    "data_dir": "<repo>/data",
+    "date": "2026-11-05T16:23:17Z",
+    "dirty": false,
+    "load_after": [
+      3.49462890625,
+      3.18115234375,
+      3.82421875
+    ],
+    "load_before": [
+      2.73193359375,
+      3.92236328125,
+      5.74755859375
+    ],
+    "memory_bytes": 34359738368,
+    "os": "macOS 27.0 (kernel 27.0.0, aarch64)",
+    "runs": 3,
+    "timeout_s": 600,
+    "versions": {
+      "bench": "0.1.0",
+      "nemo": "0.10.1",
+      "reasonable": "0.5.0-a1",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "turbowl": "0.1.0"
+    }
+  },
+  "problems": [],
+  "results": [
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/target/bench-data/sameas-v1-1000.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 11000002,
+          "closure_counted": 11000002,
+          "load_ms": 6.710917,
+          "peak_rss_bytes": 5554176,
+          "reason_ms": 0.417458,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 11000002,
+          "closure_counted": 11000002,
+          "load_ms": 5.727708,
+          "peak_rss_bytes": 5619712,
+          "reason_ms": 0.325083,
+          "status": "ok"
+        },
+        {
+          "change_ms": [],
+          "closure": 11000002,
+          "closure_counted": 11000002,
+          "load_ms": 5.487917,
+          "peak_rss_bytes": 5586944,
+          "reason_ms": 0.3325,
+          "status": "ok"
+        }
+      ],
+      "scenario": "sameas-clique",
+      "status": "ok",
+      "summary": {
+        "closure": 11000002,
+        "export_median_ms": null,
+        "load_median_ms": 5.728,
+        "max_ms": 0.417,
+        "measure": "reason_ms",
+        "median_ms": 0.333,
+        "min_ms": 0.325,
+        "peak_bytes_per_closure_triple": 0.511,
+        "peak_rss_bytes": 5619712,
+        "peak_rss_min_bytes": 5554176,
+        "reason_median_ms": 0.333,
+        "total_median_ms": 6.053,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "reasonable",
+      "inputs": [
+        "<repo>/target/bench-data/sameas-v1-1000.ttl"
+      ],
+      "message": "over 600 s",
+      "runs": [],
+      "scenario": "sameas-clique",
+      "status": "timeout",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/target/bench-data/sameas-v1-1000.ttl"
+      ],
+      "message": "over 600 s",
+      "runs": [],
+      "scenario": "sameas-clique",
+      "status": "timeout",
+      "summary": null,
+      "x_turbowl": null
+    }
+  ],
+  "scaling": [],
+  "schema": 4
+}

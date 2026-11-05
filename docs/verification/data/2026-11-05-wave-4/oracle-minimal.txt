@@ -1,0 +1,320 @@
+
+running 1 test
+| Case | Covers | Nemo | OWL-RL | ours | Checks |
+|---|---|---|---|---|---|
+| empty | cls-thing, cls-nothing1 | 2 · - | 106 · - | 2 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| no-thing-typing | cls-thing | 3 · - | 110 · - | 3 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| eq-sym-trans | eq-sym, eq-trans | 11 · - | 115 · - | 11 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| eq-rep-s-p-o | eq-rep-s, eq-rep-p, eq-rep-o | 22 · - | 126 · - | 22 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| eq-vocabulary-term | eq-rep-p, eq-rep-s, eq-rep-o, cax-sco | 13 · - | 164 · - | 13 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| eq-two-vocabulary-terms | eq-rep-p, cax-eqc2, scm-eqc1 | 16 · - | 120 · - | 16 · - | 6 pass, 0 fail, 0 known, 2 not run; F1 |
+| eq-same-as-a-property | eq-rep-p, eq-rep-s, eq-sym | 20 · - | 180 · - | 20 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| eq-thing | eq-rep-o, cls-svf2 | 12 · - | 130 · - | 12 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| eq-nil-cell | eq-rep-o, cls-int2, prp-spo2, lists | 24 · - | failed | 24 · - | 3 pass, 0 fail, 3 known, 2 not run; F4 |
+| eq-literal-typed | eq-rep-s, dt-not-type | 8 · - | 115 · - | 8 · dt-not-type | 5 pass, 0 fail, 1 known, 2 not run; F5 |
+| eq-findings | eq-rep-s, eq-rep-o, prp-irp, cax-dw | 20 · cax-dw×2 prp-irp×2 | 129 · cax-dw×2 prp-irp×2 | 20 · cax-dw×2 prp-irp×2 | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-dom | prp-dom | 5 · - | 114 · - | 5 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-rng | prp-rng, dt-not-type | 6 · - | 115 · - | 6 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-fp | prp-fp, eq-sym, eq-trans | 12 · - | 119 · - | 12 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-ifp | prp-ifp | 9 · - | 116 · - | 9 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-ifp-different-objects | prp-ifp | 7 · - | 115 · - | 7 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-symp | prp-symp | 5 · - | 113 · - | 5 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-trp | prp-trp | 9 · - | 119 · - | 9 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-spo1 | prp-spo1 | 7 · - | 118 · - | 7 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-spo2 | prp-spo2 | 18 · - | 140 · - | 18 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| chain-no-transitivity | prp-spo2 | 11 · - | 127 · - | 11 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| chain-cyclic-list | prp-spo2 | 9 · - | failed | 9 · - | 3 pass, 0 fail, 3 known, 2 not run; F4 |
+| prp-eqp | prp-eqp1, prp-eqp2 | 7 · - | 122 · - | 7 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-inv | prp-inv1, prp-inv2 | 7 · - | 118 · - | 7 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-int | cls-int1, cls-int2 | 14 · - | 132 · - | 14 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| two-intersections | cls-int1, cls-int2 | 24 · - | 148 · - | 24 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| shared-list-tail | cls-int1, lists | 10 · - | 128 · - | 10 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| list-cell-without-first | cls-int1, cls-int2, cls-uni, lists | 9 · - | 132 · - | 9 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| list-rest-stops-at-nil | cls-int1, cls-int2, cls-uni, lists | 15 · - | failed | 15 · - | 3 pass, 0 fail, 3 known, 2 not run; F4 |
+| list-nil-head | cls-uni, lists | 12 · - | failed | 12 · - | 3 pass, 0 fail, 3 known, 2 not run; F4 |
+| chain-nil-head | prp-spo2, lists | 12 · - | failed | 12 · - | 3 pass, 0 fail, 3 known, 2 not run; F4 |
+| derived-list | cls-int1, cls-uni, lists | 16 · - | 141 · - | 16 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-uni | cls-uni | 11 · - | 128 · - | 11 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-svf | cls-svf1, cls-svf2 | 12 · - | 131 · - | 12 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-avf | cls-avf | 8 · - | 121 · - | 8 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-hv | cls-hv1, cls-hv2 | 8 · - | 119 · - | 8 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cax-sco-scm-sco | cax-sco, scm-sco | 8 · - | 116 · - | 8 · - | 8 pass, 0 fail, 0 known, 0 not run |
+| cax-eqc-scm-eqc1 | cax-eqc1, cax-eqc2, scm-eqc1 | 11 · - | 118 · - | 11 · - | 8 pass, 0 fail, 0 known, 0 not run; F1 |
+| scm-sco-cycle | scm-sco, not scm-eqc2 | 6 · - | 112 · - | 6 · - | 8 pass, 0 fail, 0 known, 0 not run; F1 |
+| not-scm-spo | not scm-spo | 4 · - | 113 · - | 4 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| not-eq-ref | not eq-ref | 3 · - | 110 · - | 3 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| no-container-axioms | not rdfs12 | 3 · - | 110 · - | 3 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| language-tag | prp-spo1 | 5 · - | 112 · - | 5 · - | 6 pass, 0 fail, 0 known, 2 not run |
+| cax-dw | cax-dw | 5 · cax-dw | 113 · cax-dw | 5 · cax-dw | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-pdw | prp-pdw | 5 · prp-pdw | 114 · prp-pdw | 5 · prp-pdw | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-asyp | prp-asyp | 5 · prp-asyp×2 | 113 · prp-asyp×2 | 5 · prp-asyp×2 | 6 pass, 0 fail, 0 known, 2 not run |
+| prp-irp | prp-irp | 4 · prp-irp | 111 · prp-irp | 4 · prp-irp | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-nothing2 | cls-nothing2 | 3 · cls-nothing2 | 109 · cls-nothing2 | 3 · cls-nothing2 | 6 pass, 0 fail, 0 known, 2 not run |
+| cls-com | cls-com | 5 · cls-com | 113 · cls-com | 5 · cls-com | 5 pass, 0 fail, 1 known, 2 not run; F2 |
+| dt-not-type | dt-not-type | 8 · - | 114 · dt-not-type×2 | 8 · dt-not-type×3 | 5 pass, 0 fail, 1 known, 2 not run; F3 |
+| dt-not-type-range | prp-rng, dt-not-type | 10 · - | 120 · - | 10 · dt-not-type×2 | 5 pass, 0 fail, 1 known, 2 not run; F5 |
+
+Cells: closure triples · findings. Nemo and ours run the version 1 rule set; OWL-RL the full W3C rule set. Fn: an oracle fault (crates/oracle/src/differences.rs) filtered or known on this input.
+
+### eq-nil-cell: OWL-RL: expectations (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### eq-nil-cell: Nemo ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### eq-nil-cell: ours ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### eq-literal-typed: OWL-RL: expectations (known: F5, owlrl 7.6.2 runs dt-not-type only on literals against their own datatype (OWLRL.py:217-232), never on `lt rdf:type dt` triples, so a literal typed by prp-rng is not checked; the W3C dt-not-type matches any such triple, and the W3C test rdf-mt datatypes-range-clash expects "25"^^xsd:integer in an xsd:string range to be inconsistent)
+
+```
+! missing dt-not-type "abc" <http://www.w3.org/2001/XMLSchema#integer>
+```
+
+### chain-cyclic-list: OWL-RL: expectations (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### chain-cyclic-list: Nemo ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### chain-cyclic-list: ours ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### list-rest-stops-at-nil: OWL-RL: expectations (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### list-rest-stops-at-nil: Nemo ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### list-rest-stops-at-nil: ours ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### list-nil-head: OWL-RL: expectations (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:     for cl in self._list(x):
+              ~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### list-nil-head: Nemo ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:     for cl in self._list(x):
+              ~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### list-nil-head: ours ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:     for cl in self._list(x):
+              ~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### chain-nil-head: OWL-RL: expectations (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### chain-nil-head: Nemo ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### chain-nil-head: ours ⊆ OWL-RL (known: F4, rdflib's Collection raises "List contains a recursive rdf:rest reference" on a cyclic list, so owlrl 7.6.2 stops with an error; the W3C rules derive nothing from a list that never reaches rdf:nil)
+
+```
+OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+```
+
+### cls-com: OWL-RL: expectations (known: F2, owlrl 7.6.2 formats cls-com's message with `x`, which is the second class there (OWLRL.py:684-691), so its finding is (c1, c2, c2), not (c1, c2, individual))
+
+```
+! missing cls-com <http://example.org/C1> <http://example.org/C2> <http://example.org/x>
+! unexpected cls-com <http://example.org/C1> <http://example.org/C2> <http://example.org/C2>
+```
+
+### dt-not-type: OWL-RL: expectations (known: F3, owlrl 7.6.2 accepts " 42"^^xsd:int (Python's int() strips the spaces); RDF does not collapse whitespace, and the W3C test rdf-mt xmlsch-02-whitespace-facet-2 expects " 3 "^^xsd:int to be ill-typed)
+
+```
+! missing dt-not-type " 42"^^<http://www.w3.org/2001/XMLSchema#int> <http://www.w3.org/2001/XMLSchema#int>
+```
+
+### dt-not-type-range: OWL-RL: expectations (known: F5, owlrl 7.6.2 runs dt-not-type only on literals against their own datatype (OWLRL.py:217-232), never on `lt rdf:type dt` triples, so a literal typed by prp-rng is not checked; the W3C dt-not-type matches any such triple, and the W3C test rdf-mt datatypes-range-clash expects "25"^^xsd:integer in an xsd:string range to be inconsistent)
+
+```
+! missing dt-not-type "abc" <http://www.w3.org/2001/XMLSchema#integer>
+! missing dt-not-type "x"@en <http://www.w3.org/2001/XMLSchema#integer>
+```
+
+Not run:
+- failed: OWL-RL: exit status: 1:     for cl in self._list(x):
+              ~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+- failed: OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 344, in _property_chain
+    chain = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+- failed: OWL-RL: exit status: 1:   File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 659, in _classes
+    classes = self._list(x)
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/owlrl/OWLRL.py", line 125, in _list
+    return [ch for ch in self.graph.items(l)]
+                         ~~~~~~~~~~~~~~~~^^^
+  File "<repo>/oracles/owlrl/.venv/lib/python3.14/site-packages/rdflib/graph.py", line 1222, in items
+    raise ValueError("List contains a recursive rdf:rest reference")
+ValueError: List contains a recursive rdf:rest reference
+- HermiT entails Nemo's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/T> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#Thing> makes a reserved IRI equal to another term)
+- HermiT entails Nemo's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/n> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> makes a reserved IRI equal to another term)
+- HermiT entails Nemo's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/same> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#sameAs> makes a reserved IRI equal to another term)
+- HermiT entails Nemo's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/t> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> makes a reserved IRI equal to another term)
+- HermiT entails Nemo's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#equivalentClass> makes a reserved IRI equal to another term)
+- HermiT entails ours's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/T> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#Thing> makes a reserved IRI equal to another term)
+- HermiT entails ours's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/n> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> makes a reserved IRI equal to another term)
+- HermiT entails ours's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/same> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#sameAs> makes a reserved IRI equal to another term)
+- HermiT entails ours's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://example.org/t> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> makes a reserved IRI equal to another term)
+- HermiT entails ours's subsumptions: skipped: HermiT: not OWL 2 DL, not judged (<http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#equivalentClass> makes a reserved IRI equal to another term)
+
+(written to <repo>/target/oracle/minimal.md)
+test oracles_agree_on_the_minimal_inputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.39s
+

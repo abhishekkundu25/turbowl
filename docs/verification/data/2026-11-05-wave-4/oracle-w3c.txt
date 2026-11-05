@@ -1,0 +1,254 @@
+
+running 2 tests
+| Case | Expects | Approved | Regime | Nemo | OWL-RL | ours |
+|---|---|---|---|---|---|---|
+| datatypes-intensional-xsd-integer-decimal-compatible | consistent | yes | RDFS | pass | pass | pass |
+| datatypes-intensional-xsd-integer-string-incompatible | inconsistent | yes | RDFS | FAIL | FAIL | FAIL |
+| datatypes-non-well-formed-literal-1 | consistent | yes | RDFS | pass | pass | pass |
+| datatypes-non-well-formed-literal-2 | inconsistent | yes | RDFS | FAIL | pass | pass |
+| datatypes-plain-literal-and-xsd-string | entails | yes | RDFS | pass | pass | pass |
+| datatypes-range-clash | inconsistent | yes | RDFS | FAIL | FAIL | pass |
+| datatypes-semantic-equivalence-between-datatypes | entails | yes | RDF | FAIL | FAIL | FAIL |
+| datatypes-semantic-equivalence-within-type-1 | entails | yes | RDF | FAIL | FAIL | FAIL |
+| datatypes-semantic-equivalence-within-type-2 | entails | yes | RDF | FAIL | FAIL | FAIL |
+| datatypes-test008 | entails | yes | simple | pass | pass | pass |
+| datatypes-test009 | not entails | yes | simple | pass | pass | pass |
+| datatypes-test010 | inconsistent | yes | RDFS | FAIL | FAIL | pass |
+| double-infinity | entails | no | RDF | FAIL | FAIL | FAIL |
+| double-round-different | not entails | no | RDF | pass | pass | pass |
+| double-round-same | entails | no | RDF | FAIL | FAIL | FAIL |
+| double-zero | not entails | no | RDF | pass | pass | pass |
+| float-infinity | entails | no | RDF | FAIL | FAIL | FAIL |
+| float-round-different | not entails | no | RDF | pass | pass | pass |
+| float-round-same | entails | no | RDF | FAIL | FAIL | FAIL |
+| float-zero | not entails | no | RDF | pass | pass | pass |
+| horst-01-subClassOf-intensional | not entails | yes | RDFS | pass | pass | pass |
+| horst-01-subPropertyOf-intensional | not entails | yes | RDFS | pass | pass | pass |
+| literal-type | entails | no | RDF | FAIL | FAIL | FAIL |
+| pfps-10-non-well-formed-literal-1 | entails | yes | RDFS | FAIL | FAIL | FAIL |
+| rdf-charmod-uris-test003 | not entails | yes | RDF | pass | pass | pass |
+| rdf-charmod-uris-test004 | not entails | yes | RDF | pass | pass | pass |
+| rdfms-seq-representation-test002 | entails | yes | RDFS | FAIL | FAIL | FAIL |
+| rdfms-seq-representation-test003 | entails | yes | RDFS | FAIL | FAIL | FAIL |
+| rdfms-seq-representation-test004 | entails | yes | RDFS | FAIL | FAIL | FAIL |
+| rdfms-xmllang-test007a | not entails | yes | simple | pass | pass | pass |
+| rdfms-xmllang-test007b | not entails | yes | simple | pass | pass | pass |
+| rdfms-xmllang-test007c | not entails | yes | simple | pass | pass | pass |
+| rdfs-container-membership-superProperty-test001 | not entails | yes | RDFS | pass | pass | pass |
+| rdfs-domain-and-range-intensionality-domain | not entails | yes | RDFS | pass | FAIL | pass |
+| rdfs-domain-and-range-intensionality-range | not entails | yes | RDFS | pass | FAIL | pass |
+| rdfs-entailment-test001 | inconsistent | yes | RDFS | FAIL | pass | pass |
+| rdfs-entailment-test002 | inconsistent | yes | RDFS | FAIL | FAIL | pass |
+| rdfs-no-cycles-in-subClassOf-test001 | entails | yes | RDFS | pass | pass | pass |
+| rdfs-no-cycles-in-subPropertyOf-test001 | entails | yes | RDFS | pass | pass | pass |
+| rdfs-subClassOf-a-Property-test001 | consistent | yes | RDFS | pass | pass | pass |
+| rdfs-subPropertyOf-semantics-test001 | entails | yes | RDFS | pass | pass | pass |
+| statement-entailment-test001 | not entails | yes | RDF | pass | pass | pass |
+| statement-entailment-test002 | not entails | yes | RDF | pass | pass | pass |
+| statement-entailment-test003 | not entails | yes | RDFS | pass | pass | pass |
+| statement-entailment-test004 | not entails | yes | RDF | pass | pass | pass |
+| tex-01-language-tag-case-1 | entails | yes | RDF | pass | pass | pass |
+| tex-01-language-tag-case-2 | entails | yes | RDF | pass | pass | pass |
+| xmlsch-02-whitespace-facet-1 | not entails | yes | RDFS | pass | pass | pass |
+| xmlsch-02-whitespace-facet-2 | inconsistent | yes | RDFS | FAIL | FAIL | pass |
+| xmlsch-02-whitespace-facet-3 | entails | yes | RDFS | FAIL | FAIL | FAIL |
+| xmlsch-02-whitespace-facet-4 | inconsistent | yes | RDFS | FAIL | FAIL | pass |
+
+Passed, of 51 runnable cases: Nemo 30; OWL-RL 30; ours 37;
+
+The version 1 rule set (Nemo) passes 30; TurbOWL must pass each of them.
+
+Nemo fails 21, with the rules they likely need (from their vocabulary):
+- datatypes-intensional-xsd-integer-string-incompatible (OWL-RL: FAIL): unknown
+- datatypes-non-well-formed-literal-2 (OWL-RL: pass): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- datatypes-range-clash (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- datatypes-semantic-equivalence-between-datatypes (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- datatypes-semantic-equivalence-within-type-1 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- datatypes-semantic-equivalence-within-type-2 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- datatypes-test010 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- double-infinity (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- double-round-same (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- float-infinity (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- float-round-same (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- literal-type (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- pfps-10-non-well-formed-literal-1 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- rdfms-seq-representation-test002 (OWL-RL: FAIL): rdfs12 and RDFS axioms (container membership; not OWL 2 RL rules)
+- rdfms-seq-representation-test003 (OWL-RL: FAIL): rdfs12 and RDFS axioms (container membership; not OWL 2 RL rules)
+- rdfms-seq-representation-test004 (OWL-RL: FAIL): scm-spo, scm-eqp1; rdfs12 and RDFS axioms (container membership; not OWL 2 RL rules)
+- rdfs-entailment-test001 (OWL-RL: pass): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- rdfs-entailment-test002 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- xmlsch-02-whitespace-facet-2 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- xmlsch-02-whitespace-facet-3 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- xmlsch-02-whitespace-facet-4 (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+
+(written to <repo>/target/oracle/w3c-rdf-mt.md)
+test rdf_semantics_entailment_tests ... ok
+| Case | Expects | Approved | Regime | Nemo | OWL-RL | ours |
+|---|---|---|---|---|---|---|
+| DisjointClasses-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| DisjointClasses-001 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| DisjointClasses-002 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| DisjointClasses-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| DisjointClasses-003 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| FS2RDF-different-individuals-2-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-different-individuals-2-ar | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-different-individuals-3-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-different-individuals-3-ar | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-disjoint-classes-2-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-disjoint-classes-2-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-disjoint-classes-3-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-disjoint-classes-3-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-domain-range-simple-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-equivalent-classes-2-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-equivalent-classes-2-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-equivalent-classes-3-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-equivalent-classes-3-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-no-builtin-prefixes-ar | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-ontology-annotation-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-propertychain-2-annotated-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-propertychain-2-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-same-individual-2-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-same-individual-2-ar | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| FS2RDF-same-individual-3-annotation-ar | consistent | no | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-AnnotationAnnotations-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-AsymmetricProperty-001 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-AxiomAnnotations-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-DisjointDataProperties-001 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-DisjointDataProperties-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-DisjointDataProperties-002 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| New-Feature-DisjointObjectProperties-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-DisjointObjectProperties-001 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| New-Feature-DisjointObjectProperties-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-DisjointObjectProperties-002 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| New-Feature-IrreflexiveProperty-001 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-Keys-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-Keys-003 | entails | yes | DIRECT+RDF-BASED | FAIL | pass | FAIL |
+| New-Feature-Keys-004 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-Keys-004 | not entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-Keys-005 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-Keys-006 | inconsistent | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| New-Feature-NegativeDataPropertyAssertion-001 | inconsistent | yes | DIRECT+RDF-BASED | FAIL | pass | FAIL |
+| New-Feature-NegativeObjectPropertyAssertion-001 | inconsistent | yes | DIRECT+RDF-BASED | FAIL | pass | FAIL |
+| New-Feature-ObjectPropertyChain-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectPropertyChain-001 | entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectPropertyChain-BJP-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectPropertyChain-BJP-003 | entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectPropertyChain-BJP-004 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectPropertyChain-BJP-004 | not entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectQCR-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ObjectQCR-002 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| New-Feature-ReflexiveProperty-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| New-Feature-ReflexiveProperty-001 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-AnnotationProperty-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-AnnotationProperty-004 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I4.6-003 | consistent | no | RDF-BASED | pass | pass | pass |
+| WebOnt-I4.6-003 | entails | no | RDF-BASED | FAIL | pass | FAIL |
+| WebOnt-I4.6-004 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I4.6-004 | not entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I4.6-005 | consistent | no | RDF-BASED | pass | pass | pass |
+| WebOnt-I4.6-005 | not entails | no | RDF-BASED | pass | pass | pass |
+| WebOnt-I4.6-005-Direct | consistent | yes | DIRECT | pass | pass | pass |
+| WebOnt-I4.6-005-Direct | entails | yes | DIRECT | FAIL | FAIL | FAIL |
+| WebOnt-I5.26-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.26-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.26-005 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.5-005 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.5-005 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-I5.8-006 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.8-006 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-I5.8-007 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.8-007 | not entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.8-008 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.8-008 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-I5.8-009 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.8-009 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-I5.8-011 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-I5.8-011 | entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-Nothing-001 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-backwardCompatibleWith-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-description-logic-101 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-description-logic-103 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-description-logic-104 | inconsistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-differentFrom-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-differentFrom-001 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-disjointWith-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-disjointWith-004 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-disjointWith-005 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-disjointWith-006 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-disjointWith-007 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-disjointWith-008 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-disjointWith-009 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentClass-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentClass-002 | entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentClass-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentClass-003 | entails | yes | DIRECT+RDF-BASED | FAIL | pass | FAIL |
+| WebOnt-equivalentClass-008 | consistent | no | RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentClass-008 | not entails | no | RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentClass-008-Direct | consistent | yes | DIRECT | pass | pass | pass |
+| WebOnt-equivalentClass-008-Direct | entails | yes | DIRECT | FAIL | FAIL | FAIL |
+| WebOnt-equivalentProperty-002 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentProperty-002 | entails | yes | DIRECT+RDF-BASED | FAIL | pass | FAIL |
+| WebOnt-equivalentProperty-003 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-equivalentProperty-003 | entails | yes | DIRECT+RDF-BASED | FAIL | pass | FAIL |
+| WebOnt-imports-011 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-imports-011 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| WebOnt-miscellaneous-303 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-sameAs-001 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| WebOnt-sameAs-001 | entails | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| chain2trans1 | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| chain2trans1 | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| owl2-rl-anonymous-individual | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| owl2-rl-rules-fp-differentFrom | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| owl2-rl-rules-fp-differentFrom | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| owl2-rl-rules-ifp-differentFrom | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| owl2-rl-rules-ifp-differentFrom | entails | yes | DIRECT+RDF-BASED | FAIL | FAIL | FAIL |
+| owl2-rl-valid-oneof | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+| owl2-rl-valid-rightside-allvaluesfrom | consistent | yes | DIRECT+RDF-BASED | pass | pass | pass |
+
+Passed, of 119 runnable cases: Nemo 93; OWL-RL 100; ours 93;
+
+The version 1 rule set (Nemo) passes 93; TurbOWL must pass each of them.
+
+Nemo fails 26, with the rules they likely need (from their vocabulary):
+- DisjointClasses-001 (OWL-RL: FAIL): unknown
+- DisjointClasses-003 (OWL-RL: FAIL): cax-adc
+- New-Feature-DisjointDataProperties-002 (OWL-RL: FAIL): prp-adp
+- New-Feature-DisjointObjectProperties-001 (OWL-RL: FAIL): unknown
+- New-Feature-DisjointObjectProperties-002 (OWL-RL: FAIL): prp-adp
+- New-Feature-Keys-003 (OWL-RL: pass): prp-key
+- New-Feature-Keys-006 (OWL-RL: FAIL): prp-key
+- New-Feature-NegativeDataPropertyAssertion-001 (OWL-RL: pass): prp-npa1, prp-npa2
+- New-Feature-NegativeObjectPropertyAssertion-001 (OWL-RL: pass): prp-npa1, prp-npa2
+- New-Feature-ObjectQCR-002 (OWL-RL: FAIL): eq-diff1; cls-maxqc1 to cls-maxqc4; scm-* for restrictions
+- New-Feature-ReflexiveProperty-001 (OWL-RL: FAIL): unknown
+- WebOnt-I4.6-003 (OWL-RL: pass): scm-eqc2
+- WebOnt-I4.6-005-Direct (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- WebOnt-I5.5-005 (OWL-RL: FAIL): unknown
+- WebOnt-I5.8-006 (OWL-RL: FAIL): scm-rng1, scm-rng2
+- WebOnt-I5.8-008 (OWL-RL: FAIL): scm-rng1, scm-rng2
+- WebOnt-I5.8-009 (OWL-RL: FAIL): scm-rng1, scm-rng2
+- WebOnt-differentFrom-001 (OWL-RL: FAIL): eq-diff1
+- WebOnt-equivalentClass-003 (OWL-RL: pass): scm-eqc2
+- WebOnt-equivalentClass-008-Direct (OWL-RL: FAIL): dt-* (Nemo has no datatype checks; dt-not-type is in version 1)
+- WebOnt-equivalentProperty-002 (OWL-RL: pass): scm-spo, scm-eqp1
+- WebOnt-equivalentProperty-003 (OWL-RL: pass): scm-eqp2
+- WebOnt-imports-011 (OWL-RL: FAIL): unknown
+- chain2trans1 (OWL-RL: FAIL): unknown
+- owl2-rl-rules-fp-differentFrom (OWL-RL: FAIL): eq-diff1
+- owl2-rl-rules-ifp-differentFrom (OWL-RL: FAIL): eq-diff1
+
+Not runnable here (8):
+- Disjoint_Props_via_Disjoint_Domains: premise in functional syntax only
+- Disjoint_Props_via_Disjoint_Ranges: premise in functional syntax only
+- functionality-clash: premise in functional syntax only
+- Individual-Class_Punning_vs._ObjectOneOf: premise in functional syntax only
+- New-Feature-ObjectPropertyChain-BJP-002: premise in functional syntax only
+- Plus and Minus Zero are Distinct: premise in functional syntax only
+- string-integer-clash: premise in functional syntax only
+- WebOnt-imports-013: no premise
+
+(written to <repo>/target/oracle/w3c-owl2-rl.md)
+test owl2_rl_conformance_tests ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.94s
+

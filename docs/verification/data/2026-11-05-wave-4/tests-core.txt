@@ -1,0 +1,429 @@
+
+running 178 tests
+test diagnostics::tests::only_simple_local_names_are_shortened ... ok
+test engine::canon::tests::a_constant_represents_its_class ... ok
+test engine::canon::tests::a_watched_constant_reports_its_class_growing_once ... ok
+test diagnostics::tests::an_unknown_code_still_names_its_terms ... ok
+test diagnostics::tests::a_finding_becomes_an_error_with_its_terms_in_order ... ok
+test engine::canon::tests::the_larger_class_wins_and_ties_go_to_the_smaller_id ... ok
+test diagnostics::tests::every_code_has_a_sentence_naming_its_terms ... ok
+test engine::tests::antijoin_matches_naive ... ok
+test engine::tests::gallop_matches_partition_point ... ok
+test engine::tests::leapjoin_matches_naive ... ok
+test engine::tests::three_relation_join_matches_naive ... ok
+test engine::tests::relation_merge_is_union ... ok
+test io::tests::language_tags_and_datatypes_survive_output ... ok
+test io::tests::line_and_column_count_characters ... ok
+test io::tests::n3_keeps_only_rdf_triples ... ok
+test io::tests::a_malformed_file_names_the_file_and_position ... ok
+test io::tests::non_rdf_triples_are_not_written ... ok
+test io::tests::other_errors ... ok
+test io::tests::two_documents_blank_nodes_stay_apart ... ok
+test engine::tests::variable_remap_moves_rewritten_tuples_to_the_delta ... ok
+test reasoner::tests::added_is_the_difference_of_a_superset ... ok
+test reasoner::tests::a_removal_removes_its_inferences ... ok
+test io::tests::the_four_formats_read_the_same_graph ... ok
+test io::tests::round_trip_every_format ... ok
+test reasoner::tests::counters_record_each_round ... ok
+test reasoner::tests::findings_are_deduplicated ... ok
+test reasoner::tests::an_unchanged_base_costs_nothing ... ok
+test reasoner::tests::the_facts_hold_on_an_empty_base ... ok
+test reasoner::tests::generalized_triples_feed_rules_but_stay_inside ... ok
+test reasoner::tests::write_sorts_by_subject_and_can_leave_the_base_out ... ok
+test rules::class::tests::a_cell_with_two_members_needs_one_of_them ... ok
+test rules::class::tests::a_cell_off_the_path_to_nil_is_no_member ... ok
+test rules::class::tests::a_cell_without_a_first_breaks_the_list ... ok
+test rules::class::tests::a_class_with_two_intersection_lists_reads_both ... ok
+test rules::class::tests::a_class_with_two_union_lists_reads_both ... ok
+test rules::class::tests::a_cycle_with_an_exit_to_nil_is_a_list ... ok
+test rules::class::tests::a_cyclic_list_matches_nothing ... ok
+test reasoner::tests::the_base_merges_its_recent_triples ... ok
+test rules::class::tests::a_list_derived_during_the_run_counts ... ok
+test rules::class::tests::a_literal_subject_inserted_as_a_generalized_triple_is_classified ... ok
+test rules::class::tests::a_restriction_with_two_properties_reads_both ... ok
+test rules::class::tests::a_restriction_added_after_the_data_reads_all_of_it ... ok
+test rules::class::tests::a_union_reads_the_well_formed_branch_beside_a_broken_one ... ok
+test rules::class::tests::cax_eqc1 ... ok
+test rules::class::tests::a_union_list_cell_derived_later_adds_its_member ... ok
+test rules::class::tests::cax_eqc2 ... ok
+test rules::class::tests::cax_sco ... ok
+test rules::class::tests::cls_avf ... ok
+test rules::class::tests::cls_hv1 ... ok
+test rules::class::tests::cls_avf_types_a_literal_and_rules_join_on_it ... ok
+test rules::class::tests::cls_hv1_derives_a_triple_whose_predicate_is_a_literal ... ok
+test rules::class::tests::cls_hv2 ... ok
+test rules::class::tests::cls_int1 ... ok
+test rules::class::tests::cls_int2 ... ok
+test rules::class::tests::cls_svf1 ... ok
+test rules::class::tests::cls_thing_and_cls_nothing1_hold_for_an_empty_base ... ok
+test rules::class::tests::cls_svf2_with_owl_thing ... ok
+test rules::class::tests::cls_int1_draws_candidates_from_either_side ... ok
+test rules::class::tests::cls_uni ... ok
+test rules::class::tests::rdf_nil_as_a_head_is_read_like_any_cell ... ok
+test rules::class::tests::rdf_nil_reached_by_rest_contributes_nothing ... ok
+test rules::class::tests::restrictions_may_be_blank_nodes ... ok
+test rules::class::tests::restrictions_feed_each_other ... ok
+test rules::class::tests::scm_eqc1 ... ok
+test rules::class::tests::scm_sco ... ok
+test rules::class::tests::scm_sco_on_a_cycle_closes_it_reflexively ... ok
+test rules::class::tests::the_empty_list_has_no_members ... ok
+test rules::class::tests::data_added_after_a_run_is_joined_with_the_schema ... ok
+test rules::class::tests::svf_avf_and_hv_on_the_same_property ... ok
+test reasoner::tests::additions_in_batches_equal_one_run ... ok
+test rules::class::tests::two_rest_paths_need_only_one_typed_throughout ... ok
+test rules::class::tests::two_lists_sharing_a_tail ... ok
+test rules::datatype::tests::a_family_reports_through_the_context ... ok
+test rules::class::tests::the_mixed_input_gives_the_reference_closure ... ok
+test rules::datatype::tests::an_iri_typed_with_a_datatype_is_not_a_literal_out_of_range ... ok
+test rules::datatype::tests::cls_com_names_the_classes_as_stated_then_the_individual ... ok
+test rules::datatype::tests::cax_dw_names_the_individual_then_the_classes_as_stated ... ok
+test rules::datatype::tests::cls_nothing2_names_the_individual ... ok
+test rules::datatype::tests::dt_not_type_for_a_literal_typed_with_a_checked_datatype ... ok
+test rules::datatype::tests::dt_not_type_names_an_ill_typed_literal_and_its_datatype ... ok
+test rules::datatype::tests::integers_as_the_reference_reads_them ... ok
+test rules::datatype::tests::findings_on_generalized_terms ... ok
+test rules::datatype::tests::prp_asyp_names_the_property_subject_and_object_both_ways ... ok
+test rules::datatype::tests::premises_derived_in_later_rounds_are_joined ... ok
+test rules::datatype::tests::prp_irp_names_the_property_and_the_individual ... ok
+test rules::datatype::tests::prp_pdw_names_the_properties_as_stated_then_subject_and_object ... ok
+test rules::datatype::tests::strings_language_strings_and_unchecked_datatypes ... ok
+test rules::datatype::tests::value_spaces_as_the_reference_defines_them ... ok
+test rules::datatype::tests::xml_literals_are_checked_for_their_tags ... ok
+test rules::class::tests::split_inputs_give_the_closure_of_one_run ... ok
+test rules::datatype::tests::a_finding_is_found_when_its_last_premise_arrives ... ok
+test rules::equality::tests::a_merged_away_predicate_s_table_moves ... ok
+test rules::equality::tests::a_literal_joining_a_typed_class_is_checked_when_nothing_else_changes ... ok
+test rules::equality::tests::a_term_is_the_same_as_itself_only_where_a_triple_says_so ... ok
+test rules::equality::tests::a_cell_the_same_as_rdf_nil_reads_on ... ok
+test rules::equality::tests::a_term_the_same_as_rdf_type_types ... ok
+test rules::equality::tests::dt_not_type_checks_each_literal_of_a_typed_class ... ok
+test rules::equality::tests::a_removal_splits_a_class ... ok
+test rules::equality::tests::eq_rep_s_p_o_hold_for_every_member ... ok
+test rules::equality::tests::eq_sym_and_eq_trans_give_every_pair_of_a_class ... ok
+test rules::equality::tests::findings_name_every_member ... ok
+test rules::equality::tests::literals_made_equal_share_their_triples ... ok
+test rules::equality::tests::rdf_nil_alone_ends_a_list ... ok
+test rules::equality::tests::the_harness_expands_as_the_reasoner_does ... ok
+test rules::equality::tests::two_vocabulary_terms_made_equal_restart_the_run ... ok
+test rules::property::tests::mixed_input_matches_the_reference ... ok
+test rules::property::tests::prp_dom_types_the_subject ... ok
+test rules::property::tests::prp_eqp1_and_eqp2_copy_both_ways ... ok
+test rules::property::tests::prp_fp_makes_the_objects_of_a_subject_the_same ... ok
+test rules::property::tests::prp_fp_with_literal_objects ... ok
+test rules::property::tests::prp_ifp_merges_only_subjects_with_an_equal_object ... ok
+test rules::property::tests::prp_inv1_and_inv2_copy_reversed_both_ways ... ok
+test rules::property::tests::prp_inv_of_itself ... ok
+test rules::property::tests::prp_rng_types_the_object_a_literal_too ... ok
+test rules::property::tests::prp_spo1_copies_up_the_hierarchy ... ok
+test rules::property::tests::prp_spo1_with_a_literal_super_property ... ok
+test rules::property::tests::incremental_runs_give_the_closure_of_one_run ... ok
+test rules::property::tests::prp_spo2_branching_list ... ok
+test rules::property::tests::prp_spo2_atoms_arriving_one_run_at_a_time ... ok
+test rules::property::tests::prp_spo2_cycle_with_an_exit ... ok
+test rules::property::tests::prp_spo2_cyclic_list_gives_nothing ... ok
+test rules::property::tests::prp_spo2_data_derived_during_the_run ... ok
+test rules::property::tests::prp_spo2_chains_of_length_1_to_5 ... ok
+test rules::property::tests::prp_spo2_list_derived_during_the_run ... ok
+test rules::property::tests::prp_spo2_recursive_chain ... ok
+test rules::property::tests::prp_spo2_repeated_property ... ok
+test rules::property::tests::prp_symp_reverses_a_pair ... ok
+test rules::property::tests::prp_symp_with_a_literal ... ok
+test rules::property::tests::prp_spo2_too_many_chains_are_read_naively ... ok
+test rules::property::tests::prp_trp_closes_a_chain ... ok
+test rules::property::tests::prp_trp_closes_a_cycle ... ok
+test rules::property::tests::schema_after_the_data_joins_all_of_it ... ok
+test rules::testing::tests::expand_reads_the_short_notation ... ok
+test rules::equality::tests::incremental_runs_after_merges_equal_one_run ... ok
+test rules::testing::tests::findings_and_generalized_triples_are_text_too ... ok
+test rules::testing::tests::the_harness_runs_a_family_and_reads_back_text ... ok
+test engine::tests::variable_recent_holds_only_new_tuples ... ok
+test engine::tests::transitive_closure_matches_naive ... ok
+test engine::tests::store_transitive_closure_matches_naive_incrementally ... ok
+chain 2000: 1999000 tuples, 1999 rounds, 0.198 s, 10.1 M tuples/s
+test rules::property::tests::generated::generated_inputs_match_a_naive_evaluation ... ok
+random graph 50000 nodes, 100000 edges, 100 sources: 3312752 tuples, 35 rounds, 0.189 s, 17.5 M tuples/s
+store self-join chain 400: 79800 tuples, 11 rounds, 0.151 s
+test engine::tests::timing_engine_transitive_chain ... ok
+chain of 100000 edges, closure from its head: 100001 pairs, 100002 rounds, 0.012 s
+1000 chains of 100 edges, full closure: 5050000 pairs, 101 rounds, 0.345 s, 14.6 M pairs/s
+timing_transitive_closure_100k_edge_chain: 0.358 s
+test engine::tests::timing_transitive_closure_100k_edge_chain ... ok
+timing_intern_load: 1000000 triples, 81.7 MB, 500440 terms: parse+intern 381 ms = 2.62 M triples/s; oxttl parse alone 308 ms = 3.25 M triples/s; interning is 19% of the load
+test io::tests::timing_intern_load ... ok
+scaling_class_family_run: linear (exponent at most 1.25): pass
+        size          time   time / size
+        1000      1.134 ms      1.134 us
+        2000      2.234 ms      1.117 us
+        4000      4.418 ms      1.104 us
+        8000      8.870 ms      1.109 us
+       16000     18.766 ms      1.173 us
+  exponent 1.009 (fastest of 7 runs per size)
+test rules::class::tests::scaling::scaling_class_family_run ... ok
+scaling_datatype_rules_linear_in_instances: linear (exponent at most 1.25): pass
+        size          time   time / size
+        1024     46.503 us      45.41 ns
+        2048     99.036 us      48.36 ns
+        4096    205.219 us      50.10 ns
+        8192    428.354 us      52.29 ns
+       16384    913.167 us      55.74 ns
+  exponent 1.070 (fastest of 7 runs per size)
+test rules::datatype::tests::scaling_datatype_rules_linear_in_instances ... ok
+scaling_property_family_in_the_data: linear (exponent at most 1.25): pass
+        size          time   time / size
+         256     95.606 us     373.46 ns
+         512    194.362 us     379.61 ns
+        1024    400.976 us     391.58 ns
+        2048    917.031 us     447.77 ns
+        4096      1.969 ms     480.77 ns
+  exponent 1.097 (fastest of 7 runs per size)
+test rules::property::tests::scaling::scaling_property_family_in_the_data ... ok
+scaling_dictionary_bytes_per_term:
+       1024 terms:      93392 bytes, 80.2 per term (19.6 of text), bound 136796
+       2048 terms:     150944 bytes, 69.0 per term (18.0 of text), bound 235612
+       4096 terms:     301888 bytes, 71.3 per term (17.2 of text), bound 433244
+       8192 terms:     603776 bytes, 72.5 per term (16.7 of text), bound 828508
+      16384 terms:    1207552 bytes, 73.1 per term (16.5 of text), bound 1619036
+      32768 terms:    2415104 bytes, 73.4 per term (16.4 of text), bound 3200092
+      65536 terms:    4830208 bytes, 73.5 per term (16.3 of text), bound 6362204
+     131072 terms:    9660416 bytes, 73.6 per term (16.3 of text), bound 12686428
+     262144 terms:   19320832 bytes, 73.7 per term (16.3 of text), bound 25334876
+     524288 terms:   38641664 bytes, 73.7 per term (16.3 of text), bound 50631772
+    1048576 terms:   77283328 bytes, 73.7 per term (16.3 of text), bound 101225564
+
+test scaling::dictionary::scaling_dictionary_bytes_per_term ... ok
+scaling_dictionary_intern_new_terms: linear (exponent at most 1.25): pass
+        size          time   time / size
+       65536      1.488 ms      22.71 ns
+      131072      3.103 ms      23.68 ns
+      262144      6.331 ms      24.15 ns
+      524288     13.717 ms      26.16 ns
+     1048576     30.412 ms      29.00 ns
+  exponent 1.085 (fastest of 7 runs per size)
+test scaling::dictionary::scaling_dictionary_intern_new_terms ... ok
+scaling_dictionary_reintern_known_terms: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048     15.499 us       7.57 ns
+        4096     31.557 us       7.70 ns
+        8192     55.924 us       6.83 ns
+       16384    144.248 us       8.80 ns
+       32768    268.125 us       8.18 ns
+  exponent 1.042 (fastest of 7 runs per size)
+test scaling::dictionary::scaling_dictionary_reintern_known_terms ... ok
+scaling_antijoin: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384     38.923 us       2.38 ns
+       32768     74.716 us       2.28 ns
+       65536    149.113 us       2.28 ns
+      131072    303.588 us       2.32 ns
+      262144    602.467 us       2.30 ns
+  exponent 0.993 (fastest of 7 runs per size)
+test scaling::engine::scaling_antijoin ... ok
+scaling_join_merge: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384     41.975 us       2.56 ns
+       32768     83.166 us       2.54 ns
+       65536    172.559 us       2.63 ns
+      131072    345.845 us       2.64 ns
+      262144    586.917 us       2.24 ns
+  exponent 0.967 (fastest of 7 runs per size)
+test scaling::engine::scaling_join_merge ... ok
+scaling_leapjoin: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    171.775 us      41.94 ns
+        8192    434.972 us      53.10 ns
+       16384    921.444 us      56.24 ns
+       32768      1.957 ms      59.71 ns
+       65536      4.143 ms      63.22 ns
+  exponent 1.135 (fastest of 7 runs per size)
+test scaling::engine::scaling_leapjoin ... ok
+scaling_relation_from_vec: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096     33.720 us       8.23 ns
+        8192     69.944 us       8.54 ns
+       16384    145.613 us       8.89 ns
+       32768    304.817 us       9.30 ns
+       65536    631.600 us       9.64 ns
+  exponent 1.058 (fastest of 7 runs per size)
+test scaling::engine::scaling_relation_from_vec ... ok
+scaling_relation_merge: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384     34.759 us       2.12 ns
+       32768     65.141 us       1.99 ns
+       65536    126.811 us       1.93 ns
+      131072    245.045 us       1.87 ns
+      262144    494.368 us       1.89 ns
+  exponent 0.957 (fastest of 7 runs per size)
+test scaling::engine::scaling_relation_merge ... ok
+scaling_store_chain_rounds: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    371.526 us      90.70 ns
+        8192    791.510 us      96.62 ns
+       16384      1.554 ms      94.85 ns
+       32768      3.220 ms      98.27 ns
+       65536      6.825 ms     104.13 ns
+  exponent 1.042 (fastest of 7 runs per size)
+test scaling::engine::scaling_store_chain_rounds ... ok
+scaling_store_disjoint_chains: linear (exponent at most 1.25): pass
+        size          time   time / size
+         256    844.635 us      3.299 us
+         512      1.694 ms      3.309 us
+        1024      3.406 ms      3.326 us
+        2048      6.914 ms      3.376 us
+        4096     13.950 ms      3.406 us
+  exponent 1.012 (fastest of 7 runs per size)
+test scaling::engine::scaling_store_disjoint_chains ... ok
+scaling_store_incremental_insert: constant (exponent at most 0.25): pass
+        size          time   time / size
+        1024      1.671 us       1.63 ns
+        2048      1.671 us       0.82 ns
+        4096      1.941 us       0.47 ns
+        8192      2.028 us       0.25 ns
+       16384      2.187 us       0.13 ns
+  exponent 0.106 (fastest of 7 runs per size)
+test scaling::engine::scaling_store_incremental_insert ... ok
+scaling_variable_large_batches: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384    112.545 us       6.87 ns
+       32768    224.147 us       6.84 ns
+       65536    445.786 us       6.80 ns
+      131072    892.021 us       6.81 ns
+      262144      1.757 ms       6.70 ns
+  exponent 0.992 (fastest of 7 runs per size)
+test scaling::engine::scaling_variable_large_batches ... ok
+test term::tests::a_lang_string_without_a_tag_is_kept_as_it_came ... ok
+test term::tests::a_literal_keeps_datatype_and_language ... ok
+test term::tests::blank_nodes_from_no_document_keep_their_label ... ok
+test term::tests::decimal_labels ... ok
+test term::tests::every_vocabulary_id_is_fixed ... ok
+test term::tests::interning_is_idempotent ... ok
+test term::tests::many_terms_survive_growth ... ok
+test term::tests::terms_of_different_kinds_with_the_same_text_differ ... ok
+test term::tests::two_documents_blank_nodes_differ ... ok
+scaling_variable_small_batches_comparisons: N log2(N/b)^2, pass
+         N   orderings / tuple   log2(N/b)^2   ratio
+     16384               34.28            64   0.536
+     32768               41.63            81   0.514
+     65536               51.82           100   0.518
+    131072               59.71           121   0.494
+    262144               71.07           144   0.494
+
+test scaling::engine::scaling_variable_small_batches_comparisons ... ok
+scaling_variable_tiers:
+  batches of  1:     1024 tuples, at most  7 tiers so far (bound 11)
+  batches of  1:     4096 tuples, at most  8 tiers so far (bound 13)
+  batches of  1:    16384 tuples, at most 10 tiers so far (bound 15)
+  batches of  1:    65536 tuples, at most 11 tiers so far (bound 17)
+  batches of 64:     1024 tuples, at most  3 tiers so far (bound 11)
+  batches of 64:     4096 tuples, at most  4 tiers so far (bound 13)
+  batches of 64:    16384 tuples, at most  6 tiers so far (bound 15)
+  batches of 64:    65536 tuples, at most  7 tiers so far (bound 17)
+  batches of 64:   262144 tuples, at most  8 tiers so far (bound 19)
+  batches of 64:  1048576 tuples, at most 10 tiers so far (bound 21)
+
+test scaling::engine::scaling_variable_tiers ... ok
+scaling_parse_ntriples: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048    731.450 us     357.15 ns
+        4096      1.464 ms     357.33 ns
+        8192      2.978 ms     363.49 ns
+       16384      5.880 ms     358.88 ns
+       32768     11.968 ms     365.24 ns
+  exponent 1.007 (fastest of 7 runs per size)
+test scaling::io::scaling_parse_ntriples ... ok
+scaling_parse_turtle: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048    633.100 us     309.13 ns
+        4096      1.241 ms     302.89 ns
+        8192      2.494 ms     304.43 ns
+       16384      5.024 ms     306.66 ns
+       32768     10.121 ms     308.87 ns
+  exponent 1.002 (fastest of 7 runs per size)
+test scaling::io::scaling_parse_turtle ... ok
+scaling_write_ntriples: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    243.934 us      59.55 ns
+        8192    490.595 us      59.89 ns
+       16384    987.510 us      60.27 ns
+       32768      1.985 ms      60.57 ns
+       65536      4.013 ms      61.24 ns
+  exponent 1.010 (fastest of 7 runs per size)
+test scaling::io::scaling_write_ntriples ... ok
+scaling_write_turtle: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    280.408 us      68.46 ns
+        8192    558.861 us      68.22 ns
+       16384      1.117 ms      68.16 ns
+       32768      2.210 ms      67.46 ns
+       65536      4.434 ms      67.66 ns
+  exponent 0.995 (fastest of 7 runs per size)
+test scaling::io::scaling_write_turtle ... ok
+scaling_reasoner_full_run: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    348.694 us      85.13 ns
+        8192    796.069 us      97.18 ns
+       16384      1.727 ms     105.41 ns
+       32768      3.593 ms     109.66 ns
+       65536      7.395 ms     112.84 ns
+  exponent 1.099 (fastest of 7 runs per size)
+test scaling::reasoner::scaling_reasoner_full_run ... ok
+scaling_reasoner_incremental_addition: constant (exponent at most 0.25): pass
+        size          time   time / size
+        2048      1.309 us       0.64 ns
+        4096      1.231 us       0.30 ns
+        8192      1.334 us       0.16 ns
+       16384      1.324 us       0.08 ns
+       32768      1.459 us       0.04 ns
+  exponent 0.042 (fastest of 7 runs per size)
+test scaling::reasoner::scaling_reasoner_incremental_addition ... ok
+scaling_reasoner_load: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048    712.667 us     347.98 ns
+        4096      1.442 ms     352.14 ns
+        8192      2.894 ms     353.25 ns
+       16384      5.909 ms     360.64 ns
+       32768     12.273 ms     374.53 ns
+  exponent 1.025 (fastest of 7 runs per size)
+test scaling::reasoner::scaling_reasoner_load ... ok
+scaling_reasoner_same_as_clique: linear (exponent at most 1.25): pass
+        size          time   time / size
+         256     58.245 us     227.52 ns
+         512    112.375 us     219.48 ns
+        1024    232.492 us     227.04 ns
+        2048    520.306 us     254.06 ns
+        4096      1.074 ms     262.23 ns
+  exponent 1.062 (fastest of 7 runs per size)
+test scaling::reasoner::scaling_reasoner_same_as_clique ... ok
+scaling_reasoner_same_as_clique_expansion_per_triple: constant (exponent at most 0.25): pass
+        size          time   time / size
+          16      35.92 ns       2.25 ns
+          32      40.26 ns       1.26 ns
+          64      36.02 ns       0.56 ns
+         128      37.36 ns       0.29 ns
+         256      37.81 ns       0.15 ns
+  exponent 0.004 (fastest of 7 runs per size)
+test scaling::reasoner::scaling_reasoner_same_as_clique_expansion_per_triple ... ok
+
+test result: ok. 178 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.91s
+
+
+running 9 tests
+test the_summary_counts_what_the_reads_give ... ok
+test inserted_blank_nodes_keep_their_labels ... ok
+test blank_nodes_of_two_documents_stay_apart ... ok
+test an_untagged_lang_string_is_reported_ill_typed ... ok
+test clear_empties_everything ... ok
+test an_unchanged_base_costs_nothing ... ok
+test a_failed_load_changes_nothing ... ok
+test every_format_round_trips_with_language_tags ... ok
+test loading_a_document_twice_changes_nothing ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests turbowl
+
+running 1 test
+test crates/turbowl/src/lib.rs - (line 9) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+all doctests ran in 1.64s; merged doctests compilation took 1.21s

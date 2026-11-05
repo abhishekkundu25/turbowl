@@ -1,0 +1,134 @@
+==> cli
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 20 tests
+test files_after_double_dash_are_inputs ... ok
+test json_on_stderr_parses_when_the_closure_takes_stdout ... ok
+test a_consistent_input_reports_no_diagnostic ... ok
+test json_is_one_object_with_the_summary_and_every_diagnostic ... ok
+test a_parse_error_exits_1_with_its_line_and_writes_nothing ... ok
+test inferred_only_writes_the_librarys_inferred_triples ... ok
+test every_input_format_loads_together ... ok
+test input_and_output_errors_exit_1 ... ok
+test text_lists_each_diagnostic_then_the_summary ... ok
+test ndjson_is_a_line_per_diagnostic_then_the_summary ... ok
+test the_closure_on_stdout_is_the_librarys_as_turtle ... ok
+test format_on_stdout_and_dash_output ... ok
+test the_report_goes_to_stdout_unless_the_closure_does ... ok
+test help_and_version_exit_0 ... ok
+test a_reader_closing_stdout_early_is_not_an_error ... ok
+test summary_only_writes_the_summary_and_no_closure ... ok
+test fail_on_sets_the_exit_code_and_the_closure_is_still_written ... ok
+test max_diagnostics_lists_fewer_and_the_summary_counts_all ... ok
+test the_output_format_comes_from_the_extension_or_format ... ok
+test usage_errors_exit_64 ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+
+==> oracle-lib
+
+running 14 tests
+test cases::tests::expands_prefixes_outside_strings ... ok
+test closure::tests::reads_terms_from_text ... ok
+test hermit::tests::reads_a_taxonomy ... ok
+test hermit::tests::an_input_equating_reserved_iris_is_not_judged ... ok
+test differences::tests::finds_cyclic_lists ... ok
+test nemo::tests::splits_csv ... ok
+test w3c::tests::matches_blank_nodes ... ok
+test cases::tests::every_case_parses ... ok
+test differences::tests::f4_owlrl_fails_on_a_cyclic_list ... ok
+test differences::tests::f2_owlrl_cls_com_names_the_class ... ok
+test differences::tests::f1_reaches_the_aliases_of_sub_class_of ... ok
+test differences::tests::f5_owlrl_ignores_range_typed_literals ... ok
+test differences::tests::f3_owlrl_accepts_padded_integers ... ok
+test differences::tests::f1_owlrl_scm_sco_skips_reflexive_subclass ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+
+==> reference-lib
+
+running 3 tests
+test datatype::tests::integers ... ok
+test datatype::tests::value_spaces ... ok
+test datatype::tests::xml_checks_tags ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+==> reference-tests
+
+running 23 tests
+test empty_input_gives_the_two_seeds ... ok
+test complement_fires ... ok
+test ill_typed_literals ... ok
+test chains_of_length_five ... ok
+test container_membership_derives_nothing ... ok
+test disjoint_classes_fire_once_in_the_stated_direction ... ok
+test inconsistencies ... ok
+test inverse_functional_needs_a_shared_object ... ok
+test equality_rules ... ok
+test literals_made_equal_share_their_triples ... ok
+test lists_need_a_first_in_every_cell_and_stop_at_nil ... ok
+test class_rules ... ok
+test literals_outside_a_datatype_range ... ok
+test rules_outside_the_set_add_nothing ... ok
+test property_chains_compose_in_order ... ok
+test property_rules ... ok
+test same_as_is_reflexive_on_its_nodes_only ... ok
+test subjects_are_not_typed_thing ... ok
+test the_test_parser_reads_lists_literals_and_shorthand ... ok
+test the_closure_holds_the_input_and_no_literal_subject ... ok
+of 300 inputs: 34 make a term equal to a constant, 18 two constants, 15 a term rdf:nil
+test generator_makes_vocabulary_terms_equal ... ok
+test generator_is_deterministic_and_reaches_a_fixpoint ... ok
+300 seeds (0 too large, 106 with triples that are not RDF): cax-dw 68, cax-eqc1 85, cax-eqc2 61, cax-sco 196, cls-avf 28, cls-com 34, cls-hv1 72, cls-hv2 21, cls-int1 21, cls-int2 89, cls-nothing1 300, cls-nothing2 71, cls-svf1 59, cls-svf2 61, cls-thing 300, cls-uni 91, dt-not-type 130, eq-rep-o 154, eq-rep-p 45, eq-rep-s 181, eq-sym 172, eq-trans 117, prp-asyp 21, prp-dom 123, prp-eqp1 74, prp-eqp2 74, prp-fp 100, prp-ifp 52, prp-inv1 112, prp-inv2 93, prp-irp 18, prp-pdw 20, prp-rng 129, prp-spo1 112, prp-spo2 50, prp-symp 62, prp-trp 20, scm-eqc1 165, scm-sco 186
+test generator_exercises_every_rule ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+
+==> chaos
+
+running 6 tests
+test shards_cover_every_iteration_once ... ok
+test watchdog_reports_a_stuck_iteration ... ok
+full shard 0: 200 compared; not compared: 0 too large for the reference
+full slowest iterations: 93 (13.02ms), 164 (11.18ms), 1 (7.55ms), 163 (6.85ms), 160 (6.52ms)
+test full_runs_match_the_reference_0 ... ok
+full shard 1: 200 compared; not compared: 0 too large for the reference
+full slowest iterations: 379 (40.80ms), 315 (14.27ms), 210 (12.81ms), 254 (12.67ms), 352 (8.99ms)
+test full_runs_match_the_reference_1 ... ok
+incremental shard 1: 200 compared; not compared: 0 too large for the reference
+incremental slowest iterations: 239 (13.87ms), 358 (12.83ms), 231 (7.39ms), 353 (7.16ms), 375 (7.03ms)
+test incremental_runs_match_a_full_run_1 ... ok
+incremental shard 0: 200 compared; not compared: 0 too large for the reference
+incremental slowest iterations: 68 (27.07ms), 198 (20.86ms), 172 (8.82ms), 9 (7.19ms), 150 (6.59ms)
+test incremental_runs_match_a_full_run_0 ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+
+==> bench
+
+running 11 tests
+test compare::tests::flags_only_ranges_apart ... ok
+test nemo::tests::replaces_the_one_import ... ok
+test nemo::tests::reads_the_short_report ... ok
+test nemo::tests::refuses_a_program_without_one_import ... ok
+test scaling::tests::exponent_of_powers ... ok
+test scaling::tests::families_need_two_sizes ... ok
+test scaling::tests::entries_fit_finished_runs_only ... ok
+test tests::reads_the_old_name_of_this_reasoner ... ok
+test lubm::tests::one_university_is_lubm_sized ... ok
+test lubm::tests::same_count_gives_same_bytes ... ok
+test lubm::tests::data_and_ontology_parse ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
