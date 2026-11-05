@@ -101,3 +101,14 @@ Departures from the plan, as they happen.
   counts tuples per family and round; 11 follows ADR 0003's amendment for
   `sameAs` on vocabulary terms. The spec's 18.7 s sentence was reasonable
   0.2.6's README log from 2023; 0.5.0-a1 takes about 13 ms on that input.
+- **Scaling tests (owner's request).** Eighteen `scaling_*` tests in
+  `crates/turtle-reasoner/src/scaling.rs` fit how time grows with size
+  (dictionary, I/O, relations, joins, variables, store), and the bench fits
+  exponents across lubm-1/10/50. They found two super-linear costs in the
+  engine. A round's duplicate check walked every stable tier even when a
+  tier's range could not hold the new tuples (fixed: skipped, a chain's
+  round is flat at about 100 ns). And the check over many small scattered
+  batches is N·log²(N/b), datafrog's design (accepted and pinned by
+  counted comparisons; E10 would remove it). One heavily loaded run over
+  LUBM 1/10/50 fitted time exponents of 1.30 for reasonable (its loading)
+  and 0.98 for Nemo; the spec's budget for this reasoner is 1.2.
