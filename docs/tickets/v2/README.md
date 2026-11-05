@@ -130,6 +130,21 @@ Departures from the plan, as they happen.
   listed faults with tests. With `trivial` on, eq-ref meets the checks in
   ticket 08. List positions count only along a path that reaches
   `rdf:nil`, as the existing list reader reads them.
+- **12.** Soufflé 2.5 (Homebrew's arm64 bottle, unpacked into `tools/`,
+  programs compiled with Xcode's compiler) and VLog 1.3.7 (Rulewerk
+  0.9.0's client jar driven through its shell, since its `materialize`
+  command is broken) run as competitors, single-threaded here. Every
+  Datalog competitor reads the input converted once and encoded with the
+  oracle's codec (now public), so each matches terms as TurbOWL does.
+  Neither engine reports a load/reasoning split, so their rows have a
+  total time only. Results files are schema 6. Peak memory is the lifetime
+  physical footprint. On brick-small1, lubm-1, uobm-010-l and lubm-uba-10-l
+  every engine's closure count equals TurbOWL's.
+- **Landing patches twice.** The codec change was committed on `v2` and
+  applied, uncommitted, to the worktrees of 05, 06 and 12. Ticket 12's
+  cherry-pick then duplicated it, because 12 also changed the lines next
+  to it. The fix removed the copy. Before 05 and 06 are committed, the
+  orchestrator takes that hunk out of their worktrees.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
   minutes while showing 2 GB, until the agent stopped it. The cap now

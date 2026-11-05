@@ -1,6 +1,6 @@
 # 12: Competitors: VLog, Soufflé, Nemo (GraphDB if licensed)
 
-Status: todo. Blocked by: 03, 13.
+Status: done. Blocked by: 03, 13.
 
 Each competitor is fetched and pinned into `tools/` by version and checksum, with no system install. `docs/research/competitors-2026-11.md` §2 to §6 says how each can run on this machine:
 
@@ -19,8 +19,8 @@ Three fixes to the bench, found by ticket 13:
 - If ticket 25 finds that the bench's closure check holds the expanded closure in memory, the check counts without holding it. An engine gets all-cores rows only where it can run in parallel on this machine; none of the competitors can today.
 
 ## Acceptance
-- [ ] `--list` shows each engine, its pinned version, and whether it is fetched.
-- [ ] On brick-small1 and lubm-1, every fetched competitor's closure count equals TurbOWL's, in the default and the complete configuration.
-- [ ] Nemo runs `claros-l` and `uobm-010-l` (converted inputs) and its closure count equals TurbOWL's.
-- [ ] Unit tests for each adapter's output parsing, and for its error and timeout paths.
-- [ ] The bench README says, for each competitor, its version, how it runs, what its time includes, and why it has no all-cores row.
+- [x] `--list` shows each engine, its pinned version, and whether it is fetched.
+- [x] On brick-small1 and lubm-1, every fetched competitor's closure count equals TurbOWL's, in the default and the complete configuration.
+- [x] Nemo runs `claros-l` and `uobm-010-l` (converted inputs) and its closure count equals TurbOWL's.
+- [x] Unit tests for each adapter's output parsing, and for its error and timeout paths.
+- [x] The bench README says, for each competitor, its version, how it runs, what its time includes, and why it has no all-cores row.

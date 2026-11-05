@@ -203,30 +203,6 @@ fn named_literal(term: &Term) -> Option<NamedNode> {
         .map(|(_, _, iri)| NamedNode::new_unchecked(*iri))
 }
 
-/// The literals the W3C OWL 2 RL rules name, as (lexical form, datatype),
-/// and the fixed IRI each is renamed to: what `oracles/rules/` writes for it.
-pub const NAMED_LITERALS: [(&str, &str, &str); 2] = [
-    (
-        "0",
-        "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
-        "urn:x-turbowl-oracle:term:nonNegativeInteger-0",
-    ),
-    (
-        "1",
-        "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
-        "urn:x-turbowl-oracle:term:nonNegativeInteger-1",
-    ),
-];
-
-/// The fixed IRI of a literal the rules name, if `term` is one.
-fn named_literal(term: &Term) -> Option<NamedNode> {
-    let Term::Literal(l) = term else { return None };
-    NAMED_LITERALS
-        .iter()
-        .find(|(lexical, datatype, _)| l.value() == *lexical && l.datatype().as_str() == *datatype)
-        .map(|(_, _, iri)| NamedNode::new_unchecked(*iri))
-}
-
 impl Codec {
     /// `literals`: rename literals too, not only blank nodes.
     pub fn new(literals: bool) -> Self {
