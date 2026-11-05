@@ -2,9 +2,11 @@
 //! and cls-maxqc4.
 //!
 //! OWL-RL (owlrl 7.6.2) derives more than these rules on some of them: its
-//! prp-key leaves the last property of a key unchecked, and its cardinality
-//! rules compare the number's value, not the term. So what must not be
-//! derived is written `-`, which OWL-RL is not held to.
+//! prp-key leaves the last property of a key unchecked (oracle fault F13),
+//! and its cardinality rules compare the number's Python value, not the
+//! term (F14 where the value is a double, a float or a boolean; with dt-eq,
+//! the W3C rules too read `"1"^^xsd:integer` as the cardinality 1). So what
+//! must not be derived is written `-`, which OWL-RL is not held to.
 
 use super::Case;
 use turbowl::Switch;

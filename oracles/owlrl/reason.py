@@ -43,8 +43,9 @@ PATTERNS = [
     # (OWLRL.py:684-691 formats `x`, which is c2 there), so the third term is
     # c2: oracle fault F2.
     (re.compile(rf"^Violation of complementarity for classes {T} and {T} on element {T}$"), "cls-com", (0, 1, 2)),
+    # The lexical form may be empty.
     (
-        re.compile(rf"^Lexical value of the literal '{T}' does not match its datatype \({T}\)$", re.S),
+        re.compile(rf"^Lexical value of the literal '(.*?)' does not match its datatype \({T}\)$", re.S),
         "dt-not-type",
         None,
     ),

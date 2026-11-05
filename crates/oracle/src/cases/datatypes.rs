@@ -3,8 +3,10 @@
 //! with a datatype whose value space they are not in.
 //!
 //! The literals of `dt-not-type-map` are ones OWL-RL reads as the W3C
-//! datatypes define them; its other departures are oracle faults, and the
-//! map's edge cases are tested in the core and the reference evaluator
+//! datatypes define them, but for an `xsd:token` form rdflib rewrites (F12);
+//! its other departures are oracle faults with tests of their own (F3, F7
+//! to F12 in `differences.rs`), and the map's edge cases are tested in the
+//! core and the reference evaluator
 //! (`crates/turbowl/src/rules/datatype/edge_cases.rs`).
 
 use super::Case;
@@ -38,7 +40,7 @@ pub(super) const CASES: &[Case] = &[
                  \"abc\"^^xsd:float, \"en_GB\"^^xsd:language, \"1a\"^^xsd:Name, \"a:b\"^^xsd:NCName,
                  \"a b\"^^xsd:NMTOKEN, \"0G\"^^xsd:hexBinary, \"Q!==\"^^xsd:base64Binary,
                  \"2000-13-01T00:00:00\"^^xsd:dateTime, \"2000-01-01T00:00:00\"^^xsd:dateTimeStamp,
-                 \"abc\"^^rdf:PlainLiteral .
+                 \"abc\"^^rdf:PlainLiteral, \"a  b\"^^xsd:token .
                  ex:s ex:q \"-5\"^^xsd:negativeInteger, \"0\"^^xsd:nonPositiveInteger, \"4294967295\"^^xsd:unsignedInt,
                  \"-32768\"^^xsd:short, \"18446744073709551615\"^^xsd:unsignedLong, \"1.5\"^^xsd:decimal,
                  \"127\"^^xsd:byte, \"1.5E3\"^^xsd:double, \"2.5\"^^xsd:float, \"true\"^^xsd:boolean,
@@ -66,6 +68,7 @@ pub(super) const CASES: &[Case] = &[
             "! dt-not-type \"2000-13-01T00:00:00\"^^xsd:dateTime xsd:dateTime",
             "! dt-not-type \"2000-01-01T00:00:00\"^^xsd:dateTimeStamp xsd:dateTimeStamp",
             "! dt-not-type \"abc\"^^rdf:PlainLiteral rdf:PlainLiteral",
+            "! dt-not-type \"a  b\"^^xsd:token xsd:token",
         ],
     },
     // A literal typed by prp-rng (OWL-RL does not check these: F5). An
