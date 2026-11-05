@@ -1473,3 +1473,134 @@ mod datatypes {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The schema rules
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "io")]
+mod schema {
+    use super::*;
+    use crate::{Format, Reasoner};
+    use oxrdf::{NamedNode, Triple};
+    use std::fmt::Write as _;
+
+    const EX: &str = "http://example.org/";
+
+    /// Classes per tree: a binary tree of nine levels.
+    const CLASSES: usize = 511;
+    /// Properties per tree: a binary tree of eight levels.
+    const PROPERTIES: usize = 128;
+
+    /// Deep class and property hierarchies, as Turtle: `n / 512` trees of
+    /// 511 classes and as many of 128 properties, binary (node `c` below
+    /// `(c - 1) / 2`), so the depth is fixed and the closure grows with
+    /// `n`. Every restriction shares one property or one filler with all the
+    /// others of its kind, so a rule that joined them pairwise would grow as
+    /// n²:
+    /// - for each class, a someValuesFrom and an allValuesFrom restriction
+    ///   with it as filler, all on one property (scm-svf1, scm-avf1 follow
+    ///   the class trees);
+    /// - for each property, a someValuesFrom, an allValuesFrom and a
+    ///   hasValue restriction, all with one filler (scm-svf2, scm-avf2,
+    ///   scm-hv follow the property trees);
+    /// - for every fourth class, an intersection and a union of it and the
+    ///   next (scm-int, scm-uni);
+    /// - on each property tree's root, a domain and a range of a leaf class
+    ///   (scm-dom1 and scm-rng1 up the class tree, scm-dom2 and scm-rng2
+    ///   down the property tree).
+    fn hierarchy(n: usize) -> String {
+        let trees = (n / 512).max(1);
+        let mut text = String::with_capacity(n * 600);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n",
+        );
+        for t in 0..trees {
+            for c in 0..CLASSES {
+                if c > 0 {
+                    let _ = writeln!(text, "ex:C{t}_{c} rdfs:subClassOf ex:C{t}_{} .", (c - 1) / 2);
+                }
+                let _ = writeln!(
+                    text,
+                    "ex:S{t}_{c} owl:someValuesFrom ex:C{t}_{c} ; owl:onProperty ex:p ."
+                );
+                let _ = writeln!(
+                    text,
+                    "ex:A{t}_{c} owl:allValuesFrom ex:C{t}_{c} ; owl:onProperty ex:p ."
+                );
+                if c % 4 == 1 {
+                    let d = c + 1;
+                    let _ = writeln!(text, "ex:I{t}_{c} owl:intersectionOf ( ex:C{t}_{c} ex:C{t}_{d} ) .");
+                    let _ = writeln!(text, "ex:U{t}_{c} owl:unionOf ( ex:C{t}_{c} ex:C{t}_{d} ) .");
+                }
+            }
+            for k in 0..PROPERTIES {
+                if k > 0 {
+                    let _ = writeln!(text, "ex:P{t}_{k} rdfs:subPropertyOf ex:P{t}_{} .", (k - 1) / 2);
+                }
+                let _ = writeln!(
+                    text,
+                    "ex:T{t}_{k} owl:someValuesFrom ex:F ; owl:onProperty ex:P{t}_{k} ."
+                );
+                let _ = writeln!(
+                    text,
+                    "ex:V{t}_{k} owl:allValuesFrom ex:F ; owl:onProperty ex:P{t}_{k} ."
+                );
+                let _ = writeln!(text, "ex:H{t}_{k} owl:hasValue ex:v ; owl:onProperty ex:P{t}_{k} .");
+            }
+            let (leaf, other) = (CLASSES - 1, CLASSES - 2);
+            let _ = writeln!(
+                text,
+                "ex:P{t}_0 rdfs:domain ex:C{t}_{leaf} ; rdfs:range ex:C{t}_{other} ."
+            );
+        }
+        text
+    }
+
+    fn loaded(text: &str) -> Reasoner {
+        let mut r = Reasoner::new();
+        r.load_str(text, Format::Turtle, None).unwrap();
+        r
+    }
+
+    /// The first `reason()` over the hierarchy, in the default
+    /// configuration (the `schema` switch on).
+    #[test]
+    fn scaling_schema_deep_hierarchy() {
+        let _lock = lock();
+        let sizes = sizes(512);
+        // Each rule reaches the far end of its tree.
+        let mut r = loaded(&hierarchy(sizes[1]));
+        r.reason();
+        let closure: std::collections::HashSet<Triple> = r.triples().collect();
+        let ex = |local: &str| NamedNode::new_unchecked(format!("{EX}{local}"));
+        let sub_class_of = |a: &str, b: &str| Triple::new(ex(a), oxrdf::vocab::rdfs::SUB_CLASS_OF, ex(b));
+        let (leaf, last) = (CLASSES - 1, PROPERTIES - 1);
+        for t in [
+            sub_class_of(&format!("S1_{leaf}"), "S1_0"),
+            sub_class_of(&format!("A1_{leaf}"), "A1_0"),
+            sub_class_of(&format!("T1_{last}"), "T1_0"),
+            sub_class_of("V1_0", &format!("V1_{last}")),
+            sub_class_of(&format!("H1_{last}"), "H1_0"),
+            sub_class_of("I1_1", "C1_0"),
+            sub_class_of("C1_2", "U1_1"),
+            Triple::new(ex(&format!("P1_{last}")), oxrdf::vocab::rdfs::DOMAIN, ex("C1_0")),
+            Triple::new(ex(&format!("P1_{last}")), oxrdf::vocab::rdfs::RANGE, ex("C1_0")),
+        ] {
+            assert!(closure.contains(&t), "missing {t}");
+        }
+        assert!(!closure.contains(&sub_class_of("S0_1", "S1_0")), "trees stay apart");
+        let mut text = shared(hierarchy);
+        linear(
+            "scaling_schema_deep_hierarchy",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+}

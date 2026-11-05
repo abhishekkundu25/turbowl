@@ -28,6 +28,10 @@ const EQUIVALENT_PROPERTY: NamedNodeRef<'_> =
 pub struct Subsumptions {
     /// Inferred subsumptions between named terms that were checked.
     pub checked: usize,
+    /// Inferred subsumptions not judged, as `sub ⊑ sup`: a term of each is
+    /// not declared in the input (as `owl:Class`, `owl:ObjectProperty` or
+    /// `owl:DatatypeProperty`).
+    pub not_judged: Vec<String>,
     /// The ones HermiT does not entail, as `sub ⊑ sup`.
     pub not_entailed: Vec<String>,
     /// HermiT found the input inconsistent (so it entails everything).
@@ -63,16 +67,83 @@ pub fn reserved_same_as(input: &Input) -> Option<&Triple> {
     })
 }
 
+/// The terms the input declares, by kind: classes typed `owl:Class`,
+/// properties typed `owl:ObjectProperty` or `owl:DatatypeProperty`, and the
+/// built-in classes and properties of OWL. OWL 2 DL needs these
+/// declarations to tell what a term is: without them the OWL API drops the
+/// axioms that name it (`p owl:equivalentProperty q` on undeclared p and q
+/// gives HermiT nothing), so HermiT has nothing to say about a subsumption
+/// between undeclared terms.
+fn declared(input: &Input) -> HashSet<(Kind, String)> {
+    let mut terms: HashSet<(Kind, String)> = ["Thing", "Nothing"]
+        .into_iter()
+        .map(|c| (Kind::Class, format!("{OWL}{c}")))
+        .chain(
+            [
+                "topObjectProperty",
+                "bottomObjectProperty",
+                "topDataProperty",
+                "bottomDataProperty",
+            ]
+            .into_iter()
+            .map(|p| (Kind::Property, format!("{OWL}{p}"))),
+        )
+        .collect();
+    for t in input.triples() {
+        let (oxrdf::NamedOrBlankNode::NamedNode(s), Term::NamedNode(o)) = (&t.subject, &t.object) else {
+            continue;
+        };
+        if t.predicate.as_str() != "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" {
+            continue;
+        }
+        let kind = match o.as_str().strip_prefix(OWL) {
+            Some("Class") => Kind::Class,
+            Some("ObjectProperty" | "DatatypeProperty") => Kind::Property,
+            _ => continue,
+        };
+        terms.insert((kind, s.as_str().to_owned()));
+    }
+    terms
+}
+
 /// Checks every inferred `rdfs:subClassOf`, `owl:equivalentClass`,
 /// `rdfs:subPropertyOf` and `owl:equivalentProperty` triple between IRIs in
 /// the closure (not in the input) against HermiT's classification of the
-/// input. `Err` is the outcome when HermiT is missing or fails, or when the
-/// input is not OWL 2 DL ([`reserved_same_as`]: not run).
+/// input. A subsumption is judged only when the input declares both its
+/// terms ([`declared`]); the others are listed as not judged. `Err` is the
+/// outcome when HermiT is missing or fails, or when the input is not OWL 2
+/// DL ([`reserved_same_as`], or no inferred subsumption between declared
+/// terms: not run).
 pub fn check(input: &Input, closure: &Closure) -> Result<Subsumptions, Outcome> {
     if let Some(t) = reserved_same_as(input) {
         return Err(Outcome::Skipped(format!(
             "HermiT: not OWL 2 DL, not judged ({t} makes a reserved IRI equal to another term)"
         )));
+    }
+    let asserted: HashSet<&Triple> = input.triples().iter().collect();
+    let declared = declared(input);
+    let is_declared = |kind: Kind, n: &NamedNode| declared.contains(&(kind, n.as_str().to_owned()));
+    let (wanted, undeclared): (Vec<(Kind, NamedNode, NamedNode)>, Vec<_>) = closure
+        .triples
+        .iter()
+        .filter(|t| !asserted.contains(t))
+        .flat_map(subsumptions)
+        .partition(|(kind, sub, sup)| is_declared(*kind, sub) && is_declared(*kind, sup));
+    let mut not_judged: Vec<String> = undeclared
+        .iter()
+        .map(|(_, sub, sup)| format!("{sub} ⊑ {sup}"))
+        .collect();
+    not_judged.sort();
+    not_judged.dedup();
+    if wanted.is_empty() {
+        if let Some(first) = not_judged.first() {
+            return Err(Outcome::Skipped(format!(
+                "HermiT: not OWL 2 DL, not judged ({} inferred subsumptions, such as {first}, name a term the \
+                 input does not declare as owl:Class, owl:ObjectProperty or owl:DatatypeProperty)",
+                not_judged.len()
+            )));
+        }
+        return Ok(Subsumptions::default());
     }
     if fetched_version(&tools_dir().join("jre")).is_none() || !java().exists() {
         return Err(Outcome::skipped(
@@ -85,16 +156,6 @@ pub fn check(input: &Input, closure: &Closure) -> Result<Subsumptions, Outcome> 
             "HermiT",
             "tools/hermit/HermiT.jar 1.3.8 is missing: run scripts/fetch-tools.sh",
         ));
-    }
-    let asserted: HashSet<&Triple> = input.triples().iter().collect();
-    let wanted: Vec<(Kind, NamedNode, NamedNode)> = closure
-        .triples
-        .iter()
-        .filter(|t| !asserted.contains(t))
-        .flat_map(subsumptions)
-        .collect();
-    if wanted.is_empty() {
-        return Ok(Subsumptions::default());
     }
     let dir = scratch_dir("hermit").map_err(Outcome::Failed)?;
     // N-Triples is Turtle; the bundled OWL API picks its parser by content.
@@ -116,6 +177,7 @@ pub fn check(input: &Input, closure: &Closure) -> Result<Subsumptions, Outcome> 
             Err(e) if e.contains("nconsistent") => {
                 return Ok(Subsumptions {
                     checked: wanted.len(),
+                    not_judged,
                     not_entailed: Vec::new(),
                     inconsistent: true,
                 });
@@ -126,6 +188,7 @@ pub fn check(input: &Input, closure: &Closure) -> Result<Subsumptions, Outcome> 
     let _ = std::fs::remove_dir_all(&dir);
     let mut result = Subsumptions {
         checked: wanted.len(),
+        not_judged,
         ..Subsumptions::default()
     };
     for (kind, sub, sup) in wanted {
@@ -292,6 +355,54 @@ mod tests {
         }
         for turtle in ["ex:a owl:sameAs ex:b .", "ex:a rdfs:subClassOf owl:Thing ."] {
             assert!(reserved_same_as(&input(turtle)).is_none(), "{turtle}");
+        }
+    }
+
+    /// prp-eqp's input: `p owl:equivalentProperty q` on undeclared
+    /// properties, whose subproperty pairs the rules infer. Undeclared, the
+    /// OWL API drops the axiom, so they are not judged; declared, HermiT
+    /// judges and entails them.
+    #[test]
+    fn only_subsumptions_between_declared_terms_are_judged() {
+        let prefixes = "@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix ex: <http://example.org/> .\n";
+        let body = "ex:p owl:equivalentProperty ex:q . ex:a ex:p ex:b . ex:c ex:q ex:d .";
+        let ex = |n: &str| format!("<http://example.org/{n}>");
+        let spo = "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>";
+        let closure = |input: &Input| {
+            let inferred = [
+                format!("{} {spo} {}", ex("p"), ex("q")),
+                format!("{} {spo} {}", ex("q"), ex("p")),
+            ];
+            Closure::new(
+                input
+                    .triples()
+                    .iter()
+                    .cloned()
+                    .chain(inferred.iter().map(|t| crate::closure::triple(t))),
+                [],
+            )
+        };
+
+        let undeclared = Input::turtle("prp-eqp", &format!("{prefixes}{body}"));
+        match check(&undeclared, &closure(&undeclared)) {
+            Err(Outcome::Skipped(why)) => assert!(why.contains("not judged"), "{why}"),
+            other => panic!("undeclared properties were judged: {other:?}"),
+        }
+        let half = Input::turtle("half", &format!("{prefixes}ex:p a owl:ObjectProperty . {body}"));
+        assert!(matches!(check(&half, &closure(&half)), Err(Outcome::Skipped(_))));
+
+        let declared = Input::turtle(
+            "prp-eqp-declared",
+            &format!("{prefixes}ex:p a owl:ObjectProperty . ex:q a owl:ObjectProperty . {body}"),
+        );
+        match check(&declared, &closure(&declared)) {
+            Ok(s) => {
+                assert_eq!(s.checked, 2, "{s:?}");
+                assert!(s.not_judged.is_empty(), "{s:?}");
+                assert!(s.not_entailed.is_empty(), "{s:?}");
+            }
+            Err(Outcome::Skipped(why)) => println!("skipped: {why}"),
+            Err(other) => panic!("HermiT: {other:?}"),
         }
     }
 }

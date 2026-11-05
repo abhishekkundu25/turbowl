@@ -15,8 +15,11 @@ use std::collections::{HashMap, HashSet};
 /// A known fault of an oracle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Fault {
-    /// OWL-RL's scm-sco never derives `c rdfs:subClassOf c` (nor, by
-    /// eq-rep-p, `c p c` for a `p` made `owl:sameAs` `rdfs:subClassOf`).
+    /// OWL-RL's scm-sco and scm-spo never derive `c rdfs:subClassOf c` or
+    /// `p rdfs:subPropertyOf p`, so neither scm-eqc2 nor scm-eqp2 gives
+    /// `c owl:equivalentClass c` or `p owl:equivalentProperty p` from them
+    /// (nor, by eq-rep-p, `c q c` for a `q` made `owl:sameAs` one of the
+    /// four).
     F1,
     /// OWL-RL's cls-com names the second class where the individual belongs.
     F2,
@@ -43,9 +46,14 @@ impl Fault {
         match self {
             Self::F1 => {
                 "owlrl 7.6.2 skips c rdfs:subClassOf c in scm-sco (OWLRL.py:883-888, `if c1 != c2` and \
-                 `if c1 != c3`) and derives it only through scm-cls, which needs `c a owl:Class`; the W3C \
-                 scm-sco has no such condition, so `A subClassOf B . B subClassOf A` gives A subClassOf A, \
-                 and eq-rep-p copies it to every property made owl:sameAs rdfs:subClassOf"
+                 `if c1 != c3`) and p rdfs:subPropertyOf p in scm-spo (OWLRL.py:908-916, `s != o`, \
+                 `if p1 != p2` and `if p1 != p3`), and derives them only through scm-cls and scm-op, which \
+                 need `c a owl:Class` or a property type; so neither scm-eqc2 nor scm-eqp2 (OWLRL.py:889, \
+                 919) gives `c owl:equivalentClass c` or `p owl:equivalentProperty p` from them. The W3C \
+                 rules have no such condition: `A subClassOf B . B subClassOf A` gives A subClassOf A and \
+                 A equivalentClass A, `p equivalentProperty q` gives p subPropertyOf p and p \
+                 equivalentProperty p, and eq-rep-p copies each to every property made owl:sameAs the \
+                 predicate"
             }
             Self::F2 => {
                 "owlrl 7.6.2 formats cls-com's message with `x`, which is the second class there \
@@ -82,7 +90,10 @@ impl Fault {
     /// What the comparison with the faulty oracle does about it.
     pub fn handling(self) -> &'static str {
         match self {
-            Self::F1 => "drops `c rdfs:subClassOf c` triples OWL-RL does not have from the other closure",
+            Self::F1 => {
+                "drops `c p c` triples OWL-RL does not have from the other closure, for p rdfs:subClassOf, \
+                 owl:equivalentClass, rdfs:subPropertyOf, owl:equivalentProperty and their aliases"
+            }
             Self::F2 => "compares cls-com findings on the two classes only, on both sides",
             Self::F3 => {
                 "drops dt-not-type findings OWL-RL does not have whose literal has leading or trailing \
@@ -102,10 +113,10 @@ impl Fault {
     pub fn shows(self, input: &Input, ours: &Closure, theirs: &Closure) -> bool {
         match self {
             Self::F1 => {
-                let aliases = sub_class_aliases(ours);
+                let aliases = schema_aliases(ours);
                 ours.triples
                     .iter()
-                    .any(|t| reflexive_sub_class(t, &aliases) && !theirs.triples.contains(t))
+                    .any(|t| reflexive(t, &aliases) && !theirs.triples.contains(t))
             }
             Self::F2 => [ours, theirs]
                 .iter()
@@ -130,9 +141,9 @@ impl Fault {
     fn filter(self, ours: &mut Closure, theirs: &mut Closure) {
         match self {
             Self::F1 => {
-                let aliases = sub_class_aliases(ours);
+                let aliases = schema_aliases(ours);
                 ours.triples
-                    .retain(|t| !reflexive_sub_class(t, &aliases) || theirs.triples.contains(t))
+                    .retain(|t| !reflexive(t, &aliases) || theirs.triples.contains(t))
             }
             Self::F2 => {
                 for c in [ours, theirs] {
@@ -181,26 +192,34 @@ pub fn explains_failure(oracle: &str, input: &Input) -> Option<Fault> {
     (oracle == Fault::F4.oracle() && has_cyclic_list(input)).then_some(Fault::F4)
 }
 
-/// `rdfs:subClassOf`, and every IRI the closure makes `owl:sameAs` it.
-fn sub_class_aliases(closure: &Closure) -> HashSet<oxrdf::NamedNode> {
+/// The predicates of F1 (`rdfs:subClassOf`, `owl:equivalentClass`,
+/// `rdfs:subPropertyOf`, `owl:equivalentProperty`), and every IRI the
+/// closure makes `owl:sameAs` one of them.
+fn schema_aliases(closure: &Closure) -> HashSet<oxrdf::NamedNode> {
+    let predicates: [Term; 4] = [
+        rdfs::SUB_CLASS_OF.into_owned().into(),
+        oxrdf::NamedNode::new_unchecked("http://www.w3.org/2002/07/owl#equivalentClass").into(),
+        rdfs::SUB_PROPERTY_OF.into_owned().into(),
+        oxrdf::NamedNode::new_unchecked("http://www.w3.org/2002/07/owl#equivalentProperty").into(),
+    ];
     let mut aliases: HashSet<oxrdf::NamedNode> = closure
         .triples
         .iter()
-        .filter(|t| {
-            t.predicate.as_str() == "http://www.w3.org/2002/07/owl#sameAs"
-                && t.object == Term::from(rdfs::SUB_CLASS_OF.into_owned())
-        })
+        .filter(|t| t.predicate.as_str() == "http://www.w3.org/2002/07/owl#sameAs" && predicates.contains(&t.object))
         .filter_map(|t| match &t.subject {
             NamedOrBlankNode::NamedNode(n) => Some(n.clone()),
             NamedOrBlankNode::BlankNode(_) => None,
         })
         .collect();
-    aliases.insert(rdfs::SUB_CLASS_OF.into_owned());
+    aliases.extend(predicates.into_iter().filter_map(|p| match p {
+        Term::NamedNode(n) => Some(n),
+        _ => None,
+    }));
     aliases
 }
 
-/// `c p c` with `p` one of `aliases` ([`sub_class_aliases`]).
-fn reflexive_sub_class(t: &oxrdf::Triple, aliases: &HashSet<oxrdf::NamedNode>) -> bool {
+/// `c p c` with `p` one of `aliases` ([`schema_aliases`]).
+fn reflexive(t: &oxrdf::Triple, aliases: &HashSet<oxrdf::NamedNode>) -> bool {
     aliases.contains(&t.predicate) && Term::from(t.subject.clone()) == t.object
 }
 
@@ -374,6 +393,27 @@ mod tests {
             !owlrl.triples.contains(&a_eqc_a),
             "OWL-RL now derives it: F1 is gone here"
         );
+        filter_is_needed_and_enough(Fault::F1, &input, &nemo, &owlrl);
+    }
+
+    /// F1 on properties: scm-spo closes the cycle scm-eqp1 gives
+    /// reflexively, and scm-eqp2 makes `p owl:equivalentProperty p`; OWL-RL
+    /// has neither.
+    #[test]
+    fn f1_owlrl_scm_spo_skips_reflexive_subproperty() {
+        let input = input("f1-property", "ex:p owl:equivalentProperty ex:q .");
+        let Some((nemo, owlrl)) = both(&input) else { return };
+        let owlrl = ran(owlrl);
+        for t in [
+            "<http://example.org/p> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <http://example.org/p>",
+            "<http://example.org/p> <http://www.w3.org/2002/07/owl#equivalentProperty> <http://example.org/p>",
+        ] {
+            assert!(nemo.triples.contains(&triple(t)), "the W3C rules (Nemo) derive {t}");
+            assert!(
+                !owlrl.triples.contains(&triple(t)),
+                "OWL-RL now derives {t}: F1 is gone here"
+            );
+        }
         filter_is_needed_and_enough(Fault::F1, &input, &nemo, &owlrl);
     }
 

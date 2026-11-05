@@ -4,6 +4,7 @@
 .decl T(a0: symbol, a1: symbol, a2: symbol)
 .decl Tp(a0: symbol, a1: symbol, a2: symbol)
 .decl allTypes(a0: symbol, a1: symbol)
+.decl avfRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl caxAdc(a0: symbol, a1: symbol, a2: symbol)
 .decl caxDw(a0: symbol, a1: symbol, a2: symbol)
 .decl chainCell(a0: symbol)
@@ -17,6 +18,7 @@
 .decl eqDiff2(a0: symbol, a1: symbol, a2: symbol)
 .decl eqDiff3(a0: symbol, a1: symbol, a2: symbol)
 .decl equivalentClassOf(a0: symbol, a1: symbol)
+.decl hvRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl input_(a0: symbol, a1: symbol, a2: symbol)
 .decl keyCell(a0: symbol, a1: symbol)
 .decl listCell(a0: symbol, a1: symbol)
@@ -35,6 +37,7 @@
 .decl setList(a0: symbol)
 .decl setLive(a0: symbol, a1: symbol)
 .decl setWellFormed(a0: symbol)
+.decl svfRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl usedProp(a0: symbol)
 .decl wellFormed(a0: symbol)
 
@@ -309,8 +312,35 @@ usedProp(p) :- keyCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#
 // oracles/rules/schema.rls
 
 // The `schema` switch: the schema rules beyond the class hierarchy (Table 9).
-// to come: scm-eqc2, scm-spo, scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2
-// to come: scm-hv, scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni
+// scm-sco and scm-eqc1 are in the core; scm-cls, scm-op and scm-dp in the
+// `trivial` group. No rule here has a reflexive premise of its own: scm-svf1
+// and scm-avf1 on one filler need `y rdfs:subClassOf y`, and scm-hv, scm-svf2
+// and scm-avf2 on one property `p rdfs:subPropertyOf p`, from a cycle or from
+// the `trivial` group. scm-int and scm-uni read the core's member relation.
+
+T(c1, "<http://www.w3.org/2002/07/owl#equivalentClass>", c2) :- T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2), T(c2, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c1).  // scm-eqc2
+T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p3) :- T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), T(p2, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p3).  // scm-spo
+T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2).  // scm-eqp1
+T(p2, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p1) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2).  // scm-eqp1
+T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2) :- T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), T(p2, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p1).  // scm-eqp2
+T(p, "<http://www.w3.org/2000/01/rdf-schema#domain>", c2) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#domain>", c1), T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2).  // scm-dom1
+T(p1, "<http://www.w3.org/2000/01/rdf-schema#domain>", c) :- T(p2, "<http://www.w3.org/2000/01/rdf-schema#domain>", c), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2).  // scm-dom2
+T(p, "<http://www.w3.org/2000/01/rdf-schema#range>", c2) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#range>", c1), T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2).  // scm-rng1
+T(p1, "<http://www.w3.org/2000/01/rdf-schema#range>", c) :- T(p2, "<http://www.w3.org/2000/01/rdf-schema#range>", c), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2).  // scm-rng2
+// The restriction rules read each restriction through one relation per
+// filler, restriction(?x, ?y, ?p) for `?x <filler> ?y` and `?x owl:onProperty
+// ?p`, joined with the hierarchy between the two. Written as the W3C's five
+// atoms of T, Nemo took 30 seconds on 48-statement inputs.
+svfRestriction(x, y, p) :- T(x, "<http://www.w3.org/2002/07/owl#someValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
+avfRestriction(x, y, p) :- T(x, "<http://www.w3.org/2002/07/owl#allValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
+hvRestriction(x, y, p) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
+T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- hvRestriction(c1, i, p1), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), hvRestriction(c2, i, p2).  // scm-hv
+T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- svfRestriction(c1, y1, p), T(y1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", y2), svfRestriction(c2, y2, p).  // scm-svf1
+T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- svfRestriction(c1, y, p1), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), svfRestriction(c2, y, p2).  // scm-svf2
+T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- avfRestriction(c1, y1, p), T(y1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", y2), avfRestriction(c2, y2, p).  // scm-avf1
+T(c2, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c1) :- avfRestriction(c1, y, p1), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), avfRestriction(c2, y, p2).  // scm-avf2
+T(c, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", ci) :- T(c, "<http://www.w3.org/2002/07/owl#intersectionOf>", h), member(h, ci).  // scm-int
+T(ci, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c) :- T(c, "<http://www.w3.org/2002/07/owl#unionOf>", h), member(h, ci).  // scm-uni
 
 // oracles/rules/trivial.rls
 

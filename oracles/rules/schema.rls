@@ -1,3 +1,35 @@
 % The `schema` switch: the schema rules beyond the class hierarchy (Table 9).
-% to come: scm-eqc2, scm-spo, scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2
-% to come: scm-hv, scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni
+% scm-sco and scm-eqc1 are in the core; scm-cls, scm-op and scm-dp in the
+% `trivial` group. No rule here has a reflexive premise of its own: scm-svf1
+% and scm-avf1 on one filler need `y rdfs:subClassOf y`, and scm-hv, scm-svf2
+% and scm-avf2 on one property `p rdfs:subPropertyOf p`, from a cycle or from
+% the `trivial` group. scm-int and scm-uni read the core's member relation.
+
+T(?c1, owl:equivalentClass, ?c2) :- T(?c1, rdfs:subClassOf, ?c2), T(?c2, rdfs:subClassOf, ?c1) .              % scm-eqc2
+T(?p1, rdfs:subPropertyOf, ?p3) :- T(?p1, rdfs:subPropertyOf, ?p2), T(?p2, rdfs:subPropertyOf, ?p3) .         % scm-spo
+T(?p1, rdfs:subPropertyOf, ?p2) :- T(?p1, owl:equivalentProperty, ?p2) .                                      % scm-eqp1
+T(?p2, rdfs:subPropertyOf, ?p1) :- T(?p1, owl:equivalentProperty, ?p2) .                                      % scm-eqp1
+T(?p1, owl:equivalentProperty, ?p2) :- T(?p1, rdfs:subPropertyOf, ?p2), T(?p2, rdfs:subPropertyOf, ?p1) .     % scm-eqp2
+T(?p, rdfs:domain, ?c2) :- T(?p, rdfs:domain, ?c1), T(?c1, rdfs:subClassOf, ?c2) .                            % scm-dom1
+T(?p1, rdfs:domain, ?c) :- T(?p2, rdfs:domain, ?c), T(?p1, rdfs:subPropertyOf, ?p2) .                         % scm-dom2
+T(?p, rdfs:range, ?c2) :- T(?p, rdfs:range, ?c1), T(?c1, rdfs:subClassOf, ?c2) .                              % scm-rng1
+T(?p1, rdfs:range, ?c) :- T(?p2, rdfs:range, ?c), T(?p1, rdfs:subPropertyOf, ?p2) .                           % scm-rng2
+% The restriction rules read each restriction through one relation per
+% filler, restriction(?x, ?y, ?p) for `?x <filler> ?y` and `?x owl:onProperty
+% ?p`, joined with the hierarchy between the two. Written as the W3C's five
+% atoms of T, Nemo took 30 seconds on 48-statement inputs.
+svfRestriction(?x, ?y, ?p) :- T(?x, owl:someValuesFrom, ?y), T(?x, owl:onProperty, ?p) .
+avfRestriction(?x, ?y, ?p) :- T(?x, owl:allValuesFrom, ?y), T(?x, owl:onProperty, ?p) .
+hvRestriction(?x, ?y, ?p) :- T(?x, owl:hasValue, ?y), T(?x, owl:onProperty, ?p) .
+T(?c1, rdfs:subClassOf, ?c2) :- hvRestriction(?c1, ?i, ?p1), T(?p1, rdfs:subPropertyOf, ?p2),
+    hvRestriction(?c2, ?i, ?p2) .                                                                             % scm-hv
+T(?c1, rdfs:subClassOf, ?c2) :- svfRestriction(?c1, ?y1, ?p), T(?y1, rdfs:subClassOf, ?y2),
+    svfRestriction(?c2, ?y2, ?p) .                                                                            % scm-svf1
+T(?c1, rdfs:subClassOf, ?c2) :- svfRestriction(?c1, ?y, ?p1), T(?p1, rdfs:subPropertyOf, ?p2),
+    svfRestriction(?c2, ?y, ?p2) .                                                                            % scm-svf2
+T(?c1, rdfs:subClassOf, ?c2) :- avfRestriction(?c1, ?y1, ?p), T(?y1, rdfs:subClassOf, ?y2),
+    avfRestriction(?c2, ?y2, ?p) .                                                                            % scm-avf1
+T(?c2, rdfs:subClassOf, ?c1) :- avfRestriction(?c1, ?y, ?p1), T(?p1, rdfs:subPropertyOf, ?p2),
+    avfRestriction(?c2, ?y, ?p2) .                                                                            % scm-avf2
+T(?c, rdfs:subClassOf, ?ci) :- T(?c, owl:intersectionOf, ?h), member(?h, ?ci) .                               % scm-int
+T(?ci, rdfs:subClassOf, ?c) :- T(?c, owl:unionOf, ?h), member(?h, ?ci) .                                      % scm-uni

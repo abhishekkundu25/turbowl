@@ -15,10 +15,15 @@ use turbowl_reference::{diagnostic_rules, evaluate, evaluate_counted, evaluate_w
 /// cls-thing and cls-nothing1, the rules with an empty body.
 const SEEDS: &str = "owl:Thing a owl:Class . owl:Nothing a owl:Class .";
 
-/// What the rules add to `input` beyond the input and the two seeds.
+/// What the rules add to `input` beyond the input and the two seeds, in the
+/// default configuration without the `schema` group: these tests are about
+/// version 1's rules; the schema rules have their minimal inputs in the
+/// oracle crate (`cases/schema.rs`).
 fn derived(input: &str) -> BTreeSet<String> {
     let input = parse(input);
-    let (closure, _) = evaluate(&input);
+    let closure = evaluate_within(&input, Switches::default().off(Switch::Schema), usize::MAX)
+        .expect("no limit")
+        .closure;
     let known: HashSet<Triple> = input.union(&parse(SEEDS)).cloned().collect();
     lines(closure.difference(&known))
 }
@@ -250,8 +255,8 @@ fn lists_need_a_first_in_every_cell_and_stop_at_nil() {
     );
 }
 
-/// Rules outside the version 1 rule set add nothing: scm-spo, scm-sco's
-/// equivalence (scm-eqc2), eq-diff*, cls-oo.
+/// Rules outside the version 1 rule set add nothing with the `schema`
+/// group off: scm-spo, scm-sco's equivalence (scm-eqc2), eq-diff*, cls-oo.
 #[test]
 fn rules_outside_the_set_add_nothing() {
     expect_derived("ex:p rdfs:subPropertyOf ex:q . ex:q rdfs:subPropertyOf ex:r .", "");
@@ -594,6 +599,13 @@ fn a_switch_off_turns_its_rules_off() {
         ),
         (Switch::PropertyChains, &["prp-spo2"]),
         (Switch::Checks, &checks),
+        (
+            Switch::Schema,
+            &[
+                "scm-eqc2", "scm-spo", "scm-eqp1", "scm-eqp2", "scm-dom1", "scm-dom2", "scm-rng1", "scm-rng2",
+                "scm-hv", "scm-svf1", "scm-svf2", "scm-avf1", "scm-avf2", "scm-int", "scm-uni",
+            ],
+        ),
     ];
     for &(switch, group) in groups {
         let off = complete.off(switch);
