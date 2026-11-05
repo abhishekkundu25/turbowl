@@ -58,3 +58,15 @@ Departures from the plan, as they happen.
   is a child process of the bench binary, so each has its own peak
   memory. `machine.rs` allows `unsafe_code` locally for `getloadavg` and
   `getrusage`. Under load, `reasonable` times out on `sameas-clique`.
+- **04.** The DL reasoner is HermiT 1.3.8 on a fetched Temurin JRE 21:
+  Konclude has no arm64 build and reads no Turtle. HermiT does not run on
+  inputs that include `owl.n3`. The W3C OWL 2 RL tests come from the
+  Internet Archive copy of owl.semanticweb.org (2016-07-03). The default
+  run covers the minimal inputs, both W3C suites and Brick with small1;
+  the other data inputs run with `ORACLE_SLOW=1`, one test at a time.
+  Disagreements outside D1 to D10 are listed in `KNOWN`: the
+  `DATATYPE_RANGE` bug (as in 05) and one intersection list per class.
+  The owner decides whether they become D11 and D12, and whether the
+  `owl-rl` profile keeps the container-membership axioms, which are not
+  OWL 2 RL. Ticket 09 emits `Diagnostic::terms` in the order documented
+  on `Finding`.
