@@ -11,10 +11,16 @@ Each competitor is fetched and pinned into `tools/` by version and checksum, wit
 
 RDFox and Stardog are not run (§1, §5). Jena's OWL rules predate OWL 2 RL, so it does not enter the same-rules race.
 
-Each competitor runs the composed program for a configuration as a subprocess. Its closure is checked against TurbOWL's, and its times and peak memory are recorded as Nemo's are. A competitor that is not fetched is `skipped`. An engine gets all-cores rows only where it can run in parallel on this machine; none of the competitors can today.
+Each competitor runs the composed program for a configuration as a subprocess. Its closure is checked against TurbOWL's, and its times and peak memory are recorded as Nemo's are. A competitor that is not fetched is `skipped`.
+
+Three fixes to the bench, found by ticket 13:
+- The bench converts each scenario's inputs once (RDF/XML, Turtle) to N-Triples, and to tab-separated terms for Soufflé, with Oxigraph, and caches them, so that Nemo and the competitors run the dataset scenarios. Today Nemo reads only `.nt`, `.ttl` and `.n3`.
+- Each run reports its peak physical footprint, as the memory cap reads it, not `ru_maxrss`, which reads low under memory pressure.
+- If ticket 25 finds that the bench's closure check holds the expanded closure in memory, the check counts without holding it. An engine gets all-cores rows only where it can run in parallel on this machine; none of the competitors can today.
 
 ## Acceptance
 - [ ] `--list` shows each engine, its pinned version, and whether it is fetched.
 - [ ] On brick-small1 and lubm-1, every fetched competitor's closure count equals TurbOWL's, in the default and the complete configuration.
+- [ ] Nemo runs `claros-l` and `uobm-010-l` (converted inputs) and its closure count equals TurbOWL's.
 - [ ] Unit tests for each adapter's output parsing, and for its error and timeout paths.
 - [ ] The bench README says, for each competitor, its version, how it runs, what its time includes, and why it has no all-cores row.

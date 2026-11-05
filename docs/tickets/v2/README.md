@@ -21,7 +21,8 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 12 | [Competitors: VLog, Soufflé, Nemo (GraphDB if licensed)](12-competitors.md) | 03, 13 | `crates/bench/src/engine.rs`, new `crates/bench/src/{souffle,vlog,graphdb}.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`**, `scripts/fetch-tools.sh` |
 | 13 | [Scoreboard data and the 16 GB cap](13-scoreboard-data.md) | 01 | `scripts/fetch-data.sh`, `crates/bench/src/scenario.rs`, new `crates/bench/src/datasets.rs`, `crates/bench/src/machine.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
 | 14 | [Published results and the scoreboard report](14-published-results-and-report.md) | 12, 13 | new `crates/bench/src/{published,report}.rs` and the published-results data file, `crates/bench/src/compare.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
-| 15 | [Close-out: phase 1](15-close-out-phase-1.md) | 01 to 14, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
+| 25 | [Memory: OWL2Bench RL, UOBM-010 U and OpenCyc](25-memory.md) | 13 | `crates/turbowl/` (where the cause is), `crates/turbowl/src/scaling.rs` |
+| 15 | [Close-out: phase 1](15-close-out-phase-1.md) | 01 to 14, 25, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
 | 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
@@ -56,7 +57,7 @@ Phase 1:
 1. **01, 02.** Version 1's ticket 14 runs whenever the owner gives a quiet
    machine; it blocks only 15.
 2. **03, 11, 13.**
-3. **04, 12.**
+3. **04, 12, 25.** 25 (added: ticket 13 found the memory blow-up) lands before wave 4, whose rule tickets edit the core.
 4. **05, 06, 07, 08, 09, 14.**
 5. **10.**
 6. **15.**
@@ -96,6 +97,19 @@ Departures from the plan, as they happen.
   `?x != c` as `~sameTerm(?x, c)` over facts; Soufflé reads tab-separated
   terms, not N-Triples. A test reads the spec's switch table and checks
   that every rule sits in exactly one group file.
+- **13.** The memory cap first read resident memory, which macOS
+  compresses under pressure: one smoke run held 69 GB for about 2.5
+  minutes while showing 2 GB, until the agent stopped it. The cap now
+  reads the physical footprint (compressed and swapped pages included),
+  and later runs stopped near 16.4 GB. Oxford's `Claros.ttl` has 84 lines
+  with illegal IRI characters; the fetch script percent-encodes them as it
+  unpacks, so every engine reads the same repaired file. The results file
+  moved to schema 5 here (the `over-memory` status), not in ticket 14. The
+  large zips are pinned by the CRC-32 their zips record until their first
+  approved download. The smoke runs found the memory blow-up that ticket
+  25, added to phase 1, diagnoses. `claros-le` derives 226 M triples
+  against the paper's 555 M: `Claros_LE.owl` uses `owl:hasSelf`, which is
+  outside OWL 2 RL, so only the L variants can be the same job.
 - **Worktrees.** A copied `crates/python/.venv` runs pytest against the
   main checkout's build. A slice runs `uv sync --reinstall-package turbowl`
   in `crates/python` before pytest, and the briefs say so.
