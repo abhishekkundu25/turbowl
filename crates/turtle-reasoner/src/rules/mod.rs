@@ -6,15 +6,11 @@
 //! (ticket 03); this table is the only place the reasoner learns which
 //! families exist.
 
-use crate::Profile;
-
 /// One rule family.
 #[allow(dead_code)] // used once ticket 10 runs the table; remove the allow then
 #[derive(Debug)]
 pub(crate) struct Family {
     pub(crate) name: &'static str,
-    /// The profiles that run it.
-    pub(crate) profiles: &'static [Profile],
 }
 
 /// Every family, in evaluation order. One line per family.

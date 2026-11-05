@@ -11,7 +11,7 @@
 //! Identity:
 //! - an IRI is its text;
 //! - a blank node is its label *and* its document ([`DocId`]): `_:b` in two
-//!   documents is two blank nodes (`reasonable` merges them, difference D4);
+//!   documents is two blank nodes;
 //! - a literal is its lexical form plus its datatype, or plus its language
 //!   tag (datatype `rdf:langString`). Literals are never compared by value:
 //!   `"1"^^xsd:integer` and `"01"^^xsd:integer` are two terms.
@@ -479,8 +479,8 @@ fn push_decimal(out: &mut String, mut n: u32) {
 }
 
 /// The vocabulary: the IRIs the OWL 2 RL rules (W3C OWL 2 Profiles, Tables
-/// 4 to 9, and the RL datatypes of Section 4.3), the RDFS rules, and
-/// `reasonable`'s rules and diagnostics name, interned first at fixed ids.
+/// 4 to 9, and the RL datatypes of Section 4.3) and the RDFS rules name,
+/// interned first at fixed ids.
 /// A constant's id is its position in [`IRIS`](vocab::IRIS).
 pub(crate) mod vocab {
     use super::TermId;

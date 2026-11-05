@@ -1,6 +1,6 @@
 # ADR 0002: what parity with `reasonable` means
 
-Status: accepted, 2026-11-05.
+Status: superseded by ADR 0004, 2026-11-05.
 
 ## Context
 

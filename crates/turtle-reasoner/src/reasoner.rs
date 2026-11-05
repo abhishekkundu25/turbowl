@@ -3,16 +3,6 @@
 use crate::{Diagnostic, Error};
 use oxrdf::{Triple, TripleRef};
 
-/// Which rules run.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Profile {
-    /// The W3C OWL 2 RL rules this crate implements.
-    #[default]
-    OwlRl,
-    /// `reasonable`'s rule set and conventions (every subject typed `owl:Thing`).
-    Reasonable,
-}
-
 /// A document format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
@@ -50,19 +40,12 @@ pub struct Summary {
 
 /// An OWL 2 RL reasoner over an in-memory graph. `Send`; not `Sync`.
 #[derive(Debug, Default)]
-pub struct Reasoner {
-    profile: Profile,
-}
+pub struct Reasoner {}
 
 impl Reasoner {
     /// An empty reasoner.
-    pub fn new(profile: Profile) -> Self {
-        Self { profile }
-    }
-
-    /// The profile it runs.
-    pub fn profile(&self) -> Profile {
-        self.profile
+    pub fn new() -> Self {
+        Self {}
     }
 
     /// Adds a file's triples to the base (format from its extension).
@@ -91,8 +74,8 @@ impl Reasoner {
         unimplemented!("ticket 10")
     }
 
-    /// Makes the base exactly `triples`. True when a base triple was removed
-    /// (as `reasonable`'s `update_graph`); an unchanged base costs nothing.
+    /// Makes the base exactly `triples`. True when a base triple was removed;
+    /// an unchanged base costs nothing.
     pub fn set_base<'a>(&mut self, triples: impl IntoIterator<Item = TripleRef<'a>>) -> bool {
         let _ = triples.into_iter();
         unimplemented!("ticket 10")
@@ -122,7 +105,7 @@ impl Reasoner {
         std::iter::empty()
     }
 
-    /// The diagnostics of the last run, deduplicated on (code, message).
+    /// The diagnostics of the last run, deduplicated on (code, terms).
     pub fn diagnostics(&self) -> &[Diagnostic] {
         unimplemented!("ticket 10")
     }

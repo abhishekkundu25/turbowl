@@ -1,6 +1,6 @@
-# Tickets: version 1 (parity with `reasonable`)
+# Tickets: version 1 (a fast OWL 2 RL reasoner)
 
-Spec: `docs/specs/v1-parity.md`. After these, the improvement loop
+Spec: `docs/specs/v1.md`. After these, the improvement loop
 (`docs/specs/experiments.md`) takes over. Lock files are in **bold**.
 
 | # | Ticket | Blocked by | Files |
@@ -16,7 +16,7 @@ Spec: `docs/specs/v1-parity.md`. After these, the improvement loop
 | 09 | [Diagnostics and datatypes](09-diagnostics.md) | 02, 03 | `crates/turtle-reasoner/src/diagnostics.rs`, `crates/turtle-reasoner/src/rules/datatype.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
 | 10 | [The reasoner and incremental runs](10-reasoner.md) | 02, 03 | `crates/turtle-reasoner/src/reasoner.rs` |
 | 11 | [Equality by representatives](11-equality.md) | 03, 10 | `crates/turtle-reasoner/src/rules/equality.rs`, `crates/turtle-reasoner/src/engine/canon.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
-| 12 | [CLI parity](12-cli.md) | 10 | `crates/cli/` |
+| 12 | [The CLI](12-cli.md) | 10 | `crates/cli/` |
 | 13 | [Python bindings](13-python.md) | 10 | `crates/python/` |
 | 14 | [Close-out: full verification](14-close-out.md) | all | `docs/verification/`, `README.md`, `CHANGELOG.md`, `AGENTS.md`, the specs |
 
@@ -70,3 +70,13 @@ Departures from the plan, as they happen.
   `owl-rl` profile keeps the container-membership axioms, which are not
   OWL 2 RL. Ticket 09 emits `Diagnostic::terms` in the order documented
   on `Finding`.
+- **Target changed (ADR 0004).** The W3C OWL 2 RL rules are the target,
+  judged by Nemo, the W3C tests, HermiT, OWL-RL and the reference
+  evaluator; `reasonable` is a speed baseline only, with Nemo beside it.
+  One rule set, no profiles, no compatibility with `reasonable`'s
+  conventions, CLI or Python API. The spec moved to `docs/specs/v1.md`;
+  tickets 07 to 13 were rewritten. D1 to D10 became oracle faults
+  (OWL-RL's) only. The open questions above about D11, D12, the
+  container axioms, N3 and RDF/XML output, and `reasonable`'s ranges are
+  settled by it: no `reasonable` faults are filtered or copied, no
+  container axioms, all four output formats stay.

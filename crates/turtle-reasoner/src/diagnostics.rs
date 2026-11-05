@@ -2,7 +2,7 @@
 
 use oxrdf::Term;
 
-/// How serious a diagnostic is. `reasonable` reports every one as an error.
+/// How serious a diagnostic is. Every inconsistency of the rule set is an error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Severity {
     Error,
@@ -12,12 +12,10 @@ pub enum Severity {
 /// A finding about the data: an inconsistency or an ill-formed literal.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Diagnostic {
-    /// `OWLRL.CAX_DW`, `RDFS.DATATYPE`, ...
+    /// The W3C rule that found it: `cax-dw`, `prp-irp`, `dt-not-type`, ...
     pub code: &'static str,
-    /// The rule: `cax-dw`, `rdfs-datatype`, ...
-    pub rule: &'static str,
     pub severity: Severity,
-    /// `reasonable`'s message text.
+    /// A sentence naming the terms.
     pub message: String,
     /// The terms involved, in the rule's order.
     pub terms: Vec<Term>,

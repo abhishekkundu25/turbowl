@@ -1,6 +1,6 @@
 # The improvement loop: rate, change, evaluate, decide
 
-Status: starts when version 1 (`docs/specs/v1-parity.md`) is verified.
+Status: starts when version 1 (`docs/specs/v1.md`) is verified.
 This is the main way this project improves after version 1. Every change
 after version 1 goes through it, and every iteration is recorded here.
 
@@ -55,7 +55,7 @@ rating and for changing, so that nobody grades their own work.
 | Memory | lowest peak per closure triple of the compared reasoners | the benchmark record |
 | Architecture | one deep module, small interface, no shallow layers, every seam has two adapters or a test reason | a walk of the crate with the deletion test |
 | Embeddability | builds for wasm32, no global state, `Send`, small dependency set, Python bindings current | build logs, `cargo tree` |
-| Operability | clear errors, diagnostics with structured fields, CLI parity, docs current | CLI tests, README |
+| Operability | clear errors, diagnostics with structured fields, CLI behaviour, docs current | CLI tests, README |
 
 The total (out of 80) goes in the table. The reviewer also writes one
 sentence on the weakest dimension, and that guides the next find step.

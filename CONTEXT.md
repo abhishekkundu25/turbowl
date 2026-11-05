@@ -37,10 +37,8 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Representative**: for a set of terms that `owl:sameAs` makes equal, the one
   term id that stands for all of them inside the engine. Output expands it
   back to every member.
-- **Profile**: which rules run. `owl-rl` is the W3C OWL 2 RL rule set this
-  project implements; `reasonable` is the compatibility profile that
-  reproduces the rule set and output conventions of `reasonable` (see
-  ADR 0002).
+- **Rule set**: the W3C OWL 2 RL rules version 1 implements (listed in
+  `docs/specs/v1.md`). There is one; ADR 0004 removed the profiles.
 
 ## Results
 
@@ -58,25 +56,27 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Oracle**: an independent source of the right answer, run on the same
   input and compared as sets. There are several, each judging something
   different, and they are compared with each other too:
-  - **`reasonable`** (a pinned release): parity in the `reasonable` profile,
-    except for the documented differences.
+  - **Nemo** running the W3C forms of the rule set as a Datalog program
+    (`oracles/nemo/owl2rl.rls`): exact closures at scale, on a different
+    engine.
   - **OWL-RL** (the Python RDFLib implementation of the W3C OWL 2 RL rule
-    tables): closures in the `owl-rl` profile on small and medium inputs.
-  - **Nemo** running an OWL 2 RL Datalog program: closures at scale, on a
-    different engine.
+    tables): a superset closure on small and medium inputs, since it
+    implements more rules.
   - **The W3C tests**: the OWL 2 RL test cases and the RDF Semantics
     entailment tests, the standard's own expected results.
-  - **A DL reasoner** (HermiT or Konclude): soundness of inferred class and
+  - **A DL reasoner** (HermiT): soundness of inferred class and
     property subsumptions, which full OWL 2 DL must also entail.
   - **The reference evaluator** (below), for generated inputs.
 - **Reference evaluator**: a deliberately simple, slow evaluator of the same
   rules (nested loops to a fixpoint), used for chaos runs.
 - **Triangulation**: when two oracles agree with each other and not with this
   project, the bug is here; when one oracle disagrees with all the others, it
-  is investigated and, if it is wrong, becomes a documented difference.
-- **Documented difference**: a place where this project and the oracle
-  disagree on purpose, because the oracle is wrong (see the parity research).
-  Each one has an id (`D1`, `D2`, ...) and a filter in the oracle comparison.
+  is investigated and, if it is wrong, becomes an oracle fault.
+- **Oracle fault**: a place where an oracle is wrong and this project is
+  right. Each one has an id (`F1`, `F2`, ...), a test, and a filter in the
+  oracle comparison.
+- **Baseline**: a reasoner this project is measured against for speed and
+  memory, never for correctness: `reasonable` and Nemo (ADR 0004).
 - **Chaos run**: generated inputs from a seed, checked against the reference
   evaluator; a failure prints the seed to replay it.
 - **Experiment**: one measured change after version 1, with a hypothesis, a

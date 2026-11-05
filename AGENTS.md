@@ -7,9 +7,10 @@ verification suite that judges it against several independent oracles.
 ## Start here
 
 1. **What it is and the words it uses:** `CONTEXT.md`.
-2. **Why it is built this way:** `docs/adr/` (engine, parity, equality).
+2. **Why it is built this way:** `docs/adr/` (engine, equality, and
+   ADR 0004: the W3C rules are the target, `reasonable` a speed baseline).
 3. **Where the work stands:**
-   - Version 1, parity with `reasonable`: `docs/specs/v1-parity.md`, tickets
+   - Version 1, a fast OWL 2 RL reasoner: `docs/specs/v1.md`, tickets
      in `docs/tickets/v1/` (the README there has the table, the waves and
      the log of departures).
    - After version 1, **the improvement loop** (rate, find, change,
