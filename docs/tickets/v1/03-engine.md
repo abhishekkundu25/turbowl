@@ -1,6 +1,6 @@
 # 03: The engine
 
-Status: todo. Blocked by: 01. ADR 0001.
+Status: done. Blocked by: 01. ADR 0001.
 
 `crates/turtle-reasoner/src/engine/`: relations (sorted, duplicate-free `Vec` of term-id tuples, built by sort and dedup), variables (stable batches, recent, to-add), the round loop to a fixpoint, merge join, antijoin, leapjoin (extend by intersecting sorted proposals), and predicate tables. Allocation-aware: merge batches, reuse buffers. No rule knowledge.
 
