@@ -156,8 +156,9 @@ Verification
   prp-ap, and every OWL 2 RL datatype IRI) in one change, before the rule
   tickets.
 - **eq-ref is an output rule.** With representatives, `x owl:sameAs x` for
-  every term of the closure is produced when the closure is read, never
-  stored.
+  every term of the closure is produced when the closure is read, and is
+  stored only once a rule could read it: when `owl:sameAs` is the subject
+  or object of a stored triple (ADR 0003's eq-ref amendment).
 - **dt-diff is never listed.** With `literal-values` on, two literals with
   different values that become `owl:sameAs` give the eq-diff1 finding; the
   `owl:differentFrom` triples between all literals are not materialised.

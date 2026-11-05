@@ -226,4 +226,40 @@ Departures from the plan, as they happen.
   outside OWL 2 RL, so only the L variants can be the same job.
 - **Worktrees.** A copied `crates/python/.venv` runs pytest against the
   main checkout's build. A slice runs `uv sync --reinstall-package turbowl`
-  in `crates/python` before pytest, and the briefs say so.
+  in `crates/python` before pytest, and the briefs say so. Then it runs
+  `uv run python -m pytest`: the copied `.venv/bin/pytest` names the main
+  checkout's Python in its first line, so plain `uv run pytest` still tests
+  the wrong build (found by 08).
+- **08.** Departures:
+  - None of the five W3C "entails" cases that 05's entry assigned to it
+    passes. Their conclusions are `owl:differentFrom`, `owl:AllDifferent`
+    or complementOf typings, which no OWL 2 RL rule derives, and Nemo and
+    OWL-RL fail them too. `WebOnt-I4.6-003` passes instead.
+  - eq-ref is stored once a rule could read it, when `owl:sameAs` is the
+    subject or object of a stored triple (`owl:sameAs rdfs:domain c`, a
+    restriction, chain or key on it, or a term made equal to it). ADR 0003
+    and the spec are amended.
+  - Files outside its list, each needed: the tests that build `Context`,
+    `lists.rs` (visibility, so cls-oo reuses the list reader),
+    `datatype/map.rs` (`const fn`s for the dt-type1 facts), the reference
+    crate's `tests/reference.rs` (the cls-oo expectation turned around) and
+    its `rules/identity.rs`. prp-key there now compares only the pairs that
+    share a key value: a chaos iteration in the complete configuration went
+    from over 5 minutes to 3.5 s, with the same result.
+
+  Two fixes landed after it, found on review:
+  - dt-type1 typed all 35 datatypes of the map, and OWL-RL's correct list
+    was recorded as its fault F7. OWL 2 Profiles (Section 4.2.1) lists 32
+    for OWL 2 RL: owl:real and owl:rational must not be used in it, and
+    rdf:langString came with RDF 1.1. dt-type1 now types the 32, and F7 is
+    gone. Table 8 ranges dt-type2 and dt-not-type over the same 32, so
+    ticket 10 now also narrows dt-not-type (ticket 09 checked all 35), and
+    ticket 26 drops its owl:real fault: there OWL-RL is right.
+  - The oracle's reference test went from 74 s to over 600 s. Nemo spent
+    64 of 67 s on one generated input in cls-maxc2, a five-atom join it
+    ordered badly once eq-ref made every term a used property. The
+    cardinality rules now read helper relations, as the schema rules do,
+    and the test takes 63 s with the same closures and findings.
+
+  On landing: W3C OWL 2 RL 100, every case Nemo passes; RDF-MT unchanged.
+  Brick's complete closure is contained in OWL-RL's with F1 alone.

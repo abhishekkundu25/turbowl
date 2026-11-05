@@ -2,7 +2,8 @@
 
 Status: accepted, 2026-11-05; amended 2026-11-05 (vocabulary terms, from
 `docs/research/sota-algorithms-2026-11.md` §4.3); amended again 2026-11-05
-by ticket 11, as built (`rdf:nil`, restarts, findings).
+by ticket 11, as built (`rdf:nil`, restarts, findings); amended 2026-11-06 by
+version 2's ticket 08 (eq-ref).
 
 ## Context
 
@@ -76,3 +77,21 @@ them, so the closure equals the one the eq-* rules would give.
   closure (each stored triple counts the product of its classes' sizes, by
   position), adds each round's deltas in a run without merges, and counts
   the store again after a run that merged.
+
+## Amendment: eq-ref (version 2's ticket 08)
+
+With the `trivial` switch on, eq-ref gives `x owl:sameAs x` for every term.
+The store already holds `r owl:sameAs r` for every class of two or more
+terms, and its expansion gives each member's reflexive pair, so eq-ref adds
+a triple only for a term alone in its class. The reasoner adds those when
+the closure is read (`triples()`, files, Python) and counts them in the
+summary, without storing them.
+
+That is exact only while no rule reads `owl:sameAs` as a property the
+schema names: `owl:sameAs rdfs:domain c`, a restriction on it, a chain or
+a key that lists it, or a term made equal to it. Each such rule finds
+`owl:sameAs` as the subject or object of a stored triple. Once it is, the
+trivial family stores `t owl:sameAs t` for every term of the closure,
+literals included, and from then on for the terms of each round's new
+triples. Real data almost never does this; the generator does, so chaos
+covers it.

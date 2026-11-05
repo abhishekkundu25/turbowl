@@ -8,8 +8,6 @@ over-derives, which containment never catches. Each becomes a listed
 oracle fault in `crates/oracle/src/differences.rs`, numbered after F6, with
 a test that shows Nemo or the reference evaluator agreeing with TurbOWL
 where OWL-RL does not:
-- `owl:real` and `owl:rational` are unknown to it (not in
-  `OWL_RL_Datatypes`), so their ill-typed literals are never reported.
 - Numbers are read with Python's `int()` and `Decimal()`: it accepts
   `"٣"^^xsd:integer`, `"1_000"^^xsd:decimal` and `"NaN"^^xsd:decimal`.
 - Its double and float ranges are wrong: `"0"`, `"-0"`, `INF` and `NaN` are
