@@ -68,3 +68,24 @@ Phase 3: **22**, then **23**, then **24**.
 ## Log
 
 Departures from the plan, as they happen.
+
+- **01.** The bench's `Engine` trait went with `reasonable`, since TurbOWL
+  was its only other adapter; the competitors of ticket 12 run as
+  subprocesses, as Nemo does. `--list` also prints the engines. Results
+  files keep schema 4 until ticket 14; `--compare` skips the rows of any
+  engine the bench no longer runs, and says so.
+- **02.** The vocabulary already named every IRI the new rules need, so
+  `term.rs` gained only docs and a test, and the canon's rule constants are
+  unchanged. The internal counters list only the families that ran. The
+  checks of version 1 moved verbatim to `rules/checks.rs`, and
+  `scaling_datatype_rules_linear_in_instances` became
+  `scaling_checks_linear_in_instances`.
+- **11.** `--complete` is a starting point wherever it comes; a later
+  `--switch` for the same name wins. Python's `Reasoner` takes
+  keyword-only `switches` and `complete`, and has no setter yet. The CLI's
+  help and the Python docs each describe the switches' costs (the CLI owns
+  its help text). On review, the `literal-values` text was corrected: dt-diff
+  only checks, and lists no `owl:differentFrom` triples.
+- **Worktrees.** A copied `crates/python/.venv` runs pytest against the
+  main checkout's build. A slice runs `uv sync --reinstall-package turbowl`
+  in `crates/python` before pytest, and the briefs say so.
