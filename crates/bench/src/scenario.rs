@@ -1,5 +1,6 @@
 //! The scenarios and where their inputs come from: fetched models under
-//! `data/` (found by file name, wherever `scripts/fetch-data.sh` puts them)
+//! `data/` (found by file name, wherever `scripts/fetch-data.sh` puts them),
+//! the public datasets at the paths that script gives them (`datasets.rs`),
 //! or data generated here into `target/bench-data/`.
 
 use crate::engine::Mode;
@@ -17,6 +18,20 @@ enum Input {
     Lubm(u64),
     /// One `owl:sameAs` clique of this many aliases, each with 10 triples.
     SameAs(u64),
+    /// A public dataset's files.
+    Fetched(Fetched),
+}
+
+/// A public dataset's files and what the papers report on them.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Fetched {
+    /// The files to load, in order, relative to `data/`.
+    pub(crate) files: &'static [&'static str],
+    /// What `scripts/fetch-data.sh` needs to fetch them: "" for its default
+    /// set, else its options.
+    pub(crate) fetch: &'static str,
+    /// The papers' fact counts, before and after reasoning.
+    pub(crate) published: &'static str,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -95,8 +110,13 @@ pub(crate) const SCENARIOS: &[Scenario] = &[
     },
 ];
 
+/// Every scenario: the bench's own, then the public datasets.
+pub(crate) fn all() -> impl Iterator<Item = &'static Scenario> {
+    SCENARIOS.iter().chain(crate::datasets::DATASETS)
+}
+
 pub(crate) fn find(name: &str) -> Option<&'static Scenario> {
-    SCENARIOS.iter().find(|s| s.name == name)
+    all().find(|s| s.name == name)
 }
 
 /// The first file named `name` under `dir`, searching in sorted order.
@@ -125,6 +145,25 @@ fn missing(data: &Path, what: &str) -> String {
 }
 
 impl Scenario {
+    /// An opt-in full run on a public dataset.
+    pub(crate) const fn fetched(name: &'static str, about: &'static str, files: Fetched) -> Scenario {
+        Scenario {
+            name,
+            about,
+            input: Input::Fetched(files),
+            mode: Mode::Full,
+            opt_in: true,
+        }
+    }
+
+    /// The papers' fact counts, for a public dataset.
+    pub(crate) fn published(&self) -> Option<&'static str> {
+        match self.input {
+            Input::Fetched(f) => Some(f.published),
+            _ => None,
+        }
+    }
+
     /// The family of scenarios that differ only in input size, whose growth
     /// the "Scaling" table fits (`lubm-1`, `lubm-10`, `lubm-50`).
     pub(crate) fn family(&self) -> Option<&'static str> {
@@ -172,6 +211,21 @@ impl Scenario {
                 generate_once(&path, |w| sameas_clique(n, w))?;
                 Ok(vec![path])
             }
+            Input::Fetched(f) => f
+                .files
+                .iter()
+                .map(|file| {
+                    let path = data.join(file);
+                    path.is_file().then_some(path).ok_or_else(|| {
+                        let space = if f.fetch.is_empty() { "" } else { " " };
+                        format!(
+                            "not fetched: no {file} under {}; run scripts/fetch-data.sh{space}{}",
+                            data.display(),
+                            f.fetch
+                        )
+                    })
+                })
+                .collect(),
         }
     }
 }
@@ -231,4 +285,39 @@ fn sameas_clique(n: u64, w: &mut impl Write) -> std::io::Result<u64> {
         }
     }
     Ok(triples)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every name is unique and every public dataset is opt-in, with each
+    /// file it loads written by the fetch script at that path.
+    #[test]
+    fn the_datasets_match_the_fetch_script() {
+        let names: Vec<&str> = all().map(|s| s.name).collect();
+        for (i, n) in names.iter().enumerate() {
+            assert!(!names[..i].contains(n), "{n} twice");
+        }
+        let script = std::fs::read_to_string(crate::repo_root().join("scripts/fetch-data.sh")).unwrap();
+        for s in crate::datasets::DATASETS {
+            let Input::Fetched(f) = s.input else {
+                panic!("{} is not a dataset", s.name)
+            };
+            assert!(s.opt_in && s.mode == Mode::Full, "{}", s.name);
+            for file in f.files {
+                let (dir, name) = file.rsplit_once('/').unwrap();
+                let written = match name.strip_prefix("lubm-").and_then(|n| n.strip_suffix(".owl")) {
+                    // UBA's data, generated with --lubm N.
+                    Some(n) if dir == "uba" => {
+                        f.fetch == format!("--lubm {n}") && script.contains("$data/uba/lubm-$n.owl")
+                    }
+                    _ => script.lines().any(|l| {
+                        (l.contains(&format!(" {dir} ")) || l.contains(&format!("$data/{dir}/"))) && l.contains(name)
+                    }),
+                };
+                assert!(written, "{}: the fetch script does not write {file}", s.name);
+            }
+        }
+    }
 }

@@ -1,5 +1,6 @@
 //! What the numbers were measured on: CPU, cores, OS, memory, load average,
-//! the repository's commit, the versions. And the process's peak memory.
+//! the repository's commit, the versions. And memory: the process's peak, and
+//! what a run holds now (for the memory cap).
 
 use serde_json::{Value, json};
 use std::path::Path;
@@ -31,6 +32,85 @@ pub(crate) fn peak_rss_bytes(who: libc::c_int) -> u64 {
     }
     let max = usage.ru_maxrss.max(0) as u64;
     if cfg!(target_os = "macos") { max } else { max * 1024 }
+}
+
+/// A process and its descendants, the process first: a run and the engine
+/// it starts (Nemo's `nmo`). A process that has exited has none.
+pub(crate) fn process_tree(pid: u32) -> Vec<u32> {
+    let mut tree = vec![pid];
+    let mut i = 0;
+    while i < tree.len() {
+        tree.extend(children(tree[i]));
+        i += 1;
+    }
+    tree
+}
+
+#[cfg(target_os = "macos")]
+fn children(pid: u32) -> Vec<u32> {
+    let mut pids: Vec<libc::pid_t> = vec![0; 64];
+    loop {
+        pids.fill(0);
+        let size = (pids.len() * std::mem::size_of::<libc::pid_t>()) as libc::c_int;
+        // SAFETY: the buffer holds `size` bytes; the call writes at most that many.
+        #[allow(unsafe_code)]
+        let n = unsafe { libc::proc_listchildpids(pid as libc::pid_t, pids.as_mut_ptr().cast(), size) };
+        // Some releases return a count of pids, others of bytes: read at
+        // most the buffer (unwritten entries stay 0), and grow it while full.
+        let n = (n.max(0) as usize).min(pids.len());
+        if n < pids.len() {
+            return pids[..n].iter().filter(|&&p| p > 0).map(|&p| p as u32).collect();
+        }
+        pids.resize(pids.len() * 2, 0);
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn children(pid: u32) -> Vec<u32> {
+    // Linux lists each thread's children in /proc/PID/task/TID/children.
+    let Ok(tasks) = std::fs::read_dir(format!("/proc/{pid}/task")) else {
+        return Vec::new();
+    };
+    tasks
+        .flatten()
+        .filter_map(|t| std::fs::read_to_string(t.path().join("children")).ok())
+        .flat_map(|s| {
+            s.split_whitespace()
+                .filter_map(|p| p.parse().ok())
+                .collect::<Vec<u32>>()
+        })
+        .collect()
+}
+
+/// The memory a process holds now, in bytes, in RAM or not: its physical
+/// footprint, which counts the pages macOS has compressed or swapped out
+/// (its resident size does not: under memory pressure a run holding 69 GB
+/// showed 2 GB resident). 0 once it has exited.
+#[cfg(target_os = "macos")]
+pub(crate) fn footprint_bytes(pid: u32) -> u64 {
+    // SAFETY: `rusage_info_v2` is plain data; all zeroes is a valid value.
+    #[allow(unsafe_code)]
+    let mut info: libc::rusage_info_v2 = unsafe { std::mem::zeroed() };
+    let buffer: *mut libc::rusage_info_v2 = &mut info;
+    // SAFETY: with flavor RUSAGE_INFO_V2 the call writes one `rusage_info_v2`.
+    #[allow(unsafe_code)]
+    let rc = unsafe { libc::proc_pid_rusage(pid as libc::c_int, libc::RUSAGE_INFO_V2, buffer.cast()) };
+    if rc == 0 { info.ri_phys_footprint } else { 0 }
+}
+
+/// The memory a process holds now, in bytes, in RAM or not: its resident
+/// size plus what is swapped out (`VmRSS` + `VmSwap`). 0 once it has exited.
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn footprint_bytes(pid: u32) -> u64 {
+    let status = std::fs::read_to_string(format!("/proc/{pid}/status")).unwrap_or_default();
+    let kb = |key: &str| {
+        status
+            .lines()
+            .find_map(|l| l.strip_prefix(key))
+            .and_then(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok())
+            .unwrap_or(0)
+    };
+    (kb("VmRSS:") + kb("VmSwap:")) * 1024
 }
 
 fn run(cmd: &str, args: &[&str]) -> Option<String> {

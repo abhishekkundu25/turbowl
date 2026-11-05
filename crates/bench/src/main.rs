@@ -4,9 +4,11 @@
 //! ratio to this reasoner. See `README.md`.
 //!
 //! Every run is a fresh child process (this binary with the hidden `--one`
-//! mode), so that peak memory is one engine's on one input.
+//! mode), so that peak memory is one engine's on one input. The parent
+//! watches the memory each run holds and stops it past the memory cap.
 
 mod compare;
+mod datasets;
 mod engine;
 mod lubm;
 mod machine;
@@ -15,26 +17,30 @@ mod scaling;
 mod scenario;
 
 use engine::{EngineId, Mode};
-use scenario::{SCENARIOS, Scenario};
+use scenario::Scenario;
 use serde_json::{Value, json};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{Child, Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 /// The results file's format version.
-const SCHEMA: u64 = 4;
+const SCHEMA: u64 = 5;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
 /// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
 /// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name
-/// and skips the rows of engines this bench no longer runs).
-const READS: [u64; 4] = [1, 2, 3, 4];
+/// and skips the rows of engines this bench no longer runs), 5 only adds the
+/// status `over-memory` and `meta.memory_cap_bytes`.
+const READS: [u64; 5] = [1, 2, 3, 4, 5];
 /// This reasoner's engine name in results files before version 4.
 const OLD_NAME: &str = "turtle-reasoner";
 
 /// Extra time the parent gives a child over `--timeout` before killing it:
 /// the child stops Nemo itself at the timeout, and Nemo must not outlive it.
 const GRACE: Duration = Duration::from_secs(30);
+
+/// A gigabyte as `--memory-cap` counts it: 2^30 bytes, as the bench's MB is 2^20.
+const GB: f64 = (1u64 << 30) as f64;
 
 const USAGE: &str = "\
 usage: turbowl-bench [options]
@@ -46,6 +52,7 @@ usage: turbowl-bench [options]
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
+  --memory-cap GB     stop a run whose memory passes this (default 16)
   --data-dir DIR      fetched models (default: data/ at the repository root)
   --json FILE         also write the results to FILE
   --compare OLD NEW   print per-scenario deltas between two results files
@@ -60,6 +67,8 @@ struct Args {
     runs: usize,
     changes: usize,
     timeout: Duration,
+    /// In bytes.
+    memory_cap: u64,
     data_dir: Option<PathBuf>,
     json: Option<PathBuf>,
     compare: Option<(PathBuf, PathBuf)>,
@@ -73,6 +82,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         runs: 5,
         changes: 100,
         timeout: Duration::from_secs(600),
+        memory_cap: 16 << 30,
         data_dir: None,
         json: None,
         compare: None,
@@ -98,6 +108,15 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
             "--runs" => a.runs = number(value()?)?,
             "--changes" => a.changes = number(value()?)?,
             "--timeout" => a.timeout = Duration::from_secs(number(value()?)? as u64),
+            "--memory-cap" => {
+                let v = value()?;
+                let gb = v
+                    .parse::<f64>()
+                    .ok()
+                    .filter(|g| g.is_finite() && *g > 0.0)
+                    .ok_or(format!("{arg}: not a positive number of GB: {v}"))?;
+                a.memory_cap = (gb * GB) as u64;
+            }
             "--data-dir" => a.data_dir = Some(value()?.into()),
             "--json" => a.json = Some(value()?.into()),
             "--compare" => a.compare = Some((value()?.into(), value()?.into())),
@@ -131,9 +150,12 @@ fn main() -> ExitCode {
         }
     };
     if args.list {
-        for s in SCENARIOS {
+        for s in scenario::all() {
             let opt_in = if s.opt_in { " [opt-in: --only]" } else { "" };
             println!("{:<20} {}{opt_in}", s.name, s.about);
+            if let Some(published) = s.published() {
+                println!("{:<20} papers: {published}", "");
+            }
         }
         let engines: Vec<&str> = EngineId::ALL.iter().map(|e| e.name()).collect();
         println!("\nengines: {}", engines.join(", "));
@@ -168,8 +190,9 @@ pub(crate) fn repo_root() -> PathBuf {
 }
 
 /// Spawns one run and waits for it, at most `timeout` (plus a grace period:
-/// a child running Nemo stops it at `timeout` and reports the timeout).
-fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], timeout: Duration) -> Value {
+/// a child running Nemo stops it at `timeout` and reports the timeout) and
+/// while the memory it holds stays within `cap` bytes.
+fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], timeout: Duration, cap: u64) -> Value {
     let exe = match std::env::current_exe() {
         Ok(e) => e,
         Err(e) => return json!({ "status": "error", "message": format!("current_exe: {e}") }),
@@ -189,18 +212,9 @@ fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], ti
         Ok(c) => c,
         Err(e) => return json!({ "status": "error", "message": format!("spawn: {e}") }),
     };
-    let start = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if start.elapsed() > timeout + GRACE => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return json!({ "status": "timeout", "message": format!("over {} s", timeout.as_secs()) });
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
-            Err(e) => return json!({ "status": "error", "message": format!("wait: {e}") }),
-        }
+    let status = match watch(&mut child, timeout, cap) {
+        Ok(status) => status,
+        Err(stopped) => return stopped,
     };
     let mut out = String::new();
     if let Some(mut stdout) = child.stdout.take() {
@@ -213,6 +227,47 @@ fn spawn_run(engine: EngineId, mode: Mode, changes: usize, files: &[PathBuf], ti
             "status": "error",
             "message": format!("the run exited with {status} and wrote no result (out of memory?)"),
         }),
+    }
+}
+
+/// Waits for a run to exit. It stops the run, with every process the run
+/// started (Nemo's `nmo`), when it outlasts `timeout` plus the grace period
+/// (status `timeout`) or when the memory they hold together passes `cap`
+/// bytes (status `over-memory`): both are results, not problems, and neither
+/// counts a time.
+fn watch(child: &mut Child, timeout: Duration, cap: u64) -> Result<std::process::ExitStatus, Value> {
+    let start = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) => {}
+            Err(e) => return Err(json!({ "status": "error", "message": format!("wait: {e}") })),
+        }
+        let tree = machine::process_tree(child.id());
+        let held: u64 = tree.iter().map(|&pid| machine::footprint_bytes(pid)).sum();
+        let stopped = if held > cap {
+            json!({
+                "status": "over-memory",
+                "message": format!("its memory, {} MB, passed the cap of {} MB", mb(held as f64), mb(cap as f64)),
+            })
+        } else if start.elapsed() > timeout + GRACE {
+            json!({ "status": "timeout", "message": format!("over {} s", timeout.as_secs()) })
+        } else {
+            std::thread::sleep(Duration::from_millis(20));
+            continue;
+        };
+        // The run first, so that it starts nothing more; then what it started.
+        let _ = child.kill();
+        for &pid in &tree[1..] {
+            // SAFETY: `kill` only sends a signal, to what was the run's
+            // descendant a moment ago.
+            #[allow(unsafe_code)]
+            unsafe {
+                libc::kill(pid as libc::pid_t, libc::SIGKILL)
+            };
+        }
+        let _ = child.wait();
+        return Err(stopped);
     }
 }
 
@@ -312,8 +367,7 @@ fn run(args: &Args) -> ExitCode {
         eprintln!("warning: a debug build; the numbers mean nothing (use --release)");
     }
 
-    let chosen: Vec<&'static Scenario> = SCENARIOS
-        .iter()
+    let chosen: Vec<&'static Scenario> = scenario::all()
         .filter(|s| match &args.only {
             Some(only) => only.iter().any(|n| n == s.name),
             None => !s.opt_in,
@@ -364,7 +418,7 @@ fn run(args: &Args) -> ExitCode {
         for i in 0..args.runs {
             for row in live.iter_mut().filter(|r| r.status == "ok") {
                 eprint!("{} {} run {}/{} ... ", s.name, row.engine.name(), i + 1, args.runs);
-                let result = spawn_run(row.engine, s.mode, args.changes, files, args.timeout);
+                let result = spawn_run(row.engine, s.mode, args.changes, files, args.timeout, args.memory_cap);
                 let status = result["status"].as_str().unwrap_or("error").to_string();
                 if status == "ok" {
                     eprintln!("{:.1} ms", row.measure(&result));
@@ -427,6 +481,7 @@ fn run(args: &Args) -> ExitCode {
         meta["runs"] = json!(args.runs);
         meta["changes"] = json!(args.changes);
         meta["timeout_s"] = json!(args.timeout.as_secs());
+        meta["memory_cap_bytes"] = json!(args.memory_cap);
         meta["data_dir"] = json!(data);
         let results: Vec<Value> = rows
             .iter()
@@ -468,8 +523,9 @@ fn run(args: &Args) -> ExitCode {
 }
 
 /// Failed runs, closures that differ from what the engine reports, and
-/// closures that differ between runs of the same engine. A timeout, a
-/// skipped scenario and an unsupported one are results, not problems.
+/// closures that differ between runs of the same engine. A timeout, a run
+/// over the memory cap, a skipped scenario and an unsupported one are
+/// results, not problems.
 fn check(rows: &[Row]) -> Vec<String> {
     let mut problems = Vec::new();
     for r in rows {
@@ -615,6 +671,52 @@ pub(crate) fn read_results(path: &Path) -> Result<(Value, Vec<String>), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A run whose child process holds more than the cap is stopped, its
+    /// child too, and recorded `over-memory`; one under the cap is not.
+    #[test]
+    fn stops_a_run_over_the_memory_cap() {
+        let cap = 64 << 20;
+        let ok = Command::new("sh").args(["-c", "exit 0"]).spawn().unwrap();
+        assert!(watch(&mut { ok }, Duration::from_secs(60), cap).is_ok());
+
+        // The shell starts dd, which fills a 256 MB buffer from /dev/zero again
+        // and again (for some seconds, if nothing stops it), and prints its pid.
+        let mut run = Command::new("sh")
+            .args([
+                "-c",
+                "dd if=/dev/zero of=/dev/null bs=268435456 count=2000 2>/dev/null & echo $!; wait",
+            ])
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut line = String::new();
+        std::io::BufRead::read_line(&mut std::io::BufReader::new(run.stdout.take().unwrap()), &mut line).unwrap();
+        let dd: libc::pid_t = line.trim().parse().unwrap();
+        let start = Instant::now();
+        let stopped = watch(&mut run, Duration::from_secs(60), cap).unwrap_err();
+        assert_eq!(stopped["status"], "over-memory", "{stopped}");
+        assert!(start.elapsed() < Duration::from_secs(30), "{:?}", start.elapsed());
+        // dd is gone once init has reaped it.
+        // SAFETY: signal 0 sends nothing; it asks whether the pid exists.
+        #[allow(unsafe_code)]
+        let alive = || unsafe { libc::kill(dd, 0) } == 0;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while alive() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(!alive(), "dd ({dd}) outlived the run");
+    }
+
+    #[test]
+    fn reads_the_memory_cap() {
+        let args = |a: &[&str]| parse_args(&a.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(args(&[]).unwrap().memory_cap, 16 << 30);
+        assert_eq!(args(&["--memory-cap", "0.5"]).unwrap().memory_cap, 512 << 20);
+        for bad in ["0", "-1", "x", "inf"] {
+            assert!(args(&["--memory-cap", bad]).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn reads_the_old_name_of_this_reasoner() {
