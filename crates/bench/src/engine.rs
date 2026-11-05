@@ -13,7 +13,7 @@ use turbowl::Reasoner;
 pub(crate) enum EngineId {
     /// This repository's reasoner, in process.
     Turbowl,
-    /// Nemo's `nmo` running `oracles/nemo/owl2rl.rls`, a subprocess.
+    /// Nemo's `nmo` running the rule program of `oracles/rules/`, a subprocess.
     Nemo,
 }
 

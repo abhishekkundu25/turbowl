@@ -20,7 +20,7 @@
 //!   triples by eq-rep-o (`ex:y ex:q "a"` gives `ex:y ex:q "b"`); a literal
 //!   made equal to an IRI shows as `ex:i owl:sameAs "a"` by eq-sym.
 //! - Lists are read as the W3C rules read `LIST[...]` patterns, in Datalog
-//!   form (as `oracles/nemo/owl2rl.rls` does): a list is matched along a
+//!   form (as Nemo's program in `oracles/rules/` does): a list is matched along a
 //!   path `z1` (the head), `z2`, ..., `zn` with `zi rdf:rest z(i+1)` and
 //!   `zn rdf:rest rdf:nil`, where every cell has at least one `rdf:first`
 //!   and each cell contributes the first chosen for it. `rdf:rest` stops at

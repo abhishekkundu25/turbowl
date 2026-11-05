@@ -68,8 +68,8 @@ leverage, locality) follow the codebase-design vocabulary.
   input and compared as sets. There are several, each judging something
   different, and they are compared with each other too:
   - **Nemo** running the W3C forms of the rule set as a Datalog program
-    (`oracles/nemo/owl2rl.rls`): exact closures at scale, on a different
-    engine.
+    (one file per switch group in `oracles/rules/`, composed for a
+    configuration): exact closures at scale, on a different engine.
   - **OWL-RL** (the Python RDFLib implementation of the W3C OWL 2 RL rule
     tables): a superset closure on small and medium inputs, since it
     implements more rules.

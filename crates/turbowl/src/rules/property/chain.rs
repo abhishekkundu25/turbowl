@@ -4,7 +4,8 @@
 //!
 //! # Lists
 //!
-//! A list is read as the reference evaluator and `owl2rl.rls` read it: a
+//! A list is read as the reference evaluator and Nemo's program
+//! (`oracles/rules/`) read it: a
 //! chain is any path of `rdf:rest` from the axiom's head to `rdf:nil`, with
 //! one `rdf:first` of each cell on it. A cell may have several `rdf:first`
 //! (each gives its own chain) and several `rdf:rest` (each path is read). A

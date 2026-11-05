@@ -2,7 +2,7 @@
 //! `owl:intersectionOf` and `owl:unionOf`.
 //!
 //! Lists are read as the W3C `LIST[...]` patterns, in Datalog form, as
-//! `oracles/nemo/owl2rl.rls` and the reference evaluator read them: a list
+//! Nemo's program (`oracles/rules/`) and the reference evaluator read them: a list
 //! is matched along a path `z1` (the head), `z2`, ..., `zn` with
 //! `zi rdf:rest z(i+1)` and `zn rdf:rest rdf:nil`, every cell having at
 //! least one `rdf:first`, each cell contributing the first chosen for it.
