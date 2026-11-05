@@ -4,7 +4,6 @@ use oxrdf::{NamedNode, Term};
 
 pub(crate) const RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 pub(crate) const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-pub(crate) const RDF_PROPERTY: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#Property";
 pub(crate) const RDF_FIRST: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#first";
 pub(crate) const RDF_REST: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest";
 pub(crate) const RDF_NIL: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil";
@@ -15,9 +14,6 @@ pub(crate) const RDFS_SUB_CLASS_OF: &str = "http://www.w3.org/2000/01/rdf-schema
 pub(crate) const RDFS_SUB_PROPERTY_OF: &str = "http://www.w3.org/2000/01/rdf-schema#subPropertyOf";
 pub(crate) const RDFS_DOMAIN: &str = "http://www.w3.org/2000/01/rdf-schema#domain";
 pub(crate) const RDFS_RANGE: &str = "http://www.w3.org/2000/01/rdf-schema#range";
-pub(crate) const RDFS_MEMBER: &str = "http://www.w3.org/2000/01/rdf-schema#member";
-pub(crate) const RDFS_CONTAINER_MEMBERSHIP_PROPERTY: &str =
-    "http://www.w3.org/2000/01/rdf-schema#ContainerMembershipProperty";
 
 pub(crate) const OWL_THING: &str = "http://www.w3.org/2002/07/owl#Thing";
 pub(crate) const OWL_NOTHING: &str = "http://www.w3.org/2002/07/owl#Nothing";

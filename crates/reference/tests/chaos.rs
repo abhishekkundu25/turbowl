@@ -1,5 +1,5 @@
 //! Chaos: the core's `Reasoner` against the reference evaluator, on
-//! generated inputs, in both profiles.
+//! generated inputs.
 //!
 //! Each iteration draws an input from the seed (`generate`, sizes 1 to 48)
 //! and compares closures and diagnostics, as sets, with
@@ -31,10 +31,8 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use turtle_reasoner::{Profile, Reasoner};
+use turtle_reasoner::Reasoner;
 use turtle_reasoner_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
-
-const PROFILES: [Profile; 2] = [Profile::OwlRl, Profile::Reasonable];
 
 /// The largest reference closure an iteration is compared on.
 const MAX_CLOSURE: usize = 20_000;
@@ -43,7 +41,7 @@ const MAX_CLOSURE: usize = 20_000;
 const MAX_SIZE: usize = 48;
 
 /// How long one iteration may run before the watchdog fails the run. The
-/// reference takes about 5 ms per profile on an average input (measured
+/// reference takes about 5 ms on an average input (measured
 /// 2026-11-05 on an M-series Mac, 5,000 seeds); the budget leaves room for
 /// the largest inputs and a loaded machine.
 const ITERATION_BUDGET: Duration = Duration::from_secs(30);
@@ -79,7 +77,7 @@ fn input_of(seed: u64, i: usize) -> (Vec<Triple>, Rng) {
 /// process with an empty run; any other panic there is a failure.
 fn core_is_built() -> bool {
     static BUILT: OnceLock<Result<bool, String>> = OnceLock::new();
-    let probe = BUILT.get_or_init(|| match catch_unwind(|| Reasoner::new(Profile::OwlRl).reason()) {
+    let probe = BUILT.get_or_init(|| match catch_unwind(|| Reasoner::new().reason()) {
         Ok(_) => Ok(true),
         Err(payload) if panic_message(&*payload).starts_with("not implemented") => Ok(false),
         Err(payload) => Err(panic_message(&*payload)),
@@ -104,8 +102,8 @@ fn say(line: &str) {
 }
 
 /// What the reference says, or `None` when the input is too large for it.
-fn reference(base: &HashSet<Triple>, profile: Profile) -> Option<(HashSet<Triple>, Diagnostics)> {
-    evaluate_within(base, profile, MAX_CLOSURE).map(|e| (e.closure, e.diagnostics))
+fn reference(base: &HashSet<Triple>) -> Option<(HashSet<Triple>, Diagnostics)> {
+    evaluate_within(base, MAX_CLOSURE).map(|e| (e.closure, e.diagnostics))
 }
 
 fn core_state(reasoner: &Reasoner) -> (HashSet<Triple>, Diagnostics) {
@@ -113,7 +111,7 @@ fn core_state(reasoner: &Reasoner) -> (HashSet<Triple>, Diagnostics) {
     let diagnostics = reasoner
         .diagnostics()
         .iter()
-        .map(|d| (d.code.to_owned(), d.message.clone()))
+        .map(|d| (d.code.to_owned(), d.terms.clone()))
         .collect();
     (closure, diagnostics)
 }
@@ -154,15 +152,16 @@ fn difference(expected: &(HashSet<Triple>, Diagnostics), actual: &(HashSet<Tripl
         }
     }
     for (label, a, b) in [("missing", &expected.1, &actual.1), ("extra", &actual.1, &expected.1)] {
-        let items: Vec<_> = a.difference(b).collect();
+        let items: BTreeSet<String> = a
+            .difference(b)
+            .map(|(code, terms)| {
+                let terms: Vec<String> = terms.iter().map(ToString::to_string).collect();
+                format!("{code} {}", terms.join(" "))
+            })
+            .collect();
         if !items.is_empty() {
             lines.push(format!("{} {label} diagnostics, first:", items.len()));
-            lines.extend(
-                items
-                    .iter()
-                    .take(10)
-                    .map(|(code, message)| format!("    {code}: {message}")),
-            );
+            lines.extend(items.iter().take(10).map(|d| format!("    {d}")));
         }
     }
     (!lines.is_empty()).then(|| lines.join("\n"))
@@ -289,22 +288,20 @@ fn run(
     }
 }
 
-/// One full run per profile equals the reference.
+/// One full run equals the reference.
 fn full(input: &[Triple], _rng: &mut Rng, core: bool) -> Result<bool, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
-    for profile in PROFILES {
-        let Some(expected) = reference(&base, profile) else {
-            return Ok(false);
-        };
-        if !core {
-            continue;
-        }
-        let mut reasoner = Reasoner::new(profile);
-        reasoner.insert(input.iter().map(Triple::as_ref));
-        reasoner.reason();
-        if let Some(diff) = difference(&expected, &core_state(&reasoner)) {
-            return Err(format!("{profile:?}, one full run:\n{diff}"));
-        }
+    let Some(expected) = reference(&base) else {
+        return Ok(false);
+    };
+    if !core {
+        return Ok(true);
+    }
+    let mut reasoner = Reasoner::new();
+    reasoner.insert(input.iter().map(Triple::as_ref));
+    reasoner.reason();
+    if let Some(diff) = difference(&expected, &core_state(&reasoner)) {
+        return Err(format!("one full run:\n{diff}"));
     }
     Ok(true)
 }
@@ -321,33 +318,31 @@ fn incremental(input: &[Triple], rng: &mut Rng, core: bool) -> Result<bool, Stri
     let removed: Vec<&Triple> = input.iter().filter(|_| rng.one_in(4)).collect();
     let kept: HashSet<Triple> = base.iter().filter(|t| !removed.contains(t)).cloned().collect();
 
-    for profile in PROFILES {
-        let (Some(whole), Some(after_removal)) = (reference(&base, profile), reference(&kept, profile)) else {
-            return Ok(false);
-        };
-        if !core {
-            continue;
-        }
-        let mut reasoner = Reasoner::new(profile);
-        for batch in &split {
-            reasoner.insert(batch.iter().map(|t| t.as_ref()));
-            reasoner.reason();
-        }
-        if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
-            let sizes: Vec<usize> = split.iter().map(Vec::len).collect();
-            return Err(format!("{profile:?}, inserted in batches of {sizes:?}:\n{diff}"));
-        }
-        reasoner.remove(removed.iter().map(|t| t.as_ref()));
+    let (Some(whole), Some(after_removal)) = (reference(&base), reference(&kept)) else {
+        return Ok(false);
+    };
+    if !core {
+        return Ok(true);
+    }
+    let mut reasoner = Reasoner::new();
+    for batch in &split {
+        reasoner.insert(batch.iter().map(|t| t.as_ref()));
         reasoner.reason();
-        if let Some(diff) = difference(&after_removal, &core_state(&reasoner)) {
-            let lines: Vec<String> = removed.iter().map(|t| format!("    {t} .")).collect();
-            return Err(format!("{profile:?}, after removing:\n{}\n{diff}", lines.join("\n")));
-        }
-        reasoner.insert(removed.iter().map(|t| t.as_ref()));
-        reasoner.reason();
-        if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
-            return Err(format!("{profile:?}, after putting the removed triples back:\n{diff}"));
-        }
+    }
+    if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
+        let sizes: Vec<usize> = split.iter().map(Vec::len).collect();
+        return Err(format!("inserted in batches of {sizes:?}:\n{diff}"));
+    }
+    reasoner.remove(removed.iter().map(|t| t.as_ref()));
+    reasoner.reason();
+    if let Some(diff) = difference(&after_removal, &core_state(&reasoner)) {
+        let lines: Vec<String> = removed.iter().map(|t| format!("    {t} .")).collect();
+        return Err(format!("after removing:\n{}\n{diff}", lines.join("\n")));
+    }
+    reasoner.insert(removed.iter().map(|t| t.as_ref()));
+    reasoner.reason();
+    if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
+        return Err(format!("after putting the removed triples back:\n{diff}"));
     }
     Ok(true)
 }

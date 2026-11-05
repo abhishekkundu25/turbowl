@@ -1,23 +1,22 @@
-//! The reference evaluator on the parity checklist's minimal inputs (items 3
-//! to 15 of `docs/research/reasonable-parity.md`), with the expected output
-//! written out by hand. Where `reasonable` is wrong (D1, D2), the expected
-//! output is the profiles' one and the test says so.
+//! The reference evaluator on one minimal input per rule and per
+//! diagnostic, with the expected output written out by hand from the W3C
+//! OWL 2 RL rule tables (OWL 2 Profiles, section 4.3) for the version 1
+//! rule set (`docs/specs/v1.md`).
 
 mod common;
 
-use common::{lines, parse};
+use common::{lines, parse, term};
 use oxrdf::Triple;
 use std::collections::{BTreeSet, HashSet};
-use turtle_reasoner::Profile;
-use turtle_reasoner_reference::{evaluate, evaluate_counted, generate};
+use turtle_reasoner_reference::{DIAGNOSTIC_RULES, RULES, evaluate, evaluate_counted, evaluate_within, generate};
 
-/// The seeds of both profiles (cls-thing, cls-nothing1).
+/// cls-thing and cls-nothing1, the rules with an empty body.
 const SEEDS: &str = "owl:Thing a owl:Class . owl:Nothing a owl:Class .";
 
-/// What `owl-rl` adds to `input` beyond the input and the two seeds.
+/// What the rules add to `input` beyond the input and the two seeds.
 fn derived(input: &str) -> BTreeSet<String> {
     let input = parse(input);
-    let (closure, _) = evaluate(&input, Profile::OwlRl);
+    let (closure, _) = evaluate(&input);
     let known: HashSet<Triple> = input.union(&parse(SEEDS)).cloned().collect();
     lines(closure.difference(&known))
 }
@@ -26,77 +25,68 @@ fn expect_derived(input: &str, expected: &str) {
     assert_eq!(derived(input), lines(&parse(expected)), "input: {input}");
 }
 
-fn diagnostics(input: &str) -> BTreeSet<(String, String)> {
-    let (_, diagnostics) = evaluate(&parse(input), Profile::OwlRl);
-    let (_, in_reasonable) = evaluate(&parse(input), Profile::Reasonable);
-    assert_eq!(
-        diagnostics, in_reasonable,
-        "the profiles differ only in owl:Thing typing here"
-    );
-    diagnostics
-}
+/// A diagnostic as text: its code and its terms as N-Triples writes them.
+type Finding = (String, Vec<String>);
 
-fn messages(input: &str, code: &str) -> BTreeSet<String> {
-    diagnostics(input)
+fn diagnostics(input: &str) -> BTreeSet<Finding> {
+    let (_, diagnostics) = evaluate(&parse(input));
+    diagnostics
         .into_iter()
-        .filter(|(c, _)| c == code)
-        .map(|(_, m)| m)
+        .map(|(code, terms)| (code, terms.iter().map(ToString::to_string).collect()))
         .collect()
 }
 
-fn set(items: &[&str]) -> BTreeSet<String> {
-    items.iter().map(|s| s.to_string()).collect()
-}
-
-// Item 3.
-#[test]
-fn empty_input_gives_the_seeds_and_their_thing_typing() {
-    let (closure, diagnostics) = evaluate(&HashSet::new(), Profile::Reasonable);
-    let expected = parse(&format!("{SEEDS} owl:Thing a owl:Thing . owl:Nothing a owl:Thing ."));
-    assert_eq!(lines(&closure), lines(&expected));
-    assert!(diagnostics.is_empty());
-
-    let (closure, _) = evaluate(&HashSet::new(), Profile::OwlRl);
-    assert_eq!(lines(&closure), lines(&parse(SEEDS)));
-}
-
-// Item 4.
-#[test]
-fn every_subject_is_a_thing_and_an_object_alone_is_not() {
-    let input = parse("ex:a ex:p ex:b .");
-    let (closure, _) = evaluate(&input, Profile::Reasonable);
-    let expected = parse(&format!(
-        "ex:a ex:p ex:b . ex:a a owl:Thing . {SEEDS} owl:Thing a owl:Thing . owl:Nothing a owl:Thing ."
-    ));
-    assert_eq!(lines(&closure), lines(&expected));
-
-    // A list cell and a restriction are subjects too.
-    let input = parse("ex:C owl:intersectionOf ( ex:D ) . _:r owl:onProperty ex:p .");
-    let (closure, _) = evaluate(&input, Profile::Reasonable);
-    let things: usize = closure
+/// Findings written with the test parser's terms.
+fn findings(items: &[(&str, &[&str])]) -> BTreeSet<Finding> {
+    items
         .iter()
-        .filter(|t| t.predicate.as_str().ends_with("#type") && t.object.to_string().ends_with("#Thing>"))
-        .count();
-    // ex:C, the list cell, _:r, owl:Thing, owl:Nothing.
-    assert_eq!(things, 5);
+        .map(|(code, terms)| (code.to_string(), terms.iter().map(|t| term(t).to_string()).collect()))
+        .collect()
 }
 
-// Item 5.
+#[test]
+fn empty_input_gives_the_two_seeds() {
+    let (closure, diagnostics) = evaluate(&HashSet::new());
+    assert_eq!(lines(&closure), lines(&parse(SEEDS)));
+    assert!(diagnostics.is_empty());
+}
+
+/// No rule of the set types every subject `owl:Thing` (ADR 0004).
+#[test]
+fn subjects_are_not_typed_thing() {
+    expect_derived("ex:a ex:p ex:b .", "");
+    expect_derived("ex:C owl:intersectionOf ( ex:D ) . _:r owl:onProperty ex:p .", "");
+}
+
+/// A literal subject is never in the closure, but the rules derive it
+/// inside and go on from it.
 #[test]
 fn the_closure_holds_the_input_and_no_literal_subject() {
-    let input = parse("ex:p rdfs:range ex:C . ex:a ex:p \"lit\" . ex:b ex:p ex:c .");
-    let (closure, _) = evaluate(&input, Profile::OwlRl);
-    assert!(closure.is_superset(&input));
-    assert_eq!(
-        derived("ex:p rdfs:range ex:C . ex:a ex:p \"lit\" . ex:b ex:p ex:c ."),
-        lines(&parse("ex:c a ex:C ."))
-    );
-
-    // prp-fp on two literal values: `"a" sameAs "b"` is not derived (D6).
-    expect_derived("ex:d a owl:FunctionalProperty . ex:x ex:d \"a\" , \"b\" .", "");
+    let text = "ex:p rdfs:range ex:C . ex:a ex:p \"lit\" . ex:b ex:p ex:c .";
+    let input = parse(text);
+    let evaluation = evaluate_counted(&input);
+    assert!(evaluation.closure.is_superset(&input));
+    assert_eq!(derived(text), lines(&parse("ex:c a ex:C .")));
+    // `"lit" a ex:C`, inside only.
+    assert_eq!(evaluation.not_rdf, 1);
 }
 
-// Item 6: each implemented rule on its minimal input.
+/// eq-* apply to literals as to any term; only the triples with a literal
+/// subject are left out of the closure.
+#[test]
+fn literals_made_equal_share_their_triples() {
+    // prp-fp gives `"a" sameAs "b"` (inside); eq-rep-o copies `ex:y ex:q "a"`.
+    expect_derived(
+        "ex:d a owl:FunctionalProperty . ex:x ex:d \"a\" , \"b\" . ex:y ex:q \"a\" .",
+        "ex:y ex:q \"b\" .",
+    );
+    // A literal the same as an IRI: eq-sym shows it from the IRI's side.
+    expect_derived(
+        "ex:d a owl:FunctionalProperty . ex:x ex:d \"a\" , ex:i .",
+        "ex:i owl:sameAs \"a\" , ex:i .",
+    );
+}
+
 #[test]
 fn equality_rules() {
     // eq-rep-s (with eq-sym, eq-trans).
@@ -151,7 +141,7 @@ fn property_rules() {
     );
 }
 
-// D1: prp-ifp makes subjects equal only when the objects are equal.
+/// prp-ifp makes subjects equal only when the objects are equal.
 #[test]
 fn inverse_functional_needs_a_shared_object() {
     expect_derived(
@@ -188,6 +178,18 @@ fn class_rules() {
         "ex:C owl:unionOf ( ex:A ex:B ) . ex:x a ex:A . ex:y a ex:B .",
         "ex:x a ex:C . ex:y a ex:C .",
     );
+    // Two union lists on one class: both are read.
+    expect_derived(
+        "ex:C owl:unionOf ( ex:A ex:B ) , ( ex:D ) . ex:x a ex:D .",
+        "ex:x a ex:C .",
+    );
+    // A list triple derived during the run (prp-spo1 gives the last
+    // `rdf:rest`) counts.
+    expect_derived(
+        "ex:C owl:unionOf ex:h . ex:h rdf:first ex:A ; ex:next rdf:nil . ex:next rdfs:subPropertyOf rdf:rest .
+         ex:x a ex:A .",
+        "ex:h rdf:rest rdf:nil . ex:x a ex:C .",
+    );
     // cls-svf1.
     expect_derived(
         "_:r owl:someValuesFrom ex:B ; owl:onProperty ex:p . ex:x ex:p ex:y . ex:y a ex:B . ex:u ex:p ex:v .",
@@ -198,6 +200,7 @@ fn class_rules() {
         "_:r owl:someValuesFrom owl:Thing ; owl:onProperty ex:p . ex:x ex:p \"1\" .",
         "ex:x a _:r .",
     );
+    // cls-avf; `"lit" a ex:B` is derived inside only.
     expect_derived(
         "_:r owl:allValuesFrom ex:B ; owl:onProperty ex:p . ex:x a _:r ; ex:p ex:y , \"lit\" .",
         "ex:y a ex:B .",
@@ -209,9 +212,10 @@ fn class_rules() {
     );
 }
 
-// Item 7: rules `reasonable` does not implement add nothing.
+/// Rules outside the version 1 rule set add nothing: scm-spo, scm-sco's
+/// equivalence (scm-eqc2), eq-diff*, cls-oo.
 #[test]
-fn unimplemented_rules_add_nothing() {
+fn rules_outside_the_set_add_nothing() {
     expect_derived("ex:p rdfs:subPropertyOf ex:q . ex:q rdfs:subPropertyOf ex:r .", "");
     // scm-sco makes each class a subclass of itself; no equivalentClass.
     expect_derived(
@@ -224,7 +228,8 @@ fn unimplemented_rules_add_nothing() {
     );
 }
 
-// Item 8.
+/// No eq-ref: only terms in an `owl:sameAs` triple are the same as
+/// themselves.
 #[test]
 fn same_as_is_reflexive_on_its_nodes_only() {
     expect_derived(
@@ -237,7 +242,6 @@ fn same_as_is_reflexive_on_its_nodes_only() {
     );
 }
 
-// Item 9.
 #[test]
 fn property_chains_compose_in_order() {
     // Length 1, 2 and 3.
@@ -297,162 +301,131 @@ fn chains_of_length_five() {
     );
 }
 
-// Item 10.
+/// No rule of the set reads container membership (ADR 0004).
 #[test]
-fn container_membership() {
-    expect_derived(
-        "ex:bag rdf:_1 ex:a .",
-        "rdf:_1 a rdf:Property , rdfs:ContainerMembershipProperty ; rdfs:subPropertyOf rdfs:member .
-         ex:bag rdfs:member ex:a .",
-    );
-    expect_derived("ex:bag rdf:_0 ex:a . ex:bag rdf:_a ex:b . ex:bag rdf:_ ex:c .", "");
-    // An IRI used only as an object does not count.
-    expect_derived("ex:x ex:p rdf:_2 .", "");
+fn container_membership_derives_nothing() {
+    expect_derived("ex:bag rdf:_1 ex:a . ex:bag rdf:_2 ex:b .", "");
 }
 
-// Item 11.
 #[test]
 fn disjoint_classes_fire_once_in_the_stated_direction() {
-    let input = "ex:A owl:disjointWith ex:B . ex:i a ex:A , ex:B .";
     assert_eq!(
-        diagnostics(input),
-        BTreeSet::from([(
-            "OWLRL.CAX_DW".to_owned(),
-            "inst <http://example.org/i> is both <http://example.org/A> and <http://example.org/B> (disjoint classes)"
-                .to_owned()
-        )])
+        diagnostics("ex:A owl:disjointWith ex:B . ex:i a ex:A , ex:B ."),
+        findings(&[("cax-dw", &["ex:i", "ex:A", "ex:B"])])
     );
 }
 
-// Item 12.
 #[test]
-fn inconsistency_messages() {
+fn inconsistencies() {
     assert_eq!(
-        messages(
-            "ex:p owl:propertyDisjointWith ex:q . ex:x ex:p ex:y ; ex:q ex:y .",
-            "OWLRL.PRP_PDW"
-        ),
-        set(&[
-            "property <http://example.org/p> is disjoint with <http://example.org/q> for pair \
-               (<http://example.org/x> <http://example.org/p> <http://example.org/y>)"
+        diagnostics("ex:p owl:propertyDisjointWith ex:q . ex:x ex:p ex:y ; ex:q ex:y ."),
+        findings(&[("prp-pdw", &["ex:p", "ex:q", "ex:x", "ex:y"])])
+    );
+    assert_eq!(
+        diagnostics("ex:p a owl:AsymmetricProperty . ex:x ex:p ex:y . ex:y ex:p ex:x ."),
+        findings(&[
+            ("prp-asyp", &["ex:p", "ex:x", "ex:y"]),
+            ("prp-asyp", &["ex:p", "ex:y", "ex:x"]),
         ])
     );
     assert_eq!(
-        messages(
-            "ex:p a owl:AsymmetricProperty . ex:x ex:p ex:y . ex:y ex:p ex:x .",
-            "OWLRL.PRP_ASYP"
-        ),
-        set(&[
-            "property <http://example.org/p> of <http://example.org/x> and <http://example.org/y> is asymmetric",
-            "property <http://example.org/p> of <http://example.org/y> and <http://example.org/x> is asymmetric",
-        ])
+        diagnostics("ex:p a owl:AsymmetricProperty . ex:x ex:p ex:x ."),
+        findings(&[("prp-asyp", &["ex:p", "ex:x", "ex:x"])])
     );
     assert_eq!(
-        messages("ex:p a owl:AsymmetricProperty . ex:x ex:p ex:x .", "OWLRL.PRP_ASYP"),
-        set(&["property <http://example.org/p> of <http://example.org/x> and <http://example.org/x> is asymmetric"])
+        diagnostics("ex:p a owl:IrreflexiveProperty . ex:x ex:p ex:x . ex:y ex:p ex:z ."),
+        findings(&[("prp-irp", &["ex:p", "ex:x"])])
     );
     assert_eq!(
-        messages(
-            "ex:p a owl:IrreflexiveProperty . ex:x ex:p ex:x . ex:y ex:p ex:z .",
-            "OWLRL.PRP_IRP"
-        ),
-        set(&["property <http://example.org/p> of <http://example.org/x> is irreflexive"])
-    );
-    assert_eq!(
-        messages("ex:x a owl:Nothing .", "OWLRL.CLS_NOTHING"),
-        set(&["instance <http://example.org/x> is owl:Nothing (unsatisfiable)"])
+        diagnostics("ex:x a owl:Nothing ."),
+        findings(&[("cls-nothing2", &["ex:x"])])
     );
     // Through a derivation: the subclass of owl:Nothing.
     assert_eq!(
-        messages("ex:A rdfs:subClassOf owl:Nothing . ex:x a ex:A .", "OWLRL.CLS_NOTHING"),
-        set(&["instance <http://example.org/x> is owl:Nothing (unsatisfiable)"])
+        diagnostics("ex:A rdfs:subClassOf owl:Nothing . ex:x a ex:A ."),
+        findings(&[("cls-nothing2", &["ex:x"])])
+    );
+    // On a literal: `"v" a owl:Nothing` is derived inside, and found.
+    assert_eq!(
+        diagnostics("ex:d rdfs:range owl:Nothing . ex:x ex:d \"v\" ."),
+        findings(&[("cls-nothing2", &["\"v\""])])
     );
 }
 
-// Item 13 (D2: `reasonable` never fires it; the profiles do).
 #[test]
 fn complement_fires() {
     assert_eq!(
-        messages("ex:A owl:complementOf ex:B . ex:x a ex:A , ex:B .", "OWLRL.CLS_COM"),
-        set(&[
-            "Individual <http://example.org/x> has type <http://example.org/B> and <http://example.org/A> which are \
-             complements"
-        ])
+        diagnostics("ex:A owl:complementOf ex:B . ex:x a ex:A , ex:B ."),
+        findings(&[("cls-com", &["ex:A", "ex:B", "ex:x"])])
     );
 }
 
-// Item 14.
+/// dt-not-type for a literal not in its own datatype's value space.
 #[test]
-fn ill_formed_literals() {
-    let fired = messages(
-        "ex:s ex:p \" 42\"^^xsd:int , \"2147483648\"^^xsd:int , \"abc\"^^xsd:integer , \"<a>t</b>\"^^rdf:XMLLiteral .",
-        "RDFS.DATATYPE",
-    );
+fn ill_typed_literals() {
     assert_eq!(
-        fired,
-        set(&[
-            "ill-formed literal \" 42\"^^<http://www.w3.org/2001/XMLSchema#int> used in triple \
-             <http://example.org/s> <http://example.org/p> \" 42\"^^<http://www.w3.org/2001/XMLSchema#int>",
-            "ill-formed literal \"2147483648\"^^<http://www.w3.org/2001/XMLSchema#int> used in triple \
-             <http://example.org/s> <http://example.org/p> \"2147483648\"^^<http://www.w3.org/2001/XMLSchema#int>",
-            "ill-formed literal \"abc\"^^<http://www.w3.org/2001/XMLSchema#integer> used in triple \
-             <http://example.org/s> <http://example.org/p> \"abc\"^^<http://www.w3.org/2001/XMLSchema#integer>",
-            "ill-formed literal \"<a>t</b>\"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral> used in \
-             triple <http://example.org/s> <http://example.org/p> \
-             \"<a>t</b>\"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral>",
+        diagnostics(
+            "ex:s ex:p \" 42\"^^xsd:int , \"2147483648\"^^xsd:int , \"abc\"^^xsd:integer ,
+             \"<a>t</b>\"^^rdf:XMLLiteral , \"<a>\"^^rdf:XMLLiteral ."
+        ),
+        findings(&[
+            ("dt-not-type", &["\" 42\"^^xsd:int", "xsd:int"]),
+            ("dt-not-type", &["\"2147483648\"^^xsd:int", "xsd:int"]),
+            ("dt-not-type", &["\"abc\"^^xsd:integer", "xsd:integer"]),
+            ("dt-not-type", &["\"<a>t</b>\"^^rdf:XMLLiteral", "rdf:XMLLiteral"]),
+            ("dt-not-type", &["\"<a>\"^^rdf:XMLLiteral", "rdf:XMLLiteral"]),
         ])
     );
     let quiet = diagnostics(
-        "ex:s ex:p \"+5\"^^xsd:integer , \"-7\"^^xsd:int , \"x\"^^ex:unknown , \"<a>t</a>\"^^rdf:XMLLiteral , \"s\" .",
+        "ex:s ex:p \"+5\"^^xsd:integer , \"-7\"^^xsd:int , \"x\"^^ex:unknown , \"<a>t</a>\"^^rdf:XMLLiteral , \"s\" ,
+         \"t\"@en , \"3.x\"^^xsd:decimal .",
     );
     assert!(quiet.is_empty(), "{quiet:?}");
-    // An inferred triple is checked too.
+    // A literal is found once, however many triples hold it.
     assert_eq!(
-        messages(
-            "ex:p rdfs:subPropertyOf ex:q . ex:s ex:p \"abc\"^^xsd:integer .",
-            "RDFS.DATATYPE"
-        )
-        .len(),
-        2
+        diagnostics("ex:p rdfs:subPropertyOf ex:q . ex:s ex:p \"abc\"^^xsd:integer ."),
+        findings(&[("dt-not-type", &["\"abc\"^^xsd:integer", "xsd:integer"])])
     );
 }
 
-// Item 15.
+/// dt-not-type for a literal a rule types with a datatype whose value space
+/// it is not in: prp-rng, or prp-rng then cax-eqc1.
 #[test]
-fn range_clashes() {
-    let fired = messages(
-        "ex:n rdfs:range xsd:integer . ex:t rdfs:range xsd:string .
-         ex:a ex:n \"x\" , \"y\"@en , ex:b . ex:a ex:t \"z\"@en .",
-        "RDFS.DATATYPE_RANGE",
+fn literals_outside_a_datatype_range() {
+    assert_eq!(
+        diagnostics(
+            "ex:n rdfs:range xsd:integer . ex:t rdfs:range xsd:string .
+             ex:a ex:n \"x\" , \"y\"@en , ex:b . ex:a ex:t \"z\"@en ."
+        ),
+        findings(&[
+            ("dt-not-type", &["\"x\"", "xsd:integer"]),
+            ("dt-not-type", &["\"y\"@en", "xsd:integer"]),
+            ("dt-not-type", &["\"z\"@en", "xsd:string"]),
+        ])
     );
     assert_eq!(
-        fired,
-        set(&[
-            "range clash: object \"x\" is not in datatype <http://www.w3.org/2001/XMLSchema#integer> for predicate \
-             <http://example.org/n>",
-            "range clash: object \"y\"@en is not in datatype <http://www.w3.org/2001/XMLSchema#integer> for \
-             predicate <http://example.org/n>",
-            "range clash: object <http://example.org/b> is not in datatype \
-             <http://www.w3.org/2001/XMLSchema#integer> for predicate <http://example.org/n>",
-            "range clash: object \"z\"@en is not in datatype <http://www.w3.org/2001/XMLSchema#string> for \
-             predicate <http://example.org/t>",
-        ])
+        diagnostics(
+            "ex:n rdfs:range ex:Num . ex:Num owl:equivalentClass xsd:int . ex:a ex:n \"2147483648\"^^xsd:integer ."
+        ),
+        findings(&[("dt-not-type", &["\"2147483648\"^^xsd:integer", "xsd:int"])])
+    );
+    // Ill-typed, in the range of its own datatype: one finding.
+    assert_eq!(
+        diagnostics("ex:n rdfs:range xsd:integer . ex:a ex:n \"abc\"^^xsd:integer ."),
+        findings(&[("dt-not-type", &["\"abc\"^^xsd:integer", "xsd:integer"])])
     );
     let quiet = diagnostics(
         "ex:n rdfs:range xsd:integer . ex:a ex:n \"5\"^^xsd:int .
+         ex:i rdfs:range xsd:int . ex:a ex:i \"5\"^^xsd:integer .
          ex:u rdfs:range ex:Class . ex:a ex:u \"lit\" .
          ex:v rdfs:range xsd:decimal . ex:a ex:v \"x\" .",
     );
     assert!(quiet.is_empty(), "{quiet:?}");
-    // As `reasonable` (no documented difference covers it): an IRI object
-    // clashes with any range, a class too.
-    assert_eq!(
-        messages("ex:u rdfs:range ex:Class . ex:a ex:u ex:b .", "RDFS.DATATYPE_RANGE"),
-        set(&[
-            "range clash: object <http://example.org/b> is not in datatype <http://example.org/Class> for \
-             predicate <http://example.org/u>"
-        ])
-    );
+    // An IRI or blank-node object of a property with a class range is an
+    // instance of the class, and nothing is found.
+    let input = "ex:u rdfs:range ex:Class . ex:a ex:u ex:b , _:c .";
+    assert!(diagnostics(input).is_empty());
+    expect_derived(input, "ex:b a ex:Class . _:c a ex:Class .");
 }
 
 #[test]
@@ -462,52 +435,49 @@ fn generator_is_deterministic_and_reaches_a_fixpoint() {
         assert_eq!(input, generate(seed, 40));
         let set: HashSet<Triple> = input.iter().cloned().collect();
         assert_eq!(set.len(), input.len(), "no duplicates");
-        for profile in [Profile::OwlRl, Profile::Reasonable] {
-            let first = evaluate_counted(&set, profile);
-            // The closure is a fixpoint: evaluating it again adds nothing.
-            let again = evaluate(&first.closure, profile);
-            assert_eq!(again.0, first.closure, "seed {seed}");
-            assert_eq!(again.1, first.diagnostics, "seed {seed}");
-        }
+        let first = evaluate_counted(&set);
+        // The closure is a fixpoint: evaluating it again adds nothing.
+        let again = evaluate(&first.closure);
+        assert_eq!(again.0, first.closure, "seed {seed}");
+        assert_eq!(again.1, first.diagnostics, "seed {seed}");
     }
     assert_ne!(generate(1, 40), generate(2, 40));
 }
 
 /// The generator exercises every rule: over 300 seeds (COVERAGE_SEEDS
-/// overrides), each deriving and diagnostic rule fires for some seed in each
-/// profile that runs it. Prints, per rule, the number of seeds it fired for.
+/// overrides), each deriving and diagnostic rule fires for some seed, and
+/// some seed derives a triple that is not RDF. Prints, per rule, the number
+/// of seeds it fired for.
 #[test]
 fn generator_exercises_every_rule() {
     let seeds: u64 = std::env::var("COVERAGE_SEEDS")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(300);
-    for profile in [Profile::OwlRl, Profile::Reasonable] {
-        let mut seeds_fired: std::collections::BTreeMap<&str, u64> = Default::default();
-        let mut too_large = 0;
-        for seed in 0..seeds {
-            let mut rng = turtle_reasoner_reference::Rng::at(0x5EED_0005, seed as usize);
-            let size = 1 + rng.below(48);
-            let input: HashSet<Triple> = generate(rng.next_u64(), size).into_iter().collect();
-            let Some(evaluation) = turtle_reasoner_reference::evaluate_within(&input, profile, 20_000) else {
-                too_large += 1;
-                continue;
-            };
-            for rule in evaluation.fired.keys() {
-                *seeds_fired.entry(rule).or_default() += 1;
-            }
+    let mut seeds_fired: std::collections::BTreeMap<&str, u64> = Default::default();
+    let (mut too_large, mut not_rdf) = (0, 0);
+    for seed in 0..seeds {
+        let mut rng = turtle_reasoner_reference::Rng::at(0x5EED_0005, seed as usize);
+        let size = 1 + rng.below(48);
+        let input: HashSet<Triple> = generate(rng.next_u64(), size).into_iter().collect();
+        let Some(evaluation) = evaluate_within(&input, 20_000) else {
+            too_large += 1;
+            continue;
+        };
+        for rule in evaluation.fired.keys() {
+            *seeds_fired.entry(rule).or_default() += 1;
         }
-        let report: Vec<String> = seeds_fired.iter().map(|(rule, n)| format!("{rule} {n}")).collect();
-        eprintln!(
-            "{profile:?}, {seeds} seeds ({too_large} too large): {}",
-            report.join(", ")
-        );
-        for rule in
-            turtle_reasoner_reference::rules(profile).chain(turtle_reasoner_reference::DIAGNOSTIC_RULES.iter().copied())
-        {
-            assert!(seeds_fired.contains_key(rule), "{profile:?}: {rule} never fires");
-        }
+        not_rdf += u64::from(evaluation.not_rdf > 0);
     }
+    let report: Vec<String> = seeds_fired.iter().map(|(rule, n)| format!("{rule} {n}")).collect();
+    eprintln!(
+        "{seeds} seeds ({too_large} too large, {not_rdf} with triples that are not RDF): {}",
+        report.join(", ")
+    );
+    for rule in RULES.iter().chain(DIAGNOSTIC_RULES) {
+        assert!(seeds_fired.contains_key(rule), "{rule} never fires");
+    }
+    assert!(not_rdf > 0, "no seed derives a literal subject");
 }
 
 /// The parser these tests use reads what they write.
@@ -516,4 +486,8 @@ fn the_test_parser_reads_lists_literals_and_shorthand() {
     let triples = parse("ex:a ex:p \"1\"^^xsd:int , \"x\"@en ; ex:q ( ex:b ex:c ) . _:r a ex:C .");
     assert_eq!(triples.len(), 8);
     assert!(lines(&triples).contains("<http://example.org/a> <http://example.org/p> \"x\"@en ."));
+    assert_eq!(
+        term("\"5\"^^xsd:int").to_string(),
+        "\"5\"^^<http://www.w3.org/2001/XMLSchema#int>"
+    );
 }

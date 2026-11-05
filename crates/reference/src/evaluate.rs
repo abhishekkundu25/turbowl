@@ -7,37 +7,50 @@
 //! triple. That is the point: an independent formulation of what the core
 //! computes with representatives (ADR 0003).
 //!
-//! Conventions both profiles share:
-//! - A triple whose subject would be a literal, or whose predicate would not
-//!   be an IRI, is never derived (D6), so no rule ever joins on one: a
-//!   functional property with the values `"a"` and `"b"` derives neither
-//!   `"a" sameAs "b"` nor anything that would follow from it.
+//! Conventions:
+//! - **Generalized triples inside, RDF outside.** The rules run over triples
+//!   whose terms may be anything, as the W3C rule tables are written: a
+//!   rule that matches with a literal where it would derive a subject (or
+//!   anything but an IRI where it would derive a predicate) derives that
+//!   triple, and every rule, the eq-* rules included, joins on it like any
+//!   other. Only the returned closure leaves such triples out (they are not
+//!   RDF). So a literal typed by prp-rng reaches dt-not-type, and two
+//!   literals made equal (`ex:d a owl:FunctionalProperty . ex:x ex:d "a" ,
+//!   "b"` gives `"a" owl:sameAs "b"` inside) copy each other's visible
+//!   triples by eq-rep-o (`ex:y ex:q "a"` gives `ex:y ex:q "b"`); a literal
+//!   made equal to an IRI shows as `ex:i owl:sameAs "a"` by eq-sym.
 //! - Lists are read as the W3C rules read `LIST[...]` patterns, in Datalog
 //!   form: a list is any path of `rdf:rest` from its head to `rdf:nil`. A
 //!   cyclic list that never reaches `rdf:nil` matches nothing, shared tails
 //!   are read once per head, and an empty list (`rdf:nil` itself) has no
-//!   members.
-//! - Container membership: every predicate `rdf:_N` (ASCII digits, N > 0 as
-//!   a `u64`) in the closure gets `a rdf:Property`,
-//!   `a rdfs:ContainerMembershipProperty` and `rdfs:subPropertyOf
-//!   rdfs:member`. `reasonable` looks only at loaded triples; here a
-//!   derived `rdf:_N` predicate counts too.
+//!   members. Every list of a class or property is read, and list triples
+//!   derived during the run count from the next round on.
 
 use crate::datatype;
 use crate::vocab::*;
 use oxrdf::{NamedNode, NamedOrBlankNode, Term, Triple};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use turtle_reasoner::Profile;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-/// Diagnostics as `(code, message)` pairs, deduplicated as `reasonable` does.
-pub type Diagnostics = BTreeSet<(String, String)>;
+/// Diagnostics as a set of (code, terms). The code is the W3C rule name;
+/// the terms come in this order, per code:
+/// - `cax-dw`: the individual, then the two classes as `owl:disjointWith`
+///   states them.
+/// - `prp-pdw`: the two properties as `owl:propertyDisjointWith` states
+///   them, then the subject and the object.
+/// - `cls-nothing2`: the individual.
+/// - `prp-asyp`: the property, the subject, the object.
+/// - `prp-irp`: the property, the individual.
+/// - `cls-com`: the two classes as `owl:complementOf` states them, then the
+///   individual.
+/// - `dt-not-type`: the literal, the datatype whose value space it is not
+///   in (its own when it is ill-typed).
+pub type Diagnostics = HashSet<(String, Vec<Term>)>;
 
 /// The deriving rules, in the order a round runs them. A triple two rules
 /// derive in the same round is counted for the first.
 pub const RULES: &[&str] = &[
     "cls-thing",
     "cls-nothing1",
-    "thing-typing",
     "eq-sym",
     "eq-trans",
     "eq-rep-s",
@@ -55,7 +68,6 @@ pub const RULES: &[&str] = &[
     "prp-eqp2",
     "prp-inv1",
     "prp-inv2",
-    "rdfs-container",
     "cax-sco",
     "cax-eqc1",
     "cax-eqc2",
@@ -71,7 +83,8 @@ pub const RULES: &[&str] = &[
     "cls-hv2",
 ];
 
-/// The diagnostic rules, run once over the closure at the fixpoint.
+/// The diagnostic rules, run once over the closure at the fixpoint. Each
+/// name is also the code of what it finds.
 pub const DIAGNOSTIC_RULES: &[&str] = &[
     "cax-dw",
     "prp-pdw",
@@ -79,56 +92,47 @@ pub const DIAGNOSTIC_RULES: &[&str] = &[
     "prp-asyp",
     "prp-irp",
     "cls-com",
-    "rdfs-datatype",
-    "rdfs-datatype-range",
+    "dt-not-type",
 ];
-
-/// The rules a profile runs: both profiles run every rule in [`RULES`] but
-/// `thing-typing`, which only `reasonable` runs.
-pub fn rules(profile: Profile) -> impl Iterator<Item = &'static str> {
-    RULES
-        .iter()
-        .copied()
-        .filter(move |rule| *rule != "thing-typing" || profile == Profile::Reasonable)
-}
 
 /// One evaluation: the closure, the diagnostics, and what each rule added.
 #[derive(Debug, Clone, Default)]
 pub struct Evaluation {
+    /// The closure's RDF triples: every derived triple but those with a
+    /// literal subject or a predicate that is not an IRI.
     pub closure: HashSet<Triple>,
     pub diagnostics: Diagnostics,
     /// For each rule that added something: the triples it added (deriving
-    /// rules) or the diagnostics it gave (diagnostic rules).
+    /// rules, counting the ones left out of `closure`) or the diagnostics
+    /// it gave (diagnostic rules).
     pub fired: BTreeMap<&'static str, usize>,
     /// Rounds until nothing new was derived (the last round included).
     pub rounds: usize,
-    /// Whether some rule matched with a literal in the subject position of
-    /// what it would derive, and so derived nothing there (D6). `reasonable`
-    /// derives such triples and drops them only from its output, so on
-    /// these inputs its closure and diagnostics may hold their consequences.
-    pub literal_subject: bool,
+    /// How many derived triples are not RDF (a literal subject, or a
+    /// predicate that is not an IRI), and so are not in `closure`.
+    pub not_rdf: usize,
 }
 
-/// The closure and the diagnostics of `triples` under `profile`.
-pub fn evaluate(triples: &HashSet<Triple>, profile: Profile) -> (HashSet<Triple>, Diagnostics) {
-    let evaluation = evaluate_counted(triples, profile);
+/// The closure and the diagnostics of `triples`.
+pub fn evaluate(triples: &HashSet<Triple>) -> (HashSet<Triple>, Diagnostics) {
+    let evaluation = evaluate_counted(triples);
     (evaluation.closure, evaluation.diagnostics)
 }
 
 /// [`evaluate`], also counting what each rule added.
-pub fn evaluate_counted(triples: &HashSet<Triple>, profile: Profile) -> Evaluation {
-    evaluate_within(triples, profile, usize::MAX).expect("no limit")
+pub fn evaluate_counted(triples: &HashSet<Triple>) -> Evaluation {
+    evaluate_within(triples, usize::MAX).expect("no limit")
 }
 
-/// [`evaluate_counted`], giving up (`None`) once the closure would hold more
-/// than `max_closure` triples. Equality makes some small inputs explode
-/// (a universal `owl:sameAs` clique copies every triple for every pair of
-/// aliases), and this evaluator has no representatives to keep that small.
-pub fn evaluate_within(triples: &HashSet<Triple>, profile: Profile, max_closure: usize) -> Option<Evaluation> {
-    let mut closure = triples.clone();
+/// [`evaluate_counted`], giving up (`None`) once the closure, with the
+/// triples that are not RDF, would hold more than `max_closure` triples.
+/// Equality makes some small inputs explode (a universal `owl:sameAs`
+/// clique copies every triple for every pair of aliases), and this
+/// evaluator has no representatives to keep that small.
+pub fn evaluate_within(triples: &HashSet<Triple>, max_closure: usize) -> Option<Evaluation> {
+    let mut closure: HashSet<Fact> = triples.iter().map(fact).collect();
     let mut fired = BTreeMap::new();
     let mut rounds = 0;
-    let mut literal_subject = false;
     loop {
         rounds += 1;
         let view = View::new(&closure);
@@ -138,13 +142,11 @@ pub fn evaluate_within(triples: &HashSet<Triple>, profile: Profile, max_closure:
             fresh: HashMap::new(),
             room,
             overflow: false,
-            literal_subject: false,
         };
-        derive_all(&view, profile, &mut round);
+        derive_all(&view, &mut round);
         if round.overflow {
             return None;
         }
-        literal_subject |= round.literal_subject;
         let fresh = round.fresh;
         if fresh.is_empty() {
             break;
@@ -155,18 +157,38 @@ pub fn evaluate_within(triples: &HashSet<Triple>, profile: Profile, max_closure:
         }
     }
     let mut diagnostics = Diagnostics::new();
-    for (rule, code, message) in diagnose(&View::new(&closure)) {
-        if diagnostics.insert((code.to_owned(), message)) {
-            *fired.entry(rule).or_insert(0) += 1;
+    for (code, terms) in diagnose(&View::new(&closure)) {
+        if diagnostics.insert((code.to_owned(), terms)) {
+            *fired.entry(code).or_insert(0) += 1;
         }
     }
+    let total = closure.len();
+    let closure: HashSet<Triple> = closure.into_iter().filter_map(rdf).collect();
     Some(Evaluation {
+        not_rdf: total - closure.len(),
         closure,
         diagnostics,
         fired,
         rounds,
-        literal_subject,
     })
+}
+
+/// A generalized triple: any term in any position.
+type Fact = (Term, Term, Term);
+
+fn fact(triple: &Triple) -> Fact {
+    (
+        Term::from(triple.subject.clone()),
+        Term::from(triple.predicate.clone()),
+        triple.object.clone(),
+    )
+}
+
+/// The RDF triple `fact` is, if it is one.
+fn rdf((s, p, o): Fact) -> Option<Triple> {
+    let subject = NamedOrBlankNode::try_from(s).ok()?;
+    let predicate = NamedNode::try_from(p).ok()?;
+    Some(Triple::new(subject, predicate, o))
 }
 
 /// The closure as it stands at the start of a round, indexed every way the
@@ -179,7 +201,6 @@ struct View {
     sp: HashMap<(Term, Term), Vec<Term>>,
     po: HashMap<(Term, Term), Vec<Term>>,
     all: HashSet<(Term, Term, Term)>,
-    subjects: Vec<Term>,
     /// List cells from which a path of `rdf:rest` reaches `rdf:nil`.
     reaches_nil: HashSet<Term>,
 }
@@ -188,7 +209,7 @@ const NONE: &[Term] = &[];
 const NO_PAIRS: &[(Term, Term)] = &[];
 
 impl View {
-    fn new(closure: &HashSet<Triple>) -> View {
+    fn new(closure: &HashSet<Fact>) -> View {
         let mut view = View {
             by_p: HashMap::new(),
             by_s: HashMap::new(),
@@ -196,23 +217,15 @@ impl View {
             sp: HashMap::new(),
             po: HashMap::new(),
             all: HashSet::new(),
-            subjects: Vec::new(),
             reaches_nil: HashSet::new(),
         };
-        let mut subjects = HashSet::new();
-        for triple in closure {
-            let s = Term::from(triple.subject.clone());
-            let p = Term::from(triple.predicate.clone());
-            let o = triple.object.clone();
+        for (s, p, o) in closure {
             view.by_p.entry(p.clone()).or_default().push((s.clone(), o.clone()));
             view.by_s.entry(s.clone()).or_default().push((p.clone(), o.clone()));
             view.by_o.entry(o.clone()).or_default().push((s.clone(), p.clone()));
             view.sp.entry((s.clone(), p.clone())).or_default().push(o.clone());
             view.po.entry((p.clone(), o.clone())).or_default().push(s.clone());
-            if subjects.insert(s.clone()) {
-                view.subjects.push(s.clone());
-            }
-            view.all.insert((s, p, o));
+            view.all.insert((s.clone(), p.clone(), o.clone()));
         }
         // A cell reaches nil when its rest is nil or a cell that reaches nil.
         let nil = iri(RDF_NIL);
@@ -365,26 +378,17 @@ impl View {
 
 /// What one round derives, with the first rule that derived each triple.
 struct Round<'a> {
-    closure: &'a HashSet<Triple>,
-    fresh: HashMap<Triple, &'static str>,
+    closure: &'a HashSet<Fact>,
+    fresh: HashMap<Fact, &'static str>,
     /// How many fresh triples fit under the limit.
     room: usize,
     overflow: bool,
-    literal_subject: bool,
 }
 
 impl Round<'_> {
-    /// Adds `s p o` unless it is already known, or is not an RDF triple (a
-    /// literal subject, a predicate that is not an IRI).
+    /// Adds `s p o` unless it is already known. It need not be RDF.
     fn derive(&mut self, rule: &'static str, s: &Term, p: &Term, o: &Term) {
-        let Ok(subject) = NamedOrBlankNode::try_from(s.clone()) else {
-            self.literal_subject = true;
-            return;
-        };
-        let Ok(predicate) = NamedNode::try_from(p.clone()) else {
-            return;
-        };
-        let triple = Triple::new(subject, predicate, o.clone());
+        let triple = (s.clone(), p.clone(), o.clone());
         if self.overflow || self.closure.contains(&triple) || self.fresh.contains_key(&triple) {
             return;
         }
@@ -396,20 +400,12 @@ impl Round<'_> {
     }
 }
 
-fn derive_all(v: &View, profile: Profile, r: &mut Round) {
+fn derive_all(v: &View, r: &mut Round) {
     let ty = iri(RDF_TYPE);
-    let thing = iri(OWL_THING);
 
     // cls-thing, cls-nothing1: rules with an empty body.
-    r.derive("cls-thing", &thing, &ty, &iri(OWL_CLASS));
+    r.derive("cls-thing", &iri(OWL_THING), &ty, &iri(OWL_CLASS));
     r.derive("cls-nothing1", &iri(OWL_NOTHING), &ty, &iri(OWL_CLASS));
-
-    // `reasonable`'s convention: every subject is an owl:Thing.
-    if profile == Profile::Reasonable {
-        for s in &v.subjects {
-            r.derive("thing-typing", s, &ty, &thing);
-        }
-    }
 
     equality(v, r);
     properties(v, r);
@@ -512,24 +508,6 @@ fn properties(v: &View, r: &mut Round) {
             r.derive("prp-inv2", y, p1, x);
         }
     }
-    for p in v.by_p.keys() {
-        if let Term::NamedNode(node) = p
-            && is_container_membership(node.as_str())
-        {
-            r.derive("rdfs-container", p, &ty, &iri(RDF_PROPERTY));
-            r.derive("rdfs-container", p, &ty, &iri(RDFS_CONTAINER_MEMBERSHIP_PROPERTY));
-            r.derive("rdfs-container", p, &iri(RDFS_SUB_PROPERTY_OF), &iri(RDFS_MEMBER));
-        }
-    }
-}
-
-/// `rdf:_N` with N one or more ASCII digits whose value, as a `u64`, is
-/// above 0 (`reasonable`'s test, so `rdf:_01` counts and `rdf:_0` does not).
-pub(crate) fn is_container_membership(iri: &str) -> bool {
-    let Some(suffix) = iri.strip_prefix(RDF).and_then(|rest| rest.strip_prefix('_')) else {
-        return false;
-    };
-    !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()) && suffix.parse::<u64>().is_ok_and(|n| n > 0)
 }
 
 fn classes(v: &View, r: &mut Round) {
@@ -610,75 +588,69 @@ fn classes(v: &View, r: &mut Round) {
     }
 }
 
-/// The diagnostic rules over the closure: (rule, code, message), with
-/// `reasonable`'s messages (terms written as oxrdf writes them).
-fn diagnose(v: &View) -> Vec<(&'static str, &'static str, String)> {
+/// The diagnostic rules over the closure: (code, terms), in the orders
+/// [`Diagnostics`] documents.
+fn diagnose(v: &View) -> Vec<(&'static str, Vec<Term>)> {
     let ty = iri(RDF_TYPE);
     let mut found = Vec::new();
 
     for (c1, c2) in v.pairs(&iri(OWL_DISJOINT_WITH)) {
         for x in v.subjects(&ty, c1) {
             if v.has(x, &ty, c2) {
-                let message = format!("inst {x} is both {c1} and {c2} (disjoint classes)");
-                found.push(("cax-dw", "OWLRL.CAX_DW", message));
+                found.push(("cax-dw", vec![x.clone(), c1.clone(), c2.clone()]));
             }
         }
     }
     for (p1, p2) in v.pairs(&iri(OWL_PROPERTY_DISJOINT_WITH)) {
         for (x, y) in v.pairs(p1) {
             if v.has(x, p2, y) {
-                let message = format!("property {p1} is disjoint with {p2} for pair ({x} {p1} {y})");
-                found.push(("prp-pdw", "OWLRL.PRP_PDW", message));
+                found.push(("prp-pdw", vec![p1.clone(), p2.clone(), x.clone(), y.clone()]));
             }
         }
     }
     for x in instances(v, OWL_NOTHING) {
-        let message = format!("instance {x} is owl:Nothing (unsatisfiable)");
-        found.push(("cls-nothing2", "OWLRL.CLS_NOTHING", message));
+        found.push(("cls-nothing2", vec![x.clone()]));
     }
     for p in instances(v, OWL_ASYMMETRIC_PROPERTY) {
         for (x, y) in v.pairs(p) {
             if v.has(y, p, x) {
-                let message = format!("property {p} of {x} and {y} is asymmetric");
-                found.push(("prp-asyp", "OWLRL.PRP_ASYP", message));
+                found.push(("prp-asyp", vec![p.clone(), x.clone(), y.clone()]));
             }
         }
     }
     for p in instances(v, OWL_IRREFLEXIVE_PROPERTY) {
         for (x, y) in v.pairs(p) {
             if x == y {
-                let message = format!("property {p} of {x} is irreflexive");
-                found.push(("prp-irp", "OWLRL.PRP_IRP", message));
+                found.push(("prp-irp", vec![p.clone(), x.clone()]));
             }
         }
     }
-    // D2: `reasonable` never emits this. The message is the one its
-    // commented-out call would write: the complementOf object first.
     for (c1, c2) in v.pairs(&iri(OWL_COMPLEMENT_OF)) {
         for x in v.subjects(&ty, c1) {
             if v.has(x, &ty, c2) {
-                let message = format!("Individual {x} has type {c2} and {c1} which are complements");
-                found.push(("cls-com", "OWLRL.CLS_COM", message));
+                found.push(("cls-com", vec![c1.clone(), c2.clone(), x.clone()]));
             }
         }
     }
-    for (p, pairs) in &v.by_p {
-        for (s, o) in pairs {
-            if let Term::Literal(literal) = o
+    // dt-not-type, for an ill-typed literal anywhere in the closure: the
+    // literal is not in its own datatype's value space.
+    for (s, p, o) in &v.all {
+        for term in [s, p, o] {
+            if let Term::Literal(literal) = term
                 && datatype::well_formed(literal) == Some(false)
             {
-                let message = format!("ill-formed literal {literal} used in triple {s} {p} {o}");
-                found.push(("rdfs-datatype", "RDFS.DATATYPE", message));
+                let own = Term::from(literal.datatype().into_owned());
+                found.push(("dt-not-type", vec![term.clone(), own]));
             }
         }
     }
-    for (p, range) in v.pairs(&iri(RDFS_RANGE)) {
-        let Term::NamedNode(range) = range else { continue };
-        for (_, o) in v.pairs(p) {
-            if datatype::in_value_space(o, range.as_str()) == Some(false) {
-                let message = format!("range clash: object {o} is not in datatype {range} for predicate {p}");
-                found.push(("rdfs-datatype-range", "RDFS.DATATYPE_RANGE", message));
-            }
+    // dt-not-type, for a literal the closure types with a datatype (by
+    // prp-rng or any other rule) whose value space it is not in.
+    for (x, class) in v.pairs(&ty) {
+        if let (Term::Literal(literal), Term::NamedNode(class)) = (x, class)
+            && datatype::in_value_space(literal, class.as_str()) == Some(false)
+        {
+            found.push(("dt-not-type", vec![x.clone(), Term::from(class.clone())]));
         }
     }
     found

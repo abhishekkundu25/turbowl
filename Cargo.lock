@@ -386,7 +386,6 @@ name = "turtle-reasoner-reference"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
- "reasonable",
  "turtle-reasoner",
 ]
 

@@ -169,6 +169,14 @@ pub fn name(prefixed: &str) -> NamedNode {
     panic!("unknown prefix in {prefixed}")
 }
 
+/// One term, written as `parse` reads an object: `ex:a`, `"5"^^xsd:int`,
+/// `"x"@en`, `_:b`.
+pub fn term(token: &str) -> Term {
+    let triples = parse(&format!("ex:s ex:p {token} ."));
+    assert_eq!(triples.len(), 1, "one term: {token}");
+    triples.into_iter().next().unwrap().object
+}
+
 pub fn lines<'a>(triples: impl IntoIterator<Item = &'a Triple>) -> BTreeSet<String> {
     triples.into_iter().map(|t| format!("{t} .")).collect()
 }

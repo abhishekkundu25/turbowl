@@ -6,13 +6,16 @@
 //! property hierarchies, equivalences, domains and ranges, property
 //! characteristics, property chains (well-formed, cyclic, with shared tails,
 //! with IRI cells), intersections, unions, restrictions, `owl:sameAs`,
-//! disjointness and complements, containers, and literals of checked and
-//! unchecked datatypes, well-formed or not. Some individuals, every list
+//! disjointness and complements, container membership triples (which no
+//! rule of the set reads), and literals of checked and unchecked datatypes,
+//! well-formed or not. Some individuals, every list
 //! cell and every restriction are blank nodes.
 //!
 //! Literals only ever appear as objects of data properties (and of
 //! `owl:hasValue` on one), so object-property rules (inverse, symmetric,
-//! transitive) never meet a literal.
+//! transitive) never meet a literal. Literals still reach subject positions
+//! inside the evaluator: a data property's range types them (prp-rng), and
+//! a functional data property makes two of them the same (prp-fp).
 
 use crate::vocab::*;
 use oxrdf::{BlankNode, Literal, NamedNode, NamedOrBlankNode, Term, Triple};
@@ -85,8 +88,8 @@ const LITERALS: &[(&str, &str)] = &[
     ("1", "http://example.org/dt"),
 ];
 
-/// Datatypes a data property's range may name: the five checked ones and
-/// two that are not.
+/// Datatypes a data property's range may name: the five dt-not-type checks
+/// and two it does not.
 const DATATYPES: &[&str] = &[
     XSD_INTEGER,
     XSD_INT,
@@ -97,7 +100,8 @@ const DATATYPES: &[&str] = &[
     "http://example.org/dt",
 ];
 
-/// Container membership predicates, including ones that are not (`_0`, `_a`).
+/// Container membership predicates, and names like them (`_0`, `_a`): no
+/// rule of the set gives them a meaning, so they derive nothing.
 const MEMBERSHIP: &[&str] = &["_1", "_2", "_3", "_01", "_0", "_a"];
 
 /// `size` statements drawn from the seed: the same seed and size always give
@@ -166,9 +170,9 @@ impl Generator {
 
     /// A class, now and then `owl:Thing`: for the places where `owl:Thing`
     /// is harmless. Under `owl:Thing` (`owl:Thing subClassOf C`), a
-    /// restriction would apply to every subject in the `reasonable`
-    /// profile, and one `owl:hasValue` on an inverse-functional property
-    /// then makes every subject the same as every other.
+    /// restriction would apply to every individual typed `owl:Thing`, and
+    /// one `owl:hasValue` on an inverse-functional property then makes all
+    /// of them the same.
     fn superclass(&mut self) -> Term {
         if self.rng.one_in(20) {
             iri(OWL_THING)
