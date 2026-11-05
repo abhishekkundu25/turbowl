@@ -265,4 +265,10 @@ impl<'a> Round<'a> {
     pub(crate) fn number(&self) -> usize {
         self.store.rounds
     }
+
+    /// Triples emitted so far this round, duplicates included (a counter:
+    /// read before and after a family's call, it says what the family emitted).
+    pub(crate) fn emitted(&self) -> usize {
+        self.pending.triples.len()
+    }
 }

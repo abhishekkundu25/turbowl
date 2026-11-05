@@ -11,9 +11,9 @@ Spec: `docs/specs/v1.md`. After these, the improvement loop
 | 04 | [The oracles](04-oracles.md) | 01 | `crates/oracle/`, `oracles/`, `scripts/fetch-data.sh`, `scripts/fetch-tools.sh` |
 | 05 | [Reference evaluator and chaos](05-reference-chaos.md) | 01 | `crates/reference/` |
 | 06 | [The benchmark](06-bench.md) | 01 | `crates/bench/` |
-| 07 | [Rules: class family](07-rules-class.md) | 02, 03 | `crates/turtle-reasoner/src/rules/class.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
-| 08 | [Rules: property family](08-rules-property.md) | 02, 03 | `crates/turtle-reasoner/src/rules/property.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
-| 09 | [Diagnostics and datatypes](09-diagnostics.md) | 02, 03 | `crates/turtle-reasoner/src/diagnostics.rs`, `crates/turtle-reasoner/src/rules/datatype.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
+| 07 | [Rules: class family](07-rules-class.md) | 02, 03 | `crates/turtle-reasoner/src/rules/class.rs` |
+| 08 | [Rules: property family](08-rules-property.md) | 02, 03 | `crates/turtle-reasoner/src/rules/property.rs` |
+| 09 | [Diagnostics and datatypes](09-diagnostics.md) | 02, 03 | `crates/turtle-reasoner/src/diagnostics.rs`, `crates/turtle-reasoner/src/rules/datatype.rs` |
 | 10 | [The reasoner and incremental runs](10-reasoner.md) | 02, 03 | `crates/turtle-reasoner/src/reasoner.rs` |
 | 11 | [Equality by representatives](11-equality.md) | 03, 10 | `crates/turtle-reasoner/src/rules/equality.rs`, `crates/turtle-reasoner/src/engine/canon.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
 | 12 | [The CLI](12-cli.md) | 10 | `crates/cli/` |
@@ -24,7 +24,7 @@ Spec: `docs/specs/v1.md`. After these, the improvement loop
 
 1. **01** alone (the orchestrator): every later ticket builds on its interface.
 2. **02, 03, 04, 05, 06** together: disjoint folders. 04, 05 and 06 build against the stub interface and are judged once 10 lands.
-3. **07, 08, 09, 10** together: each rule family is its own file; the lock file `rules/mod.rs` gets one registration line per family, in separate hunks.
+3. **07, 08, 09, 10** together: each rule family is its own file, registered in `rules/mod.rs` before the wave, so no two slices share a file.
 4. **11, 12, 13** together: equality touches the engine's new `canon.rs` and its own rule file; CLI and Python are separate crates.
 5. **14** alone: the only ticket that edits README, CHANGELOG, AGENTS and the specs' numbers.
 
@@ -112,3 +112,13 @@ Departures from the plan, as they happen.
   counted comparisons; E10 would remove it). One heavily loaded run over
   LUBM 1/10/50 fitted time exponents of 1.30 for reasonable (its loading)
   and 0.98 for Nemo; the spec's budget for this reasoner is 1.2.
+- **Wave 3, before the slices.** One commit fixed what the four slices
+  share, so none of them edits a shared file: the rule interface
+  (`RuleFn` takes a `Round` and a `Context`, which holds the dictionary and
+  the run's findings; `Finding`; `Family::facts` for the rules with an
+  empty body, which the reasoner inserts at the start of a full run), the
+  three family files as registered stubs, `Diagnostic::from_finding` as a
+  stub, `Round::emitted` for ticket 10's counters, and a shared test
+  harness, `rules/testing.rs`. Ticket 08 said no triple with a literal
+  subject is emitted, which contradicts the spec's generalized triples: it
+  now says they are derived like any other.

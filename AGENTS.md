@@ -47,7 +47,8 @@ a time when a suite is longer.
 Scaling tests (`scaling_*`) fit how time grows with input size and fail on
 anything worse than n log n (see the spec's Testing Decisions). A failure
 prints its table of sizes and times. On a loaded machine, rerun the one test
-alone (`-- scaling_<name> --exact --test-threads=1`) before believing it.
+alone (`-- scaling_<name> --test-threads=1`: the filter matches part of the
+name, which sits under a module path) before believing it.
 
 ```sh
 cargo build --release --locked

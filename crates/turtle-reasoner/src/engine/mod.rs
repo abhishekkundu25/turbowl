@@ -19,10 +19,11 @@
 //!
 //! # Interface for the rule families
 //!
-//! A family is a [`RuleFn`], `fn(&mut Round<'_>)`. Each round, the reasoner
-//! (ticket 10) calls every family's function with the same [`Round`]: the
-//! store as the last round left it, read-only, and a buffer for derived
-//! triples ([`Round::emit`]). A family reads predicate tables
+//! A family is a `RuleFn` (`rules/mod.rs`): `fn(&mut Round<'_>, &mut
+//! Context<'_>)`. [`Store::run`] takes any closure over a [`Round`]; each
+//! round the reasoner (ticket 10) calls every family's function with the
+//! same [`Round`]: the store as the last round left it, read-only, and a
+//! buffer for derived triples ([`Round::emit`]). A family reads predicate tables
 //! ([`Round::by_subject`], [`Round::by_object`]), joins their recent parts
 //! with the rest ([`join`], [`leapjoin`]) and emits what it derives. When all
 //! families have run, [`Store::run`] sorts the buffer by predicate, queues
@@ -68,6 +69,3 @@ pub(crate) use leapjoin::{
 pub(crate) use relation::{Relation, gallop};
 pub(crate) use store::{Pair, Round, Store, Table};
 pub(crate) use variable::{Variable, View};
-
-/// What a rule family provides: one round of its rules.
-pub(crate) type RuleFn = fn(&mut Round<'_>);
