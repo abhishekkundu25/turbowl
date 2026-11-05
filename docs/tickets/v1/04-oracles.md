@@ -8,3 +8,11 @@ Status: done. Blocked by: 01.
 - [ ] Each oracle runs on the parity checklist's minimal inputs and the results are listed; where oracles disagree with each other, the report says which and why.
 - [ ] A missing oracle reports `skipped`, and with `CI=true` fails.
 - [ ] The suite compiles against the stub `Reasoner` and runs fully once ticket 10 lands.
+
+## After ADR 0004
+
+`reasonable` left the oracle crate. Nemo (`oracles/nemo/owl2rl.rls`, the
+v1 rule set in W3C form) is the exact-equality judge; OWL-RL a superset;
+HermiT soundness; the W3C suites the standard's answers. The documented
+differences D1 to D10 became oracle faults F1 to F5 (all OWL-RL's) in
+`crates/oracle/src/differences.rs`. Findings use the W3C rule names.

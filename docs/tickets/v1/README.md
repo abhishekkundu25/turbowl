@@ -86,3 +86,11 @@ Departures from the plan, as they happen.
   datatype (`"3.5"^^xsd:decimal` typed `xsd:string`) is not reported,
   though the W3C rule would report it. Ticket 09 matches the reference's
   value-space rules.
+- **Oracles and bench (ADR 0004).** Oracle faults F1 to F5 are all
+  OWL-RL's; HermiT and the W3C tests never contradicted Nemo. The
+  reference evaluator equals Nemo on 1,000 generated inputs. Nemo's
+  program binds variable predicates through the properties the schema
+  names and joins cax-eqc2 like cax-eqc1 (lubm-1: 245 s to under 2 s,
+  same closure). W3C targets: the 93 OWL 2 RL and 30 RDF-MT cases Nemo
+  passes, plus the dt-not-type cases within the checked datatypes. The
+  bench runs Nemo as a second baseline; `sameas-clique` is opt-in.
