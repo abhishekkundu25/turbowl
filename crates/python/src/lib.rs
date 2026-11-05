@@ -25,19 +25,22 @@
 //! `oxrdf` lowercase them; rdflib compares them ignoring case). Each
 //! distinct term of one result is built once and shared.
 //!
+//! Switches are given and read by their names ([`Switch::name`]), parsed
+//! here, once, with [`Switch::from_name`].
+//!
 //! Parsing, reasoning and writing release the GIL.
 
 use oxrdf::{BlankNode, Literal, NamedNode, NamedOrBlankNode, Term, Triple};
 use pyo3::call::PyCallArgs;
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
-use pyo3::types::{PyList, PySequence, PyString, PyTuple, PyType};
+use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PySequence, PyString, PyTuple, PyType};
 use rustc_hash::FxHashMap;
 use std::io::Write as _;
 use std::path::PathBuf;
-use turbowl::{Error, Format, Severity};
+use turbowl::{Error, Format, Severity, Switch, Switches};
 
 const XSD_STRING: &str = "http://www.w3.org/2001/XMLSchema#string";
 
@@ -53,16 +56,42 @@ fn native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 /// The reasoner behind `turbowl.Reasoner`. Its methods take and return
 /// rdflib terms; see the module doc of the crate for the conversions.
 #[pyclass(module = "turbowl._native")]
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct NativeReasoner {
     inner: turbowl::Reasoner,
 }
 
 #[pymethods]
 impl NativeReasoner {
+    /// An empty reasoner. Its switches start from the defaults, or from
+    /// every switch on when `complete`; `switches` then maps names to
+    /// `True` (on) or `False` (off).
     #[new]
-    fn new() -> Self {
-        Self::default()
+    #[pyo3(signature = (switches=None, complete=false))]
+    fn new(switches: Option<&Bound<'_, PyAny>>, complete: bool) -> PyResult<Self> {
+        let start = if complete {
+            Switches::complete()
+        } else {
+            Switches::default()
+        };
+        let switches = match switches {
+            Some(given) => switches_from(start, given)?,
+            None => start,
+        };
+        Ok(Self {
+            inner: turbowl::Reasoner::with_switches(switches),
+        })
+    }
+
+    /// Every switch's name, mapped to whether it is on, in the order of
+    /// [`Switch::ALL`].
+    fn switches<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let on = self.inner.switches();
+        let out = PyDict::new(py);
+        for switch in Switch::ALL {
+            out.set_item(switch.name(), on.is_on(switch))?;
+        }
+        Ok(out)
     }
 
     /// Adds a file's triples to the base; the format comes from its extension.
@@ -186,6 +215,43 @@ impl NativeReasoner {
         })
         .map_err(|e| error(py, e))
     }
+}
+
+/// `start`, with each switch a mapping names turned on (`True`) or off
+/// (`False`).
+fn switches_from(start: Switches, given: &Bound<'_, PyAny>) -> PyResult<Switches> {
+    let given = given.cast::<PyMapping>().map_err(|_| {
+        PyTypeError::new_err(format!(
+            "switches must map switch names to True or False, got {}",
+            shown(given)
+        ))
+    })?;
+    let mut switches = start;
+    for item in given.items()?.iter() {
+        let (name, value): (Bound<'_, PyAny>, Bound<'_, PyAny>) = item.extract()?;
+        let name = name
+            .cast::<PyString>()
+            .map_err(|_| PyTypeError::new_err(format!("a switch name is a str, got {}", shown(&name))))?
+            .to_cow()?;
+        let switch = Switch::from_name(&name).ok_or_else(|| {
+            let names: Vec<&str> = Switch::ALL.into_iter().map(Switch::name).collect();
+            PyValueError::new_err(format!("unknown switch '{name}' (the switches: {})", names.join(", ")))
+        })?;
+        let on = value
+            .cast::<PyBool>()
+            .map_err(|_| PyTypeError::new_err(format!("switch '{name}' takes True or False, got {}", shown(&value))))?;
+        switches = if on.is_true() {
+            switches.on(switch)
+        } else {
+            switches.off(switch)
+        };
+    }
+    Ok(switches)
+}
+
+/// An object's `repr()`, for a message.
+fn shown(object: &Bound<'_, PyAny>) -> String {
+    object.repr().map(|r| r.to_string()).unwrap_or_default()
 }
 
 /// A format by its canonical name (the Python half maps the other names).

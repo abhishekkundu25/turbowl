@@ -1,10 +1,11 @@
 """The bindings against the Rust library, on the minimal inputs of the oracle
 suite (``turbowl_oracle::cases::minimal()``: one per rule and per diagnostic).
 
-``examples/minimal_cases.rs`` runs the Rust library on each input and writes
-the input, the closure, the inferred triples, the diagnostics and the
-summary as text (see its doc). Each case is then run through the bindings,
-from rdflib terms, and must give the same sets. The files are read with the
+``examples/minimal_cases.rs`` runs the Rust library on each input, in the
+default and the complete configuration, and writes the input, the closure,
+the inferred triples, the diagnostics and the summary as text (see its doc).
+Each case is then run through the bindings, from rdflib terms, in the same
+configuration, and must give the same sets. The files are read with the
 small N-Triples reader below, not rdflib's: rdflib's parser renames blank
 nodes and normalizes lexical forms, and the comparison is exact.
 """
@@ -43,9 +44,19 @@ def case_names() -> list[str]:
     return (generated() / "cases.txt").read_text().split()
 
 
+CONFIGURATIONS = ["default", "complete"]
+
+
 def pytest_generate_tests(metafunc):
     if "case" in metafunc.fixturenames:
         metafunc.parametrize("case", case_names())
+    if "configuration" in metafunc.fixturenames:
+        metafunc.parametrize("configuration", CONFIGURATIONS)
+
+
+def reasoner(configuration: str) -> turbowl.Reasoner:
+    """A reasoner with the configuration's switches, made through the Python API."""
+    return turbowl.Reasoner(complete=configuration == "complete")
 
 
 # N-Triples terms, as oxrdf writes them.
@@ -110,9 +121,9 @@ def diagnostics(r: turbowl.Reasoner) -> set[tuple[str, str, str, tuple[Node, ...
     return {(d.code, d.severity.value, d.message, d.terms) for d in r.diagnostics()}
 
 
-def check(r: turbowl.Reasoner, summary: turbowl.Summary, case: str) -> None:
-    """The reasoner's results equal the Rust library's on ``case``."""
-    d = generated()
+def check(r: turbowl.Reasoner, summary: turbowl.Summary, case: str, configuration: str) -> None:
+    """The reasoner's results equal the Rust library's on ``case``, in ``configuration``."""
+    d = generated() / configuration
     closure = r.triples()
     assert len(closure) == len(set(closure)), "a triple is returned twice"
     assert set(closure) == set(read_triples(d / f"{case}.closure.nt"))
@@ -129,30 +140,35 @@ def test_every_minimal_case_was_written():
     assert {"prp-dom", "cax-dw", "dt-not-type", "language-tag"} <= set(names)
 
 
-def test_inserting_the_triples_gives_the_rust_closure(case):
-    r = turbowl.Reasoner()
+def test_the_configurations_are_the_default_and_the_complete_one():
+    assert reasoner("default").switches == turbowl.Reasoner().switches
+    assert all(reasoner("complete").switches.values())
+
+
+def test_inserting_the_triples_gives_the_rust_closure(case, configuration):
+    r = reasoner(configuration)
     r.insert(read_triples(generated() / f"{case}.input.nt"))
-    check(r, r.reason(), case)
+    check(r, r.reason(), case, configuration)
 
 
-def test_inserting_a_graph_gives_the_rust_closure_as_a_graph(case):
+def test_inserting_a_graph_gives_the_rust_closure_as_a_graph(case, configuration):
     g = Graph()
     for t in read_triples(generated() / f"{case}.input.nt"):
         g.add(t)
-    r = turbowl.Reasoner()
+    r = reasoner(configuration)
     r.insert(g)
-    check(r, r.reason(), case)
-    assert set(r.graph()) == set(read_triples(generated() / f"{case}.closure.nt"))
+    check(r, r.reason(), case, configuration)
+    assert set(r.graph()) == set(read_triples(generated() / configuration / f"{case}.closure.nt"))
 
 
-def test_two_incremental_batches_give_the_rust_closure(case):
+def test_two_incremental_batches_give_the_rust_closure(case, configuration):
     triples = read_triples(generated() / f"{case}.input.nt")
     half = len(triples) // 2
-    r = turbowl.Reasoner()
+    r = reasoner(configuration)
     r.insert(triples[:half])
     r.reason()
     r.insert(triples[half:])
     summary = r.reason()
-    check(r, summary, case)
+    check(r, summary, case, configuration)
     assert r.set_base(triples) is False
     assert r.reason().rounds == 0

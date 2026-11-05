@@ -20,6 +20,42 @@ then read the closure, the inferred triples and the diagnostics::
 The rules are the W3C OWL 2 RL rules TurbOWL implements; a run after a
 change reuses the previous closure.
 
+Switches
+    Every rule belongs to the always-on core (subclasses, domains, ranges,
+    inverses, ...) or to one switch: a named group of rules, on or off.
+    ``Reasoner(switches={"checks": False})`` changes the defaults,
+    ``Reasoner(complete=True)`` starts from every switch on (the complete
+    W3C OWL 2 RL rule set), and :attr:`Reasoner.switches` reads them. The
+    names are the command line's (``turbowl --switch checks=off``). Each
+    switch, its default, what it does and what it costs:
+
+    ``equality`` (on)
+        ``owl:sameAs`` makes terms equal (eq-sym, eq-trans, eq-rep-*). Cheap
+        until ``owl:sameAs`` occurs; each merge then rewrites the merged
+        terms' facts.
+    ``property-chains`` (on)
+        ``owl:propertyChainAxiom`` (prp-spo2). A join per link of each chain;
+        free without chains.
+    ``checks`` (on)
+        Reports contradictions and ill-typed literals (cax-dw, dt-not-type,
+        ...). Derives no triple: off saves a pass over the facts each check
+        names, and loses the diagnostics.
+    ``identity`` (on)
+        ``owl:hasKey`` and max cardinality 1 make individuals the same
+        (prp-key, cls-maxc2, ...). A join per key and restriction, then
+        equality's cost per merge.
+    ``schema`` (on)
+        Subsumptions between schema axioms (scm-spo, scm-dom1, ...). Grows
+        with the schema, not with the data.
+    ``trivial`` (off)
+        Filler: ``x owl:sameAs x`` for every term, four triples per class, a
+        type per literal (eq-ref, scm-cls, ...). Grows with every term.
+    ``literal-values`` (off)
+        Literals equal by value, as ``"1"`` and ``"01"`` of ``xsd:integer``
+        (dt-eq, dt-diff). Reads every literal's value, and merges equal ones
+        at equality's cost per merge; dt-diff only checks, it lists no
+        ``owl:differentFrom`` triples.
+
 Terms
     Triples in are ``(subject, predicate, object)`` tuples of rdflib terms
     (``URIRef``, ``BNode``, ``Literal``), or an rdflib ``Graph``. Triples out
@@ -56,7 +92,7 @@ from __future__ import annotations
 
 import enum
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Union
 
@@ -206,9 +242,29 @@ class Reasoner:
 
     __slots__ = ("_native",)
 
-    def __init__(self) -> None:
-        """An empty reasoner."""
-        self._native = _native.NativeReasoner()
+    def __init__(self, *, switches: Mapping[str, bool] | None = None, complete: bool = False) -> None:
+        """An empty reasoner.
+
+        Its switches start from the defaults, or from every switch on when
+        ``complete`` is true; ``switches`` then turns each switch it names on
+        (``True``) or off (``False``). The names and defaults are in the
+        module doc::
+
+            Reasoner(switches={"equality": False, "checks": False})
+            Reasoner(complete=True, switches={"literal-values": False})
+
+        Raises:
+            ValueError: A name in ``switches`` is not a switch.
+            TypeError: ``switches`` is not a mapping of names to ``True`` or
+                ``False``.
+        """
+        self._native = _native.NativeReasoner(switches, complete)
+
+    @property
+    def switches(self) -> dict[str, bool]:
+        """Every switch's name, mapped to whether it is on, in the order of
+        the module doc. A new dict: changing it changes nothing."""
+        return self._native.switches()
 
     def load_file(self, path: str | os.PathLike[str]) -> None:
         """Adds a file's triples to the base.
@@ -282,7 +338,8 @@ class Reasoner:
         return self._native.set_base(_triples(triples))
 
     def clear(self) -> None:
-        """Empties the base, the closure and the diagnostics: as new."""
+        """Empties the base, the closure and the diagnostics: as new, with
+        the same switches."""
         self._native.clear()
 
     def reason(self) -> Summary:
