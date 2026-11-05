@@ -1,5 +1,5 @@
 [project]
-name = "turtle-reasoner-owlrl-oracle"
+name = "turbowl-owlrl-oracle"
 version = "0.1.0"
 description = "The OWL-RL oracle: RDFLib's OWL 2 RL closure, called by crates/oracle as a subprocess"
 requires-python = ">=3.9"

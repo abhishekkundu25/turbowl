@@ -1,17 +1,17 @@
 [workspace]
 resolver = "3"
-members = ["crates/turtle-reasoner", "crates/cli", "crates/python", "crates/oracle", "crates/reference", "crates/bench"]
-default-members = ["crates/turtle-reasoner", "crates/cli"]
+members = ["crates/turbowl", "crates/cli", "crates/python", "crates/oracle", "crates/reference", "crates/bench"]
+default-members = ["crates/turbowl", "crates/cli"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/abhishekkundu25/turtle-reasoner"
+repository = "https://github.com/abhishekkundu25/turbowl"
 
 [workspace.dependencies]
-turtle-reasoner = { path = "crates/turtle-reasoner" }
+turbowl = { path = "crates/turbowl" }
 oxrdf = "0.3.4"
 oxttl = "0.2.4"
 oxrdfxml = "0.2.4"

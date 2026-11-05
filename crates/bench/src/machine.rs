@@ -141,7 +141,7 @@ pub(crate) fn describe(root: &Path) -> Value {
         "build": if cfg!(debug_assertions) { "debug" } else { "release" },
         "versions": {
             "bench": env!("CARGO_PKG_VERSION"),
-            "turtle_reasoner": env!("CARGO_PKG_VERSION"),
+            "turbowl": env!("CARGO_PKG_VERSION"),
             "reasonable": crate::engine::REASONABLE_VERSION,
             "nemo": crate::nemo::installed_version(),
             "rustc": env!("BENCH_RUSTC_VERSION"),

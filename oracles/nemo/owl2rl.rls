@@ -1,4 +1,4 @@
-% The OWL 2 RL rule set of turtle-reasoner version 1 (docs/specs/v1.md, "The
+% The OWL 2 RL rule set of TurbOWL version 1 (docs/specs/v1.md, "The
 % rule set of version 1"), as a Nemo program: the rules of the W3C OWL 2 RL
 % tables (https://www.w3.org/TR/owl2-profiles/ section 4.3) written as the
 % standard states them, and no others. No owl:Thing typing of subjects, no

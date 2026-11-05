@@ -333,7 +333,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "turtle-reasoner"
+name = "turbowl"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
@@ -343,7 +343,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "turtle-reasoner-bench"
+name = "turbowl-bench"
 version = "0.1.0"
 dependencies = [
  "libc",
@@ -351,42 +351,42 @@ dependencies = [
  "oxttl",
  "reasonable",
  "serde_json",
- "turtle-reasoner",
+ "turbowl",
 ]
 
 [[package]]
-name = "turtle-reasoner-cli"
+name = "turbowl-cli"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
- "turtle-reasoner",
+ "turbowl",
 ]
 
 [[package]]
-name = "turtle-reasoner-oracle"
+name = "turbowl-oracle"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
  "oxrdfxml",
  "oxttl",
- "turtle-reasoner",
- "turtle-reasoner-reference",
+ "turbowl",
+ "turbowl-reference",
 ]
 
 [[package]]
-name = "turtle-reasoner-python"
+name = "turbowl-python"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
- "turtle-reasoner",
+ "turbowl",
 ]
 
 [[package]]
-name = "turtle-reasoner-reference"
+name = "turbowl-reference"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
- "turtle-reasoner",
+ "turbowl",
 ]
 
 [[package]]

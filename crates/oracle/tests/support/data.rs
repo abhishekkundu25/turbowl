@@ -4,17 +4,17 @@
 //! `target/oracle/data-*.md`.
 //!
 //! By default only Brick with small1 runs, so `cargo test -p
-//! turtle-reasoner-oracle` stays under two minutes on a busy machine.
+//! turbowl-oracle` stays under two minutes on a busy machine.
 //! `ORACLE_SLOW=1` adds the owl.n3 and rdfs.ttl variants, Brick with
 //! soda_hall, every building model, and OWL-RL (minutes on these inputs);
 //! such a run takes longer, so run it one test at a time:
 //!
 //! ```sh
-//! ORACLE_SLOW=1 timeout 600 cargo test --release -p turtle-reasoner-oracle --test data_brick -- brick_small1_owl
+//! ORACLE_SLOW=1 timeout 600 cargo test --release -p turbowl-oracle --test data_brick -- brick_small1_owl
 //! ```
 
 use std::path::Path;
-use turtle_reasoner_oracle::{Input, Options, Outcome, Table, data_dir, fetched_version, triangulate_input};
+use turbowl_oracle::{Input, Options, Outcome, Table, data_dir, fetched_version, triangulate_input};
 
 pub const BRICK: &str = "example_models/ontologies/Brick.n3";
 pub const OWL: &str = "example_models/ontologies/owl.n3";

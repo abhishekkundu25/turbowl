@@ -1,4 +1,4 @@
-# turtle-reasoner-bench
+# turbowl-bench
 
 Runs fixed scenarios for this repository's reasoner and its two baselines
 (ADR 0004), on the same input files, and reports the median and spread of the
@@ -8,7 +8,7 @@ reasoner. Every speed claim, and every step of the improvement loop
 
 | Engine | What runs | How |
 |---|---|---|
-| `turtle-reasoner` | this repository's `Reasoner` (one rule set) | in process |
+| `turbowl` | this repository's `Reasoner` (one rule set) | in process |
 | `reasonable` | crates.io `reasonable =0.5.0-a1` | linked in, in process |
 | `nemo` | the pinned `nmo` 0.10.1 (`tools/nemo/`, from `scripts/fetch-tools.sh`) with `oracles/nemo/owl2rl.rls`, the W3C forms of the v1 rule set | a subprocess. Without `tools/nemo` (or at another version) it is reported `skipped`. Full runs only: the incremental scenarios are `unsupported` (Nemo runs a program once over its imports; it has no change stream). |
 
@@ -21,17 +21,17 @@ result taken with a warning can show a trend, but it does not support a claim.
 
 ```sh
 scripts/fetch-data.sh                                    # Brick and the building models into data/
-cargo run --release -p turtle-reasoner-bench -- --list   # the scenarios
-cargo run --release -p turtle-reasoner-bench -- --json results.json
-cargo run --release -p turtle-reasoner-bench -- --only lubm-1,lubm-10 --engines reasonable --runs 3
-cargo run --release -p turtle-reasoner-bench -- --compare old.json new.json
+cargo run --release -p turbowl-bench -- --list   # the scenarios
+cargo run --release -p turbowl-bench -- --json results.json
+cargo run --release -p turbowl-bench -- --only lubm-1,lubm-10 --engines reasonable --runs 3
+cargo run --release -p turbowl-bench -- --compare old.json new.json
 ```
 
 | Option | Meaning |
 |---|---|
 | `--list` | Print the scenarios and stop. |
 | `--only A,B` | Run only these scenarios. The opt-in ones (`sameas-clique`) run only this way. |
-| `--engines A,B` | Run only these engines: `turtle-reasoner`, `reasonable`, `nemo`. |
+| `--engines A,B` | Run only these engines: `turbowl`, `reasonable`, `nemo`. |
 | `--runs N` | Runs per scenario and engine (default 5; the improvement loop needs 5 or more). |
 | `--changes N` | Changes in the incremental scenarios (default 100). |
 | `--timeout SECS` | Stop a run after this long and record `timeout` (default 600). Nemo is stopped by the child at this time; the child itself gets 30 s more. |
@@ -91,7 +91,7 @@ nothing.
 The engines do not split their work at the same places, so compare the
 columns that mean the same thing:
 
-| | `turtle-reasoner`, `reasonable` | `nemo` |
+| | `turbowl`, `reasonable` | `nemo` |
 |---|---|---|
 | load | parsing every file into the reasoner (`load_file`) | Nemo's `Data import` (its own report, `--report short`, whole milliseconds) |
 | reasoning (the headline) | the first `reason()`: rules to fixpoint and the closure materialised in memory | Nemo's `Reasoning`: rules to fixpoint. Nemo loads tables lazily, so part of its parsing can fall here. |
@@ -187,15 +187,20 @@ sizes are listed with their status.
 
 ## The results file (`--json`)
 
-Schema version 3. Times are in milliseconds, memory in bytes.
+Schema version 4. Times are in milliseconds, memory in bytes.
 
-Version 3 adds the top-level `scaling` list (the Scaling table) to version
-2, and changes nothing else. Version 2 changed from 1: the engines are
-`turtle-reasoner`, `reasonable` and `nemo` (version 1 had `turtle-owl-rl`
-and `turtle-reasonable`); a result's `status` can be `unsupported`; each
-result has `x_turtle_reasoner`; the summary has `export_median_ms` and
+Version 4 renames this reasoner (the project was called turtle-reasoner
+before 2026-11-05): the engine `turtle-reasoner` is now `turbowl`,
+`x_turtle_reasoner` is `x_turbowl` and `meta.versions.turtle_reasoner` is
+`meta.versions.turbowl`; nothing else changes. `--compare` reads an older
+file's `turtle-reasoner` engine as `turbowl`. Version 3 adds the top-level
+`scaling` list (the Scaling table) to version 2, and changes nothing else.
+Version 2 changed from 1: the engines are `turtle-reasoner`, `reasonable`
+and `nemo` (version 1 had `turtle-owl-rl` and `turtle-reasonable`); a
+result's `status` can be `unsupported`; each result has
+`x_turtle_reasoner`; the summary has `export_median_ms` and
 `wall_median_ms`; Nemo's runs have `export_ms` and `wall_ms`; and
-`meta.versions` has `nemo`. `--compare` reads versions 1 to 3.
+`meta.versions` has `nemo`. `--compare` reads versions 1 to 4.
 
 ```jsonc
 {
@@ -210,14 +215,14 @@ result has `x_turtle_reasoner`; the summary has `export_median_ms` and
     "load_after": [0.95, 0.70, 0.72],
     "runs": 5, "changes": 100, "timeout_s": 600,
     "data_dir": "/…/data",
-    "versions": { "bench": "0.1.0", "turtle_reasoner": "0.1.0",
+    "versions": { "bench": "0.1.0", "turbowl": "0.1.0",
                   "reasonable": "0.5.0-a1", "nemo": "0.10.1",  // null when not fetched
                   "rustc": "rustc 1.99.0 (…)" }
   },
   "results": [
     {
       "scenario": "lubm-1",
-      "engine": "reasonable",                 // turtle-reasoner | reasonable | nemo
+      "engine": "reasonable",                 // turbowl | reasonable | nemo
       "status": "ok",                         // ok | unsupported | skipped | timeout | error
                                               //   (files from before ticket 10 also have unavailable: the stub)
       "message": null,                        // why, when not ok
@@ -235,7 +240,7 @@ result has `x_turtle_reasoner`; the summary has `export_median_ms` and
         "closure": 204521,                    // closure triples (base + inferred), last run
         "peak_bytes_per_closure_triple": 1312.7 // peak_rss_bytes / closure; null when the closure is 0
       },
-      "x_turtle_reasoner": {                  // this engine over turtle-reasoner, same scenario;
+      "x_turbowl": {                          // this engine over turbowl, same scenario;
         "time": 0.81,                         //   null when either has no finished run.
         "total": 0.95,                        //   median_ms, total_median_ms and
         "peak_rss": 1.20                      //   peak_rss_bytes ratios; over 1: slower or larger
@@ -288,11 +293,11 @@ only and exits 0.
 From `docs/specs/v1.md` (Non-functional budgets, Performance):
 
 - This reasoner's full-run time is below `reasonable`'s on every scenario:
-  `reasonable`'s `x turtle time` is over 1. The ratio is recorded.
-- The ratio to Nemo is recorded too (Nemo's `x turtle time` and
-  `x turtle total`); it is not a pass/fail budget.
+  `reasonable`'s `x turbowl time` is over 1. The ratio is recorded.
+- The ratio to Nemo is recorded too (Nemo's `x turbowl time` and
+  `x turbowl total`); it is not a pass/fail budget.
 - This reasoner's peak memory is below `reasonable`'s on every scenario:
-  `reasonable`'s `x turtle mem` is over 1.
+  `reasonable`'s `x turbowl mem` is over 1.
 - An incremental addition of one triple to Brick plus a building model
   costs under 10% of a full run (`incremental-add`'s median against
   `brick-small1`'s).

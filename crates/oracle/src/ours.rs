@@ -1,9 +1,9 @@
-//! turtle-reasoner itself, through its public interface: the system the
+//! TurbOWL itself, through its public interface: the system the
 //! oracles judge.
 
 use crate::{Closure, Finding, Input, Outcome};
 use oxrdf::{NamedNodeRef, Term, Triple};
-use turtle_reasoner::Reasoner;
+use turbowl::Reasoner;
 
 /// True while the equality rules (eq-sym, eq-trans, eq-rep-s/p/o; ticket
 /// 11) are not in the rule table. Ticket 11 sets it to false, and then every

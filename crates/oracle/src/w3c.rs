@@ -16,7 +16,7 @@ use oxrdf::{BlankNode, NamedNode, NamedNodeRef, NamedOrBlankNode, Term, Triple};
 use oxrdfxml::RdfXmlParser;
 use oxttl::TurtleParser;
 use std::collections::HashMap;
-use turtle_reasoner::Format;
+use turbowl::Format;
 
 const TEST: &str = "http://www.w3.org/2007/OWL/testOntology#";
 const MF: &str = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#";

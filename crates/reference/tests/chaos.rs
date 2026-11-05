@@ -3,7 +3,7 @@
 //!
 //! Each iteration draws an input from the seed (`generate`, sizes 1 to 48)
 //! and compares closures and diagnostics, as sets, with
-//! `turtle_reasoner_reference::evaluate`. The full test runs the core once;
+//! `turbowl_reference::evaluate`. The full test runs the core once;
 //! the incremental test inserts the input in random batches with `reason()`
 //! between, then removes a random part and runs again, then puts it back and
 //! runs again, and each state must equal a full evaluation of its base.
@@ -34,8 +34,8 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use turtle_reasoner::Reasoner;
-use turtle_reasoner_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
+use turbowl::Reasoner;
+use turbowl_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
 
 /// The largest reference closure an iteration is compared on.
 const MAX_CLOSURE: usize = 20_000;

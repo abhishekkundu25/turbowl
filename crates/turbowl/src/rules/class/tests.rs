@@ -1,7 +1,7 @@
 //! The class family's tests: one minimal input per rule, the list cases,
 //! generalized triples, incremental runs, a mixed input whose closure is the
 //! reference evaluator's, and the scaling test. Expectations were checked
-//! against `turtle_reasoner_reference::evaluate` on the same inputs.
+//! against `turbowl_reference::evaluate` on the same inputs.
 
 use crate::rules::testing::{self, Run, expand};
 

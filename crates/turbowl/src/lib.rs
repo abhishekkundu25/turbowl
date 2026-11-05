@@ -1,4 +1,4 @@
-//! turtle-reasoner: a fast OWL 2 RL reasoner.
+//! TurbOWL: a fast OWL 2 RL reasoner.
 //!
 //! One deep module behind a small interface. Load documents or insert
 //! triples, [`Reasoner::reason`] to the fixpoint, then read the closure,
@@ -7,7 +7,7 @@
 //! `docs/specs/v1.md` (see `docs/adr/0004-w3c-rules-are-the-target.md`).
 //!
 //! ```
-//! use turtle_reasoner::{Format, Reasoner};
+//! use turbowl::{Format, Reasoner};
 //! let mut r = Reasoner::new();
 //! r.load_str("@prefix ex: <http://example.org/> .
 //!             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .

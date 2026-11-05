@@ -1,6 +1,6 @@
 [package]
-name = "turtle-reasoner-python"
-description = "Python bindings for turtle-reasoner (pyo3, built with maturin)"
+name = "turbowl-python"
+description = "Python bindings for TurbOWL (pyo3, built with maturin)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
-turtle-reasoner.workspace = true
+turbowl.workspace = true
 oxrdf.workspace = true
 
 [lints]

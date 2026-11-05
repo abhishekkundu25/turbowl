@@ -1,4 +1,4 @@
-# turtle-reasoner: domain language
+# TurbOWL: domain language
 
 The words this project uses, so that code, specs, tickets and reviews say the
 same thing. Architecture words (module, interface, depth, seam, adapter,

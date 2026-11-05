@@ -7,7 +7,7 @@ use oxttl::{NTriplesParser, TurtleParser};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::Path;
-use turtle_reasoner::Format;
+use turbowl::Format;
 
 /// One parsed document.
 #[derive(Debug, Clone)]
@@ -172,7 +172,7 @@ pub(crate) struct Codec {
     from: HashMap<String, Term>,
 }
 
-const CODEC_PREFIX: &str = "urn:x-turtle-reasoner-oracle:term:";
+const CODEC_PREFIX: &str = "urn:x-turbowl-oracle:term:";
 
 impl Codec {
     /// `literals`: rename literals too, not only blank nodes.

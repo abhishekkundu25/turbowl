@@ -7,4 +7,4 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 RUSTFLAGS='--cfg getrandom_backend="custom"' \
-  cargo build -p turtle-reasoner --no-default-features --target wasm32-unknown-unknown --release "$@"
+  cargo build -p turbowl --no-default-features --target wasm32-unknown-unknown --release "$@"

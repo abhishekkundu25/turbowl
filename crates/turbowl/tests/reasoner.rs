@@ -5,7 +5,7 @@
 
 use oxrdf::{BlankNode, Literal, NamedNode, Term, Triple};
 use std::collections::BTreeSet;
-use turtle_reasoner::{Error, Format, Reasoner, Summary};
+use turbowl::{Error, Format, Reasoner, Summary};
 
 // The interface promises `Send`.
 const _: () = {

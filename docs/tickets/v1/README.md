@@ -5,17 +5,17 @@ Spec: `docs/specs/v1.md`. After these, the improvement loop
 
 | # | Ticket | Blocked by | Files |
 |---|---|---|---|
-| 01 | [Scaffold and the interface](01-scaffold.md) | — | workspace `Cargo.toml`, `crates/turtle-reasoner/src/lib.rs`, `crates/turtle-reasoner/src/reasoner.rs` (stub), `crates/turtle-reasoner/src/rules/mod.rs` (table), `AGENTS.md`, `README.md`, scripts |
-| 02 | [Terms, dictionary and I/O](02-terms-io.md) | 01 | `crates/turtle-reasoner/src/term.rs`, `crates/turtle-reasoner/src/io.rs` |
-| 03 | [The engine](03-engine.md) | 01 | `crates/turtle-reasoner/src/engine/` |
+| 01 | [Scaffold and the interface](01-scaffold.md) | — | workspace `Cargo.toml`, `crates/turbowl/src/lib.rs`, `crates/turbowl/src/reasoner.rs` (stub), `crates/turbowl/src/rules/mod.rs` (table), `AGENTS.md`, `README.md`, scripts |
+| 02 | [Terms, dictionary and I/O](02-terms-io.md) | 01 | `crates/turbowl/src/term.rs`, `crates/turbowl/src/io.rs` |
+| 03 | [The engine](03-engine.md) | 01 | `crates/turbowl/src/engine/` |
 | 04 | [The oracles](04-oracles.md) | 01 | `crates/oracle/`, `oracles/`, `scripts/fetch-data.sh`, `scripts/fetch-tools.sh` |
 | 05 | [Reference evaluator and chaos](05-reference-chaos.md) | 01 | `crates/reference/` |
 | 06 | [The benchmark](06-bench.md) | 01 | `crates/bench/` |
-| 07 | [Rules: class family](07-rules-class.md) | 02, 03 | `crates/turtle-reasoner/src/rules/class.rs` |
-| 08 | [Rules: property family](08-rules-property.md) | 02, 03 | `crates/turtle-reasoner/src/rules/property.rs` |
-| 09 | [Diagnostics and datatypes](09-diagnostics.md) | 02, 03 | `crates/turtle-reasoner/src/diagnostics.rs`, `crates/turtle-reasoner/src/rules/datatype.rs` |
-| 10 | [The reasoner and incremental runs](10-reasoner.md) | 02, 03 | `crates/turtle-reasoner/src/reasoner.rs` |
-| 11 | [Equality by representatives](11-equality.md) | 03, 10 | `crates/turtle-reasoner/src/rules/equality.rs`, `crates/turtle-reasoner/src/engine/canon.rs`, **`crates/turtle-reasoner/src/rules/mod.rs`** (one line) |
+| 07 | [Rules: class family](07-rules-class.md) | 02, 03 | `crates/turbowl/src/rules/class.rs` |
+| 08 | [Rules: property family](08-rules-property.md) | 02, 03 | `crates/turbowl/src/rules/property.rs` |
+| 09 | [Diagnostics and datatypes](09-diagnostics.md) | 02, 03 | `crates/turbowl/src/diagnostics.rs`, `crates/turbowl/src/rules/datatype.rs` |
+| 10 | [The reasoner and incremental runs](10-reasoner.md) | 02, 03 | `crates/turbowl/src/reasoner.rs` |
+| 11 | [Equality by representatives](11-equality.md) | 03, 10 | `crates/turbowl/src/rules/equality.rs`, `crates/turbowl/src/engine/canon.rs`, **`crates/turbowl/src/rules/mod.rs`** (one line) |
 | 12 | [The CLI](12-cli.md) | 10 | `crates/cli/` |
 | 13 | [Python bindings](13-python.md) | 10 | `crates/python/` |
 | 14 | [Close-out: full verification](14-close-out.md) | all | `docs/verification/`, `README.md`, `CHANGELOG.md`, `AGENTS.md`, the specs |
@@ -102,7 +102,7 @@ Departures from the plan, as they happen.
   `sameAs` on vocabulary terms. The spec's 18.7 s sentence was reasonable
   0.2.6's README log from 2023; 0.5.0-a1 takes about 13 ms on that input.
 - **Scaling tests (owner's request).** Eighteen `scaling_*` tests in
-  `crates/turtle-reasoner/src/scaling.rs` fit how time grows with size
+  `crates/turbowl/src/scaling.rs` fit how time grows with size
   (dictionary, I/O, relations, joins, variables, store), and the bench fits
   exponents across lubm-1/10/50. They found two super-linear costs in the
   engine. A round's duplicate check walked every stable tier even when a
@@ -171,3 +171,11 @@ Departures from the plan, as they happen.
   to Nemo's, and an incremental addition at about 30% of a full run against
   the 10% budget (fixed per-round costs: lists, restrictions and tables
   read again each round). The quiet-machine numbers belong to ticket 14.
+- **Renamed: TurbOWL.** The owner chose the name TurbOWL (`turbowl`) on
+  2026-11-05, before wave 4. The core crate is `crates/turbowl`
+  (`use turbowl::…`), the binary `turbowl`, the packages `turbowl-cli`,
+  `turbowl-python`, `turbowl-oracle`, `turbowl-reference` and
+  `turbowl-bench`, and the repository `github.com/abhishekkundu25/turbowl`
+  (private and empty until the owner pushes). The bench's results files
+  are schema 4; `--compare` reads an older file's `turtle-reasoner`
+  engine as `turbowl`.

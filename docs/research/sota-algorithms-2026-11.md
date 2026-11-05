@@ -168,7 +168,7 @@ or restated as "not stated in the source" or "none found".
 ### 0.1 The engine at `1e853e6`
 
 - **Relations.** A `Relation` is a sorted, duplicate-free `Vec`
-  (`crates/turtle-reasoner/src/engine/relation.rs:7`), built by
+  (`crates/turbowl/src/engine/relation.rs:7`), built by
   `sort_unstable` and `dedup` (`relation.rs:28`). A union merges from the
   back into the larger allocation (`relation.rs:45`, `:86`). Every skip
   gallops.
@@ -200,7 +200,7 @@ or restated as "not stated in the source" or "none found".
 - **Terms.** Ids are "dense `u32` in first-seen order" (`term.rs:4`, `:43`).
 - **Lints.** The workspace denies `unsafe` (`Cargo.toml:21`).
 - **Rules.** No rule family exists yet: `FAMILIES` is empty
-  (`rules/mod.rs:18`). So there are no turtle-reasoner numbers, and every
+  (`rules/mod.rs:18`). So there are no TurbOWL numbers, and every
   experiment below assumes that version 1 is finished.
 
 ### 0.2 Baselines measured here
@@ -209,7 +209,7 @@ The first draft quoted figures from the task brief (brick-small1: reasonable
 87 ms and 39 MB, Nemo 423 ms and 24 MB; lubm-1: reasonable 613 ms and
 260 MB, Nemo 1,421 ms and 60 MB), without saying which column of the bench
 they were. The verification pass re-ran the bench:
-`target/release/turtle-reasoner-bench --only brick-small1,brick-soda-hall,lubm-1
+`target/release/turbowl-bench --only brick-small1,brick-soda-hall,lubm-1
 --engines reasonable,nemo --runs 3` at `1e853e6`, Apple M6, 12 cores,
 32 GB, reasonable `=0.5.0-a1` (crates.io, linked in), `nmo` 0.10.1. The load
 average was 6–7, so these are trends, not claims

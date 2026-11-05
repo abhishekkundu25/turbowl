@@ -22,7 +22,7 @@ pub(crate) const ONTOLOGY: &str = r#"@prefix ub: <http://example.org/univ-bench#
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 
 <http://example.org/univ-bench> a owl:Ontology ;
-    rdfs:label "LUBM-style univ-bench ontology (written for turtle-reasoner's benchmark)" .
+    rdfs:label "LUBM-style univ-bench ontology (written for TurbOWL's benchmark)" .
 
 # Classes
 ub:Organization a owl:Class .

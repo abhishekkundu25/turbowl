@@ -23,22 +23,25 @@ use std::process::{Command, ExitCode, Stdio};
 use std::time::{Duration, Instant};
 
 /// The results file's format version.
-const SCHEMA: u64 = 3;
+const SCHEMA: u64 = 4;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
-/// 3 only adds the `scaling` table to 2.
-const READS: [u64; 3] = [1, 2, 3];
+/// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
+/// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name).
+const READS: [u64; 4] = [1, 2, 3, 4];
+/// This reasoner's engine name in results files before version 4.
+const OLD_NAME: &str = "turtle-reasoner";
 
 /// Extra time the parent gives a child over `--timeout` before killing it:
 /// the child stops Nemo itself at the timeout, and Nemo must not outlive it.
 const GRACE: Duration = Duration::from_secs(30);
 
 const USAGE: &str = "\
-usage: turtle-reasoner-bench [options]
-       turtle-reasoner-bench --compare OLD.json NEW.json
+usage: turbowl-bench [options]
+       turbowl-bench --compare OLD.json NEW.json
 
   --list              print the scenarios and stop
   --only A,B          run only these scenarios (opt-in ones run only this way)
-  --engines A,B       run only these engines (turtle-reasoner, reasonable, nemo)
+  --engines A,B       run only these engines (turbowl, reasonable, nemo)
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
@@ -432,7 +435,7 @@ fn run(args: &Args) -> ExitCode {
                     "message": r.message,
                     "inputs": inputs.iter().find(|(s, _)| s.name == r.scenario.name).map(|(_, f)| f),
                     "summary": r.summary(),
-                    "x_turtle_reasoner": ratios(&rows, r),
+                    "x_turbowl": ratios(&rows, r),
                     "runs": r.runs,
                 })
             })
@@ -497,7 +500,7 @@ fn check(rows: &[Row]) -> Vec<String> {
 fn ratios(rows: &[Row], r: &Row) -> Value {
     let ours = rows
         .iter()
-        .find(|o| o.scenario.name == r.scenario.name && o.engine == EngineId::TurtleReasoner)
+        .find(|o| o.scenario.name == r.scenario.name && o.engine == EngineId::Turbowl)
         .and_then(Row::summary);
     let (Some(ours), Some(theirs)) = (ours, r.summary()) else {
         return Value::Null;
@@ -516,17 +519,17 @@ fn ratios(rows: &[Row], r: &Row) -> Value {
 fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Option<[f64; 3]>) {
     println!();
     println!(
-        "turtle-reasoner bench: {} runs each; load average {} before, {} after",
+        "TurbOWL bench: {} runs each; load average {} before, {} after",
         args.runs,
         load_text(before),
         load_text(after)
     );
     println!("ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.");
     println!("total: load + reasoning. Nemo's split is its own report; its export and process start are in neither.");
-    println!("x turtle: over turtle-reasoner's median time, total and largest peak (over 1: slower or larger).");
+    println!("x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).");
     println!();
     println!(
-        "| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turtle time | x turtle total | x turtle mem |"
+        "| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |"
     );
     println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
     for r in rows {
@@ -570,7 +573,7 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
 /// Reads a results file.
 pub(crate) fn read_results(path: &Path) -> Result<Value, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let v: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    let mut v: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
     if !v["schema"].as_u64().is_some_and(|n| READS.contains(&n)) {
         return Err(format!(
             "{}: schema {} (this bench reads {READS:?})",
@@ -578,5 +581,41 @@ pub(crate) fn read_results(path: &Path) -> Result<Value, String> {
             v["schema"]
         ));
     }
+    if v["schema"].as_u64().is_some_and(|n| n < 4) {
+        let new = EngineId::Turbowl.name();
+        for list in ["results", "scaling"] {
+            for row in v[list].as_array_mut().into_iter().flatten() {
+                if row["engine"] == OLD_NAME {
+                    row["engine"] = json!(new);
+                }
+            }
+        }
+    }
     Ok(v)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_old_name_of_this_reasoner() {
+        let dir = std::env::temp_dir().join(format!("bench-read-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let row = |engine: &str| json!({ "scenario": "lubm-1", "engine": engine });
+        for (schema, engine, read) in [
+            (3, OLD_NAME, "turbowl"),
+            (4, "turbowl", "turbowl"),
+            (4, OLD_NAME, OLD_NAME),
+        ] {
+            let path = dir.join(format!("v{schema}-{engine}.json"));
+            let file = json!({ "schema": schema, "results": [row(engine), row("nemo")], "scaling": [row(engine)] });
+            std::fs::write(&path, file.to_string()).unwrap();
+            let v = read_results(&path).unwrap();
+            assert_eq!(v["results"][0]["engine"], read, "schema {schema}");
+            assert_eq!(v["results"][1]["engine"], "nemo");
+            assert_eq!(v["scaling"][0]["engine"], read, "schema {schema}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

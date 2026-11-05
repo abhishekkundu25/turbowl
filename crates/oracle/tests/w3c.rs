@@ -3,15 +3,15 @@
 //! `target/oracle/w3c-*.md`.
 //!
 //! Nemo runs exactly the version 1 rule set, so every case Nemo passes is
-//! required of turtle-reasoner. The cases Nemo fails are listed with the
+//! required of TurbOWL. The cases Nemo fails are listed with the
 //! rules they likely need (`w3c::missing_rules`). The oracles' own verdicts
 //! are reported, not asserted.
 
 mod support;
 
 use std::fmt::Write as _;
-use turtle_reasoner_oracle::w3c::{self, Cases, Expect, Verdict};
-use turtle_reasoner_oracle::{Outcome, nemo, ours, owlrl};
+use turbowl_oracle::w3c::{self, Cases, Expect, Verdict};
+use turbowl_oracle::{Outcome, nemo, ours, owlrl};
 
 fn verdict(case: &w3c::Case, outcome: &Outcome) -> String {
     match outcome {
@@ -59,7 +59,7 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
             passes[i] += usize::from(v == "pass");
             pending[i] += usize::from(v == "pending");
         }
-        // What the version 1 rule set (Nemo) gets right, turtle-reasoner must get right too.
+        // What the version 1 rule set (Nemo) gets right, TurbOWL must get right too.
         if verdicts[0] == "pass" {
             required += 1;
             // Pending is not run, not a failure (`ours::EQUALITY_PENDING`).
@@ -106,12 +106,12 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     }
     let _ = writeln!(
         out,
-        "\n\nThe version 1 rule set (Nemo) passes {required}; turtle-reasoner must pass each of them."
+        "\n\nThe version 1 rule set (Nemo) passes {required}; TurbOWL must pass each of them."
     );
     if required_pending > 0 {
         let _ = writeln!(
             out,
-            "Of those, {required_pending} are pending for turtle-reasoner ({}), not run, not failed.",
+            "Of those, {required_pending} are pending for TurbOWL ({}), not run, not failed.",
             ours::EQUALITY_REASON
         );
     }
@@ -133,7 +133,7 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     println!("{out}\n(written to {})", path.display());
     assert!(
         failures.is_empty(),
-        "turtle-reasoner fails W3C cases the version 1 rule set passes:\n{}",
+        "TurbOWL fails W3C cases the version 1 rule set passes:\n{}",
         failures.join("\n")
     );
 }

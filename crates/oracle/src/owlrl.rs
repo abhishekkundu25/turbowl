@@ -4,7 +4,7 @@
 //!
 //! OWL-RL implements the full rule set (and adds vocabulary triples such as
 //! `x owl:sameAs x` for every term and datatype declarations), so it judges
-//! by containment: turtle-reasoner's closure and findings must be a subset of
+//! by containment: TurbOWL's closure and findings must be a subset of
 //! OWL-RL's, after the filters of its known faults (`differences.rs`).
 
 use crate::input::Codec;

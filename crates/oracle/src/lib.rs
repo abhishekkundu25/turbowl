@@ -11,7 +11,7 @@
 //! | HermiT ([`hermit`]) | `tools/jre` + `tools/hermit` | soundness of inferred class and property subsumptions |
 //! | the W3C tests ([`w3c`]) | `data/w3c/` | the standard's own expected entailments; every case Nemo passes is required of us |
 //! | the reference evaluator | `crates/reference` (`tests/reference.rs`) | itself, against Nemo, on generated inputs |
-//! | turtle-reasoner ([`ours`]) | the [`turtle_reasoner::Reasoner`] interface | (the system under test) |
+//! | TurbOWL ([`ours`]) | the [`turbowl::Reasoner`] interface | (the system under test) |
 //!
 //! `reasonable` judges nothing here: it is a speed baseline in `crates/bench`.
 //!

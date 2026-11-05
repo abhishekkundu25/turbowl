@@ -1,5 +1,5 @@
 [package]
-name = "turtle-reasoner-oracle"
+name = "turbowl-oracle"
 description = "Oracles for verification: Nemo, OWL-RL, a DL reasoner, the W3C tests"
 version.workspace = true
 edition.workspace = true
@@ -8,14 +8,14 @@ license.workspace = true
 publish = false
 
 [dependencies]
-turtle-reasoner.workspace = true
+turbowl.workspace = true
 oxrdf.workspace = true
 oxttl.workspace = true
 oxrdfxml.workspace = true
 
 [dev-dependencies]
 # tests/reference.rs holds the reference evaluator to Nemo.
-turtle-reasoner-reference = { path = "../reference" }
+turbowl-reference = { path = "../reference" }
 
 [lints]
 workspace = true

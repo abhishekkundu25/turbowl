@@ -1,5 +1,5 @@
 [package]
-name = "turtle-reasoner-bench"
+name = "turbowl-bench"
 description = "Benchmarks against reasonable and other reasoners"
 version.workspace = true
 edition.workspace = true
@@ -8,7 +8,7 @@ license.workspace = true
 publish = false
 
 [dependencies]
-turtle-reasoner.workspace = true
+turbowl.workspace = true
 oxrdf.workspace = true
 # Reads the change streams of the incremental scenarios from the input files.
 oxttl.workspace = true

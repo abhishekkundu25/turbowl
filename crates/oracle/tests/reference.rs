@@ -8,8 +8,8 @@
 mod support;
 
 use std::collections::HashSet;
-use turtle_reasoner_oracle::{Closure, Finding, Input, Outcome, Relation, cases, compare, nemo};
-use turtle_reasoner_reference::{Rng, evaluate_within, generate};
+use turbowl_oracle::{Closure, Finding, Input, Outcome, Relation, cases, compare, nemo};
+use turbowl_reference::{Rng, evaluate_within, generate};
 
 /// Inputs whose closure grows past this are skipped (equality cliques
 /// explode in an evaluator without representatives).

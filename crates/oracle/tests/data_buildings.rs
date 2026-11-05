@@ -21,10 +21,9 @@ fn building_models() {
         println!("building models: slow tier, not run (ORACLE_SLOW=1 runs them)");
         return;
     }
-    let dir = turtle_reasoner_oracle::data_dir().join("reasonable/benches/python/buildings");
+    let dir = turbowl_oracle::data_dir().join("reasonable/benches/python/buildings");
     let Ok(entries) = std::fs::read_dir(&dir) else {
-        let o =
-            turtle_reasoner_oracle::Outcome::skipped("data", "data/reasonable is missing: run scripts/fetch-data.sh");
+        let o = turbowl_oracle::Outcome::skipped("data", "data/reasonable is missing: run scripts/fetch-data.sh");
         println!("{o:?}");
         return;
     };

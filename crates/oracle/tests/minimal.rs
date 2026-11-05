@@ -3,7 +3,7 @@
 
 mod support;
 
-use turtle_reasoner_oracle::{Table, cases, triangulate};
+use turbowl_oracle::{Table, cases, triangulate};
 
 #[test]
 fn oracles_agree_on_the_minimal_inputs() {

@@ -1,5 +1,5 @@
 [package]
-name = "turtle-reasoner-reference"
+name = "turbowl-reference"
 description = "A naive reference evaluator and a seeded input generator, for chaos runs"
 version.workspace = true
 edition.workspace = true
@@ -12,7 +12,7 @@ oxrdf.workspace = true
 
 [dev-dependencies]
 # The core, which tests/chaos.rs holds to the reference.
-turtle-reasoner.workspace = true
+turbowl.workspace = true
 
 [lints]
 workspace = true

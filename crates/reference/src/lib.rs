@@ -16,8 +16,8 @@
 //!
 //! ```
 //! use std::collections::HashSet;
-//! let input: HashSet<_> = turtle_reasoner_reference::generate(7, 30).into_iter().collect();
-//! let (closure, _diagnostics) = turtle_reasoner_reference::evaluate(&input);
+//! let input: HashSet<_> = turbowl_reference::generate(7, 30).into_iter().collect();
+//! let (closure, _diagnostics) = turbowl_reference::evaluate(&input);
 //! assert!(closure.is_superset(&input));
 //! ```
 

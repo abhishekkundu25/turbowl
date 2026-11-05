@@ -9,7 +9,7 @@
 //! | Mark | Meaning |
 //! |---|---|
 //! | `+` | in every closure, OWL-RL's included |
-//! | `+V` | in every closure of the version 1 rule set (Nemo, turtle-reasoner, the reference evaluator) |
+//! | `+V` | in every closure of the version 1 rule set (Nemo, TurbOWL, the reference evaluator) |
 //! | `-` | in no closure of the version 1 rule set (OWL-RL implements more rules) |
 //! | `=` | a closure of the version 1 rule set is exactly the `=` lines |
 //! | `!` | a finding (code, then terms) every oracle covering that code reports; no other finding is reported |
@@ -51,7 +51,7 @@ const NAMESPACES: [(&str, &str); 5] = [
 pub enum Kind {
     /// OWL-RL: the full W3C rule set, and axiomatic triples.
     FullRl,
-    /// The version 1 rule set: Nemo, turtle-reasoner, the reference evaluator.
+    /// The version 1 rule set: Nemo, TurbOWL, the reference evaluator.
     RuleSet,
 }
 

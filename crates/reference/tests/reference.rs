@@ -8,7 +8,7 @@ mod common;
 use common::{lines, parse, term};
 use oxrdf::Triple;
 use std::collections::{BTreeSet, HashSet};
-use turtle_reasoner_reference::{DIAGNOSTIC_RULES, RULES, evaluate, evaluate_counted, evaluate_within, generate};
+use turbowl_reference::{DIAGNOSTIC_RULES, RULES, evaluate, evaluate_counted, evaluate_within, generate};
 
 /// cls-thing and cls-nothing1, the rules with an empty body.
 const SEEDS: &str = "owl:Thing a owl:Class . owl:Nothing a owl:Class .";
@@ -493,7 +493,7 @@ fn generator_exercises_every_rule() {
     let mut seeds_fired: std::collections::BTreeMap<&str, u64> = Default::default();
     let (mut too_large, mut not_rdf) = (0, 0);
     for seed in 0..seeds {
-        let mut rng = turtle_reasoner_reference::Rng::at(0x5EED_0005, seed as usize);
+        let mut rng = turbowl_reference::Rng::at(0x5EED_0005, seed as usize);
         let size = 1 + rng.below(48);
         let input: HashSet<Triple> = generate(rng.next_u64(), size).into_iter().collect();
         let Some(evaluation) = evaluate_within(&input, 20_000) else {

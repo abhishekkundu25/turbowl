@@ -88,7 +88,7 @@ pub const CODES: &[&str] = &[
 /// | `dt-not-type` | literal, datatype (the literal's own, or a type such as one from prp-rng) |
 /// | `other` | the message, as a literal (OWL-RL findings outside the rule set) |
 ///
-/// turtle-reasoner's `Diagnostic` maps onto it by `code` and `terms` (ticket
+/// TurbOWL's `Diagnostic` maps onto it by `code` and `terms` (ticket
 /// 09 emits the terms in this order); its `severity` and `message` are not
 /// compared. Nemo writes the same columns. OWL-RL's messages name the same
 /// terms for every code, but see the oracle faults in `differences.rs`: its
@@ -109,8 +109,8 @@ impl Finding {
         }
     }
 
-    /// A turtle-reasoner diagnostic.
-    pub fn from_diagnostic(d: &turtle_reasoner::Diagnostic) -> Self {
+    /// A TurbOWL diagnostic.
+    pub fn from_diagnostic(d: &turbowl::Diagnostic) -> Self {
         Self::new(d.code, d.terms.clone())
     }
 }

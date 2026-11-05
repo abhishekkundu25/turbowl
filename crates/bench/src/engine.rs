@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::time::Instant;
-use turtle_reasoner::Reasoner;
+use turbowl::Reasoner;
 
 /// The `reasonable` release linked in (the exact pin in `Cargo.toml`).
 pub(crate) const REASONABLE_VERSION: &str = "0.5.0-a1";
@@ -28,7 +28,7 @@ trait Engine {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EngineId {
     /// This repository's reasoner, in process.
-    TurtleReasoner,
+    Turbowl,
     /// `reasonable`, linked in, in process.
     Reasonable,
     /// Nemo's `nmo` running `oracles/nemo/owl2rl.rls`, a subprocess.
@@ -36,11 +36,11 @@ pub(crate) enum EngineId {
 }
 
 impl EngineId {
-    pub(crate) const ALL: [EngineId; 3] = [EngineId::TurtleReasoner, EngineId::Reasonable, EngineId::Nemo];
+    pub(crate) const ALL: [EngineId; 3] = [EngineId::Turbowl, EngineId::Reasonable, EngineId::Nemo];
 
     pub(crate) fn name(self) -> &'static str {
         match self {
-            EngineId::TurtleReasoner => "turtle-reasoner",
+            EngineId::Turbowl => "turbowl",
             EngineId::Reasonable => "reasonable",
             EngineId::Nemo => "nemo",
         }
@@ -59,7 +59,7 @@ impl EngineId {
     /// The in-process engines; Nemo runs as a subprocess instead.
     fn make(self) -> Option<Box<dyn Engine>> {
         match self {
-            EngineId::TurtleReasoner => Some(Box::new(Ours {
+            EngineId::Turbowl => Some(Box::new(Ours {
                 r: Reasoner::new(),
                 reported: 0,
             })),

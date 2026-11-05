@@ -46,7 +46,7 @@ wheels = [
 ]
 
 [[package]]
-name = "turtle-reasoner-owlrl-oracle"
+name = "turbowl-owlrl-oracle"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

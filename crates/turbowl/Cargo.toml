@@ -1,5 +1,5 @@
 [package]
-name = "turtle-reasoner"
+name = "turbowl"
 description = "A fast OWL 2 RL reasoner, embeddable, for native and WebAssembly"
 version.workspace = true
 edition.workspace = true

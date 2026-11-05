@@ -1,7 +1,7 @@
 # AGENTS.md
 
-turtle-reasoner is a fast OWL 2 RL reasoner in Rust: one deep library
-(`crates/turtle-reasoner`), a command line, Python bindings, and a
+TurbOWL is a fast OWL 2 RL reasoner in Rust: one deep library
+(`crates/turbowl`), a command line, Python bindings, and a
 verification suite that judges it against several independent oracles.
 
 ## Start here
@@ -22,7 +22,7 @@ verification suite that judges it against several independent oracles.
 
 ## Where things live
 
-- The public interface: `crates/turtle-reasoner/src/lib.rs` (the
+- The public interface: `crates/turbowl/src/lib.rs` (the
   `Reasoner`, `Format`, `Summary`, `Diagnostic`, `Severity`, `Error`).
   Everything else in the crate is `pub(crate)`. Add to the interface only
   when an adapter (CLI, Python, oracle, bench) needs it, and say so in the
@@ -31,7 +31,7 @@ verification suite that judges it against several independent oracles.
   write), `engine/` (relations, rounds, joins; knows no rules),
   `rules/` (one file per rule family, registered one line each in
   `rules/mod.rs`), `diagnostics.rs`, `reasoner.rs`.
-- Adapters: `crates/cli` (the `turtle-reasoner` binary), `crates/python`.
+- Adapters: `crates/cli` (the `turbowl` binary), `crates/python`.
 - Verification: `crates/oracle` (the oracles), `crates/reference` (the
   reference evaluator, the generator, chaos), `crates/bench` (benchmarks).
 - Oracle tools and data are fetched, never committed:
@@ -55,10 +55,10 @@ cargo build --release --locked
 cargo fmt --check
 cargo clippy --release --locked --all-targets -- -D warnings
 scripts/check-wasm.sh                                   # the core for wasm32
-timeout 120 cargo test --release --locked -p turtle-reasoner
-timeout 120 cargo test --release --locked -p turtle-reasoner-oracle
-timeout 120 cargo test --release --locked -p turtle-reasoner-reference --test chaos
-cargo run --release -p turtle-reasoner-bench -- --list
+timeout 120 cargo test --release --locked -p turbowl
+timeout 120 cargo test --release --locked -p turbowl-oracle
+timeout 120 cargo test --release --locked -p turbowl-reference --test chaos
+cargo run --release -p turbowl-bench -- --list
 ```
 
 - A chaos failure prints `CHAOS_SEED`, `CHAOS_ITERS` and `CHAOS_ONLY` to

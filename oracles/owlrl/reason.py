@@ -7,7 +7,7 @@ cannot write, and without OWL-RL's error-message triples) and one line per
 inconsistency OWL-RL reports: the W3C rule name `crates/oracle` uses as the
 code, then the terms involved in N-Triples syntax, tab-separated, in the
 order documented on `Finding` (crates/oracle/src/closure.rs). A message this
-script does not recognise (a rule outside turtle-reasoner's rule set, such
+script does not recognise (a rule outside TurbOWL's rule set, such
 as eq-diff1 or cls-maxc1) is written with the code `other` and the message
 itself.
 """
