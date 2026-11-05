@@ -31,3 +31,30 @@ Spec: `docs/specs/v1-parity.md`. After these, the improvement loop
 ## Log
 
 Departures from the plan, as they happen.
+
+- **Wave 2, run.** A first run of wave 2 stopped partway; tickets 02, 03,
+  05 and 06 were finished from its uncommitted work, and 04 was started
+  again.
+- **02.** `io::write` also writes N3 (as Turtle) and RDF/XML, since the
+  public `Reasoner::write` takes any `Format`. Ticket 10 decides whether
+  to reject them. N3 statements that are not RDF (formulas, variables,
+  literal subjects) are dropped and counted.
+- **03.** The timing test cannot close one 100,000-edge chain (5 billion
+  pairs); it measures the head's closure row of that chain and the full
+  closure of 1,000 chains of 100 edges. `Family` in `rules/mod.rs` still
+  has no `rules: RuleFn` field: the first rule family (07 to 09) adds it.
+  A rule's first `by_object` request returns `None` and builds the index
+  for the next round.
+- **05.** `reasonable` reports `RDFS.DATATYPE_RANGE` for any IRI or blank
+  object of a property with an IRI range (`term_in_datatype_space`,
+  `lib/src/reasoner.rs:2397`). No D covers it, so the reference copies
+  it; the owner decides whether it becomes D11. D6 is wider than its row
+  says (literal subjects have visible effects through sameAs and
+  diagnostics), and D5 also covers one list per class and ignoring
+  derived list triples. Chaos against the stub passes and prints
+  `NOT COMPARED`.
+- **06.** The incremental stream is two scenarios, `incremental-add` and
+  `incremental-remove`; `sameas-clique` is added for ticket 11. Each run
+  is a child process of the bench binary, so each has its own peak
+  memory. `machine.rs` allows `unsafe_code` locally for `getloadavg` and
+  `getrusage`. Under load, `reasonable` times out on `sameas-clique`.
