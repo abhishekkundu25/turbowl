@@ -86,6 +86,16 @@ Departures from the plan, as they happen.
   help and the Python docs each describe the switches' costs (the CLI owns
   its help text). On review, the `literal-values` text was corrected: dt-diff
   only checks, and lists no `owl:differentFrom` triples.
+- **03.** The group files are compiled into the oracle crate
+  (`include_str!`), so editing a rule needs a rebuild, which cargo does by
+  itself. Nemo's runner reads whatever outputs the program exports, so a
+  configuration without `checks` exports no diagnostic files; `nemo::CODES`
+  stays as the default configuration's codes. The Soufflé and VLog programs
+  are checked against each engine's grammar but have not run: ticket 12
+  runs them. Rulewerk has no `!=`, so the VLog program writes
+  `?x != c` as `~sameTerm(?x, c)` over facts; Soufflé reads tab-separated
+  terms, not N-Triples. A test reads the spec's switch table and checks
+  that every rule sits in exactly one group file.
 - **Worktrees.** A copied `crates/python/.venv` runs pytest against the
   main checkout's build. A slice runs `uv sync --reinstall-package turbowl`
   in `crates/python` before pytest, and the briefs say so.
