@@ -223,3 +223,47 @@ Departures from the plan, as they happen.
 
   Left for later: abi3 wheels (only for publishing), and `write_file` and
   `Severity::as_str` in the interface.
+- **11.** Equality by representatives, built as ADR 0003 and its first
+  amendment say. A second amendment, "as built", records the details.
+  - The canon (`engine/canon.rs`) is a union-find in which every member
+    points at its representative. A class that holds a rule constant is
+    represented by its smallest constant. Otherwise the larger class wins,
+    and a tie goes to the smaller id.
+  - Every family reads its constants through the round. A merge that moves
+    a constant restarts the run from the base, keeping the canon. So does
+    the first merge into `rdf:nil`'s class: the W3C list rules test
+    `rdf:nil` for identity, so a term equal to it can be a later list cell.
+  - Findings are kept in representatives and expanded to every choice of
+    members. dt-not-type names the literal it checked. `hidden` became
+    `rdf`, the number of RDF triples in the expanded closure.
+  - The pending machinery is gone (`needs_equality`, `Outcome::Pending`,
+    chaos's `NeedsEquality`), so every input is compared.
+  - Departures in the verification crates:
+    - F1 also covers the aliases of `rdfs:subClassOf`: eq-rep-p copies
+      the `c rdfs:subClassOf c` that OWL-RL misses.
+    - HermiT does not judge an input that makes a reserved IRI (`rdf:`,
+      `rdfs:`, `owl:`, `xsd:`) `owl:sameAs` another term. Such an input is
+      not OWL 2 DL, as with `owl.n3`. Nemo and the reference still judge
+      it.
+    - The generator makes vocabulary terms equal, so every seed now draws
+      different inputs.
+    - The reference evaluator's `chain()` is semi-naive, and
+      `every_member` walks a list's cells from the end. The results are
+      the same, checked against Nemo on 1,500 seeds. An input with a
+      property `owl:sameAs rdf:rest` had taken the old `chain()` 38 s.
+
+  Left for later: each step that merges scans the whole store to rewrite
+  it (occurrence lists would avoid that, as an experiment), and a finding
+  expands as a product over its classes, as the W3C closure does.
+- **Wave 4, integrated.** On the merged tree (`f8fc3b9`):
+  - The 51 minimal inputs equal Nemo, closures and findings.
+  - The W3C OWL 2 RL tests pass every case Nemo passes (93), and the RDF-MT
+    tests 37 (Nemo 30).
+  - Brick with small1 and its three variants, soda hall, and the 108
+    building models equal Nemo. This was the first full run of the
+    building models and of the `owl.n3` variants.
+  - 100,000 full and 100,000 incremental chaos iterations pass. Every input
+    is compared except 41 that are too large for the reference.
+  - The CLI's 20 tests and Python's 287 pass.
+
+  `docs/verification/2026-11-05-wave-4.md` has the numbers.

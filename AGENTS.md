@@ -28,9 +28,10 @@ verification suite that judges it against several independent oracles.
   when an adapter (CLI, Python, oracle, bench) needs it, and say so in the
   crate doc.
 - Internal modules: `term.rs` (term ids, dictionary), `io.rs` (parse,
-  write), `engine/` (relations, rounds, joins; knows no rules),
-  `rules/` (one file per rule family, registered one line each in
-  `rules/mod.rs`), `diagnostics.rs`, `reasoner.rs`.
+  write), `engine/` (relations, rounds, joins, and `canon.rs`, the
+  union-find of `owl:sameAs` whose representatives the store rewrites
+  into; knows no rules), `rules/` (one file per rule family, registered
+  one line each in `rules/mod.rs`), `diagnostics.rs`, `reasoner.rs`.
 - Adapters: `crates/cli` (the `turbowl` binary; `--help` and the crate
   doc in `src/main.rs` define its report, the JSON fields and the exit
   codes 0, 1, 2 and 64), `crates/python` (the `turbowl` Python package:
@@ -73,6 +74,12 @@ cargo run --release -p turbowl-bench -- --list
   replay it and saves the input under `target/chaos/`. Fix what it finds,
   with a unit test on the reduced input; never `#[ignore]` a test or exempt
   a check.
+- 100,000 chaos iterations: run each of the four shard tests alone
+  (`--exact`) with `CHAOS_ITERS=100000`. Each takes about 60 to 80 s.
+- The slow oracle tier runs with `ORACLE_SLOW=1`, one test at a time
+  (`--exact`). The Brick variants and soda hall take under a minute each.
+  `building_models` (108 models) takes about half an hour, the one test
+  that cannot fit in two minutes.
 - An oracle that is not installed is reported `skipped`; with `CI=true` it
   fails.
 - `--workspace` builds the Python bindings too. Their build script (pyo3's)
