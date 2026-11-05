@@ -7,3 +7,4 @@ Status: todo. Blocked by: 02, 03.
 ## Acceptance
 - [ ] One test per rule with a minimal input and the expected inferences written out; chains of length 1 to 5; a cyclic list; prp-ifp merges only subjects whose objects are equal.
 - [ ] Nemo agrees on each minimal input once ticket 10 lands.
+- [ ] A `scaling_*` test: with a fixed schema, the family's run is linear in the instance data (sizes spanning 16×).

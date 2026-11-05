@@ -7,3 +7,4 @@ Status: todo. Blocked by: 02, 03.
 ## Acceptance
 - [ ] One test per rule with a minimal input and the expected inferences written out; a class with two intersection lists; two lists sharing a tail.
 - [ ] Nemo (`oracles/nemo/owl2rl.rls`) agrees on each minimal input once ticket 10 lands.
+- [ ] A `scaling_*` test: with a fixed schema, the family's run is linear in the instance data (sizes spanning 16×).

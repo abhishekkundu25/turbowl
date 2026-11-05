@@ -6,3 +6,4 @@ Status: todo. Blocked by: 02, 03.
 
 ## Acceptance
 - [ ] Each code fires on its minimal input with the expected terms; a property with a class range and an IRI object does not fire dt-not-type; Nemo agrees on every finding except dt-not-type, which OWL-RL and the W3C tests judge.
+- [ ] A `scaling_*` test: with a fixed schema, the family's run is linear in the instance data (sizes spanning 16×).
