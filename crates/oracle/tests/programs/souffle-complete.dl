@@ -393,16 +393,13 @@ T("<http://www.w3.org/2002/07/owl#priorVersion>", "<http://www.w3.org/1999/02/22
 T("<http://www.w3.org/2002/07/owl#backwardCompatibleWith>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
 T("<http://www.w3.org/2002/07/owl#incompatibleWith>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
 
-// Table 8: dt-type1, each datatype of the OWL 2 RL datatype map as TurbOWL
-// holds it (crates/turbowl/src/rules/datatype/map.rs, with RDF 1.1's
-// rdf:langString). The prefix xsd: is not declared, so its IRIs are written
-// out.
+// Table 8: dt-type1, each datatype OWL 2 RL supports (OWL 2 Profiles,
+// Section 4.2.1): not owl:real and owl:rational, which OWL 2 RL excludes,
+// nor RDF 1.1's rdf:langString. The prefix xsd: is not declared, so its IRIs
+// are written out.
 T("<http://www.w3.org/2000/01/rdf-schema#Literal>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
 T("<http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
-T("<http://www.w3.org/1999/02/22-rdf-syntax-ns#langString>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
 T("<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
-T("<http://www.w3.org/2002/07/owl#real>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
-T("<http://www.w3.org/2002/07/owl#rational>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
 T("<http://www.w3.org/2001/XMLSchema#decimal>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
 T("<http://www.w3.org/2001/XMLSchema#integer>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
 T("<http://www.w3.org/2001/XMLSchema#nonNegativeInteger>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1

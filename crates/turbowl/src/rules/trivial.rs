@@ -17,8 +17,9 @@
 //!   `rdfs:comment`, `rdfs:seeAlso`, `rdfs:isDefinedBy`, `owl:deprecated`,
 //!   `owl:versionInfo`, `owl:priorVersion`, `owl:backwardCompatibleWith`,
 //!   `owl:incompatibleWith`) typed `owl:AnnotationProperty`: [`FACTS`].
-//! - dt-type1: each datatype of the datatype map (`datatype/map.rs`) typed
-//!   `rdfs:Datatype`: [`FACTS`].
+//! - dt-type1: each datatype OWL 2 RL supports (OWL 2 Profiles, Section
+//!   4.2.1: the datatype map's but `owl:real`, `owl:rational` and
+//!   `rdf:langString`) typed `rdfs:Datatype`: [`FACTS`].
 //! - dt-type2: each literal typed with every datatype whose value space
 //!   holds its value. Version 2's ticket 10 adds it.
 //!
@@ -66,9 +67,10 @@ const ANNOTATION_PROPERTIES: [TermId; 9] = [
     vocab::OWL_INCOMPATIBLE_WITH,
 ];
 
-/// prp-ap's facts, then dt-type1's, one for each datatype of the map.
-const FACT_TABLE: [[TermId; 3]; ANNOTATION_PROPERTIES.len() + Datatype::ALL.len()] = {
-    let mut facts = [[vocab::RDF_TYPE; 3]; ANNOTATION_PROPERTIES.len() + Datatype::ALL.len()];
+/// prp-ap's facts, then dt-type1's, one for each datatype OWL 2 RL
+/// supports.
+const FACT_TABLE: [[TermId; 3]; ANNOTATION_PROPERTIES.len() + Datatype::OWL_2_RL.len()] = {
+    let mut facts = [[vocab::RDF_TYPE; 3]; ANNOTATION_PROPERTIES.len() + Datatype::OWL_2_RL.len()];
     let mut i = 0;
     while i < ANNOTATION_PROPERTIES.len() {
         facts[i] = [
@@ -79,8 +81,8 @@ const FACT_TABLE: [[TermId; 3]; ANNOTATION_PROPERTIES.len() + Datatype::ALL.len(
         i += 1;
     }
     let mut d = 0;
-    while d < Datatype::ALL.len() {
-        facts[i + d] = [Datatype::ALL[d].id(), vocab::RDF_TYPE, vocab::RDFS_DATATYPE];
+    while d < Datatype::OWL_2_RL.len() {
+        facts[i + d] = [Datatype::OWL_2_RL[d].id(), vocab::RDF_TYPE, vocab::RDFS_DATATYPE];
         d += 1;
     }
     facts
@@ -283,7 +285,8 @@ mod tests {
     }
 
     /// prp-ap and dt-type1 hold for an empty input: the nine annotation
-    /// properties, and every datatype of the map.
+    /// properties, and the 32 datatypes OWL 2 RL supports, which leave out
+    /// `owl:real`, `owl:rational` and `rdf:langString`.
     #[test]
     fn prp_ap_and_dt_type1_are_facts() {
         let run = testing::run(&["trivial"], "");
@@ -292,13 +295,19 @@ mod tests {
             "rdfs:label a owl:AnnotationProperty",
             "owl:incompatibleWith a owl:AnnotationProperty",
             "xsd:dateTimeStamp a rdfs:Datatype",
-            "owl:real a rdfs:Datatype",
             "rdfs:Literal a rdfs:Datatype",
             "rdf:PlainLiteral a rdfs:Datatype",
         ] {
             assert!(run.has(t), "{t}");
         }
-        assert_eq!(FACTS.len(), 9 + 35);
+        for t in [
+            "owl:real a rdfs:Datatype",
+            "owl:rational a rdfs:Datatype",
+            "rdf:langString a rdfs:Datatype",
+        ] {
+            assert!(!run.has(t), "{t}");
+        }
+        assert_eq!(FACTS.len(), 9 + 32);
     }
 
     /// eq-ref on read: every IRI and blank node of the closure, in any

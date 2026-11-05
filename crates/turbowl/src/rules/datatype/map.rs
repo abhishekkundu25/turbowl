@@ -239,6 +239,24 @@ impl Datatype {
         all
     };
 
+    /// The datatypes OWL 2 RL supports (OWL 2 Profiles, Section 4.2.1), in
+    /// the map's order: all but `owl:real` and `owl:rational`, which OWL 2
+    /// RL excludes, and `rdf:langString`, which RDF 1.1 added after OWL 2.
+    /// dt-type1 types these (`rules/trivial.rs`).
+    pub(crate) const OWL_2_RL: [Datatype; 32] = {
+        let mut rl = [Datatype::RdfsLiteral; 32];
+        let (mut i, mut n) = (0, 0);
+        while i < Self::ALL.len() {
+            if !matches!(Self::ALL[i], Datatype::Real | Datatype::Rational | Datatype::LangString) {
+                rl[n] = Self::ALL[i];
+                n += 1;
+            }
+            i += 1;
+        }
+        assert!(n == rl.len(), "OWL 2 RL supports 32 datatypes");
+        rl
+    };
+
     const fn definition(self) -> &'static Definition {
         &MAP[self as usize]
     }
@@ -250,7 +268,7 @@ impl Datatype {
     }
 
     /// The datatype's IRI, as a vocabulary id (const: dt-type1's facts,
-    /// `rules/trivial.rs`, are made from [`Datatype::ALL`]).
+    /// `rules/trivial.rs`, are made from [`Datatype::OWL_2_RL`]).
     pub(crate) const fn id(self) -> TermId {
         self.definition().id
     }

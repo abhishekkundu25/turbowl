@@ -117,8 +117,9 @@ pub(super) const CASES: &[Case] = &[
             "- ex:p rdf:type owl:AnnotationProperty",
         ],
     },
-    // Every datatype of the map; OWL-RL leaves owl:real and owl:rational
-    // out (F7).
+    // Every datatype OWL 2 RL supports (OWL 2 Profiles, Section 4.2.1), and
+    // not owl:real and owl:rational, which it excludes, nor RDF 1.1's
+    // rdf:langString (which OWL-RL types).
     Case {
         group: GROUP,
         name: "dt-type1",
@@ -131,8 +132,9 @@ pub(super) const CASES: &[Case] = &[
             "+ rdf:PlainLiteral rdf:type rdfs:Datatype",
             "+ rdf:XMLLiteral rdf:type rdfs:Datatype",
             "+ rdfs:Literal rdf:type rdfs:Datatype",
-            "+V owl:real rdf:type rdfs:Datatype",
-            "+V owl:rational rdf:type rdfs:Datatype",
+            "- owl:real rdf:type rdfs:Datatype",
+            "- owl:rational rdf:type rdfs:Datatype",
+            "- rdf:langString rdf:type rdfs:Datatype",
             "- xsd:gYear rdf:type rdfs:Datatype",
         ],
     },

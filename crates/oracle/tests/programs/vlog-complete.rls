@@ -329,16 +329,13 @@ T(owl:priorVersion, rdf:type, owl:AnnotationProperty) .  % prp-ap
 T(owl:backwardCompatibleWith, rdf:type, owl:AnnotationProperty) .  % prp-ap
 T(owl:incompatibleWith, rdf:type, owl:AnnotationProperty) .  % prp-ap
 
-% Table 8: dt-type1, each datatype of the OWL 2 RL datatype map as TurbOWL
-% holds it (crates/turbowl/src/rules/datatype/map.rs, with RDF 1.1's
-% rdf:langString). The prefix xsd: is not declared, so its IRIs are written
-% out.
+% Table 8: dt-type1, each datatype OWL 2 RL supports (OWL 2 Profiles,
+% Section 4.2.1): not owl:real and owl:rational, which OWL 2 RL excludes,
+% nor RDF 1.1's rdf:langString. The prefix xsd: is not declared, so its IRIs
+% are written out.
 T(rdfs:Literal, rdf:type, rdfs:Datatype) .  % dt-type1
 T(rdf:PlainLiteral, rdf:type, rdfs:Datatype) .  % dt-type1
-T(rdf:langString, rdf:type, rdfs:Datatype) .  % dt-type1
 T(rdf:XMLLiteral, rdf:type, rdfs:Datatype) .  % dt-type1
-T(owl:real, rdf:type, rdfs:Datatype) .  % dt-type1
-T(owl:rational, rdf:type, rdfs:Datatype) .  % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#decimal>, rdf:type, rdfs:Datatype) .  % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#integer>, rdf:type, rdfs:Datatype) .  % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#nonNegativeInteger>, rdf:type, rdfs:Datatype) .  % dt-type1

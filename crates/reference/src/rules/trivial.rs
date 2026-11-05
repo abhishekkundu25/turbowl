@@ -9,7 +9,6 @@
 //! (`crate::datatype`).
 
 use super::{EMPTY, Family};
-use crate::datatype::datatype_iris;
 use crate::evaluate::{Round, View};
 use crate::vocab::*;
 
@@ -27,6 +26,44 @@ const ANNOTATION_PROPERTIES: [&str; 9] = [
     "http://www.w3.org/2002/07/owl#priorVersion",
     "http://www.w3.org/2002/07/owl#backwardCompatibleWith",
     "http://www.w3.org/2002/07/owl#incompatibleWith",
+];
+
+/// The datatypes OWL 2 RL supports, as OWL 2 Profiles (Section 4.2.1) lists
+/// them: dt-type1's. Not `owl:real` and `owl:rational`, which OWL 2 RL
+/// excludes, nor RDF 1.1's `rdf:langString`.
+const OWL_2_RL_DATATYPES: [&str; 32] = [
+    "http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral",
+    "http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral",
+    "http://www.w3.org/2000/01/rdf-schema#Literal",
+    "http://www.w3.org/2001/XMLSchema#decimal",
+    "http://www.w3.org/2001/XMLSchema#integer",
+    "http://www.w3.org/2001/XMLSchema#nonNegativeInteger",
+    "http://www.w3.org/2001/XMLSchema#nonPositiveInteger",
+    "http://www.w3.org/2001/XMLSchema#positiveInteger",
+    "http://www.w3.org/2001/XMLSchema#negativeInteger",
+    "http://www.w3.org/2001/XMLSchema#long",
+    "http://www.w3.org/2001/XMLSchema#int",
+    "http://www.w3.org/2001/XMLSchema#short",
+    "http://www.w3.org/2001/XMLSchema#byte",
+    "http://www.w3.org/2001/XMLSchema#unsignedLong",
+    "http://www.w3.org/2001/XMLSchema#unsignedInt",
+    "http://www.w3.org/2001/XMLSchema#unsignedShort",
+    "http://www.w3.org/2001/XMLSchema#unsignedByte",
+    "http://www.w3.org/2001/XMLSchema#float",
+    "http://www.w3.org/2001/XMLSchema#double",
+    "http://www.w3.org/2001/XMLSchema#string",
+    "http://www.w3.org/2001/XMLSchema#normalizedString",
+    "http://www.w3.org/2001/XMLSchema#token",
+    "http://www.w3.org/2001/XMLSchema#language",
+    "http://www.w3.org/2001/XMLSchema#Name",
+    "http://www.w3.org/2001/XMLSchema#NCName",
+    "http://www.w3.org/2001/XMLSchema#NMTOKEN",
+    "http://www.w3.org/2001/XMLSchema#boolean",
+    "http://www.w3.org/2001/XMLSchema#hexBinary",
+    "http://www.w3.org/2001/XMLSchema#base64Binary",
+    "http://www.w3.org/2001/XMLSchema#anyURI",
+    "http://www.w3.org/2001/XMLSchema#dateTime",
+    "http://www.w3.org/2001/XMLSchema#dateTimeStamp",
 ];
 
 pub(super) const FAMILY: Family = Family {
@@ -48,8 +85,8 @@ fn derive(v: &View, r: &mut Round) {
         r.derive("prp-ap", &iri(p), &ty, &annotation_property);
     }
     let datatype = iri(&format!("{RDFS}Datatype"));
-    for dt in datatype_iris() {
-        r.derive("dt-type1", &iri(&dt), &ty, &datatype);
+    for dt in OWL_2_RL_DATATYPES {
+        r.derive("dt-type1", &iri(dt), &ty, &datatype);
     }
     let (sco, eqc) = (iri(RDFS_SUB_CLASS_OF), iri(OWL_EQUIVALENT_CLASS));
     let (thing, nothing) = (iri(OWL_THING), iri(OWL_NOTHING));
