@@ -1,6 +1,7 @@
 //! Nemo as a competitor: the pinned `nmo` (`tools/nemo/`, fetched by
-//! `scripts/fetch-tools.sh`) runs `oracles/nemo/owl2rl.rls`, the W3C forms of
-//! the version 1 rule set, as a subprocess of the `--one` child.
+//! `scripts/fetch-tools.sh`) runs the W3C forms of the rules of the default
+//! configuration, composed from `oracles/rules/` by
+//! `turbowl_oracle::programs`, as a subprocess of the `--one` child.
 //!
 //! The program's one `@import input` line is replaced by one import per
 //! input file, read by Nemo's own parser (Turtle for `.ttl` and `.n3`,
@@ -47,7 +48,7 @@ pub(crate) fn program(rules: &str, files: &[PathBuf]) -> Result<String, String> 
     let count = rules.lines().filter(|l| is_import(l)).count();
     if count != 1 {
         return Err(format!(
-            "owl2rl.rls has {count} `@import input` lines; the bench replaces exactly one"
+            "the rule program has {count} `@import input` lines; the bench replaces exactly one"
         ));
     }
     let mut imports = String::new();
@@ -99,8 +100,7 @@ pub(crate) fn measure(files: &[PathBuf], timeout: Duration) -> Result<Value, Str
         return Ok(json!({ "status": "skipped", "message": why }));
     }
     let root = crate::repo_root();
-    let rules_path = root.join("oracles/nemo/owl2rl.rls");
-    let rules = std::fs::read_to_string(&rules_path).map_err(|e| format!("{}: {e}", rules_path.display()))?;
+    let rules = turbowl_oracle::programs::nemo(turbowl::Switches::default());
     let files: Vec<PathBuf> = files
         .iter()
         .map(|f| f.canonicalize().map_err(|e| format!("{}: {e}", f.display())))
@@ -202,6 +202,14 @@ mod tests {
              @import input :- ntriples{resource=\"/d/a\\\"b.nt\"} .\n\
              T(?s, ?p, ?o) :- input(?s, ?p, ?o) .\n"
         );
+    }
+
+    #[test]
+    fn the_composed_program_has_one_import() {
+        let rules = turbowl_oracle::programs::nemo(turbowl::Switches::default());
+        let p = program(&rules, &[PathBuf::from("/d/a.nt")]).unwrap();
+        assert!(p.contains("@import input :- ntriples{resource=\"/d/a.nt\"} .\n"));
+        assert_eq!(p.matches("@import").count(), 1);
     }
 
     #[test]

@@ -1,0 +1,30 @@
+% The `checks` switch: the W3C rules that conclude `false`, and dt-not-type.
+% Each rule derives a relation with its terms in the order documented on
+% `Finding` (crates/oracle/src/closure.rs), exported to a CSV named after the
+% rule.
+
+caxDw(?x, ?c1, ?c2) :- T(?c1, owl:disjointWith, ?c2), T(?x, rdf:type, ?c1), T(?x, rdf:type, ?c2) .  % cax-dw
+prpPdw(?p1, ?p2, ?x, ?y) :- T(?p1, owl:propertyDisjointWith, ?p2), Tp(?p1, ?x, ?y), Tp(?p2, ?x, ?y) .  % prp-pdw
+clsNothing(?x) :- T(?x, rdf:type, owl:Nothing) .                                   % cls-nothing2
+prpAsyp(?p, ?x, ?y) :- T(?p, rdf:type, owl:AsymmetricProperty), Tp(?p, ?x, ?y), Tp(?p, ?y, ?x) .  % prp-asyp
+prpIrp(?p, ?x) :- T(?p, rdf:type, owl:IrreflexiveProperty), Tp(?p, ?x, ?x) .        % prp-irp
+clsCom(?c1, ?c2, ?x) :- T(?c1, owl:complementOf, ?c2), T(?x, rdf:type, ?c1), T(?x, rdf:type, ?c2) .  % cls-com
+% to come: cax-adc, cls-maxc1, cls-maxqc1, cls-maxqc2, prp-adp, prp-npa1, prp-npa2
+% to come: eq-diff1, eq-diff2, eq-diff3
+
+% The engines have no datatype checks: literals reach them as opaque IRIs.
+% dt-not-type is judged by OWL-RL, the W3C tests and the reference evaluator.
+% left out: dt-not-type
+
+% prp-pdw, prp-asyp and prp-irp read Tp.
+usedProp(?p) :- T(?p, rdf:type, owl:AsymmetricProperty) .
+usedProp(?p) :- T(?p, rdf:type, owl:IrreflexiveProperty) .
+usedProp(?p) :- T(?p, owl:propertyDisjointWith, ?q) .
+usedProp(?q) :- T(?p, owl:propertyDisjointWith, ?q) .
+
+@export caxDw :- csv{resource="cax-dw.csv"} .
+@export prpPdw :- csv{resource="prp-pdw.csv"} .
+@export clsNothing :- csv{resource="cls-nothing2.csv"} .
+@export prpAsyp :- csv{resource="prp-asyp.csv"} .
+@export prpIrp :- csv{resource="prp-irp.csv"} .
+@export clsCom :- csv{resource="cls-com.csv"} .

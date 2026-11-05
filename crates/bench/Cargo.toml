@@ -9,6 +9,8 @@ publish = false
 
 [dependencies]
 turbowl.workspace = true
+# The rule program Nemo runs, composed from oracles/rules/.
+turbowl-oracle = { path = "../oracle" }
 oxrdf.workspace = true
 # Reads the change streams of the incremental scenarios from the input files.
 oxttl.workspace = true

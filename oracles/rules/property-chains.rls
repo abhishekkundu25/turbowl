@@ -1,0 +1,15 @@
+% The `property-chains` switch: owl:propertyChainAxiom (Table 5).
+%
+% prp-spo2: p propertyChainAxiom (p1 ... pn), u0 p1 u1 ... pn un => u0 p un.
+% chainCell(?l): a cell of a chain list, reached from an axiom's head.
+% chainFrom(?l, ?u, ?w): from ?u, the properties of the cells from ?l to the
+% end of the list lead to ?w.
+chainCell(?l) :- T(?p, owl:propertyChainAxiom, ?l) .
+chainCell(?r) :- chainCell(?l), T(?l, rdf:rest, ?r), ?r != rdf:nil .
+chainFrom(?l, ?u, ?v) :- chainCell(?l), T(?l, rdf:rest, rdf:nil), T(?l, rdf:first, ?q), Tp(?q, ?u, ?v) .
+chainFrom(?l, ?u, ?w) :- chainCell(?l), T(?l, rdf:first, ?q), Tp(?q, ?u, ?v),
+    T(?l, rdf:rest, ?r), ?r != rdf:nil, chainFrom(?r, ?v, ?w) .
+T(?u, ?p, ?w) :- T(?p, owl:propertyChainAxiom, ?l), chainFrom(?l, ?u, ?w) .        % prp-spo2
+
+% chainFrom reads Tp: the members of a chain are used properties.
+usedProp(?q) :- chainCell(?l), T(?l, rdf:first, ?q) .

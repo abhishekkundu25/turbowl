@@ -1,0 +1,3 @@
+% The `trivial` switch: triples that hold of every term, class, property or
+% literal (Tables 4, 5, 8 and 9).
+% to come: eq-ref, scm-cls, scm-op, scm-dp, prp-ap, dt-type1, dt-type2

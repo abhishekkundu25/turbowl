@@ -1,0 +1,3 @@
+% The `schema` switch: the schema rules beyond the class hierarchy (Table 9).
+% to come: scm-eqc2, scm-spo, scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2
+% to come: scm-hv, scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni

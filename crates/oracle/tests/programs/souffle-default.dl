@@ -1,0 +1,224 @@
+// Composed by crates/oracle (src/programs.rs) from oracles/rules/: do not edit.
+// Groups: core, equality, property-chains, checks, identity, schema.
+
+.decl T(a0: symbol, a1: symbol, a2: symbol)
+.decl Tp(a0: symbol, a1: symbol, a2: symbol)
+.decl allTypes(a0: symbol, a1: symbol)
+.decl caxDw(a0: symbol, a1: symbol, a2: symbol)
+.decl chainCell(a0: symbol)
+.decl chainFrom(a0: symbol, a1: symbol, a2: symbol)
+.decl clsCom(a0: symbol, a1: symbol, a2: symbol)
+.decl clsNothing(a0: symbol)
+.decl equivalentClassOf(a0: symbol, a1: symbol)
+.decl input_(a0: symbol, a1: symbol, a2: symbol)
+.decl listCell(a0: symbol, a1: symbol)
+.decl member(a0: symbol, a1: symbol)
+.decl memberFrom(a0: symbol, a1: symbol)
+.decl prpAsyp(a0: symbol, a1: symbol, a2: symbol)
+.decl prpIrp(a0: symbol, a1: symbol)
+.decl prpPdw(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
+.decl usedProp(a0: symbol)
+.decl wellFormed(a0: symbol)
+
+// oracles/rules/core.rls
+
+// The OWL 2 RL rules as Datalog, one file per switch group
+// (docs/specs/v2-1-scoreboard-and-rules.md, "The switches"; ADR 0005). This
+// file is the always-on core; each other file is named after its switch
+// (`turbowl::Switch::name`). crates/oracle (src/programs.rs) composes the
+// program for a configuration, this file first and then the file of each
+// switch that is on, and emits it for Nemo (the files as they are), Soufflé
+// and VLog (translated). The bench's Nemo engine runs the same program.
+//
+// Each rule is written as the W3C tables (https://www.w3.org/TR/owl2-profiles/
+// section 4.3) state it, with its W3C name as the comment that ends it. A
+// rule not written yet is listed as `% to come: <name>` in its group's file.
+// No owl:Thing typing of subjects, no container-membership axioms (neither
+// is an OWL 2 RL rule). Every list (owl:intersectionOf, owl:unionOf,
+// owl:propertyChainAxiom) of a class or property is read, including lists
+// and list cells derived during the run; a cyclic list, which never reaches
+// rdf:nil, matches nothing.
+//
+// The rules run over generalized triples, as the W3C tables do: a triple with
+// a literal subject (prp-rng on a literal object, prp-fp with a literal value)
+// is derived and joins like any other, and crates/oracle drops it from the
+// closure it reads back, since RDF cannot write it.
+//
+// Conventions every group file keeps:
+// - The prefixes and the input are declared here only.
+// - Input: <dir>/input.nt, read into T. crates/oracle encodes every literal
+//   and blank node as an IRI first (the rules only compare terms, never
+//   values), so an engine never reinterprets a literal (Nemo would normalise
+//   "01"^^xsd:integer to 1).
+// - Output: <dir>/closure.nt (T) and one CSV per rule that concludes
+//   `false`, named after the rule, exported by the group that holds it.
+// - A rule whose body has T(?x, ?p, ?y) with a variable predicate reads
+//   Tp(?p, ?x, ?y) instead, and its group adds a usedProp rule for the
+//   schema triple that binds ?p (see below).
+//
+// Run by crates/oracle (src/nemo.rs) with nmo from tools/nemo:
+//   nmo -o -I <dir> -D <dir> <the composed program>
+
+.input input_(IO=file, filename="input.tsv", delimiter="\t")
+
+T(s, p, o) :- input_(s, p, o).
+
+T("<http://www.w3.org/2002/07/owl#Thing>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Class>").  // cls-thing
+T("<http://www.w3.org/2002/07/owl#Nothing>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Class>").  // cls-nothing1
+
+// Speed, not semantics: a body atom T(?x, ?p, ?y) whose predicate is a
+// variable makes Nemo scan all of T when it joins that atom first (99% of the
+// time on LUBM). Every rule with such an atom reads Tp(?p, ?x, ?y) instead:
+// the triples of T, predicate first, for the properties some schema triple
+// names in that position (usedProp). Each rule's ?p is bound by such a
+// schema triple, so Tp holds every T triple the rule can match: the rules
+// derive exactly what they would with T. The usedProp rules below serve the
+// core; each group adds those its own rules need.
+usedProp(p) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#domain>", _).
+usedProp(p) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#range>", _).
+usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#FunctionalProperty>").
+usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#InverseFunctionalProperty>").
+usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#SymmetricProperty>").
+usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#TransitiveProperty>").
+usedProp(p) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", _).
+usedProp(p) :- T(p, "<http://www.w3.org/2002/07/owl#equivalentProperty>", _).
+usedProp(q) :- T(_, "<http://www.w3.org/2002/07/owl#equivalentProperty>", q).
+usedProp(p) :- T(p, "<http://www.w3.org/2002/07/owl#inverseOf>", _).
+usedProp(q) :- T(_, "<http://www.w3.org/2002/07/owl#inverseOf>", q).
+usedProp(p) :- T(_, "<http://www.w3.org/2002/07/owl#onProperty>", p).
+Tp(p, x, y) :- usedProp(p), T(x, p, y).
+
+// Table 5: property axioms
+T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#domain>", c), Tp(p, x, _).  // prp-dom
+T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#range>", c), Tp(p, _, y).  // prp-rng
+T(y1, "<http://www.w3.org/2002/07/owl#sameAs>", y2) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#FunctionalProperty>"), Tp(p, x, y1), Tp(p, x, y2).  // prp-fp
+T(x1, "<http://www.w3.org/2002/07/owl#sameAs>", x2) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#InverseFunctionalProperty>"), Tp(p, x1, y), Tp(p, x2, y).  // prp-ifp
+T(y, p, x) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#SymmetricProperty>"), Tp(p, x, y).  // prp-symp
+T(x, p, z) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#TransitiveProperty>"), Tp(p, x, y), Tp(p, y, z).  // prp-trp
+T(x, p2, y) :- T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), Tp(p1, x, y).  // prp-spo1
+T(x, p2, y) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2), Tp(p1, x, y).  // prp-eqp1
+T(x, p1, y) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2), Tp(p2, x, y).  // prp-eqp2
+T(y, p2, x) :- T(p1, "<http://www.w3.org/2002/07/owl#inverseOf>", p2), Tp(p1, x, y).  // prp-inv1
+T(y, p1, x) :- T(p1, "<http://www.w3.org/2002/07/owl#inverseOf>", p2), Tp(p2, x, y).  // prp-inv2
+
+// Lists read from the heads of intersections and unions (asserted or derived).
+// rdf:rest stops at rdf:nil: it is never a later cell, whatever triples it
+// has, though it can be a head (so every recursion over rdf:rest excludes it).
+// member(?h, ?c): ?c is a member of the well-formed list whose head is ?h.
+listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#intersectionOf>", h).
+listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#unionOf>", h).
+listCell(h, r) :- listCell(h, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".
+// wellFormed(?l): from cell ?l, every cell has an rdf:first and the rdf:rest
+// path reaches rdf:nil (the W3C LIST[...] form).
+wellFormed(l) :- listCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", _), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>").
+wellFormed(l) :- listCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", _), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", wellFormed(r).
+// memberFrom(?l, ?c): ?c is the rdf:first of ?l or of a later cell, on a
+// well-formed path from ?l to rdf:nil.
+memberFrom(l, c) :- wellFormed(l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", c).
+memberFrom(l, c) :- wellFormed(l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", memberFrom(r, c).
+member(h, c) :- listCell(h, h), memberFrom(h, c).
+// allTypes(?l, ?y): ?y has every type from cell ?l to the end of the list.
+allTypes(l, y) :- listCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", c), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>"), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c).
+allTypes(l, y) :- listCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", c), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", allTypes(r, y).
+
+// Table 6: classes
+T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c) :- T(c, "<http://www.w3.org/2002/07/owl#intersectionOf>", h), allTypes(h, y).  // cls-int1
+T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", ci) :- T(c, "<http://www.w3.org/2002/07/owl#intersectionOf>", h), member(h, ci), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c).  // cls-int2
+T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c) :- T(c, "<http://www.w3.org/2002/07/owl#unionOf>", h), member(h, ci), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", ci).  // cls-uni
+T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://www.w3.org/2002/07/owl#someValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), Tp(p, u, v), T(v, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", y).  // cls-svf1
+T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://www.w3.org/2002/07/owl#someValuesFrom>", "<http://www.w3.org/2002/07/owl#Thing>"), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), Tp(p, u, _).  // cls-svf2
+T(v, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", y) :- T(x, "<http://www.w3.org/2002/07/owl#allValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x), Tp(p, u, v).  // cls-avf
+T(u, p, y) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x).  // cls-hv1
+T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), Tp(p, u, y).  // cls-hv2
+// to come: cls-oo
+
+// Table 7: class axioms
+T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2) :- T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1).  // cax-sco
+T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2) :- T(c1, "<http://www.w3.org/2002/07/owl#equivalentClass>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1).  // cax-eqc1
+// cax-eqc2 reads the equivalence through equivalentClassOf (?c2 first), so it
+// joins as cax-eqc1 and cax-sco do; written with T(?c1, owl:equivalentClass,
+// ?c2) first, Nemo took 99% of four minutes on LUBM in this one rule.
+equivalentClassOf(c2, c1) :- T(c1, "<http://www.w3.org/2002/07/owl#equivalentClass>", c2).
+T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1) :- equivalentClassOf(c2, c1), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2).  // cax-eqc2
+
+// Table 9: schema vocabulary (the class hierarchy; the rest is the schema group)
+T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c3) :- T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2), T(c2, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c3).  // scm-sco
+T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- T(c1, "<http://www.w3.org/2002/07/owl#equivalentClass>", c2).  // scm-eqc1
+T(c2, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c1) :- T(c1, "<http://www.w3.org/2002/07/owl#equivalentClass>", c2).  // scm-eqc1
+
+.output T(IO=file, filename="closure.tsv", delimiter="\t")
+
+// oracles/rules/equality.rls
+
+// The `equality` switch: owl:sameAs makes terms equal (Table 4).
+
+T(y, "<http://www.w3.org/2002/07/owl#sameAs>", x) :- T(x, "<http://www.w3.org/2002/07/owl#sameAs>", y).  // eq-sym
+T(x, "<http://www.w3.org/2002/07/owl#sameAs>", z) :- T(x, "<http://www.w3.org/2002/07/owl#sameAs>", y), T(y, "<http://www.w3.org/2002/07/owl#sameAs>", z).  // eq-trans
+T(s2, p, o) :- T(s, "<http://www.w3.org/2002/07/owl#sameAs>", s2), T(s, p, o).  // eq-rep-s
+T(s, p2, o) :- T(p, "<http://www.w3.org/2002/07/owl#sameAs>", p2), Tp(p, s, o).  // eq-rep-p
+T(s, p, o2) :- T(o, "<http://www.w3.org/2002/07/owl#sameAs>", o2), T(s, p, o).  // eq-rep-o
+
+// eq-rep-p reads Tp: the subject of a sameAs triple is a used property.
+usedProp(p) :- T(p, "<http://www.w3.org/2002/07/owl#sameAs>", _).
+
+// oracles/rules/property-chains.rls
+
+// The `property-chains` switch: owl:propertyChainAxiom (Table 5).
+//
+// prp-spo2: p propertyChainAxiom (p1 ... pn), u0 p1 u1 ... pn un => u0 p un.
+// chainCell(?l): a cell of a chain list, reached from an axiom's head.
+// chainFrom(?l, ?u, ?w): from ?u, the properties of the cells from ?l to the
+// end of the list lead to ?w.
+chainCell(l) :- T(_, "<http://www.w3.org/2002/07/owl#propertyChainAxiom>", l).
+chainCell(r) :- chainCell(l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".
+chainFrom(l, u, v) :- chainCell(l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>"), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", q), Tp(q, u, v).
+chainFrom(l, u, w) :- chainCell(l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", q), Tp(q, u, v), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", chainFrom(r, v, w).
+T(u, p, w) :- T(p, "<http://www.w3.org/2002/07/owl#propertyChainAxiom>", l), chainFrom(l, u, w).  // prp-spo2
+
+// chainFrom reads Tp: the members of a chain are used properties.
+usedProp(q) :- chainCell(l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", q).
+
+// oracles/rules/checks.rls
+
+// The `checks` switch: the W3C rules that conclude `false`, and dt-not-type.
+// Each rule derives a relation with its terms in the order documented on
+// `Finding` (crates/oracle/src/closure.rs), exported to a CSV named after the
+// rule.
+
+caxDw(x, c1, c2) :- T(c1, "<http://www.w3.org/2002/07/owl#disjointWith>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2).  // cax-dw
+prpPdw(p1, p2, x, y) :- T(p1, "<http://www.w3.org/2002/07/owl#propertyDisjointWith>", p2), Tp(p1, x, y), Tp(p2, x, y).  // prp-pdw
+clsNothing(x) :- T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Nothing>").  // cls-nothing2
+prpAsyp(p, x, y) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AsymmetricProperty>"), Tp(p, x, y), Tp(p, y, x).  // prp-asyp
+prpIrp(p, x) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#IrreflexiveProperty>"), Tp(p, x, x).  // prp-irp
+clsCom(c1, c2, x) :- T(c1, "<http://www.w3.org/2002/07/owl#complementOf>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2).  // cls-com
+// to come: cax-adc, cls-maxc1, cls-maxqc1, cls-maxqc2, prp-adp, prp-npa1, prp-npa2
+// to come: eq-diff1, eq-diff2, eq-diff3
+
+// The engines have no datatype checks: literals reach them as opaque IRIs.
+// dt-not-type is judged by OWL-RL, the W3C tests and the reference evaluator.
+// left out: dt-not-type
+
+// prp-pdw, prp-asyp and prp-irp read Tp.
+usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AsymmetricProperty>").
+usedProp(p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#IrreflexiveProperty>").
+usedProp(p) :- T(p, "<http://www.w3.org/2002/07/owl#propertyDisjointWith>", _).
+usedProp(q) :- T(_, "<http://www.w3.org/2002/07/owl#propertyDisjointWith>", q).
+
+.output caxDw(IO=file, filename="cax-dw.tsv", delimiter="\t")
+.output prpPdw(IO=file, filename="prp-pdw.tsv", delimiter="\t")
+.output clsNothing(IO=file, filename="cls-nothing2.tsv", delimiter="\t")
+.output prpAsyp(IO=file, filename="prp-asyp.tsv", delimiter="\t")
+.output prpIrp(IO=file, filename="prp-irp.tsv", delimiter="\t")
+.output clsCom(IO=file, filename="cls-com.tsv", delimiter="\t")
+
+// oracles/rules/identity.rls
+
+// The `identity` switch: keys and cardinalities that make individuals the
+// same (Tables 5 and 6).
+// to come: prp-key, cls-maxc2, cls-maxqc3, cls-maxqc4
+
+// oracles/rules/schema.rls
+
+// The `schema` switch: the schema rules beyond the class hierarchy (Table 9).
+// to come: scm-eqc2, scm-spo, scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2
+// to come: scm-hv, scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni

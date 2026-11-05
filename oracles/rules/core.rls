@@ -1,25 +1,39 @@
-% The OWL 2 RL rule set of TurbOWL version 1 (docs/specs/v1.md, "The
-% rule set of version 1"), as a Nemo program: the rules of the W3C OWL 2 RL
-% tables (https://www.w3.org/TR/owl2-profiles/ section 4.3) written as the
-% standard states them, and no others. No owl:Thing typing of subjects, no
-% container-membership axioms (neither is an OWL 2 RL rule). Every list
-% (owl:intersectionOf, owl:unionOf, owl:propertyChainAxiom) of a class or
-% property is read, including lists and list cells derived during the run; a
-% cyclic list, which never reaches rdf:nil, matches nothing.
+% The OWL 2 RL rules as Datalog, one file per switch group
+% (docs/specs/v2-1-scoreboard-and-rules.md, "The switches"; ADR 0005). This
+% file is the always-on core; each other file is named after its switch
+% (`turbowl::Switch::name`). crates/oracle (src/programs.rs) composes the
+% program for a configuration, this file first and then the file of each
+% switch that is on, and emits it for Nemo (the files as they are), Soufflé
+% and VLog (translated). The bench's Nemo engine runs the same program.
+%
+% Each rule is written as the W3C tables (https://www.w3.org/TR/owl2-profiles/
+% section 4.3) state it, with its W3C name as the comment that ends it. A
+% rule not written yet is listed as `% to come: <name>` in its group's file.
+% No owl:Thing typing of subjects, no container-membership axioms (neither
+% is an OWL 2 RL rule). Every list (owl:intersectionOf, owl:unionOf,
+% owl:propertyChainAxiom) of a class or property is read, including lists
+% and list cells derived during the run; a cyclic list, which never reaches
+% rdf:nil, matches nothing.
 %
 % The rules run over generalized triples, as the W3C tables do: a triple with
 % a literal subject (prp-rng on a literal object, prp-fp with a literal value)
 % is derived and joins like any other, and crates/oracle drops it from the
 % closure it reads back, since RDF cannot write it.
 %
+% Conventions every group file keeps:
+% - The prefixes and the input are declared here only.
+% - Input: <dir>/input.nt, read into T. crates/oracle encodes every literal
+%   and blank node as an IRI first (the rules only compare terms, never
+%   values), so an engine never reinterprets a literal (Nemo would normalise
+%   "01"^^xsd:integer to 1).
+% - Output: <dir>/closure.nt (T) and one CSV per rule that concludes
+%   `false`, named after the rule, exported by the group that holds it.
+% - A rule whose body has T(?x, ?p, ?y) with a variable predicate reads
+%   Tp(?p, ?x, ?y) instead, and its group adds a usedProp rule for the
+%   schema triple that binds ?p (see below).
+%
 % Run by crates/oracle (src/nemo.rs) with nmo from tools/nemo:
-%   nmo -o -I <dir> -D <dir> <this file>
-% Input: <dir>/input.nt. crates/oracle encodes every literal and blank node
-% as an IRI first (the rules only compare terms, never values), so Nemo never
-% reinterprets a literal (it would normalise "01"^^xsd:integer to 1). Nemo
-% therefore has no datatype checks: dt-not-type is judged by OWL-RL, the W3C
-% tests and the reference evaluator.
-% Output: <dir>/closure.nt and one CSV per diagnostic rule, named after it.
+%   nmo -o -I <dir> -D <dir> <the composed program>
 
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -29,42 +43,29 @@
 
 T(?s, ?p, ?o) :- input(?s, ?p, ?o) .
 
-% cls-thing, cls-nothing1
-T(owl:Thing, rdf:type, owl:Class) .
-T(owl:Nothing, rdf:type, owl:Class) .
-
-% Table 4: equality (eq-ref and eq-diff* are not in version 1)
-T(?y, owl:sameAs, ?x) :- T(?x, owl:sameAs, ?y) .                                   % eq-sym
-T(?x, owl:sameAs, ?z) :- T(?x, owl:sameAs, ?y), T(?y, owl:sameAs, ?z) .            % eq-trans
-T(?s2, ?p, ?o) :- T(?s, owl:sameAs, ?s2), T(?s, ?p, ?o) .                          % eq-rep-s
-T(?s, ?p2, ?o) :- T(?p, owl:sameAs, ?p2), Tp(?p, ?s, ?o) .                         % eq-rep-p
-T(?s, ?p, ?o2) :- T(?o, owl:sameAs, ?o2), T(?s, ?p, ?o) .                          % eq-rep-o
+T(owl:Thing, rdf:type, owl:Class) .                                                % cls-thing
+T(owl:Nothing, rdf:type, owl:Class) .                                              % cls-nothing1
 
 % Speed, not semantics: a body atom T(?x, ?p, ?y) whose predicate is a
 % variable makes Nemo scan all of T when it joins that atom first (99% of the
-% time on LUBM). Every rule below with such an atom reads Tp(?p, ?x, ?y)
-% instead: the triples of T, predicate first, for the properties some schema
-% triple names in that position (usedProp). Each rule's ?p is bound by such a
+% time on LUBM). Every rule with such an atom reads Tp(?p, ?x, ?y) instead:
+% the triples of T, predicate first, for the properties some schema triple
+% names in that position (usedProp). Each rule's ?p is bound by such a
 % schema triple, so Tp holds every T triple the rule can match: the rules
-% derive exactly what they would with T.
+% derive exactly what they would with T. The usedProp rules below serve the
+% core; each group adds those its own rules need.
 usedProp(?p) :- T(?p, rdfs:domain, ?c) .
 usedProp(?p) :- T(?p, rdfs:range, ?c) .
 usedProp(?p) :- T(?p, rdf:type, owl:FunctionalProperty) .
 usedProp(?p) :- T(?p, rdf:type, owl:InverseFunctionalProperty) .
 usedProp(?p) :- T(?p, rdf:type, owl:SymmetricProperty) .
 usedProp(?p) :- T(?p, rdf:type, owl:TransitiveProperty) .
-usedProp(?p) :- T(?p, rdf:type, owl:AsymmetricProperty) .
-usedProp(?p) :- T(?p, rdf:type, owl:IrreflexiveProperty) .
 usedProp(?p) :- T(?p, rdfs:subPropertyOf, ?q) .
 usedProp(?p) :- T(?p, owl:equivalentProperty, ?q) .
 usedProp(?q) :- T(?p, owl:equivalentProperty, ?q) .
 usedProp(?p) :- T(?p, owl:inverseOf, ?q) .
 usedProp(?q) :- T(?p, owl:inverseOf, ?q) .
-usedProp(?p) :- T(?p, owl:propertyDisjointWith, ?q) .
-usedProp(?q) :- T(?p, owl:propertyDisjointWith, ?q) .
 usedProp(?p) :- T(?x, owl:onProperty, ?p) .
-usedProp(?q) :- chainCell(?l), T(?l, rdf:first, ?q) .
-usedProp(?p) :- T(?p, owl:sameAs, ?q) .
 Tp(?p, ?x, ?y) :- usedProp(?p), T(?x, ?p, ?y) .
 
 % Table 5: property axioms
@@ -82,17 +83,6 @@ T(?x, ?p2, ?y) :- T(?p1, owl:equivalentProperty, ?p2), Tp(?p1, ?x, ?y) .        
 T(?x, ?p1, ?y) :- T(?p1, owl:equivalentProperty, ?p2), Tp(?p2, ?x, ?y) .           % prp-eqp2
 T(?y, ?p2, ?x) :- T(?p1, owl:inverseOf, ?p2), Tp(?p1, ?x, ?y) .                    % prp-inv1
 T(?y, ?p1, ?x) :- T(?p1, owl:inverseOf, ?p2), Tp(?p2, ?x, ?y) .                    % prp-inv2
-
-% prp-spo2: p propertyChainAxiom (p1 ... pn), u0 p1 u1 ... pn un => u0 p un.
-% chainCell(?l): a cell of a chain list, reached from an axiom's head.
-% chainFrom(?l, ?u, ?w): from ?u, the properties of the cells from ?l to the
-% end of the list lead to ?w.
-chainCell(?l) :- T(?p, owl:propertyChainAxiom, ?l) .
-chainCell(?r) :- chainCell(?l), T(?l, rdf:rest, ?r), ?r != rdf:nil .
-chainFrom(?l, ?u, ?v) :- chainCell(?l), T(?l, rdf:rest, rdf:nil), T(?l, rdf:first, ?q), Tp(?q, ?u, ?v) .
-chainFrom(?l, ?u, ?w) :- chainCell(?l), T(?l, rdf:first, ?q), Tp(?q, ?u, ?v),
-    T(?l, rdf:rest, ?r), ?r != rdf:nil, chainFrom(?r, ?v, ?w) .
-T(?u, ?p, ?w) :- T(?p, owl:propertyChainAxiom, ?l), chainFrom(?l, ?u, ?w) .
 
 % Lists read from the heads of intersections and unions (asserted or derived).
 % rdf:rest stops at rdf:nil: it is never a later cell, whatever triples it
@@ -131,6 +121,7 @@ T(?u, ?p, ?y) :- T(?x, owl:hasValue, ?y), T(?x, owl:onProperty, ?p),
     T(?u, rdf:type, ?x) .                                                          % cls-hv1
 T(?u, rdf:type, ?x) :- T(?x, owl:hasValue, ?y), T(?x, owl:onProperty, ?p),
     Tp(?p, ?u, ?y) .                                                               % cls-hv2
+% to come: cls-oo
 
 % Table 7: class axioms
 T(?x, rdf:type, ?c2) :- T(?c1, rdfs:subClassOf, ?c2), T(?x, rdf:type, ?c1) .      % cax-sco
@@ -141,24 +132,9 @@ T(?x, rdf:type, ?c2) :- T(?c1, owl:equivalentClass, ?c2), T(?x, rdf:type, ?c1) .
 equivalentClassOf(?c2, ?c1) :- T(?c1, owl:equivalentClass, ?c2) .
 T(?x, rdf:type, ?c1) :- equivalentClassOf(?c2, ?c1), T(?x, rdf:type, ?c2) .        % cax-eqc2
 
-% Table 9: schema vocabulary (scm-sco and scm-eqc1 only)
+% Table 9: schema vocabulary (the class hierarchy; the rest is the schema group)
 T(?c1, rdfs:subClassOf, ?c3) :- T(?c1, rdfs:subClassOf, ?c2), T(?c2, rdfs:subClassOf, ?c3) .  % scm-sco
 T(?c1, rdfs:subClassOf, ?c2) :- T(?c1, owl:equivalentClass, ?c2) .                 % scm-eqc1
 T(?c2, rdfs:subClassOf, ?c1) :- T(?c1, owl:equivalentClass, ?c2) .                 % scm-eqc1
 
-% Inconsistencies: the W3C rules that conclude `false`, each with its terms in
-% the order documented on `Finding` (crates/oracle/src/closure.rs).
-caxDw(?x, ?c1, ?c2) :- T(?c1, owl:disjointWith, ?c2), T(?x, rdf:type, ?c1), T(?x, rdf:type, ?c2) .
-prpPdw(?p1, ?p2, ?x, ?y) :- T(?p1, owl:propertyDisjointWith, ?p2), Tp(?p1, ?x, ?y), Tp(?p2, ?x, ?y) .
-clsNothing(?x) :- T(?x, rdf:type, owl:Nothing) .
-prpAsyp(?p, ?x, ?y) :- T(?p, rdf:type, owl:AsymmetricProperty), Tp(?p, ?x, ?y), Tp(?p, ?y, ?x) .
-prpIrp(?p, ?x) :- T(?p, rdf:type, owl:IrreflexiveProperty), Tp(?p, ?x, ?x) .
-clsCom(?c1, ?c2, ?x) :- T(?c1, owl:complementOf, ?c2), T(?x, rdf:type, ?c1), T(?x, rdf:type, ?c2) .
-
 @export T :- ntriples{resource="closure.nt"} .
-@export caxDw :- csv{resource="cax-dw.csv"} .
-@export prpPdw :- csv{resource="prp-pdw.csv"} .
-@export clsNothing :- csv{resource="cls-nothing2.csv"} .
-@export prpAsyp :- csv{resource="prp-asyp.csv"} .
-@export prpIrp :- csv{resource="prp-irp.csv"} .
-@export clsCom :- csv{resource="cls-com.csv"} .

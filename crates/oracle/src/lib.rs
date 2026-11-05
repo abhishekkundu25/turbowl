@@ -6,7 +6,7 @@
 //!
 //! | Oracle | Runs | Judges |
 //! |---|---|---|
-//! | Nemo ([`nemo`]) | `tools/nemo/nmo` on `oracles/nemo/owl2rl.rls` | the closure and the findings exactly (dt-not-type aside), on another engine |
+//! | Nemo ([`nemo`]) | `tools/nemo/nmo` on the program [`programs`] composes from `oracles/rules/` | the closure and the findings exactly (dt-not-type aside), on another engine |
 //! | OWL-RL ([`owlrl`]) | `uv run` in `oracles/owlrl/` | containment: it implements more rules, so ours ⊆ OWL-RL after the [`Fault`] filters |
 //! | HermiT ([`hermit`]) | `tools/jre` + `tools/hermit` | soundness of inferred class and property subsumptions |
 //! | the W3C tests ([`w3c`]) | `data/w3c/` | the standard's own expected entailments; every case Nemo passes is required of us |
@@ -14,7 +14,9 @@
 //! | TurbOWL ([`ours`]) | the [`turbowl::Reasoner`] interface | (the system under test) |
 //!
 //! The competitors (`CONTEXT.md`) are measured for speed and memory in
-//! `crates/bench`; only the oracles above judge correctness.
+//! `crates/bench`; only the oracles above judge correctness. The Datalog
+//! engines among them run the programs [`programs`] emits from the same
+//! rule source as the Nemo oracle.
 //!
 //! Tools and data are fetched by `scripts/fetch-tools.sh` and
 //! `scripts/fetch-data.sh`. An oracle that is not installed returns
@@ -34,6 +36,7 @@ pub mod nemo;
 pub mod ours;
 pub mod owlrl;
 mod process;
+pub mod programs;
 mod triangulate;
 pub mod w3c;
 

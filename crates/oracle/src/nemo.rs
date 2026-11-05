@@ -1,36 +1,37 @@
-//! The Nemo oracle: `oracles/nemo/owl2rl.rls` (the W3C forms of exactly the
-//! rules version 1 implements, as Datalog) run by Nemo's `nmo` (0.10.1,
-//! pinned in `scripts/fetch-tools.sh`). It is the same rule set on a
-//! different engine, so it judges the closure and the findings exactly
-//! (dt-not-type aside: literals reach Nemo as opaque IRIs).
+//! The Nemo oracle: the W3C forms of the rules, as Datalog, composed from
+//! `oracles/rules/` for a configuration ([`crate::programs::nemo`]) and run
+//! by Nemo's `nmo` (0.10.1, pinned in `scripts/fetch-tools.sh`). It is the
+//! same rule set on a different engine, so it judges the closure and the
+//! findings exactly (dt-not-type aside: literals reach Nemo as opaque IRIs).
 
 use crate::input::Codec;
 use crate::process::{run as run_process, scratch_dir, timeout};
-use crate::{Closure, Finding, Input, Outcome, fetched_version, tools_dir, workspace_root};
+use crate::{Closure, Finding, Input, Outcome, fetched_version, tools_dir};
 use oxrdf::{NamedNode, Term};
 use oxttl::NTriplesParser;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use turbowl::Switches;
 
 /// The pinned version.
 pub const VERSION: &str = "0.10.1";
 
-/// The finding codes the program derives (no datatype checks: literals reach
-/// Nemo as opaque IRIs).
+/// The finding codes the program derives in the default configuration (no
+/// datatype checks: literals reach Nemo as opaque IRIs).
 pub const CODES: &[&str] = &["cax-dw", "prp-pdw", "cls-nothing2", "prp-asyp", "prp-irp", "cls-com"];
-
-/// `oracles/nemo/owl2rl.rls`.
-pub fn program() -> PathBuf {
-    workspace_root().join("oracles/nemo/owl2rl.rls")
-}
 
 /// `tools/nemo/nmo`.
 pub fn binary() -> PathBuf {
     tools_dir().join("nemo/nmo")
 }
 
-/// Runs the program on the input.
+/// Runs the program of the default configuration on the input.
 pub fn run(input: &Input) -> Outcome {
+    run_with(input, Switches::default())
+}
+
+/// Runs the program of the configuration on the input.
+pub fn run_with(input: &Input, switches: Switches) -> Outcome {
     let nmo = binary();
     match fetched_version(&tools_dir().join("nemo")) {
         Some(v) if v == VERSION && nmo.exists() => {}
@@ -46,10 +47,7 @@ pub fn run(input: &Input) -> Outcome {
         Ok(d) => d,
         Err(e) => return Outcome::Failed(e),
     };
-    let program = match std::fs::read_to_string(program()) {
-        Ok(p) => p,
-        Err(e) => return Outcome::Failed(format!("oracles/nemo/owl2rl.rls: {e}")),
-    };
+    let program = crate::programs::nemo(switches);
     let mut codec = Codec::new(true);
     let encoded: Vec<_> = input.triples().iter().map(|t| codec.encode_triple(t)).collect();
     let written = std::fs::write(dir.join("program.rls"), program)
@@ -84,9 +82,19 @@ fn read(codec: &Codec, out: &Path) -> Result<Closure, String> {
         let t = t.map_err(|e| e.to_string())?;
         triples.extend(codec.decode_triple(t.subject.into(), t.predicate.into(), t.object));
     }
+    // One CSV per rule that concludes `false` in the configuration, named
+    // after the rule.
     let mut findings = Vec::new();
-    for code in CODES {
-        let path = out.join(format!("{code}.csv"));
+    let entries = std::fs::read_dir(out).map_err(|e| format!("{}: {e}", out.display()))?;
+    for entry in entries {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        let Some(code) = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|n| n.strip_suffix(".csv"))
+        else {
+            continue;
+        };
         let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
         for line in text.lines().filter(|l| !l.is_empty()) {
             let terms = csv_fields(line)
@@ -98,7 +106,7 @@ fn read(codec: &Codec, out: &Path) -> Result<Closure, String> {
                         .map_err(|e| format!("{code}: {f}: {e}"))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-            findings.push(Finding::new(*code, terms));
+            findings.push(Finding::new(code, terms));
         }
     }
     Ok(Closure::new(triples, findings))

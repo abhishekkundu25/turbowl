@@ -352,6 +352,7 @@ dependencies = [
  "oxttl",
  "serde_json",
  "turbowl",
+ "turbowl-oracle",
 ]
 
 [[package]]
