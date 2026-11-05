@@ -11,9 +11,9 @@
 % rule not written yet is listed as `% to come: <name>` in its group's file.
 % No owl:Thing typing of subjects, no container-membership axioms (neither
 % is an OWL 2 RL rule). Every list (owl:intersectionOf, owl:unionOf,
-% owl:propertyChainAxiom) of a class or property is read, including lists
-% and list cells derived during the run; a cyclic list, which never reaches
-% rdf:nil, matches nothing.
+% owl:oneOf, owl:propertyChainAxiom) of a class or property is read,
+% including lists and list cells derived during the run; a cyclic list,
+% which never reaches rdf:nil, matches nothing.
 %
 % The rules run over generalized triples, as the W3C tables do: a triple with
 % a literal subject (prp-rng on a literal object, prp-fp with a literal value)
@@ -84,12 +84,14 @@ T(?x, ?p1, ?y) :- T(?p1, owl:equivalentProperty, ?p2), Tp(?p2, ?x, ?y) .        
 T(?y, ?p2, ?x) :- T(?p1, owl:inverseOf, ?p2), Tp(?p1, ?x, ?y) .                    % prp-inv1
 T(?y, ?p1, ?x) :- T(?p1, owl:inverseOf, ?p2), Tp(?p2, ?x, ?y) .                    % prp-inv2
 
-% Lists read from the heads of intersections and unions (asserted or derived).
+% Lists read from the heads of intersections, unions and enumerations
+% (asserted or derived).
 % rdf:rest stops at rdf:nil: it is never a later cell, whatever triples it
 % has, though it can be a head (so every recursion over rdf:rest excludes it).
 % member(?h, ?c): ?c is a member of the well-formed list whose head is ?h.
 listCell(?h, ?h) :- T(?c, owl:intersectionOf, ?h) .
 listCell(?h, ?h) :- T(?c, owl:unionOf, ?h) .
+listCell(?h, ?h) :- T(?c, owl:oneOf, ?h) .
 listCell(?h, ?r) :- listCell(?h, ?l), T(?l, rdf:rest, ?r), ?r != rdf:nil .
 % wellFormed(?l): from cell ?l, every cell has an rdf:first and the rdf:rest
 % path reaches rdf:nil (the W3C LIST[...] form).
@@ -121,7 +123,7 @@ T(?u, ?p, ?y) :- T(?x, owl:hasValue, ?y), T(?x, owl:onProperty, ?p),
     T(?u, rdf:type, ?x) .                                                          % cls-hv1
 T(?u, rdf:type, ?x) :- T(?x, owl:hasValue, ?y), T(?x, owl:onProperty, ?p),
     Tp(?p, ?u, ?y) .                                                               % cls-hv2
-% to come: cls-oo
+T(?y, rdf:type, ?c) :- T(?c, owl:oneOf, ?h), member(?h, ?y) .                      % cls-oo
 
 % Table 7: class axioms
 T(?x, rdf:type, ?c2) :- T(?c1, rdfs:subClassOf, ?c2), T(?x, rdf:type, ?c1) .      % cax-sco

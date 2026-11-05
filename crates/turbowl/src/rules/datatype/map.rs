@@ -239,7 +239,7 @@ impl Datatype {
         all
     };
 
-    fn definition(self) -> &'static Definition {
+    const fn definition(self) -> &'static Definition {
         &MAP[self as usize]
     }
 
@@ -249,8 +249,9 @@ impl Datatype {
         BY_ID.get(id.index()).copied().flatten()
     }
 
-    /// The datatype's IRI, as a vocabulary id.
-    pub(crate) fn id(self) -> TermId {
+    /// The datatype's IRI, as a vocabulary id (const: dt-type1's facts,
+    /// `rules/trivial.rs`, are made from [`Datatype::ALL`]).
+    pub(crate) const fn id(self) -> TermId {
         self.definition().id
     }
 

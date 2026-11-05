@@ -2,9 +2,7 @@
 //! cax-eqc1, cax-eqc2, cls-thing, cls-nothing1, cls-int1, cls-int2, cls-uni,
 //! cls-svf1, cls-svf2, cls-avf, cls-hv1, cls-hv2, prp-dom, prp-rng, prp-fp,
 //! prp-ifp, prp-symp, prp-trp, prp-spo1, prp-eqp1, prp-eqp2, prp-inv1,
-//! prp-inv2, scm-sco, scm-eqc1).
-//!
-//! To come: cls-oo (`owl:oneOf`), version 2's ticket 08.
+//! prp-inv2, scm-sco, scm-eqc1), and cls-oo (`owl:oneOf`, version 2).
 
 use super::{EMPTY, Family};
 use crate::evaluate::{Round, View};
@@ -40,6 +38,7 @@ pub(super) const FAMILY: Family = Family {
         "cls-avf",
         "cls-hv1",
         "cls-hv2",
+        "cls-oo",
     ],
     derive,
     ..EMPTY
@@ -192,6 +191,11 @@ fn classes(v: &View, r: &mut Round) {
             for u in v.subjects(p, y) {
                 r.derive("cls-hv2", u, &ty, x);
             }
+        }
+    }
+    for (c, head) in v.pairs(&iri("http://www.w3.org/2002/07/owl#oneOf")) {
+        for y in v.members(head) {
+            r.derive("cls-oo", &y, &ty, c);
         }
     }
 }

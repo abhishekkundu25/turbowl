@@ -40,6 +40,7 @@ pub const KNOWN: &[(&str, &str, Fault)] = &[
     ("eq-literal-typed", "OWL-RL: expectations", Fault::F5),
     ("eq-diff2", "OWL-RL: expectations", Fault::F6),
     ("eq-diff3", "OWL-RL: expectations", Fault::F6),
+    ("eq-diff2-eq-ref", "OWL-RL: expectations", Fault::F6),
 ];
 
 /// The result of one check.
@@ -185,7 +186,7 @@ fn check(mut row: Row, input: &Input, case: Option<&Case>, options: Options, swi
         let check = match row.outcome(oracle) {
             _ if !case.checked_in(switches) => not_run(name, "the case's group is off"),
             Outcome::Ran(c) => {
-                let failed = case.check(c, kind, &codes(oracle, switches));
+                let failed = case.check(c, kind, &codes(oracle, switches), switches);
                 finish(case.name, name, failed.is_empty(), failed.join("\n"))
             }
             Outcome::Failed(why) => failed(oracle, input, case.name, name, why),

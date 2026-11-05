@@ -1,7 +1,9 @@
 //! The core's minimal inputs: the class and property rules of version 1,
-//! and how lists and literals are read.
+//! cls-oo (`owl:oneOf`, version 2's), and how lists and literals are read.
 //!
-//! To come: cls-oo (`owl:oneOf`), version 2's ticket 08.
+//! `empty` and `no-thing-typing` state the exact closure (`=`). In a
+//! configuration with `trivial` on, the triples of that group's rules are
+//! left out of it (`trivial.rs`, `derives`).
 
 use super::Case;
 use turbowl::Switch;
@@ -218,6 +220,22 @@ pub(super) const CASES: &[Case] = &[
         covers: "cls-uni",
         turtle: "ex:C owl:unionOf (ex:A ex:B) . ex:x a ex:A . ex:y a ex:B .",
         expect: &["+ ex:x rdf:type ex:C", "+ ex:y rdf:type ex:C"],
+    },
+    Case {
+        group: GROUP,
+        name: "cls-oo",
+        covers: "cls-oo",
+        turtle: "ex:C owl:oneOf ( ex:a ex:b ) .",
+        expect: &["+ ex:a rdf:type ex:C", "+ ex:b rdf:type ex:C", "- ex:C rdf:type ex:C"],
+    },
+    // An enumeration whose path to rdf:nil passes a cell without an
+    // rdf:first matches nothing (the W3C LIST[...] form), as for cls-uni.
+    Case {
+        group: GROUP,
+        name: "cls-oo-cell-without-first",
+        covers: "cls-oo, lists",
+        turtle: "ex:C owl:oneOf ex:l1 . ex:l1 rdf:first ex:a ; rdf:rest ex:l2 . ex:l2 rdf:rest rdf:nil .",
+        expect: &["- ex:a rdf:type ex:C"],
     },
     Case {
         group: GROUP,

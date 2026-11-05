@@ -256,7 +256,9 @@ fn lists_need_a_first_in_every_cell_and_stop_at_nil() {
 }
 
 /// Rules outside the version 1 rule set add nothing with the `schema`
-/// group off: scm-spo, scm-sco's equivalence (scm-eqc2), eq-diff*, cls-oo.
+/// group off: scm-spo, scm-sco's equivalence (scm-eqc2), eq-diff*, and
+/// scm-op (the `trivial` group, off by default). cls-oo, version 2's, is
+/// in the core.
 #[test]
 fn rules_outside_the_set_add_nothing() {
     expect_derived("ex:p rdfs:subPropertyOf ex:q . ex:q rdfs:subPropertyOf ex:r .", "");
@@ -265,10 +267,8 @@ fn rules_outside_the_set_add_nothing() {
         "ex:A rdfs:subClassOf ex:B . ex:B rdfs:subClassOf ex:A .",
         "ex:A rdfs:subClassOf ex:A . ex:B rdfs:subClassOf ex:B .",
     );
-    expect_derived(
-        "ex:a owl:differentFrom ex:b . ex:C owl:oneOf ( ex:a ) . ex:p a owl:ObjectProperty .",
-        "",
-    );
+    expect_derived("ex:a owl:differentFrom ex:b . ex:p a owl:ObjectProperty .", "");
+    expect_derived("ex:C owl:oneOf ( ex:a ) .", "ex:a a ex:C .");
 }
 
 /// No eq-ref: only terms in an `owl:sameAs` triple are the same as

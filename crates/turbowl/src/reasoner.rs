@@ -23,12 +23,20 @@
 //!   each of its terms' classes (`rules/equality.rs`), which gives the
 //!   closure of the W3C eq-* rules, `owl:sameAs` triples among the members
 //!   included.
+//! - **eq-ref** (switch `trivial`), an output rule: `x owl:sameAs x` for
+//!   every term of the closure is added when it is read. A class of two or
+//!   more already holds its members' reflexive pairs, so the reads add
+//!   `r owl:sameAs r` only for the representatives `rules/trivial.rs` lists
+//!   after each run ([`trivial::same_as_itself`]), each expanded like a
+//!   stored triple. The store holds eq-ref only once a rule could read it
+//!   (a schema that names `owl:sameAs` as a property; `rules/trivial.rs`).
 //! - **The count of RDF triples** in the expanded closure, so that
 //!   [`Summary::inferred`] needs no pass over it: a run adds what each
 //!   round's deltas stand for, and a run that merged a class counts the
 //!   store again, since a merge rewrites stored triples (a tuple is in a
 //!   delta again, [`Variable::remap`](crate::engine::Variable::remap)) and
-//!   changes what the unchanged ones stand for.
+//!   changes what the unchanged ones stand for. eq-ref's triples are
+//!   counted apart, after each run.
 //! - **The findings**, in representatives (dt-not-type's name the literal
 //!   itself), sorted and deduplicated after each run, and their public form,
 //!   the [`Diagnostic`]s, each term expanded to every member of its class.
@@ -90,9 +98,9 @@
 use crate::Error;
 use crate::engine::{Canon, Relation, Store};
 use crate::rules::equality::{self, Weights};
-use crate::rules::{Context, FAMILIES, Family, Finding};
-use crate::term::{Dictionary, DocId, Kind, TermId};
-use crate::{Diagnostic, Switches};
+use crate::rules::{Context, FAMILIES, Family, Finding, trivial};
+use crate::term::{Dictionary, DocId, Kind, TermId, vocab};
+use crate::{Diagnostic, Switch, Switches};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
 use rustc_hash::FxHashSet;
 
@@ -149,8 +157,14 @@ pub struct Reasoner {
     /// queued for the next run (unless that run is a full one).
     closure: Store,
     state: State,
-    /// The RDF triples of the closure once expanded (base and inferred).
+    /// The RDF triples of the stored closure once expanded (base and
+    /// inferred).
     rdf: usize,
+    /// eq-ref on read (switch `trivial`): the representatives whose
+    /// `r owl:sameAs r` the reads add ([`trivial::same_as_itself`]), and
+    /// the RDF triples they stand for once expanded (all inferred).
+    same_as_itself: Vec<u32>,
+    same_as_itself_rdf: usize,
     /// The findings of the closure, in representatives, sorted and
     /// deduplicated.
     findings: Vec<Finding>,
@@ -214,6 +228,8 @@ impl Reasoner {
             closure: Store::new(),
             state: State::Full,
             rdf: 0,
+            same_as_itself: Vec::new(),
+            same_as_itself_rdf: 0,
             findings: Vec::new(),
             diagnostics: Vec::new(),
             counters: Counters::default(),
@@ -344,7 +360,7 @@ impl Reasoner {
         debug_assert!(self.rdf >= base, "the closure holds the base");
         Summary {
             base,
-            inferred: self.rdf.saturating_sub(base),
+            inferred: self.rdf.saturating_sub(base) + self.same_as_itself_rdf,
             rounds,
             diagnostics: self.diagnostics.len(),
         }
@@ -386,9 +402,13 @@ impl Reasoner {
     }
 
     /// Every triple of the closure, generalized ones included, each stored
-    /// triple expanded to the members of its terms' classes.
+    /// triple expanded to the members of its terms' classes; then eq-ref's
+    /// (none unless `trivial` is on), expanded the same way.
     fn expanded(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
-        equality::expanded(self.closure.canon(), self.closure.triples())
+        let canon = self.closure.canon();
+        let same = canon.find(vocab::OWL_SAME_AS.0);
+        let same_as_itself = self.same_as_itself.iter().map(move |&r| (r, same, r));
+        equality::expanded(canon, self.closure.triples().chain(same_as_itself))
     }
 
     /// The closure as stored, in representatives.
@@ -485,6 +505,19 @@ impl Reasoner {
                 .map(|(s, p, o)| weights.of(&self.terms, s, p, o))
                 .sum();
         }
+        self.same_as_itself.clear();
+        self.same_as_itself_rdf = 0;
+        if self.switches.is_on(Switch::Trivial) {
+            self.same_as_itself = trivial::same_as_itself(&self.closure, &self.terms);
+            let canon = self.closure.canon();
+            let same = canon.find(vocab::OWL_SAME_AS.0);
+            let weights = Weights::new(canon, &self.terms);
+            self.same_as_itself_rdf = self
+                .same_as_itself
+                .iter()
+                .map(|&r| weights.of(&self.terms, r, same, r))
+                .sum();
+        }
         if full || merged || !found.is_empty() {
             self.findings.append(&mut found);
             let canon = self.closure.canon();
@@ -526,6 +559,7 @@ impl Reasoner {
     fn rounds(&mut self, families: &[&Family], found: &mut Vec<Finding>) -> usize {
         let Self {
             terms,
+            switches,
             closure,
             rdf,
             counters,
@@ -535,7 +569,11 @@ impl Reasoner {
         // What a stored triple stands for, as the run starts: when a merge
         // changes it, the run counts the store again at its end.
         let weights = Weights::new(closure.canon(), terms);
-        let mut cx = Context { terms, findings: found };
+        let mut cx = Context {
+            terms,
+            switches: *switches,
+            findings: found,
+        };
         closure.run(|round| {
             let (tuples, triples) = delta(round.store(), terms, &weights);
             counters.delta.push(tuples);
@@ -1218,12 +1256,13 @@ mod tests {
         assert_eq!(lines(inferred.into_iter()), lines(r.inferred()));
     }
 
-    /// The toy rules under two switches: `transitive` under `trivial` (off
-    /// by default), with a fact, and `typing` under `checks`.
+    /// The toy rules under two switches: `transitive` under
+    /// `literal-values` (off by default), with a fact, and `typing` under
+    /// `checks`.
     static SWITCHED: &[Family] = &[
         Family {
             name: "transitive",
-            switch: Some(Switch::Trivial),
+            switch: Some(Switch::LiteralValues),
             rules: transitive,
             facts: &[[vocab::OWL_NOTHING, vocab::RDF_TYPE, vocab::OWL_CLASS]],
         },
@@ -1246,7 +1285,7 @@ mod tests {
         assert_eq!(r.counters().families, ["typing"]);
 
         // Turned on: a full run, with the family's fact.
-        r.set_switches(Switches::default().on(Switch::Trivial));
+        r.set_switches(Switches::default().on(Switch::LiteralValues));
         let s = r.reason();
         assert_eq!((s.base, s.inferred), (3, 3 + 2));
         assert_eq!(r.counters().delta[0], 3 + 2, "the base and both facts");

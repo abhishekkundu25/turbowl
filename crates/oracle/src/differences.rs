@@ -4,8 +4,8 @@
 //! the affected triples or findings before a closure is compared with the
 //! faulty oracle's. There are no other filters (ADR 0004).
 //!
-//! All six are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo, HermiT
-//! and the W3C tests have none so far.
+//! All seven are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo,
+//! HermiT and the W3C tests have none so far.
 
 use crate::{Closure, Finding, Input};
 use oxrdf::vocab::{rdf, rdfs};
@@ -31,10 +31,12 @@ pub enum Fault {
     F5,
     /// OWL-RL's eq-diff2, eq-diff3 and prp-adp miss positions of a list.
     F6,
+    /// OWL-RL's dt-type1 leaves out `owl:real` and `owl:rational`.
+    F7,
 }
 
 impl Fault {
-    pub const ALL: [Self; 6] = [Self::F1, Self::F2, Self::F3, Self::F4, Self::F5, Self::F6];
+    pub const ALL: [Self; 7] = [Self::F1, Self::F2, Self::F3, Self::F4, Self::F5, Self::F6, Self::F7];
 
     /// The oracle at fault, as the triangulation table names it.
     pub fn oracle(self) -> &'static str {
@@ -84,6 +86,12 @@ impl Fault {
                  i < j of the list, with every rdf:first of each cell, so `(a b c)` with \
                  `a owl:sameAs b` gives (a, a), (a, b), (b, a) and (b, b), and `(p q)` gives prp-adp"
             }
+            Self::F7 => {
+                "owlrl 7.6.2 runs dt-type1 over its list OWL_RL_Datatypes (XsdDatatypes.py:78, \
+                 OWLRL.py:268), which has no owl:real and no owl:rational; the OWL 2 RL datatypes \
+                 (OWL 2 Profiles §4.2) include both, so dt-type1 types them rdfs:Datatype, and eq-ref \
+                 makes each owl:sameAs itself"
+            }
         }
     }
 
@@ -105,6 +113,10 @@ impl Fault {
                  from the other closure"
             }
             Self::F6 => "drops eq-diff2, eq-diff3 and prp-adp findings OWL-RL does not have from the other closure",
+            Self::F7 => {
+                "when OWL-RL does not type owl:real (or owl:rational) rdfs:Datatype, drops the triples \
+                 OWL-RL does not have that name it from the other closure"
+            }
         }
     }
 
@@ -134,6 +146,12 @@ impl Fault {
                 .findings
                 .iter()
                 .any(|f| by_list_position(f) && !theirs.findings.contains(f)),
+            Self::F7 => {
+                let untyped = untyped_datatypes(theirs);
+                ours.triples
+                    .iter()
+                    .any(|t| names_any(t, &untyped) && !theirs.triples.contains(t))
+            }
         }
     }
 
@@ -170,6 +188,11 @@ impl Fault {
             Self::F6 => ours
                 .findings
                 .retain(|f| !by_list_position(f) || theirs.findings.contains(f)),
+            Self::F7 => {
+                let untyped = untyped_datatypes(theirs);
+                ours.triples
+                    .retain(|t| !names_any(t, &untyped) || theirs.triples.contains(t))
+            }
         }
     }
 }
@@ -241,6 +264,37 @@ fn typed_elsewhere(f: &Finding) -> bool {
 /// A finding of a rule that pairs list positions as F6 says OWL-RL does not.
 fn by_list_position(f: &Finding) -> bool {
     matches!(f.code.as_str(), "eq-diff2" | "eq-diff3" | "prp-adp")
+}
+
+/// The datatypes F7 says OWL-RL's dt-type1 leaves out, those its closure
+/// does not type `rdfs:Datatype`.
+fn untyped_datatypes(theirs: &Closure) -> Vec<Term> {
+    ["real", "rational"]
+        .map(|local| {
+            Term::from(oxrdf::NamedNode::new_unchecked(format!(
+                "http://www.w3.org/2002/07/owl#{local}"
+            )))
+        })
+        .into_iter()
+        .filter(|dt| {
+            !theirs.triples.iter().any(|t| {
+                Term::from(t.subject.clone()) == *dt
+                    && t.predicate == rdf::TYPE
+                    && t.object == Term::from(rdfs::DATATYPE.into_owned())
+            })
+        })
+        .collect()
+}
+
+/// True when `t` names one of `terms`, in any position.
+fn names_any(t: &oxrdf::Triple, terms: &[Term]) -> bool {
+    [
+        Term::from(t.subject.clone()),
+        Term::from(t.predicate.clone()),
+        t.object.clone(),
+    ]
+    .iter()
+    .any(|x| terms.contains(x))
 }
 
 /// True when following `rdf:rest` from some list cell comes back to it.
@@ -561,6 +615,46 @@ mod tests {
             "OWL-RL now reports every position: F6 is gone"
         );
         filter_is_needed_and_enough(Fault::F6, &input, &nemo, &owlrl);
+    }
+
+    /// In the complete configuration, Nemo (the W3C dt-type1 over the OWL 2
+    /// RL datatypes) types owl:real and owl:rational rdfs:Datatype, and
+    /// eq-ref makes each owl:sameAs itself; OWL-RL has neither, and
+    /// nothing else that names them.
+    #[test]
+    fn f7_owlrl_dt_type1_leaves_out_real_and_rational() {
+        let input = input("f7", "ex:a ex:p ex:b .");
+        let nemo = match nemo::run_with(&input, turbowl::Switches::complete()) {
+            Outcome::Ran(c) => c,
+            Outcome::Skipped(why) => return println!("skipped: {why}"),
+            other => panic!("Nemo: {other:?}"),
+        };
+        let owlrl = match owlrl::run(&input) {
+            Outcome::Skipped(why) => return println!("skipped: {why}"),
+            o => ran(o),
+        };
+        let owl = |local: &str| format!("<http://www.w3.org/2002/07/owl#{local}>");
+        for dt in ["real", "rational"] {
+            let typed = triple(&format!(
+                "{} <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Datatype>",
+                owl(dt)
+            ));
+            assert!(nemo.triples.contains(&typed), "the W3C dt-type1 (Nemo) types owl:{dt}");
+            assert!(!owlrl.triples.contains(&typed), "OWL-RL now types owl:{dt}: F7 is gone");
+        }
+        let named = untyped_datatypes(&owlrl);
+        assert_eq!(named.len(), 2);
+        assert!(!owlrl.triples.iter().any(|t| names_any(t, &named)));
+        filter_is_needed_and_enough(Fault::F7, &input, &nemo, &owlrl);
+        // Where OWL-RL types them, nothing is filtered.
+        let mut theirs = owlrl.clone();
+        for dt in ["real", "rational"] {
+            theirs.triples.insert(triple(&format!(
+                "{} <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Datatype>",
+                owl(dt)
+            )));
+        }
+        assert!(untyped_datatypes(&theirs).is_empty());
     }
 
     #[test]

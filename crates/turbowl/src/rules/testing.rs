@@ -23,16 +23,19 @@
 //!
 //! A run takes families by name ([`run`]), or the families a configuration
 //! of switches leaves on ([`run_with`], the reasoner's choice);
-//! `Switches::default()` gives the default configuration.
+//! `Switches::default()` gives the default configuration. The run's
+//! switches ([`Context::switches`]) are those of its families: a switch is
+//! on when one of them belongs to it. With `trivial` on, the closure holds
+//! eq-ref's `x owl:sameAs x`, added on read as the reasoner adds it.
 
 // The families' tests (tickets 07 to 09) use what the harness's own tests do not.
 #![allow(dead_code)]
 
-use super::{Context, FAMILIES, Family, Finding, equality};
+use super::{Context, FAMILIES, Family, Finding, equality, trivial};
 use crate::Format;
-use crate::Switches;
 use crate::engine::Store;
 use crate::term::{Dictionary, Term, TermId};
+use crate::{Switch, Switches};
 use std::collections::BTreeSet;
 
 const NAMESPACES: &[(&str, &str)] = &[
@@ -63,6 +66,8 @@ pub(crate) struct Run {
     /// Rounds run so far, over every call.
     pub(crate) rounds: usize,
     families: Vec<&'static Family>,
+    /// The switches of `families` (see the module doc).
+    switches: Switches,
 }
 
 /// Runs the registered families `names` over a Turtle document to the fixpoint.
@@ -124,6 +129,13 @@ pub(crate) const EVERY_CONSTRUCT: &str = "
 
 /// Runs `families` (registered or a test's own) over a Turtle document.
 pub(crate) fn run_families(families: Vec<&'static Family>, turtle: &str) -> Run {
+    let switches = Switch::ALL.into_iter().fold(Switches::complete(), |on, s| {
+        if families.iter().any(|f| f.switch == Some(s)) {
+            on
+        } else {
+            on.off(s)
+        }
+    });
     let mut run = Run {
         dict: Dictionary::new(),
         store: Store::with_canon(equality::canon()),
@@ -131,6 +143,7 @@ pub(crate) fn run_families(families: Vec<&'static Family>, turtle: &str) -> Run 
         findings: Vec::new(),
         rounds: 0,
         families,
+        switches,
     };
     run.facts();
     run.add(turtle);
@@ -170,9 +183,14 @@ impl Run {
                 store,
                 findings,
                 families,
+                switches,
                 ..
             } = self;
-            let mut cx = Context { terms: dict, findings };
+            let mut cx = Context {
+                terms: dict,
+                switches: *switches,
+                findings,
+            };
             self.rounds += store.run(|round| {
                 for f in families.iter() {
                     (f.rules)(round, &mut cx);
@@ -219,8 +237,17 @@ impl Run {
             .collect()
     }
 
+    /// The stored triples, then eq-ref's when `trivial` is on, expanded.
     fn expanded(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
-        equality::expanded(self.store.canon(), self.store.triples())
+        let canon = self.store.canon();
+        let same = canon.find(crate::term::vocab::OWL_SAME_AS.0);
+        let same_as_itself = if self.switches.is_on(Switch::Trivial) {
+            trivial::same_as_itself(&self.store, &self.dict)
+        } else {
+            Vec::new()
+        };
+        let same_as_itself = same_as_itself.into_iter().map(move |r| (r, same, r));
+        equality::expanded(canon, self.store.triples().chain(same_as_itself))
     }
 
     /// The findings, deduplicated and expanded as the reasoner expands

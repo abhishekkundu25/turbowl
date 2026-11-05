@@ -54,13 +54,16 @@
 //! off, the stated pairs as they are.
 //!
 //! eq-ref (`x owl:sameAs x` for every term, switch `trivial`) is an output
-//! rule, never stored, so these three rules do not see it: with `trivial`
-//! on, `x owl:differentFrom x` alone, or a term listed twice in an
-//! `owl:AllDifferent`, is inconsistent under the W3C rules and not
-//! reported here. Ticket 08 closes that gap (the families get the switches
-//! through `Context`).
+//! rule, mostly never stored (`trivial.rs`), so these three rules do not
+//! find it in the store. With `trivial` on ([`Context::switches`]), they
+//! treat every term as `owl:sameAs` itself, as eq-ref makes it: a recent
+//! `x owl:differentFrom x` alone gives eq-diff1, and a term at two
+//! positions of a changed `owl:AllDifferent` list gives eq-diff2 or
+//! eq-diff3. Both are in representatives, so `a owl:differentFrom b` with
+//! `a` and `b` made equal is `r owl:differentFrom r`.
 
 use super::Context;
+use crate::Switch;
 use crate::engine::{Pair, Round, Variable, View, gallop};
 use crate::term::{DocId, TermId, vocab};
 use rustc_hash::FxHashMap;
@@ -211,11 +214,18 @@ fn property_disjoint(round: &Round<'_>, cx: &mut Context<'_>) {
 /// `x owl:differentFrom y` states them: the two tables intersected. With
 /// `equality` on, the only `owl:sameAs` pairs are `r owl:sameAs r` (see
 /// the module doc), so this finds a stored `r owl:differentFrom r` that
-/// meets one.
+/// meets one. With `trivial` on, every recent `x owl:differentFrom x`
+/// meets eq-ref's `x owl:sameAs x`.
 fn different(round: &Round<'_>, cx: &mut Context<'_>) {
-    let same = round.by_subject(round.constant(vocab::OWL_SAME_AS.0));
-    let different = round.by_subject(round.constant(vocab::OWL_DIFFERENT_FROM.0));
-    if let (Some(same), Some(different)) = (same, different) {
+    let Some(different) = round.by_subject(round.constant(vocab::OWL_DIFFERENT_FROM.0)) else {
+        return;
+    };
+    if cx.switches.is_on(Switch::Trivial) {
+        for &(x, y) in different.recent().iter().filter(|(x, y)| x == y) {
+            cx.report("eq-diff1", &[x, y]);
+        }
+    }
+    if let Some(same) = round.by_subject(round.constant(vocab::OWL_SAME_AS.0)) {
         intersect(different, same, false, |x, y| cx.report("eq-diff1", &[x, y]));
     }
 }
@@ -360,18 +370,23 @@ fn axioms(round: &Round<'_>, types: &Variable<Pair>, class: TermId, predicate: T
 /// axiom, then the two terms, the one at the earlier position first. A
 /// changed list (a recent axiom triple, or a cell with a recent
 /// `rdf:first` or `rdf:rest`) is joined with all of `owl:sameAs`, an
-/// unchanged one with its recent part.
+/// unchanged one with its recent part. With `trivial` on, a term is
+/// `owl:sameAs` itself (eq-ref), so a term at two positions of a changed
+/// list gives (x, z, z).
 fn all_different(round: &Round<'_>, types: &Variable<Pair>, lists: &Lists<'_>, cx: &mut Context<'_>) {
-    let Some(same) = round.by_subject(round.constant(vocab::OWL_SAME_AS.0)) else {
+    let same = round.by_subject(round.constant(vocab::OWL_SAME_AS.0));
+    let reflexive = cx.switches.is_on(Switch::Trivial);
+    if same.is_none() && !reflexive {
         return;
-    };
-    let all_same = same.all();
+    }
+    let all_same = same.map_or_else(|| View::one(&[]), Variable::all);
+    let recent_same: &[Pair] = same.map_or(&[], |s| &s.recent()[..]);
     for (code, predicate) in [
         ("eq-diff2", vocab::OWL_MEMBERS),
         ("eq-diff3", vocab::OWL_DISTINCT_MEMBERS),
     ] {
         for (x, head, recent) in axioms(round, types, vocab::OWL_ALL_DIFFERENT, predicate) {
-            if !recent && lists.touched.is_empty() && same.recent().is_empty() {
+            if !recent && lists.touched.is_empty() && recent_same.is_empty() {
                 continue;
             }
             let list = lists.read(head);
@@ -382,9 +397,12 @@ fn all_different(round: &Round<'_>, types: &Variable<Pair>, lists: &Lists<'_>, c
                             cx.report(code, &[x, a, b]);
                         }
                     });
+                    if reflexive && list.ordered(a, a) {
+                        cx.report(code, &[x, a, a]);
+                    }
                 }
             } else {
-                for &(a, b) in same.recent().iter() {
+                for &(a, b) in recent_same {
                     if list.ordered(a, b) {
                         cx.report(code, &[x, a, b]);
                     }
@@ -997,6 +1015,50 @@ mod tests {
         );
     }
 
+    /// With `trivial` on, every term is `owl:sameAs` itself (eq-ref, never
+    /// stored): `x owl:differentFrom x` alone, and a term listed twice, are
+    /// findings, with `equality` on or off, and in a list completed by a
+    /// later run.
+    #[test]
+    fn with_trivial_every_term_is_the_same_as_itself() {
+        let input = "ex:a owl:differentFrom ex:a . ex:b owl:differentFrom ex:c .
+            _:d a owl:AllDifferent ; owl:members ( ex:a ex:b ex:a ) .
+            _:e a owl:AllDifferent ; owl:distinctMembers ( ex:c ex:c ) .
+            _:f a owl:AllDifferent ; owl:members ( ex:a ex:b ) .";
+        let expected = expand(
+            "eq-diff1 ex:a ex:a
+             eq-diff2 _:d ex:a ex:a
+             eq-diff3 _:e ex:c ex:c",
+        );
+        for families in [&["checks", "trivial"][..], &["checks", "equality", "trivial"]] {
+            assert_eq!(testing::run(families, input).findings(), expected, "{families:?}");
+        }
+        assert!(with_equality(input).is_empty());
+        // In representatives: `ex:g` and `ex:h` are made equal, so the
+        // stated `ex:g owl:differentFrom ex:h` meets the class's pairs.
+        assert_eq!(
+            testing::run(
+                &["checks", "equality", "trivial"],
+                "ex:g owl:differentFrom ex:h . ex:g owl:sameAs ex:h ."
+            )
+            .findings(),
+            expand(
+                "eq-diff1 ex:g ex:g
+                 eq-diff1 ex:g ex:h
+                 eq-diff1 ex:h ex:g
+                 eq-diff1 ex:h ex:h"
+            )
+        );
+        // The list's last cell comes in a later, incremental, run.
+        let mut run = testing::run(
+            &["checks", "trivial"],
+            "_:d a owl:AllDifferent ; owl:members ex:l1 . ex:l1 rdf:first ex:a ; rdf:rest ex:l2 .",
+        );
+        assert!(run.findings().is_empty());
+        run.add("ex:l2 rdf:first ex:a ; rdf:rest rdf:nil .");
+        assert_eq!(run.findings(), expand("eq-diff2 _:d ex:a ex:a"));
+    }
+
     /// Positions follow the live cells: a list that loops back through
     /// live cells lists its terms again; a branch orders only along its
     /// path; a cycle that never reaches `rdf:nil`, or a cell without a
@@ -1422,6 +1484,7 @@ mod tests {
         let mut spent = std::time::Duration::ZERO;
         let mut cx = Context {
             terms: &d,
+            switches: crate::Switches::default(),
             findings: &mut findings,
         };
         store.run(|round| {

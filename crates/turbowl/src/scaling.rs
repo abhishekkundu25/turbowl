@@ -1604,3 +1604,75 @@ mod schema {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// The trivial group (v2 ticket 08)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "io")]
+mod trivial {
+    use super::*;
+    use crate::{Format, Reasoner, Switches};
+    use std::fmt::Write as _;
+
+    /// `n` classes, each declared and with an instance linked to the next:
+    /// scm-cls gives four triples per class, eq-ref one per term. With
+    /// `read_by_a_rule`, `owl:sameAs rdfs:domain ex:C` makes the trivial
+    /// family store eq-ref, and prp-dom types every term.
+    fn declared(n: usize, read_by_a_rule: bool) -> String {
+        let mut text = String::with_capacity(n * 90);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n",
+        );
+        if read_by_a_rule {
+            text.push_str("owl:sameAs rdfs:domain ex:C .\n");
+        }
+        for i in 0..n {
+            let _ = writeln!(
+                text,
+                "ex:C{i} a owl:Class . ex:i{i} a ex:C{i} ; ex:next ex:i{} .",
+                i + 1
+            );
+        }
+        text
+    }
+
+    fn loaded(text: &str) -> Reasoner {
+        let mut r = Reasoner::with_switches(Switches::complete());
+        r.load_str(text, Format::Turtle, None).unwrap();
+        r
+    }
+
+    /// The complete configuration's full run and a read of its closure,
+    /// with eq-ref on read and with eq-ref stored: linear in the terms.
+    #[test]
+    fn scaling_trivial_eq_ref_and_scm_cls() {
+        let _lock = lock();
+        let sizes = sizes(1_024);
+        for read_by_a_rule in [false, true] {
+            for &n in &sizes {
+                let mut r = loaded(&declared(n, read_by_a_rule));
+                let s = r.reason();
+                assert_eq!(s.base + s.inferred, r.triples().count(), "n = {n}");
+                assert!(s.inferred > 6 * n, "n = {n}: {s:?}");
+            }
+            let mut text = shared(move |n| declared(n, read_by_a_rule));
+            linear(
+                if read_by_a_rule {
+                    "scaling_trivial_eq_ref_stored"
+                } else {
+                    "scaling_trivial_eq_ref_on_read"
+                },
+                &sizes,
+                move |n| loaded(&text(n)),
+                |mut r: Reasoner| {
+                    let summary = r.reason();
+                    let read = r.triples().count();
+                    (summary, read, r)
+                },
+            );
+        }
+    }
+}

@@ -56,9 +56,9 @@
 // rule not written yet is listed as `% to come: <name>` in its group's file.
 // No owl:Thing typing of subjects, no container-membership axioms (neither
 // is an OWL 2 RL rule). Every list (owl:intersectionOf, owl:unionOf,
-// owl:propertyChainAxiom) of a class or property is read, including lists
-// and list cells derived during the run; a cyclic list, which never reaches
-// rdf:nil, matches nothing.
+// owl:oneOf, owl:propertyChainAxiom) of a class or property is read,
+// including lists and list cells derived during the run; a cyclic list,
+// which never reaches rdf:nil, matches nothing.
 //
 // The rules run over generalized triples, as the W3C tables do: a triple with
 // a literal subject (prp-rng on a literal object, prp-fp with a literal value)
@@ -122,12 +122,14 @@ T(x, p1, y) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2), 
 T(y, p2, x) :- T(p1, "<http://www.w3.org/2002/07/owl#inverseOf>", p2), Tp(p1, x, y).  // prp-inv1
 T(y, p1, x) :- T(p1, "<http://www.w3.org/2002/07/owl#inverseOf>", p2), Tp(p2, x, y).  // prp-inv2
 
-// Lists read from the heads of intersections and unions (asserted or derived).
+// Lists read from the heads of intersections, unions and enumerations
+// (asserted or derived).
 // rdf:rest stops at rdf:nil: it is never a later cell, whatever triples it
 // has, though it can be a head (so every recursion over rdf:rest excludes it).
 // member(?h, ?c): ?c is a member of the well-formed list whose head is ?h.
 listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#intersectionOf>", h).
 listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#unionOf>", h).
+listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#oneOf>", h).
 listCell(h, r) :- listCell(h, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".
 // wellFormed(?l): from cell ?l, every cell has an rdf:first and the rdf:rest
 // path reaches rdf:nil (the W3C LIST[...] form).
@@ -151,7 +153,7 @@ T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://ww
 T(v, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", y) :- T(x, "<http://www.w3.org/2002/07/owl#allValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x), Tp(p, u, v).  // cls-avf
 T(u, p, y) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x).  // cls-hv1
 T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), Tp(p, u, y).  // cls-hv2
-// to come: cls-oo
+T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c) :- T(c, "<http://www.w3.org/2002/07/owl#oneOf>", h), member(h, y).  // cls-oo
 
 // Table 7: class axioms
 T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2) :- T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1).  // cax-sco
@@ -346,7 +348,79 @@ T(ci, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c) :- T(c, "<http://w
 
 // The `trivial` switch: triples that hold of every term, class, property or
 // literal (Tables 4, 5, 8 and 9).
-// to come: eq-ref, scm-cls, scm-op, scm-dp, prp-ap, dt-type1, dt-type2
+//
+// TurbOWL adds eq-ref's triples when its closure is read, and stores them
+// only once a rule could read them (crates/turbowl/src/rules/trivial.rs);
+// here eq-ref is a rule like any other, and its triples join the other
+// rules. Every term of every triple gets one, literals included
+// (crates/oracle drops those: a literal subject).
+
+// Table 4: eq-ref.
+T(s, "<http://www.w3.org/2002/07/owl#sameAs>", s) :- T(s, _, _).  // eq-ref
+T(p, "<http://www.w3.org/2002/07/owl#sameAs>", p) :- T(_, p, _).  // eq-ref
+T(o, "<http://www.w3.org/2002/07/owl#sameAs>", o) :- T(_, _, o).  // eq-ref
+
+// Table 5: prp-ap, the annotation properties of OWL 2.
+T("<http://www.w3.org/2000/01/rdf-schema#label>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2000/01/rdf-schema#comment>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2000/01/rdf-schema#seeAlso>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2000/01/rdf-schema#isDefinedBy>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2002/07/owl#deprecated>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2002/07/owl#versionInfo>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2002/07/owl#priorVersion>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2002/07/owl#backwardCompatibleWith>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+T("<http://www.w3.org/2002/07/owl#incompatibleWith>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#AnnotationProperty>").  // prp-ap
+
+// Table 8: dt-type1, each datatype of the OWL 2 RL datatype map as TurbOWL
+// holds it (crates/turbowl/src/rules/datatype/map.rs, with RDF 1.1's
+// rdf:langString). The prefix xsd: is not declared, so its IRIs are written
+// out.
+T("<http://www.w3.org/2000/01/rdf-schema#Literal>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/1999/02/22-rdf-syntax-ns#langString>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2002/07/owl#real>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2002/07/owl#rational>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#decimal>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#integer>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#nonNegativeInteger>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#nonPositiveInteger>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#positiveInteger>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#negativeInteger>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#long>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#int>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#short>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#byte>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#unsignedLong>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#unsignedInt>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#unsignedShort>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#unsignedByte>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#double>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#float>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#string>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#normalizedString>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#token>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#language>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#Name>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#NCName>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#NMTOKEN>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#boolean>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#hexBinary>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#base64Binary>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#anyURI>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#dateTime>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+T("<http://www.w3.org/2001/XMLSchema#dateTimeStamp>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2000/01/rdf-schema#Datatype>").  // dt-type1
+// to come: dt-type2
+
+// Table 9: scm-cls, scm-op, scm-dp.
+T(c, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c) :- T(c, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Class>").  // scm-cls
+T(c, "<http://www.w3.org/2002/07/owl#equivalentClass>", c) :- T(c, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Class>").  // scm-cls
+T(c, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", "<http://www.w3.org/2002/07/owl#Thing>") :- T(c, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Class>").  // scm-cls
+T("<http://www.w3.org/2002/07/owl#Nothing>", "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c) :- T(c, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#Class>").  // scm-cls
+T(p, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#ObjectProperty>").  // scm-op
+T(p, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#ObjectProperty>").  // scm-op
+T(p, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#DatatypeProperty>").  // scm-dp
+T(p, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p) :- T(p, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", "<http://www.w3.org/2002/07/owl#DatatypeProperty>").  // scm-dp
 
 // oracles/rules/literal-values.rls
 

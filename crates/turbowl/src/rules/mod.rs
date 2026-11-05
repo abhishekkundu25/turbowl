@@ -40,9 +40,12 @@
 //!   recent parts of the predicate tables with the rest (semi-naive), so
 //!   every derivation is made once over a run. See `engine/mod.rs`.
 //! - The [`Context`] holds the dictionary (a rule that looks inside a
-//!   literal reads it) and the run's findings: a rule that concludes
-//!   `false` (cax-dw, dt-not-type, ...) pushes a [`Finding`]. Findings never
-//!   feed other rules; the reasoner deduplicates them after the run.
+//!   literal reads it), the run's switches (a rule whose premises another
+//!   switch's rules give reads them: the checks read eq-ref's
+//!   `x owl:sameAs x` when `trivial` is on) and the run's findings: a rule
+//!   that concludes `false` (cax-dw, dt-not-type, ...) pushes a
+//!   [`Finding`]. Findings never feed other rules; the reasoner
+//!   deduplicates them after the run.
 //!
 //! The rules work on generalized triples (`docs/specs/v1.md`, Implementation
 //! Decisions): any term id in any position, a literal included. A family
@@ -87,6 +90,11 @@ pub(crate) type RuleFn = fn(&mut Round<'_>, &mut Context<'_>);
 pub(crate) struct Context<'a> {
     /// The terms, for rules that look inside a literal (dt-not-type).
     pub(crate) terms: &'a Dictionary,
+    /// The run's switches. A family runs only when its own switch is on;
+    /// it reads them for what the families of other switches would give
+    /// (eq-diff1, eq-diff2 and eq-diff3 read eq-ref's `x owl:sameAs x`,
+    /// which is never stored, when `trivial` is on).
+    pub(crate) switches: Switches,
     /// The findings of this run so far. Duplicates are allowed: the
     /// reasoner deduplicates on (code, terms).
     pub(crate) findings: &'a mut Vec<Finding>,

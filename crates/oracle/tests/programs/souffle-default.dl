@@ -56,9 +56,9 @@
 // rule not written yet is listed as `% to come: <name>` in its group's file.
 // No owl:Thing typing of subjects, no container-membership axioms (neither
 // is an OWL 2 RL rule). Every list (owl:intersectionOf, owl:unionOf,
-// owl:propertyChainAxiom) of a class or property is read, including lists
-// and list cells derived during the run; a cyclic list, which never reaches
-// rdf:nil, matches nothing.
+// owl:oneOf, owl:propertyChainAxiom) of a class or property is read,
+// including lists and list cells derived during the run; a cyclic list,
+// which never reaches rdf:nil, matches nothing.
 //
 // The rules run over generalized triples, as the W3C tables do: a triple with
 // a literal subject (prp-rng on a literal object, prp-fp with a literal value)
@@ -122,12 +122,14 @@ T(x, p1, y) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2), 
 T(y, p2, x) :- T(p1, "<http://www.w3.org/2002/07/owl#inverseOf>", p2), Tp(p1, x, y).  // prp-inv1
 T(y, p1, x) :- T(p1, "<http://www.w3.org/2002/07/owl#inverseOf>", p2), Tp(p2, x, y).  // prp-inv2
 
-// Lists read from the heads of intersections and unions (asserted or derived).
+// Lists read from the heads of intersections, unions and enumerations
+// (asserted or derived).
 // rdf:rest stops at rdf:nil: it is never a later cell, whatever triples it
 // has, though it can be a head (so every recursion over rdf:rest excludes it).
 // member(?h, ?c): ?c is a member of the well-formed list whose head is ?h.
 listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#intersectionOf>", h).
 listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#unionOf>", h).
+listCell(h, h) :- T(_, "<http://www.w3.org/2002/07/owl#oneOf>", h).
 listCell(h, r) :- listCell(h, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".
 // wellFormed(?l): from cell ?l, every cell has an rdf:first and the rdf:rest
 // path reaches rdf:nil (the W3C LIST[...] form).
@@ -151,7 +153,7 @@ T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://ww
 T(v, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", y) :- T(x, "<http://www.w3.org/2002/07/owl#allValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x), Tp(p, u, v).  // cls-avf
 T(u, p, y) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x).  // cls-hv1
 T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), Tp(p, u, y).  // cls-hv2
-// to come: cls-oo
+T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c) :- T(c, "<http://www.w3.org/2002/07/owl#oneOf>", h), member(h, y).  // cls-oo
 
 // Table 7: class axioms
 T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c2) :- T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c1).  // cax-sco

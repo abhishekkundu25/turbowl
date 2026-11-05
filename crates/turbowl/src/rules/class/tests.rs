@@ -715,6 +715,7 @@ mod scaling {
             let mut findings = Vec::new();
             let mut cx = Context {
                 terms: &dict,
+                switches: crate::Switches::default(),
                 findings: &mut findings,
             };
             let rounds = store.run(|round| class::rules(round, &mut cx));

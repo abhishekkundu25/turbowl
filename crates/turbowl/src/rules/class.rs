@@ -17,7 +17,7 @@
 //!   §10 replace them one at a time (E2 scm-sco, E8 cax-eqc1/2, E1 cax-sco).
 //! - `class/lists.rs`: cls-int1, cls-int2, cls-uni.
 //! - `class/restrictions.rs`: cls-svf1, cls-svf2, cls-avf, cls-hv1, cls-hv2.
-//! - `class/enumerations.rs`: cls-oo (empty until version 2's ticket 08).
+//! - `class/enumerations.rs`: cls-oo.
 //! - cls-thing and cls-nothing1 have empty bodies: they are [`FACTS`].
 //!
 //! Generalized triples: no rule filters what it derives. cls-avf types a

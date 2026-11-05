@@ -1,3 +1,75 @@
 % The `trivial` switch: triples that hold of every term, class, property or
 % literal (Tables 4, 5, 8 and 9).
-% to come: eq-ref, scm-cls, scm-op, scm-dp, prp-ap, dt-type1, dt-type2
+%
+% TurbOWL adds eq-ref's triples when its closure is read, and stores them
+% only once a rule could read them (crates/turbowl/src/rules/trivial.rs);
+% here eq-ref is a rule like any other, and its triples join the other
+% rules. Every term of every triple gets one, literals included
+% (crates/oracle drops those: a literal subject).
+
+% Table 4: eq-ref.
+T(?s, owl:sameAs, ?s) :- T(?s, ?p, ?o) .                                             % eq-ref
+T(?p, owl:sameAs, ?p) :- T(?s, ?p, ?o) .                                             % eq-ref
+T(?o, owl:sameAs, ?o) :- T(?s, ?p, ?o) .                                             % eq-ref
+
+% Table 5: prp-ap, the annotation properties of OWL 2.
+T(rdfs:label, rdf:type, owl:AnnotationProperty) .                                    % prp-ap
+T(rdfs:comment, rdf:type, owl:AnnotationProperty) .                                  % prp-ap
+T(rdfs:seeAlso, rdf:type, owl:AnnotationProperty) .                                  % prp-ap
+T(rdfs:isDefinedBy, rdf:type, owl:AnnotationProperty) .                              % prp-ap
+T(owl:deprecated, rdf:type, owl:AnnotationProperty) .                                % prp-ap
+T(owl:versionInfo, rdf:type, owl:AnnotationProperty) .                               % prp-ap
+T(owl:priorVersion, rdf:type, owl:AnnotationProperty) .                              % prp-ap
+T(owl:backwardCompatibleWith, rdf:type, owl:AnnotationProperty) .                    % prp-ap
+T(owl:incompatibleWith, rdf:type, owl:AnnotationProperty) .                          % prp-ap
+
+% Table 8: dt-type1, each datatype of the OWL 2 RL datatype map as TurbOWL
+% holds it (crates/turbowl/src/rules/datatype/map.rs, with RDF 1.1's
+% rdf:langString). The prefix xsd: is not declared, so its IRIs are written
+% out.
+T(rdfs:Literal, rdf:type, rdfs:Datatype) .                                           % dt-type1
+T(rdf:PlainLiteral, rdf:type, rdfs:Datatype) .                                       % dt-type1
+T(rdf:langString, rdf:type, rdfs:Datatype) .                                         % dt-type1
+T(rdf:XMLLiteral, rdf:type, rdfs:Datatype) .                                         % dt-type1
+T(owl:real, rdf:type, rdfs:Datatype) .                                               % dt-type1
+T(owl:rational, rdf:type, rdfs:Datatype) .                                           % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#decimal>, rdf:type, rdfs:Datatype) .             % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#integer>, rdf:type, rdfs:Datatype) .             % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#nonNegativeInteger>, rdf:type, rdfs:Datatype) .  % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#nonPositiveInteger>, rdf:type, rdfs:Datatype) .  % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#positiveInteger>, rdf:type, rdfs:Datatype) .     % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#negativeInteger>, rdf:type, rdfs:Datatype) .     % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#long>, rdf:type, rdfs:Datatype) .                % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#int>, rdf:type, rdfs:Datatype) .                 % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#short>, rdf:type, rdfs:Datatype) .               % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#byte>, rdf:type, rdfs:Datatype) .                % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#unsignedLong>, rdf:type, rdfs:Datatype) .        % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#unsignedInt>, rdf:type, rdfs:Datatype) .         % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#unsignedShort>, rdf:type, rdfs:Datatype) .       % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#unsignedByte>, rdf:type, rdfs:Datatype) .        % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#double>, rdf:type, rdfs:Datatype) .              % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#float>, rdf:type, rdfs:Datatype) .               % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#string>, rdf:type, rdfs:Datatype) .              % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#normalizedString>, rdf:type, rdfs:Datatype) .    % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#token>, rdf:type, rdfs:Datatype) .               % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#language>, rdf:type, rdfs:Datatype) .            % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#Name>, rdf:type, rdfs:Datatype) .                % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#NCName>, rdf:type, rdfs:Datatype) .              % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#NMTOKEN>, rdf:type, rdfs:Datatype) .             % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#boolean>, rdf:type, rdfs:Datatype) .             % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#hexBinary>, rdf:type, rdfs:Datatype) .           % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#base64Binary>, rdf:type, rdfs:Datatype) .        % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#anyURI>, rdf:type, rdfs:Datatype) .              % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#dateTime>, rdf:type, rdfs:Datatype) .            % dt-type1
+T(<http://www.w3.org/2001/XMLSchema#dateTimeStamp>, rdf:type, rdfs:Datatype) .       % dt-type1
+% to come: dt-type2
+
+% Table 9: scm-cls, scm-op, scm-dp.
+T(?c, rdfs:subClassOf, ?c) :- T(?c, rdf:type, owl:Class) .                           % scm-cls
+T(?c, owl:equivalentClass, ?c) :- T(?c, rdf:type, owl:Class) .                       % scm-cls
+T(?c, rdfs:subClassOf, owl:Thing) :- T(?c, rdf:type, owl:Class) .                    % scm-cls
+T(owl:Nothing, rdfs:subClassOf, ?c) :- T(?c, rdf:type, owl:Class) .                  % scm-cls
+T(?p, rdfs:subPropertyOf, ?p) :- T(?p, rdf:type, owl:ObjectProperty) .               % scm-op
+T(?p, owl:equivalentProperty, ?p) :- T(?p, rdf:type, owl:ObjectProperty) .           % scm-op
+T(?p, rdfs:subPropertyOf, ?p) :- T(?p, rdf:type, owl:DatatypeProperty) .             % scm-dp
+T(?p, owl:equivalentProperty, ?p) :- T(?p, rdf:type, owl:DatatypeProperty) .         % scm-dp

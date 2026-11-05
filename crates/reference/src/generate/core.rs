@@ -7,11 +7,14 @@
 //! shape a datatype (`datatypes.rs`) half the time: one shape each in
 //! version 1's table, kept whole so that every seed's input stays the same.
 //!
-//! To come: `owl:oneOf` for cls-oo, version 2's ticket 08.
+//! `owl:oneOf` (cls-oo) is version 2's, and draws from this file's own
+//! stream.
 
 use super::{Generator, Shape, datatypes, p_str};
 use crate::vocab::*;
 use oxrdf::Term;
+
+const OWL_ONE_OF: &str = "http://www.w3.org/2002/07/owl#oneOf";
 
 /// Container membership predicates, and names like them (`_0`, `_a`): no
 /// rule of the set gives them a meaning, so they derive nothing.
@@ -33,6 +36,7 @@ pub(super) const SHAPES: &[Shape] = &[
     Shape { version_1: Some(13), weight: 2, draw: union },
     Shape { version_1: Some(14), weight: 5, draw: restriction },
     Shape { version_1: Some(20), weight: 2, draw: membership },
+    Shape { version_1: None, weight: 1, draw: one_of },
 ];
 
 /// `i a C`.
@@ -176,4 +180,49 @@ fn membership(g: &mut Generator) {
     let p = named(&format!("{RDF}{}", g.rng.pick(MEMBERSHIP)));
     let i = g.individual();
     g.add_with(&container, &p, &i);
+}
+
+/// `C owl:oneOf (...)`: two or three individuals, now and then literals (a
+/// data range), in a list that is now and then cyclic (no member).
+fn one_of(g: &mut Generator) {
+    let data = g.rng.one_in(4);
+    let members: Vec<Term> = (0..2 + g.rng.below(2))
+        .map(|_| if data { datatypes::literal(g) } else { g.individual() })
+        .collect();
+    let head = if g.rng.one_in(10) {
+        g.cyclic_list(&members)
+    } else {
+        g.list(&members)
+    };
+    let c = g.class();
+    g.add(&c, OWL_ONE_OF, &head);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::{Rng, generate_parts};
+    use crate::evaluate::evaluate_within;
+    use std::collections::HashSet;
+    use turbowl::Switches;
+
+    /// Over the chaos test's first 300 seeds, `owl:oneOf` is drawn, and
+    /// cls-oo fires in the default configuration.
+    #[test]
+    fn the_first_300_seeds_exercise_cls_oo() {
+        let (mut drawn, mut fired) = (0, 0);
+        for seed in [0x5EED_0005, 0x5EED_0105] {
+            for i in 0..300 {
+                let mut rng = Rng::at(seed, i);
+                let size = 1 + rng.below(48);
+                let (_, input) = generate_parts(rng.next_u64(), size);
+                drawn += usize::from(input.iter().any(|t| t.predicate.as_str() == super::OWL_ONE_OF));
+                let base: HashSet<_> = input.into_iter().collect();
+                if let Some(e) = evaluate_within(&base, Switches::default(), 20_000) {
+                    fired += usize::from(e.fired.contains_key("cls-oo"));
+                }
+            }
+        }
+        println!("inputs with owl:oneOf: {drawn}; where cls-oo fires: {fired}");
+        assert!(drawn >= 100 && fired >= 100, "{drawn} drawn, {fired} fired");
+    }
 }

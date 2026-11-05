@@ -23,7 +23,7 @@
 //! | `+` | in every closure, OWL-RL's included |
 //! | `+V` | in every closure of the configuration's rules (Nemo, TurbOWL, the reference evaluator) |
 //! | `-` | in no closure of the configuration's rules (OWL-RL implements more rules) |
-//! | `=` | a closure of the configuration's rules is exactly the `=` lines |
+//! | `=` | a closure of the configuration's rules is exactly the `=` lines, apart from the `trivial` group's triples where it is on (`trivial.rs`) |
 //! | `!` | a finding (code, then terms) every oracle covering that code reports; no other finding is reported |
 
 mod checks;
@@ -94,10 +94,10 @@ impl Case {
         self.group.is_none_or(|g| switches.is_on(g))
     }
 
-    /// Checks a closure of this input against the expectations. `codes`: the
-    /// finding codes the oracle covers in the configuration. Returns the
-    /// failed expectations.
-    pub fn check(&self, closure: &Closure, kind: Kind, codes: &[&str]) -> Vec<String> {
+    /// Checks a closure of this input, in the configuration `switches`,
+    /// against the expectations. `codes`: the finding codes the oracle
+    /// covers in the configuration. Returns the failed expectations.
+    pub fn check(&self, closure: &Closure, kind: Kind, codes: &[&str], switches: Switches) -> Vec<String> {
         let mut failed = Vec::new();
         let mut exact: Vec<Triple> = Vec::new();
         let mut findings: Vec<Finding> = Vec::new();
@@ -124,11 +124,17 @@ impl Case {
             }
         }
         if kind == Kind::RuleSet && !exact.is_empty() {
-            let want: std::collections::HashSet<Triple> = exact.into_iter().collect();
-            if want != closure.triples {
+            let want: std::collections::HashSet<&Triple> = exact.iter().collect();
+            let trivial = switches.is_on(Switch::Trivial);
+            let got: std::collections::HashSet<&Triple> = closure
+                .triples
+                .iter()
+                .filter(|t| !(trivial && trivial::derives(t)))
+                .collect();
+            if want != got {
                 failed.push(format!(
-                    "= closure has {} triples, expected exactly {}",
-                    closure.triples.len(),
+                    "= closure has {} triples (the trivial group's left out: {trivial}), expected exactly {}",
+                    got.len(),
                     want.len()
                 ));
             }
@@ -257,15 +263,37 @@ mod tests {
         assert!(!case("cax-dw").checked_in(no_checks));
         assert!(!case("dt-not-type").checked_in(no_checks));
         assert!(case("cax-dw").checked_in(Switches::default()));
-        assert!(!case("not-eq-ref").checked_in(Switches::default()));
-        assert!(case("not-eq-ref").checked_in(Switches::complete()));
+        assert!(!case("eq-ref").checked_in(Switches::default()));
+        assert!(case("eq-ref").checked_in(Switches::complete()));
+    }
+
+    /// An exact closure leaves out the `trivial` group's triples where the
+    /// group is on, and only there.
+    #[test]
+    fn an_exact_closure_leaves_out_the_trivial_groups_triples() {
+        let case = minimal().into_iter().find(|c| c.name == "empty").expect("a case");
+        let lines = [
+            "owl:Thing rdf:type owl:Class",
+            "owl:Nothing rdf:type owl:Class",
+            "owl:Thing owl:sameAs owl:Thing",
+            "owl:Thing rdfs:subClassOf owl:Thing",
+            "xsd:string rdf:type rdfs:Datatype",
+        ];
+        let closure = Closure::new(lines.iter().map(|l| triple(&expand(l))), []);
+        assert!(
+            case.check(&closure, Kind::RuleSet, &[], Switches::complete())
+                .is_empty()
+        );
+        assert!(!case.check(&closure, Kind::RuleSet, &[], Switches::default()).is_empty());
+        let more = Closure::new(lines.iter().chain(&["ex:a ex:p ex:b"]).map(|l| triple(&expand(l))), []);
+        assert!(!case.check(&more, Kind::RuleSet, &[], Switches::complete()).is_empty());
     }
 
     #[test]
     fn every_case_parses() {
         for case in minimal() {
             let _ = case.input();
-            let _ = case.check(&Closure::default(), Kind::RuleSet, &[]);
+            let _ = case.check(&Closure::default(), Kind::RuleSet, &[], Switches::default());
         }
     }
 }

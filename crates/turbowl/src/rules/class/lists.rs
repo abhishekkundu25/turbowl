@@ -196,7 +196,7 @@ fn sort(pairs: &mut Vec<Pair>) {
 
 /// The lists of one predicate's `(class, head)` pairs, read this round.
 #[derive(Debug, Default)]
-struct Lists {
+pub(super) struct Lists {
     entries: Vec<Entry>,
     /// Every entry's cells, an entry's in one range, its head first.
     cells: Vec<Cell>,
@@ -255,6 +255,14 @@ struct Scratch {
 impl Lists {
     fn members(&self, entry: &Entry) -> &[u32] {
         &self.members[entry.members.0..entry.members.1]
+    }
+
+    /// Each changed list's class and members (cls-oo, `enumerations.rs`).
+    pub(super) fn changed(&self) -> impl Iterator<Item = (u32, &[u32])> {
+        self.entries
+            .iter()
+            .filter(|e| e.changed)
+            .map(|e| (e.class, self.members(e)))
     }
 
     fn firsts(&self, cell: &Cell) -> &[u32] {
@@ -330,7 +338,7 @@ impl Lists {
 
 /// Reads lists from the `rdf:first` and `rdf:rest` tables.
 #[derive(Debug)]
-struct Reader<'a> {
+pub(super) struct Reader<'a> {
     first: View<'a, Pair>,
     rest: View<'a, Pair>,
     /// The representative of `rdf:nil`, and whether it is read on as a cell.
@@ -348,7 +356,12 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn new(first: Option<&'a Variable<Pair>>, rest: Option<&'a Variable<Pair>>, nil: u32, nil_is_a_cell: bool) -> Self {
+    pub(super) fn new(
+        first: Option<&'a Variable<Pair>>,
+        rest: Option<&'a Variable<Pair>>,
+        nil: u32,
+        nil_is_a_cell: bool,
+    ) -> Self {
         let mut touched = Vec::new();
         for v in [first, rest].into_iter().flatten() {
             touched.extend(v.recent().iter().map(|&(cell, _)| cell));
@@ -370,7 +383,7 @@ impl<'a> Reader<'a> {
     }
 
     /// The lists of every `(class, head)` pair of `heads`.
-    fn read(&mut self, heads: &Variable<Pair>) -> Lists {
+    pub(super) fn read(&mut self, heads: &Variable<Pair>) -> Lists {
         let mut lists = Lists::default();
         for part in heads.stable() {
             for &(class, head) in part.iter() {

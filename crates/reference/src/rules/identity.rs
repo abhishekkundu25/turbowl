@@ -3,9 +3,11 @@
 //! cls-maxqc3 and cls-maxqc4 (`owl:maxQualifiedCardinality 1`, with
 //! `owl:onClass` a class or `owl:Thing`; OWL 2 Profiles, Tables 5 and 6).
 //!
-//! As the W3C tables write them, over every pair: prp-key compares every
-//! two individuals of a key's class along the list's paths
-//! ([`View::every_member`]), and the cardinality rules match the term
+//! As the W3C tables write them, over every pair: prp-key compares two
+//! individuals of a key's class along the list's paths
+//! ([`View::every_member`]) when they share a value of some property of the
+//! key (every path has a cell, so no other pair can match: this only skips
+//! pairs that cannot), and the cardinality rules match the term
 //! `"1"^^xsd:nonNegativeInteger` itself. The `owl:sameAs` they derive is
 //! closed by the `equality` switch's rules.
 
@@ -13,7 +15,7 @@ use super::{EMPTY, Family};
 use crate::evaluate::{Round, View};
 use crate::vocab::*;
 use oxrdf::{Literal, Term};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 const OWL_HAS_KEY: &str = "http://www.w3.org/2002/07/owl#hasKey";
@@ -46,21 +48,35 @@ fn derive(v: &View, r: &mut Round) {
             .iter()
             .map(|x| properties.iter().map(|p| v.objects(x, p).iter().collect()).collect())
             .collect();
-        for (x, xs) in individuals.iter().zip(&values) {
-            for (y, ys) in individuals.iter().zip(&values) {
-                if v.has(x, &same, y) {
-                    // Known: equality makes most pairs so after a round.
-                    continue;
+        // The pairs that share a value of some property of the key.
+        let mut sharing: HashMap<(usize, &Term), Vec<usize>> = HashMap::new();
+        for (i, xs) in values.iter().enumerate() {
+            for (k, zs) in xs.iter().enumerate() {
+                for z in zs {
+                    sharing.entry((k, *z)).or_default().push(i);
                 }
-                let share = |p: &Term| {
-                    properties
-                        .iter()
-                        .zip(xs.iter().zip(ys))
-                        .any(|(q, (a, b))| q == p && !a.is_disjoint(b))
-                };
-                if v.every_member(head, &cells, share) {
-                    r.derive("prp-key", x, &same, y);
-                }
+            }
+        }
+        let mut pairs: Vec<(usize, usize)> = sharing
+            .values()
+            .flat_map(|group| group.iter().flat_map(move |&i| group.iter().map(move |&j| (i, j))))
+            .collect();
+        pairs.sort_unstable();
+        pairs.dedup();
+        for (i, j) in pairs {
+            let ((x, xs), (y, ys)) = ((&individuals[i], &values[i]), (&individuals[j], &values[j]));
+            if v.has(x, &same, y) {
+                // Known: equality makes most pairs so after a round.
+                continue;
+            }
+            let share = |p: &Term| {
+                properties
+                    .iter()
+                    .zip(xs.iter().zip(ys))
+                    .any(|(q, (a, b))| q == p && !a.is_disjoint(b))
+            };
+            if v.every_member(head, &cells, share) {
+                r.derive("prp-key", x, &same, y);
             }
         }
     }
