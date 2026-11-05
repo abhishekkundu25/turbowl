@@ -1,0 +1,479 @@
+//! Triangulation: every oracle on one input, each checked against the case's
+//! expectations and compared with the others.
+
+use crate::cases::{Case, Kind};
+use crate::compare::{Relation, compare};
+use crate::differences::{Difference, apply};
+use crate::{Closure, Input, Outcome, hermit, nemo, ours, owlrl};
+use std::fmt::Write as _;
+use turtle_reasoner::Profile;
+
+/// The finding codes `reasonable` emits (it never emits `OWLRL.CLS_COM`, D2).
+pub const REASONABLE_CODES: &[&str] = &[
+    "OWLRL.CAX_DW",
+    "OWLRL.PRP_PDW",
+    "OWLRL.CLS_NOTHING",
+    "OWLRL.PRP_ASYP",
+    "OWLRL.PRP_IRP",
+    "RDFS.DATATYPE",
+    "RDFS.DATATYPE_RANGE",
+];
+
+/// The finding codes turtle-reasoner emits.
+pub const OUR_CODES: &[&str] = &[
+    "OWLRL.CAX_DW",
+    "OWLRL.PRP_PDW",
+    "OWLRL.CLS_NOTHING",
+    "OWLRL.PRP_ASYP",
+    "OWLRL.PRP_IRP",
+    "OWLRL.CLS_COM",
+    "RDFS.DATATYPE",
+    "RDFS.DATATYPE_RANGE",
+];
+
+const OWLRL_CLS_COM: &str = "owlrl 7.6.2 names the second class where the individual belongs: OWLRL.py:684-691 \
+     formats `x`, which is c2 there, so its CLS_COM finding is (C1, C2, C2), not (C1, C2, x)";
+const OWLRL_SCM_SCO: &str = "owlrl 7.6.2 skips c1 rdfs:subClassOf c1 in scm-sco (OWLRL.py:883-888, `if c1 != c3`), \
+     leaving it to scm-cls, which needs `c1 a owl:Class`; the W3C rule has no such condition";
+const OWLRL_CYCLIC: &str = "rdflib's Collection raises \"List contains a recursive rdf:rest reference\" on the cyclic \
+     list, so owlrl 7.6.2 stops; the W3C rules simply derive nothing from a list without rdf:nil";
+const XSD_WHITESPACE: &str = "owlrl 7.6.2 accepts \" 42\"^^xsd:int (Python's int() strips the spaces); RDF does \
+     not collapse whitespace, and the W3C test rdf-mt xmlsch-02-whitespace-facet-2 expects \" 3 \"^^xsd:int to be \
+     ill-typed, as reasonable and version 1 report it";
+const CONTAINER: &str = "the container-membership axioms are reasonable's RDFS convention (parity research §1.3), \
+     which version 1 keeps in both profiles; OWL 2 RL has no such rule, so OWL-RL does not derive them, and \
+     HermiT treats rdf:_1 and rdfs:member as reserved vocabulary";
+const REASONABLE_RANGE: &str = "reasonable reports RDFS.DATATYPE_RANGE for every IRI or blank-node object of a \
+     property with any rdfs:range, a class included: term_in_datatype_space returns Some(false) for a non-literal \
+     before it checks that the range is a datatype (lib/src/reasoner.rs:2395-2406); not yet a documented difference";
+const REASONABLE_ONE_LIST: &str = "reasonable keeps one intersection list per class (a HashMap, parity research \
+     §1.4), so cls-int1 ignores the other list; not yet a documented difference";
+
+/// Disagreements between oracles that are understood: (case, check, why).
+/// A check listed here is reported as `known`, not as a failure.
+pub const KNOWN: &[(&str, &str, &str)] = &[
+    ("cls-com", "OWL-RL: expectations", OWLRL_CLS_COM),
+    ("cls-com", "Nemo[L] ⊆ OWL-RL", OWLRL_CLS_COM),
+    ("cls-com", "ours[L] ⊆ OWL-RL", OWLRL_CLS_COM),
+    ("not-scm-eqc2", "OWL-RL: expectations", OWLRL_SCM_SCO),
+    ("chain-cyclic-list", "OWL-RL: expectations", OWLRL_CYCLIC),
+    ("rdfs-datatype", "OWL-RL: expectations", XSD_WHITESPACE),
+    ("rdfs-datatype", "ours[L] ⊆ OWL-RL", XSD_WHITESPACE),
+    ("container", "Nemo[L] ⊆ OWL-RL", CONTAINER),
+    ("container", "ours[L] ⊆ OWL-RL", CONTAINER),
+    ("container", "HermiT entails Nemo[L]'s subsumptions", CONTAINER),
+    ("container", "HermiT entails ours[L]'s subsumptions", CONTAINER),
+    ("prp-rng", "reasonable: expectations", REASONABLE_RANGE),
+    ("prp-rng", "ours[R] = reasonable", REASONABLE_RANGE),
+    ("two-intersections", "reasonable: expectations", REASONABLE_ONE_LIST),
+    ("two-intersections", "reasonable = Nemo[R]", REASONABLE_ONE_LIST),
+    ("two-intersections", "ours[R] = reasonable", REASONABLE_ONE_LIST),
+];
+
+/// Why a `reasonable` expectation that a documented difference explains is known.
+const DOCUMENTED: &str = "a documented difference applies to this input (see the row's differences)";
+
+/// The result of one check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Status {
+    Pass,
+    Fail,
+    /// A disagreement listed in [`KNOWN`].
+    Known(&'static str),
+    /// Not run: an oracle was skipped or pending, or a documented difference excludes it.
+    NotRun(String),
+}
+
+/// One check on one input.
+#[derive(Debug, Clone)]
+pub struct Check {
+    pub name: String,
+    pub status: Status,
+    /// The readable diff or the failed expectations.
+    pub detail: String,
+}
+
+/// Every oracle on one input.
+#[derive(Debug, Clone)]
+pub struct Row {
+    pub case: String,
+    pub item: String,
+    /// (oracle, outcome).
+    pub outcomes: Vec<(&'static str, Outcome)>,
+    /// The documented differences that showed on this input.
+    pub differences: Vec<Difference>,
+    pub checks: Vec<Check>,
+}
+
+impl Row {
+    fn outcome(&self, oracle: &str) -> &Outcome {
+        &self
+            .outcomes
+            .iter()
+            .find(|(o, _)| *o == oracle)
+            .expect("every oracle has an outcome")
+            .1
+    }
+}
+
+/// Rows for several inputs.
+#[derive(Debug, Clone, Default)]
+pub struct Table {
+    pub rows: Vec<Row>,
+}
+
+/// The oracles, in table order: (label, kind of closure, finding codes covered).
+const ORACLES: &[(&str, Kind)] = &[
+    ("reasonable", Kind::Reasonable),
+    ("Nemo[R]", Kind::Reasonable),
+    ("Nemo[L]", Kind::OwlRl),
+    ("OWL-RL", Kind::FullRl),
+    ("ours[R]", Kind::Reasonable),
+    ("ours[L]", Kind::OwlRl),
+];
+
+fn codes(oracle: &str) -> &'static [&'static str] {
+    match oracle {
+        "reasonable" => REASONABLE_CODES,
+        "OWL-RL" => owlrl::CODES,
+        o if o.starts_with("Nemo") => nemo::CODES,
+        _ => OUR_CODES,
+    }
+}
+
+/// Which of the slower oracles run on an input.
+#[derive(Debug, Clone, Copy)]
+pub struct Options {
+    /// OWL-RL (minutes on Brick-sized inputs).
+    pub owlrl: bool,
+    /// HermiT's subsumption check.
+    pub hermit: bool,
+}
+
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            owlrl: true,
+            hermit: true,
+        }
+    }
+}
+
+/// Runs every oracle on a minimal case (`reasonable` runs in the tests, which
+/// have it as a dev-dependency, and is passed in) and checks them.
+pub fn triangulate(case: &Case, reasonable: Outcome) -> Row {
+    triangulate_input(
+        case.name,
+        case.item,
+        &case.input(),
+        Some(case),
+        reasonable,
+        Options::default(),
+    )
+}
+
+/// Runs every oracle on an input and compares them; with a case, also checks
+/// its expectations.
+pub fn triangulate_input(
+    name: &str,
+    item: &str,
+    input: &Input,
+    case: Option<&Case>,
+    reasonable: Outcome,
+    options: Options,
+) -> Row {
+    let not_asked = |o: &str| Outcome::Skipped(format!("{o}: not run on this input (see Options)"));
+    // The external oracles run side by side; each is a separate process.
+    let (nemo_r, nemo_l, full) = std::thread::scope(|s| {
+        let r = s.spawn(|| nemo::run(input, Profile::Reasonable));
+        let l = s.spawn(|| nemo::run(input, Profile::OwlRl));
+        let o = s.spawn(|| {
+            if options.owlrl {
+                owlrl::run(input)
+            } else {
+                not_asked("OWL-RL")
+            }
+        });
+        let join =
+            |h: std::thread::ScopedJoinHandle<'_, Outcome>| h.join().unwrap_or_else(|p| std::panic::resume_unwind(p));
+        (join(r), join(l), join(o))
+    });
+    let outcomes = vec![
+        ("reasonable", reasonable),
+        ("Nemo[R]", nemo_r),
+        ("Nemo[L]", nemo_l),
+        ("OWL-RL", full),
+        ("ours[R]", ours::run(input, Profile::Reasonable)),
+        ("ours[L]", ours::run(input, Profile::OwlRl)),
+    ];
+    let mut row = Row {
+        case: name.to_owned(),
+        item: item.to_owned(),
+        outcomes,
+        differences: Vec::new(),
+        checks: Vec::new(),
+    };
+    let excluded = Difference::D5.applies(input, &Closure::default(), &Closure::default());
+
+    for &(oracle, kind) in ORACLES {
+        let Some(case) = case else { break };
+        let name = format!("{oracle}: expectations");
+        let check = match row.outcome(oracle) {
+            Outcome::Ran(_) if oracle == "reasonable" && excluded => {
+                not_run(name, "D5: compared against OWL-RL and Nemo instead")
+            }
+            Outcome::Ran(c) => {
+                let failed = case.check(c, kind, codes(oracle));
+                let mut check = finish(case.name, name, failed.is_empty(), failed.join("\n"));
+                let differs = Difference::ALL
+                    .into_iter()
+                    .any(|d| d.applies(input, c, &Closure::default()));
+                if oracle == "reasonable" && check.status == Status::Fail && differs {
+                    check.status = Status::Known(DOCUMENTED);
+                }
+                check
+            }
+            Outcome::Failed(why) => finish(case.name, name, false, why.clone()),
+            other => not_run(name, other.status()),
+        };
+        row.checks.push(check);
+    }
+
+    let pairs: &[(&str, &str, Relation)] = &[
+        ("reasonable", "Nemo[R]", Relation::Equal),
+        ("Nemo[L]", "OWL-RL", Relation::Subset),
+        ("ours[R]", "reasonable", Relation::Equal),
+        ("ours[R]", "Nemo[R]", Relation::Equal),
+        ("ours[L]", "Nemo[L]", Relation::Equal),
+        ("ours[L]", "OWL-RL", Relation::Subset),
+    ];
+    for &(left, right, relation) in pairs {
+        let sym = if relation == Relation::Equal { "=" } else { "⊆" };
+        let name = format!("{left} {sym} {right}");
+        let with_reasonable = left == "reasonable" || right == "reasonable";
+        let check = match (row.outcome(left), row.outcome(right)) {
+            _ if with_reasonable && excluded => not_run(name, "D5"),
+            (Outcome::Ran(l), Outcome::Ran(r)) => {
+                let shared: Vec<&str> = codes(left)
+                    .iter()
+                    .copied()
+                    .filter(|c| codes(right).contains(c))
+                    .collect();
+                let (mut l, mut r) = (only_codes(l, &shared), only_codes(r, &shared));
+                if with_reasonable {
+                    for d in apply(input, &mut l, &mut r) {
+                        if !row.differences.contains(&d) {
+                            row.differences.push(d);
+                        }
+                    }
+                }
+                if right == "OWL-RL" {
+                    without_owlrl_gaps(&mut l);
+                }
+                let diff = compare((left, &l), (right, &r), relation);
+                finish(&row.case, name, diff.holds(), diff.to_string())
+            }
+            (l, r) => not_run(name, &format!("{} / {}", l.status(), r.status())),
+        };
+        row.checks.push(check);
+    }
+
+    for oracle in ["Nemo[L]", "ours[L]"] {
+        let name = format!("HermiT entails {oracle}'s subsumptions");
+        let check = match row.outcome(oracle) {
+            _ if !options.hermit => not_run(name, "not run on this input (see Options)"),
+            Outcome::Ran(c) => match hermit::check(input, c) {
+                Ok(s) if s.checked == 0 => not_run(name, "no inferred subsumption"),
+                Ok(s) => finish(
+                    &row.case,
+                    name,
+                    s.not_entailed.is_empty(),
+                    format!(
+                        "{} checked{}{}",
+                        s.checked,
+                        if s.inconsistent {
+                            " (input inconsistent for HermiT)"
+                        } else {
+                            ""
+                        },
+                        s.not_entailed
+                            .iter()
+                            .map(|n| format!("\n  not entailed: {n}"))
+                            .collect::<String>()
+                    ),
+                ),
+                Err(o) => not_run(name, &o_reason(&o)),
+            },
+            other => not_run(name, other.status()),
+        };
+        row.checks.push(check);
+    }
+    row
+}
+
+fn o_reason(o: &Outcome) -> String {
+    match o {
+        Outcome::Skipped(r) | Outcome::Pending(r) | Outcome::Failed(r) => format!("{}: {r}", o.status()),
+        Outcome::Ran(_) => "ran".to_owned(),
+    }
+}
+
+/// Removes the triples owlrl 7.6.2 leaves out by design, before a closure is
+/// compared with its: `c rdfs:subClassOf c`, which its scm-sco skips
+/// (OWLRL.py:883-888, `if c1 != c3`) and its scm-cls derives only for `c a
+/// owl:Class`. The W3C scm-sco has no such condition.
+fn without_owlrl_gaps(c: &mut Closure) {
+    c.triples.retain(|t| {
+        !(t.predicate == oxrdf::vocab::rdfs::SUB_CLASS_OF && oxrdf::Term::from(t.subject.clone()) == t.object)
+    });
+}
+
+fn only_codes(c: &Closure, codes: &[&str]) -> Closure {
+    Closure {
+        triples: c.triples.clone(),
+        findings: c
+            .findings
+            .iter()
+            .filter(|f| codes.contains(&f.code.as_str()))
+            .cloned()
+            .collect(),
+    }
+}
+
+fn not_run(name: String, why: &str) -> Check {
+    Check {
+        name,
+        status: Status::NotRun(why.to_owned()),
+        detail: String::new(),
+    }
+}
+
+fn finish(case: &str, name: String, ok: bool, detail: String) -> Check {
+    let status = if ok {
+        Status::Pass
+    } else if let Some((_, _, why)) = KNOWN.iter().find(|(c, n, _)| *c == case && *n == name) {
+        Status::Known(why)
+    } else {
+        Status::Fail
+    };
+    Check { name, status, detail }
+}
+
+impl Table {
+    /// The failed checks: (case, check).
+    pub fn failures(&self) -> Vec<(&str, &Check)> {
+        self.rows
+            .iter()
+            .flat_map(|r| r.checks.iter().map(move |c| (r.case.as_str(), c)))
+            .filter(|(_, c)| c.status == Status::Fail)
+            .collect()
+    }
+
+    /// Checks listed in [`KNOWN`] that passed or did not run (stale entries).
+    pub fn stale_known(&self) -> Vec<(&'static str, &'static str)> {
+        KNOWN
+            .iter()
+            .filter(|(case, name, _)| {
+                !self.rows.iter().any(|r| {
+                    r.case == *case
+                        && r.checks
+                            .iter()
+                            .any(|c| c.name == *name && matches!(c.status, Status::Known(_)))
+                })
+            })
+            .map(|(c, n, _)| (*c, *n))
+            .collect()
+    }
+
+    /// The results as Markdown: one row per input with each oracle's closure
+    /// size and findings, then every check that did not pass.
+    pub fn markdown(&self) -> String {
+        let mut out = String::new();
+        out.push_str("| Case | Item |");
+        for (o, _) in ORACLES {
+            let _ = write!(out, " {o} |");
+        }
+        out.push_str(" Checks |\n|---|---|");
+        for _ in ORACLES {
+            out.push_str("---|");
+        }
+        out.push_str("---|\n");
+        for r in &self.rows {
+            let _ = write!(out, "| {} | {} |", r.case, r.item);
+            for (o, _) in ORACLES {
+                let cell = match r.outcome(o) {
+                    Outcome::Ran(c) => format!("{} · {}", c.triples.len(), c.finding_summary()),
+                    other => other.status().to_owned(),
+                };
+                let _ = write!(out, " {cell} |");
+            }
+            let count = |f: fn(&Status) -> bool| r.checks.iter().filter(|c| f(&c.status)).count();
+            let _ = writeln!(
+                out,
+                " {} pass, {} fail, {} known, {} not run{} |",
+                count(|s| *s == Status::Pass),
+                count(|s| *s == Status::Fail),
+                count(|s| matches!(s, Status::Known(_))),
+                count(|s| matches!(s, Status::NotRun(_))),
+                if r.differences.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "; {}",
+                        r.differences
+                            .iter()
+                            .map(|d| format!("{d:?}"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                }
+            );
+        }
+        out.push_str("\nCells: closure triples · findings. R = `reasonable` profile, L = `owl-rl` profile.\n");
+        for r in &self.rows {
+            for c in r
+                .checks
+                .iter()
+                .filter(|c| matches!(c.status, Status::Fail | Status::Known(_)))
+            {
+                let _ = writeln!(
+                    out,
+                    "\n### {}: {} ({})\n",
+                    r.case,
+                    c.name,
+                    match &c.status {
+                        Status::Known(why) => format!("known: {why}"),
+                        _ => "FAIL".to_owned(),
+                    }
+                );
+                let _ = writeln!(out, "```\n{}\n```", c.detail.trim_end());
+            }
+        }
+        let skipped: Vec<String> = self
+            .rows
+            .iter()
+            .flat_map(|r| r.outcomes.iter())
+            .filter(|(_, o)| !matches!(o, Outcome::Ran(_)))
+            .map(|(_, o)| o_reason(o))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let not_run: std::collections::BTreeSet<String> = self
+            .rows
+            .iter()
+            .flat_map(|r| r.checks.iter())
+            .filter_map(|c| match &c.status {
+                Status::NotRun(why) if why.contains(':') => Some(format!("{}: {why}", c.name)),
+                _ => None,
+            })
+            .collect();
+        let skipped: Vec<String> = skipped.into_iter().chain(not_run).collect();
+        if !skipped.is_empty() {
+            out.push_str("\nNot run:\n");
+            for s in skipped {
+                let _ = writeln!(out, "- {s}");
+            }
+        }
+        out
+    }
+}

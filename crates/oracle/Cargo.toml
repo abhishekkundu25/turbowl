@@ -10,6 +10,13 @@ publish = false
 [dependencies]
 turtle-reasoner.workspace = true
 oxrdf.workspace = true
+oxttl.workspace = true
+oxrdfxml.workspace = true
+
+[dev-dependencies]
+# The pinned release the parity research read (crates.io 0.5.0-a1 was
+# published from commit fecee2b; its sources are identical to lib/ there).
+reasonable = { version = "=0.5.0-a1", default-features = true }
 
 [lints]
 workspace = true

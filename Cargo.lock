@@ -367,6 +367,9 @@ name = "turtle-reasoner-oracle"
 version = "0.1.0"
 dependencies = [
  "oxrdf",
+ "oxrdfxml",
+ "oxttl",
+ "reasonable",
  "turtle-reasoner",
 ]
 
