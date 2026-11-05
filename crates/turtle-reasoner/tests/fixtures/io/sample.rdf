@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:ex="http://example.org/">
+  <rdf:Description rdf:about="http://example.org/Dog">
+    <rdfs:subClassOf rdf:resource="http://example.org/Animal"/>
+  </rdf:Description>
+  <ex:Dog rdf:about="http://example.org/rex">
+    <rdfs:label xml:lang="en">Rex</rdfs:label>
+    <rdfs:label xml:lang="fr">Rex le chien</rdfs:label>
+    <rdfs:label>Rex</rdfs:label>
+    <ex:age rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">7</ex:age>
+    <ex:note>a "quoted"
+line é</ex:note>
+    <ex:owner rdf:nodeID="alice"/>
+  </ex:Dog>
+  <rdf:Description rdf:nodeID="alice">
+    <ex:name>Alice</ex:name>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://example.org/Animal">
+    <owl:equivalentClass>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="http://example.org/age"/>
+        <owl:someValuesFrom rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+      </owl:Restriction>
+    </owl:equivalentClass>
+  </rdf:Description>
+</rdf:RDF>

@@ -1,0 +1,13 @@
+<http://example.org/Dog> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/Animal> .
+<http://example.org/rex> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Dog> .
+<http://example.org/rex> <http://www.w3.org/2000/01/rdf-schema#label> "Rex"@en .
+<http://example.org/rex> <http://www.w3.org/2000/01/rdf-schema#label> "Rex le chien"@fr .
+<http://example.org/rex> <http://www.w3.org/2000/01/rdf-schema#label> "Rex" .
+<http://example.org/rex> <http://example.org/age> "7"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<http://example.org/rex> <http://example.org/note> "a \"quoted\"\nline é" .
+<http://example.org/rex> <http://example.org/owner> _:alice .
+_:alice <http://example.org/name> "Alice" .
+<http://example.org/Animal> <http://www.w3.org/2002/07/owl#equivalentClass> _:r .
+_:r <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Restriction> .
+_:r <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/age> .
+_:r <http://www.w3.org/2002/07/owl#someValuesFrom> <http://www.w3.org/2001/XMLSchema#integer> .

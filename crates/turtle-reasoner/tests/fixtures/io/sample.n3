@@ -1,0 +1,20 @@
+@prefix ex: <http://example.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:Dog rdfs:subClassOf ex:Animal .
+
+ex:rex a ex:Dog ;
+    rdfs:label "Rex"@en, "Rex le chien"@fr, "Rex" ;
+    ex:age "7"^^xsd:integer ;
+    ex:note "a \"quoted\"\nline é" ;
+    ex:owner _:alice .
+
+_:alice ex:name "Alice" .
+
+ex:Animal owl:equivalentClass [
+    a owl:Restriction ;
+    owl:onProperty ex:age ;
+    owl:someValuesFrom xsd:integer
+] .

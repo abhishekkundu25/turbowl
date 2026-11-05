@@ -1,4 +1,4 @@
-//! Errors of the interface (ticket 02 fills the variants' detail).
+//! Errors of the interface.
 
 use std::fmt;
 
@@ -7,14 +7,20 @@ use std::fmt;
 pub enum Error {
     /// Reading or writing a file failed.
     Io {
+        /// The file; `None` for a string input or a caller's writer.
         path: Option<std::path::PathBuf>,
         source: std::io::Error,
     },
     /// A document is not valid in its format.
     Parse {
+        /// The file; `None` for a string input.
         path: Option<std::path::PathBuf>,
+        /// The 1-based line of the error; 0 when the error is not at a
+        /// position in the text (an invalid base IRI).
         line: u64,
+        /// The 1-based column, in characters; 0 with line 0.
         column: u64,
+        /// The parser's message.
         message: String,
     },
     /// A file's extension names no supported format.
@@ -26,6 +32,12 @@ impl fmt::Display for Error {
         let at = |p: &Option<std::path::PathBuf>| p.as_ref().map(|p| format!("{}: ", p.display())).unwrap_or_default();
         match self {
             Error::Io { path, source } => write!(f, "{}{source}", at(path)),
+            Error::Parse {
+                path,
+                line,
+                column,
+                message,
+            } if *line == 0 => write!(f, "{}{message}", at(path)),
             Error::Parse {
                 path,
                 line,
