@@ -67,6 +67,12 @@ impl Table {
         self.os.as_ref()
     }
 
+    /// A table of these pairs: a loaded snapshot (`snapshot.rs`), which
+    /// checks that `os` holds the pairs of `so` flipped.
+    pub(crate) fn from_parts(so: Variable<Pair>, os: Option<Variable<Pair>>) -> Self {
+        Self { so, os }
+    }
+
     fn is_active(&self) -> bool {
         self.so.is_active() || self.os.as_ref().is_some_and(Variable::is_active)
     }
@@ -192,6 +198,17 @@ impl Pending {
         self.merges.clear();
     }
 
+    /// Every pair held, as `(s, p, o)`: slot by slot, in the order the
+    /// predicates first came, each slot's pairs in the order they came.
+    fn triples(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
+        self.slots.iter().flat_map(|slot| {
+            std::iter::once(&slot.pairs)
+                .chain(&slot.more)
+                .flatten()
+                .map(move |&(s, o)| (s, slot.p, o))
+        })
+    }
+
     /// The pairs the buffer has room for.
     fn capacity(&self) -> usize {
         self.slots
@@ -244,6 +261,45 @@ impl Store {
             canon,
             ..Self::default()
         }
+    }
+
+    /// A store holding `tables` (each predicate once), whose ids are made
+    /// equal as `canon` says, after `rounds` rounds: a store as a run leaves
+    /// it, restored from a snapshot (`snapshot.rs` checks every invariant
+    /// first: the predicates distinct, the tables' batches, the tuples in
+    /// representatives).
+    pub(crate) fn restore(tables: Vec<(u32, Table)>, canon: Canon, rounds: usize) -> Self {
+        let mut store = Self {
+            canon,
+            rounds,
+            ..Self::default()
+        };
+        for (p, table) in tables {
+            debug_assert!(!table.is_active(), "a restored table has no round pending");
+            let t = store.table_index(p);
+            debug_assert_eq!(t, store.tables.len() - 1, "a predicate is restored once");
+            store.tables[t] = table;
+        }
+        store
+    }
+
+    /// True when no round is pending: no table has a recent part or queued
+    /// tuples, and nothing is queued but triples ([`Store::queued`]). A
+    /// store is settled between runs, which end at a fixpoint.
+    pub(crate) fn is_settled(&self) -> bool {
+        self.active.is_empty()
+            && self.tables.iter().all(|t| !t.is_active())
+            && self.moved.is_empty()
+            && !self.restarted
+            && self.pending.merges.is_empty()
+            && self.pending.by_object.is_empty()
+    }
+
+    /// The triples queued for the next run ([`Store::insert`],
+    /// [`Store::extend`]), predicate by predicate in the order the
+    /// predicates first came.
+    pub(crate) fn queued(&self) -> impl Iterator<Item = (u32, u32, u32)> + '_ {
+        self.pending.triples()
     }
 
     /// The canon, for a store that is dropped (to run again from the base).

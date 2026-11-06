@@ -25,6 +25,16 @@ pub enum Error {
     },
     /// A file's extension names no supported format.
     UnknownFormat { path: std::path::PathBuf },
+    /// A snapshot is refused ([`Reasoner::from_snapshot_bytes`](crate::Reasoner::from_snapshot_bytes)):
+    /// it is not a snapshot, it is of another format version or another
+    /// TurbOWL version, or it is truncated, damaged or malformed.
+    Snapshot {
+        /// The file; `None` for bytes given.
+        path: Option<std::path::PathBuf>,
+        /// Why, as one sentence: "the snapshot is damaged: its checksum
+        /// does not match its contents".
+        message: String,
+    },
 }
 
 impl fmt::Display for Error {
@@ -44,6 +54,7 @@ impl fmt::Display for Error {
                 column,
                 message,
             } => write!(f, "{}{line}:{column}: {message}", at(path)),
+            Error::Snapshot { path, message } => write!(f, "{}{message}", at(path)),
             Error::UnknownFormat { path } => write!(
                 f,
                 "{}: unknown format (use .ttl, .nt, .n3, .rdf or .owl)",

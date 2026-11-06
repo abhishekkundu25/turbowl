@@ -105,16 +105,26 @@
 //! anonymous ones (`[ ]`, lists) at random on every parse. A removal of any
 //! base triple forgets which documents were loaded: loading one again after
 //! a removal adds it again.
+//!
+//! # Snapshots (ticket 19)
+//!
+//! [`Reasoner::write_snapshot`] writes the whole state above (but the
+//! threads and the counters) as one checked byte string, and
+//! [`Reasoner::from_snapshot_bytes`] makes the same reasoner from it, with
+//! the same run due next; [`Reasoner::save_snapshot`] and
+//! [`Reasoner::from_snapshot`] do it with a file, atomically. The format
+//! and what loading checks are in `snapshot.rs`.
 
-#[cfg(feature = "io")]
 use crate::Error;
 use crate::engine::{Canon, Relation, Round, Store, Workers};
 use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
+use crate::snapshot::{self, Restored, Saved};
 use crate::term::{Dictionary, DocId, Kind, TermId, vocab};
 use crate::{Diagnostic, Switch, Switches, Threads};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
 use rustc_hash::FxHashSet;
+use std::borrow::Cow;
 
 /// A document format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,7 +210,7 @@ const _: () = {
 
 /// What the next [`Reasoner::reason`] has to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum State {
+pub(crate) enum State {
     /// Nothing: the closure is the base's.
     Current,
     /// Base triples were added (and queued in the closure): an incremental run.
@@ -235,8 +245,7 @@ impl Reasoner {
     }
 
     fn build(families: &'static [Family], switches: Switches) -> Self {
-        let mut terms = Dictionary::new();
-        datatype::intern_rule_literals(&mut terms);
+        let terms = new_dictionary();
         let threads = Threads::default();
         let workers = threads.workers();
         let mut closure = Store::new();
@@ -452,6 +461,124 @@ impl Reasoner {
         crate::io::write(&self.terms, triples, out, format).map(|_| ())
     }
 
+    /// Writes a snapshot of the reasoner to `out`: its whole state (the
+    /// terms, the base, the closure of the last run as stored, the
+    /// diagnostics, the switches, the documents loaded, and any change made
+    /// since the last run), so that [`Reasoner::from_snapshot_bytes`] gives
+    /// it back without parsing or reasoning. Only the threads are not
+    /// saved. The format is versioned and checksummed (`snapshot.rs`
+    /// documents it); its size is about 8 bytes a stored pair, 12 a base
+    /// triple, plus the terms' text.
+    ///
+    /// For WebAssembly, which has no files, and the oracle crate's round
+    /// trips; [`Reasoner::save_snapshot`] writes a file.
+    pub fn write_snapshot(&self, out: impl std::io::Write) -> Result<(), Error> {
+        snapshot::write(&self.saved(), out).map_err(|source| Error::Io { path: None, source })
+    }
+
+    /// The reasoner a snapshot holds ([`Reasoner::write_snapshot`]): the
+    /// saved one, with the same closure, diagnostics and switches, and the
+    /// same run due next, so that [`Reasoner::reason`] and the changes then
+    /// do what they would have done on it. It runs on [`Threads::ALL`].
+    ///
+    /// # Errors
+    /// [`Error::Snapshot`] when `bytes` are not a snapshot this TurbOWL
+    /// reads: another format version, another TurbOWL version (its closure
+    /// follows from that version's rules), a truncated or damaged snapshot
+    /// (the checksum), or malformed contents. Every part is checked before
+    /// it is used.
+    pub fn from_snapshot_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        Self::read_snapshot(bytes, None)
+    }
+
+    /// Saves a snapshot ([`Reasoner::write_snapshot`]) to the file at
+    /// `path`, atomically: it is written to a temporary file in the same
+    /// directory, synced, and renamed over `path`, so that a crash leaves
+    /// the old file or the new one, never half a snapshot.
+    #[cfg(feature = "io")]
+    pub fn save_snapshot(&self, path: &std::path::Path) -> Result<(), Error> {
+        snapshot::save(path, |file| snapshot::write(&self.saved(), file)).map_err(|source| Error::Io {
+            path: Some(path.into()),
+            source,
+        })
+    }
+
+    /// The reasoner the snapshot file at `path` holds
+    /// ([`Reasoner::from_snapshot_bytes`]).
+    ///
+    /// # Errors
+    /// [`Error::Io`] when the file cannot be read; [`Error::Snapshot`] as
+    /// for [`Reasoner::from_snapshot_bytes`].
+    #[cfg(feature = "io")]
+    pub fn from_snapshot(path: &std::path::Path) -> Result<Self, Error> {
+        let bytes = std::fs::read(path).map_err(|source| Error::Io {
+            path: Some(path.into()),
+            source,
+        })?;
+        Self::read_snapshot(&bytes, Some(path))
+    }
+
+    fn read_snapshot(bytes: &[u8], path: Option<&std::path::Path>) -> Result<Self, Error> {
+        let restored = snapshot::read(bytes, new_dictionary).map_err(|message| Error::Snapshot {
+            path: path.map(Into::into),
+            message,
+        })?;
+        Ok(Self::restored(restored))
+    }
+
+    /// The state a snapshot saves, borrowed.
+    fn saved(&self) -> Saved<'_> {
+        #[cfg(feature = "io")]
+        let (probe, documents) = {
+            let mut keys: Vec<u128> = self.loaded.iter().copied().collect();
+            keys.sort_unstable();
+            (probe_key(), keys)
+        };
+        #[cfg(not(feature = "io"))]
+        let (probe, documents) = (0, Vec::new());
+        Saved {
+            switches: self.switches,
+            state: self.state,
+            terms: &self.terms,
+            base: self.base.sorted_all(),
+            closure: &self.closure,
+            rdf: self.rdf,
+            same_as_itself: &self.same_as_itself,
+            same_as_itself_rdf: self.same_as_itself_rdf,
+            findings: &self.findings,
+            probe,
+            documents,
+        }
+    }
+
+    /// A reasoner in the state a snapshot held, on the default threads.
+    fn restored(r: Restored) -> Self {
+        let mut out = Self::build(FAMILIES, r.switches);
+        out.diagnostics = diagnostics(&r.findings, r.closure.canon(), &r.terms);
+        out.terms = r.terms;
+        out.base = Base {
+            sorted: r.base,
+            recent: FxHashSet::default(),
+        };
+        out.closure = r.closure;
+        out.closure.set_workers(out.workers.clone());
+        out.state = r.state;
+        out.rdf = r.rdf;
+        out.same_as_itself = r.same_as_itself;
+        out.same_as_itself_rdf = r.same_as_itself_rdf;
+        out.findings = r.findings;
+        // Keys from a build that hashes documents another way would name
+        // no document here: forget them, as a removal does.
+        #[cfg(feature = "io")]
+        if r.probe == probe_key() {
+            out.loaded = r.documents.into_iter().collect();
+        }
+        // Without `io` no document is loaded, and the keys name none.
+        #[cfg(not(feature = "io"))]
+        let _ = (r.probe, r.documents);
+        out
+    }
+
     /// Every triple of the closure, generalized ones included, each stored
     /// triple expanded to the members of its terms' classes; then eq-ref's
     /// (none unless `trivial` is on), expanded the same way.
@@ -577,16 +704,7 @@ impl Reasoner {
             }
             self.findings.sort_unstable();
             self.findings.dedup();
-            let mut expanded = Vec::with_capacity(self.findings.len());
-            for f in &self.findings {
-                equality::expand_finding(canon, f, &mut expanded);
-            }
-            expanded.sort_unstable();
-            expanded.dedup();
-            self.diagnostics = expanded
-                .iter()
-                .map(|f| Diagnostic::from_finding(f, &self.terms))
-                .collect();
+            self.diagnostics = diagnostics(&self.findings, canon, &self.terms);
         }
         rounds
     }
@@ -670,6 +788,35 @@ impl Reasoner {
         let predicate = NamedNode::new_unchecked(self.terms.iri(TermId(p))?);
         Some(Triple::new(subject, predicate, self.terms.to_oxrdf(TermId(o))))
     }
+}
+
+/// A new dictionary: the vocabulary, then the literals the rules name, at
+/// the ids every reasoner (and every snapshot) has them.
+pub(crate) fn new_dictionary() -> Dictionary {
+    let mut terms = Dictionary::new();
+    datatype::intern_rule_literals(&mut terms);
+    terms
+}
+
+/// The public form of `findings` (in representatives): each expanded to
+/// every member of its terms' classes, sorted, deduplicated.
+fn diagnostics(findings: &[Finding], canon: &Canon, terms: &Dictionary) -> Vec<Diagnostic> {
+    let mut expanded = Vec::with_capacity(findings.len());
+    for f in findings {
+        equality::expand_finding(canon, f, &mut expanded);
+    }
+    expanded.sort_unstable();
+    expanded.dedup();
+    expanded.iter().map(|f| Diagnostic::from_finding(f, terms)).collect()
+}
+
+/// The key of a fixed document (an empty Turtle one): a snapshot saves it
+/// with the keys of the documents loaded, and keeps those keys on load only
+/// when this build gives the same, as a sign that it hashes documents as the
+/// saving build did.
+#[cfg(feature = "io")]
+fn probe_key() -> u128 {
+    document_key(b"", Format::Turtle, None)
 }
 
 /// One family's task in a round ([`Round::tasks`]): what it found and
@@ -780,6 +927,18 @@ impl Base {
 
     fn contains(&self, t: &[u32; 3]) -> bool {
         self.sorted.binary_search(t).is_ok() || self.recent.contains(t)
+    }
+
+    /// Every base triple, sorted: the vector itself when the hash set is
+    /// empty, else a merged copy.
+    fn sorted_all(&self) -> Cow<'_, [[u32; 3]]> {
+        if self.recent.is_empty() {
+            return Cow::Borrowed(&self.sorted);
+        }
+        let mut more: Vec<[u32; 3]> = self.recent.iter().copied().collect();
+        more.sort_unstable();
+        let all = Relation::from_sorted(self.sorted.clone()).merge(Relation::from_sorted(more));
+        Cow::Owned(all.into_vec())
     }
 
     #[cfg(test)]

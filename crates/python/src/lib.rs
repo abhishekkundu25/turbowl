@@ -28,7 +28,11 @@
 //! Switches are given and read by their names ([`Switch::name`]), parsed
 //! here, once, with [`Switch::from_name`].
 //!
-//! Parsing, reasoning and writing release the GIL.
+//! Snapshots are saved and loaded with files only
+//! ([`turbowl::Reasoner::save_snapshot`], [`turbowl::Reasoner::from_snapshot`]);
+//! a refused one raises `SnapshotError`.
+//!
+//! Parsing, reasoning, writing and snapshots release the GIL.
 
 use oxrdf::{BlankNode, Literal, NamedNode, NamedOrBlankNode, Term, Triple};
 use pyo3::call::PyCallArgs;
@@ -81,6 +85,20 @@ impl NativeReasoner {
         Ok(Self {
             inner: turbowl::Reasoner::with_switches(switches),
         })
+    }
+
+    /// The reasoner a snapshot file holds.
+    #[staticmethod]
+    fn from_snapshot(py: Python<'_>, path: PathBuf) -> PyResult<Self> {
+        py.detach(|| turbowl::Reasoner::from_snapshot(&path))
+            .map(|inner| Self { inner })
+            .map_err(|e| error(py, e))
+    }
+
+    /// Saves a snapshot of the reasoner to a file, atomically.
+    fn save_snapshot(&self, py: Python<'_>, path: PathBuf) -> PyResult<()> {
+        let inner = &self.inner;
+        py.detach(|| inner.save_snapshot(&path)).map_err(|e| error(py, e))
     }
 
     /// Every switch's name, mapped to whether it is on, in the order of
@@ -306,6 +324,7 @@ fn error(py: Python<'_>, e: Error) -> PyErr {
             message,
         } => raise(py, "ParseError", (message, shown(path), line, column)),
         Error::UnknownFormat { path } => raise(py, "UnknownFormatError", (message, shown(Some(path)))),
+        Error::Snapshot { path, message } => raise(py, "SnapshotError", (message, shown(path))),
     }
 }
 

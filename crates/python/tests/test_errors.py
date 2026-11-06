@@ -10,7 +10,7 @@ import pytest
 from rdflib import BNode, Literal, Namespace, URIRef, Variable
 
 import turbowl
-from turbowl import FileError, ParseError, Reasoner, TermError, TurbowlError, UnknownFormatError
+from turbowl import FileError, ParseError, Reasoner, SnapshotError, TermError, TurbowlError, UnknownFormatError
 
 EX = Namespace("http://example.org/")
 BAD_TURTLE = "@prefix ex: <http://example.org/> .\nex:a ex:p ex:b .\nex:a ex:p .\n"
@@ -20,6 +20,7 @@ def test_every_error_is_a_turbowl_error_and_a_builtin_one():
     assert issubclass(ParseError, TurbowlError) and issubclass(ParseError, ValueError)
     assert issubclass(UnknownFormatError, TurbowlError) and issubclass(UnknownFormatError, ValueError)
     assert issubclass(TermError, TurbowlError) and issubclass(TermError, ValueError)
+    assert issubclass(SnapshotError, TurbowlError) and issubclass(SnapshotError, ValueError)
     assert issubclass(FileError, TurbowlError) and issubclass(FileError, OSError)
     assert issubclass(TurbowlError, Exception)
 
@@ -197,5 +198,5 @@ def test_load_str_takes_text_only():
 
 
 def test_the_errors_are_exported():
-    for name in ("TurbowlError", "ParseError", "FileError", "UnknownFormatError", "TermError"):
+    for name in ("TurbowlError", "ParseError", "FileError", "UnknownFormatError", "TermError", "SnapshotError"):
         assert name in turbowl.__all__

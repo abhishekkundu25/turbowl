@@ -725,6 +725,119 @@ pub(crate) mod vocab {
     }
 }
 
+/// What a snapshot (`snapshot.rs`, ticket 19) reads and restores: the count
+/// of documents, and the terms in bulk, appended in id order and then
+/// indexed at once.
+impl Dictionary {
+    /// The documents started so far ([`Dictionary::new_document`]).
+    pub(crate) fn documents(&self) -> u32 {
+        self.documents
+    }
+
+    /// Restores the count of documents started, so that the next document
+    /// gets a scope of its own.
+    pub(crate) fn set_documents(&mut self, documents: u32) {
+        self.documents = documents;
+    }
+
+    /// Appends `term` at the next id without looking it up or indexing it.
+    /// [`Dictionary::index_appended`] must follow before any other call.
+    ///
+    /// # Panics
+    /// As `intern_*`.
+    pub(crate) fn append(&mut self, term: Term<'_>) {
+        let (tag, aux, text, tail) = match term {
+            Term::Iri(iri) => (TAG_IRI, 0, iri, ""),
+            Term::Blank { doc, label } => (TAG_BLANK, doc.0, label, ""),
+            Term::Literal {
+                lexical,
+                language: Some(language),
+                ..
+            } => (TAG_LANG, lang_len(language), lexical, language),
+            Term::Literal {
+                lexical,
+                datatype,
+                language: None,
+            } => (TAG_TYPED, datatype.0, lexical, ""),
+        };
+        let id = self.entries.len();
+        assert!(id < MAX_TERMS, "the dictionary is full ({MAX_TERMS} terms)");
+        let len = text.len() + tail.len();
+        assert!(len <= MAX_TERM_BYTES, "a term is longer than {MAX_TERM_BYTES} bytes");
+        let start = self.text.len() as u64;
+        self.text.push_str(text);
+        self.text.push_str(tail);
+        self.entries.push(Entry {
+            start: start | (tag << TAG_SHIFT),
+            len: len as u32,
+            aux,
+        });
+    }
+
+    /// Indexes the terms [`Dictionary::append`] added from id `from` on, so
+    /// that interning and lookups find them. Hashes them first, then inserts
+    /// them in the order of their slots, so that the inserts walk the table
+    /// instead of jumping about it. `Err((id, earlier))` when a term repeats
+    /// an earlier one: the dictionary is then not to be used.
+    pub(crate) fn index_appended(&mut self, from: usize) -> Result<(), (u32, u32)> {
+        let want = (self.entries.len() * 2 + 1).next_power_of_two();
+        if want > self.slots.len() {
+            self.rehash(want);
+        }
+        let mask = self.slots.len() - 1;
+        let hashed: Vec<(u32, u32)> = (from..self.entries.len())
+            .map(|id| {
+                let e = self.entries[id];
+                let text = &self.text[e.range()];
+                let (text, tail) = match e.tag() {
+                    TAG_LANG => text.split_at(text.len() - e.aux as usize),
+                    _ => (text, ""),
+                };
+                (hash(e.tag(), e.aux, text, tail), id as u32)
+            })
+            .collect();
+        // A counting sort on the top 12 bits of each home slot.
+        let bits = mask.count_ones();
+        let shift = bits.saturating_sub(12);
+        let bucket = |h: u32| (h as usize & mask) >> shift;
+        let mut starts = vec![0usize; (mask >> shift) + 2];
+        for &(h, _) in &hashed {
+            starts[bucket(h) + 1] += 1;
+        }
+        for b in 1..starts.len() {
+            starts[b] += starts[b - 1];
+        }
+        let mut sorted = vec![(0u32, 0u32); hashed.len()];
+        for &(h, id) in &hashed {
+            let at = &mut starts[bucket(h)];
+            sorted[*at] = (h, id);
+            *at += 1;
+        }
+        drop(hashed);
+        for (h, id) in sorted {
+            let mut i = h as usize & mask;
+            loop {
+                let slot = self.slots[i];
+                if slot == EMPTY {
+                    self.slots[i] = (u64::from(h) << 32) | u64::from(id);
+                    break;
+                }
+                if (slot >> 32) as u32 == h && self.same_entry(slot as u32, id) {
+                    return Err((id, slot as u32));
+                }
+                i = (i + 1) & mask;
+            }
+        }
+        Ok(())
+    }
+
+    /// True when ids `a` and `b` hold the same term.
+    fn same_entry(&self, a: u32, b: u32) -> bool {
+        let (ea, eb) = (self.entries[a as usize], self.entries[b as usize]);
+        ea.tag() == eb.tag() && ea.aux == eb.aux && self.text[ea.range()] == self.text[eb.range()]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

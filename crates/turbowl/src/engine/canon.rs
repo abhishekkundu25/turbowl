@@ -88,6 +88,43 @@ impl Canon {
         }
     }
 
+    /// A canon from its parts, as [`Canon::constants`], [`Canon::watched`],
+    /// [`Canon::rep`], [`Canon::classes`] and [`Canon::merges`] give them: a
+    /// loaded snapshot (`snapshot.rs`), which checks the invariants of the
+    /// module doc first.
+    pub(crate) fn restore(
+        constants: u32,
+        watched: Vec<u32>,
+        rep: Vec<u32>,
+        classes: Vec<(u32, Vec<u32>)>,
+        merges: usize,
+    ) -> Self {
+        debug_assert!(watched.iter().all(|&w| w < constants));
+        debug_assert!(
+            classes
+                .iter()
+                .all(|(r, members)| members.iter().all(|&m| rep[m as usize] == *r))
+        );
+        Self {
+            rep,
+            classes: classes.into_iter().collect(),
+            constants,
+            watched,
+            merges,
+        }
+    }
+
+    /// The representative of each id below its length; an id past the end
+    /// is its own ([`Canon::find`]).
+    pub(crate) fn rep(&self) -> &[u32] {
+        &self.rep
+    }
+
+    /// The constants the rules also test for identity.
+    pub(crate) fn watched(&self) -> &[u32] {
+        &self.watched
+    }
+
     /// The representative of `id`.
     #[inline]
     pub(crate) fn find(&self, id: u32) -> u32 {

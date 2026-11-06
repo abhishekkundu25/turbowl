@@ -40,6 +40,19 @@ impl<T: Ord + Copy> Variable<T> {
         Self::default()
     }
 
+    /// A variable whose stable batches are `stable`, with nothing recent or
+    /// queued, as a run leaves it: a loaded snapshot (`snapshot.rs`), which
+    /// checks the invariants first (each batch non-empty, the batches
+    /// disjoint, each more than twice as long as the next).
+    pub(crate) fn from_stable(stable: Vec<Relation<T>>) -> Self {
+        debug_assert!(stable.iter().all(|b| !b.is_empty()));
+        debug_assert!(stable.windows(2).all(|w| w[0].len() > 2 * w[1].len()));
+        Self {
+            stable,
+            ..Self::default()
+        }
+    }
+
     /// Queues a batch for the next `changed`. Empty batches are dropped.
     pub(crate) fn insert(&mut self, batch: Relation<T>) {
         if !batch.is_empty() {

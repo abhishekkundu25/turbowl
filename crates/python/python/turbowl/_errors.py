@@ -66,6 +66,25 @@ class FileError(TurbowlError, OSError):
         return f"{self.filename}: {self.strerror}" if self.filename is not None else str(self.strerror)
 
 
+class SnapshotError(TurbowlError, ValueError):
+    """A snapshot is refused: it is not a snapshot, it is of another format
+    version or another TurbOWL version, or it is truncated, damaged or
+    malformed.
+
+    Attributes:
+        message: Why, as one sentence.
+        path: The file.
+    """
+
+    def __init__(self, message: str, path: str | None = None) -> None:
+        super().__init__(message, path)
+        self.message = message
+        self.path = path
+
+    def __str__(self) -> str:
+        return f"{self.path}: {self.message}" if self.path is not None else self.message
+
+
 class TermError(TurbowlError, ValueError):
     """An rdflib term that RDF does not allow where it was given.
 

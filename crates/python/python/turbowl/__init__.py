@@ -79,14 +79,27 @@ Blank nodes
     (``_`` and digits at the end) comes back with ``_0`` appended:
     ``BNode("b_1")`` comes back as ``BNode("b_1_0")``.
 
+Snapshots
+    :meth:`Reasoner.save_snapshot` saves a reasoner's whole state to a file
+    (the terms, the base, the closure, the diagnostics, the switches, and any
+    change since the last run), and :meth:`Reasoner.from_snapshot` loads it
+    back without parsing or reasoning::
+
+        r.save_snapshot("state.snapshot")
+        again = turbowl.Reasoner.from_snapshot("state.snapshot")
+
+    A snapshot of another TurbOWL version, or a damaged one, raises
+    :class:`SnapshotError`.
+
 Errors
     :class:`TurbowlError` is the base of every exception raised here:
     :class:`ParseError` (with the line and column), :class:`FileError` (an
-    ``OSError``), :class:`UnknownFormatError` and :class:`TermError`. Data
-    problems are not exceptions: they are diagnostics.
+    ``OSError``), :class:`UnknownFormatError`, :class:`TermError` and
+    :class:`SnapshotError`. Data problems are not exceptions: they are
+    diagnostics.
 
 Threads
-    Parsing, reasoning and writing release the GIL. A reasoner is used by
+    Parsing, reasoning, writing and snapshots release the GIL. A reasoner is used by
     one thread at a time; a call while another thread's call runs raises
     ``RuntimeError``.
 """
@@ -103,7 +116,7 @@ from rdflib import Graph
 from rdflib.term import BNode, Literal, Node, URIRef
 
 from turbowl import _native
-from turbowl._errors import FileError, ParseError, TermError, TurbowlError, UnknownFormatError
+from turbowl._errors import FileError, ParseError, SnapshotError, TermError, TurbowlError, UnknownFormatError
 
 Triple = tuple[Union[URIRef, BNode], URIRef, Union[URIRef, BNode, Literal]]
 """A triple as TurbOWL returns it."""
@@ -117,6 +130,7 @@ __all__ = [
     "ParseError",
     "Reasoner",
     "Severity",
+    "SnapshotError",
     "Summary",
     "TermError",
     "Triple",
@@ -276,6 +290,36 @@ class Reasoner:
                 ``False``.
         """
         self._native = _native.NativeReasoner(switches, complete)
+
+    @classmethod
+    def from_snapshot(cls, path: str | os.PathLike[str]) -> Reasoner:
+        """The reasoner a snapshot file holds (:meth:`save_snapshot`).
+
+        It is the saved reasoner: the same closure, diagnostics and switches,
+        and the same run due next, so that :meth:`reason` and the changes
+        then do what they would have done on it.
+
+        Raises:
+            FileError: The file cannot be read.
+            SnapshotError: The file is not a snapshot this TurbOWL reads:
+                another format or TurbOWL version, truncated, damaged or
+                malformed.
+        """
+        reasoner = cls.__new__(cls)
+        reasoner._native = _native.NativeReasoner.from_snapshot(os.fspath(path))
+        return reasoner
+
+    def save_snapshot(self, path: str | os.PathLike[str]) -> None:
+        """Saves the reasoner's whole state to a file, which
+        :meth:`from_snapshot` loads back without parsing or reasoning.
+
+        The file is written beside ``path`` under a temporary name and
+        renamed, so a crash never leaves half a snapshot.
+
+        Raises:
+            FileError: The file cannot be written.
+        """
+        self._native.save_snapshot(os.fspath(path))
 
     @property
     def switches(self) -> dict[str, bool]:

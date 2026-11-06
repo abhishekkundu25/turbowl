@@ -65,6 +65,45 @@
 //! The `parallel` cargo feature, on by default, brings the threads. Without
 //! it, and always on WebAssembly, every round runs on the caller's thread.
 //!
+//! # Snapshots
+//!
+//! A snapshot is a reasoner's whole state in one versioned, checksummed
+//! byte string: the terms, the base, the closure as stored, the
+//! diagnostics, the switches, the documents loaded, and any change made
+//! since the last run. Loading one gives the saved reasoner back without
+//! parsing or reasoning, and the next changes and runs do what they would
+//! have done on it. A snapshot of another format version or another
+//! TurbOWL version, or one truncated, damaged or malformed, is refused with
+//! [`Error::Snapshot`].
+//!
+//! ```
+//! use turbowl::{Format, Reasoner};
+//! let mut r = Reasoner::new();
+//! r.load_str("@prefix ex: <http://example.org/> .
+//!             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+//!             ex:Dog rdfs:subClassOf ex:Animal . ex:rex a ex:Dog .", Format::Turtle, None).unwrap();
+//! let summary = r.reason();
+//! let mut snapshot = Vec::new();
+//! r.write_snapshot(&mut snapshot).unwrap();
+//! let mut again = Reasoner::from_snapshot_bytes(&snapshot).unwrap();
+//! assert_eq!(again.reason().inferred, summary.inferred);
+//! assert!(Reasoner::from_snapshot_bytes(&snapshot[..100]).is_err());
+//! ```
+//!
+//! The interface gained four functions and an error variant for them, each
+//! for an adapter:
+//!
+//! - [`Reasoner::save_snapshot`] (written atomically) and
+//!   [`Reasoner::from_snapshot`], with files (the `io` feature): for the
+//!   CLI's `--save-snapshot` and `--load-snapshot`, and Python's
+//!   `Reasoner.save_snapshot` and `Reasoner.from_snapshot`.
+//! - [`Reasoner::write_snapshot`] and [`Reasoner::from_snapshot_bytes`],
+//!   with any writer and a byte slice (always built): for the oracle
+//!   crate's round trips, and for WebAssembly, which has no files.
+//! - [`Error::Snapshot`]: the refusal, which the CLI and Python report.
+//!
+//! The format, and what loading checks, are documented in `src/snapshot.rs`.
+//!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.
 
@@ -77,6 +116,7 @@ mod reasoner;
 mod rules;
 #[cfg(test)]
 mod scaling;
+mod snapshot;
 mod switch;
 mod term;
 mod threads;

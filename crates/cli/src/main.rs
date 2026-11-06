@@ -16,6 +16,19 @@
 //! `--switches` lists each switch with its default and what it costs
 //! (the listing `--help` also carries), and exits 0.
 //!
+//! # Snapshots
+//!
+//! `--save-snapshot PATH` saves the reasoner's state after the run
+//! ([`turbowl::Reasoner::save_snapshot`]: written to a temporary file and
+//! renamed, so a crash never leaves half of one). `--load-snapshot PATH`
+//! starts from a saved state instead of an empty reasoner
+//! ([`turbowl::Reasoner::from_snapshot`]); the FILEs are then added to it,
+//! and may be none. A loaded state keeps its switches: `--complete` and
+//! `--switch` start from them, and a change makes the run a full one. A
+//! snapshot that cannot be read or is refused (not a snapshot, another
+//! format or TurbOWL version, truncated, damaged) exits 1. The two can be
+//! given together, and name the same file.
+//!
 //! # Where things go
 //!
 //! - The closure goes to `-o PATH`, or to stdout (no `-o`, or `-o -`).
@@ -60,9 +73,9 @@
 //! | Code | Meaning |
 //! |---|---|
 //! | 0 | Success. |
-//! | 1 | An input or output error, or a parse error. |
+//! | 1 | An input or output error, a parse error, or a snapshot refused. |
 //! | 2 | A diagnostic at or above `--fail-on` (default `error`); the closure and the report are still written. |
-//! | 64 | A usage error (an unknown option, a bad value, an unknown switch, no input, an input whose extension names no format). |
+//! | 64 | A usage error (an unknown option, a bad value, an unknown switch, no input and no `--load-snapshot`, an input whose extension names no format). |
 
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
@@ -76,6 +89,7 @@ const HELP_OPTIONS: &str = "\
 turbowl: an OWL 2 RL reasoner
 
 Usage: turbowl [OPTIONS] <FILE>...
+       turbowl [OPTIONS] --load-snapshot <PATH> [FILE]...
 
 Loads every FILE into one graph, reasons to the OWL 2 RL closure, writes
 the closure, and reports the diagnostics and a summary. Each FILE's format
@@ -99,6 +113,11 @@ Options:
       --complete             Start from every switch on, the complete W3C
                              OWL 2 RL rule set; --switch still applies
       --switches             List the switches, their defaults and costs
+      --save-snapshot <PATH> After the run, save the reasoner's state to PATH
+                             (atomically: a crash never leaves half of it)
+      --load-snapshot <PATH> Start from the state saved in PATH, then add the
+                             FILEs (none needed). It keeps its switches, which
+                             --complete and --switch then change
   -h, --help                 Print this help
   -V, --version              Print the version
 ";
@@ -129,7 +148,7 @@ The report:
 
 Exit status:
   0   Success.
-  1   An input or output error, or a parse error.
+  1   An input or output error, a parse error, or a snapshot refused.
   2   A diagnostic at or above --fail-on. The closure and the report are
       still written.
   64  A usage error.
@@ -238,7 +257,29 @@ struct Options {
     fail_on: Option<Severity>,
     max_diagnostics: usize,
     summary_only: bool,
-    switches: Switches,
+    /// `--complete`: start from every switch on.
+    complete: bool,
+    /// Each `--switch`, in order: applied after the starting point.
+    settings: Vec<(Switch, bool)>,
+    /// `--load-snapshot`: start from this state.
+    load_snapshot: Option<PathBuf>,
+    /// `--save-snapshot`: save the state here after the run.
+    save_snapshot: Option<PathBuf>,
+}
+
+impl Options {
+    /// The switches of the run: from every switch on (`--complete`), from
+    /// `loaded`'s (a snapshot's) or from the defaults, then each `--switch`.
+    fn switches(&self, loaded: Option<Switches>) -> Switches {
+        let start = if self.complete {
+            Switches::complete()
+        } else {
+            loaded.unwrap_or_default()
+        };
+        self.settings
+            .iter()
+            .fold(start, |s, &(switch, on)| if on { s.on(switch) } else { s.off(switch) })
+    }
 }
 
 /// The report's form.
@@ -283,7 +324,14 @@ fn print(text: &str) -> ExitCode {
 /// output error (exit 1), as one line.
 fn run(options: &Options) -> Result<ExitCode, String> {
     let started = Instant::now();
-    let mut reasoner = Reasoner::with_switches(options.switches);
+    let mut reasoner = match &options.load_snapshot {
+        Some(path) => {
+            let mut r = Reasoner::from_snapshot(path).map_err(|e| e.to_string())?;
+            r.set_switches(options.switches(Some(r.switches())));
+            r
+        }
+        None => Reasoner::with_switches(options.switches(None)),
+    };
     for input in &options.inputs {
         reasoner.load_file(input).map_err(|e| e.to_string())?;
     }
@@ -293,6 +341,9 @@ fn run(options: &Options) -> Result<ExitCode, String> {
         load: loaded - started,
         reason: loaded.elapsed(),
     };
+    if let Some(path) = &options.save_snapshot {
+        reasoner.save_snapshot(path).map_err(|e| e.to_string())?;
+    }
 
     if !options.summary_only {
         match &options.output {
@@ -442,6 +493,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
     let mut complete = false;
     // Each `--switch`, in order: applied after the starting point.
     let mut settings: Vec<(Switch, bool)> = Vec::new();
+    let mut load_snapshot: Option<OsString> = None;
+    let mut save_snapshot: Option<OsString> = None;
     let mut options_ended = false;
 
     while let Some(arg) = args.next() {
@@ -525,11 +578,19 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
             "--summary-only" => summary_only = flag(summary_only)?,
             "--switch" => settings.push(switch_setting(&value()?)?),
             "--complete" => complete = flag(complete)?,
+            "--load-snapshot" => {
+                once(load_snapshot.is_some())?;
+                load_snapshot = Some(value()?);
+            }
+            "--save-snapshot" => {
+                once(save_snapshot.is_some())?;
+                save_snapshot = Some(value()?);
+            }
             _ => return Err(Usage(format!("unknown option '{name}'"))),
         }
     }
 
-    if inputs.is_empty() {
+    if inputs.is_empty() && load_snapshot.is_none() {
         return Err(Usage("no input file".into()));
     }
     for input in &inputs {
@@ -545,14 +606,6 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
             "--summary-only writes no closure: it takes no -o, --format or --inferred-only".into(),
         ));
     }
-    let start = if complete {
-        Switches::complete()
-    } else {
-        Switches::default()
-    };
-    let switches = settings
-        .into_iter()
-        .fold(start, |s, (switch, on)| if on { s.on(switch) } else { s.off(switch) });
     let output = output.filter(|o| o != "-").map(PathBuf::from);
     let format = match (format, &output) {
         (Some(format), _) => format,
@@ -573,7 +626,10 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
         fail_on: fail_on.unwrap_or(Some(Severity::Error)),
         max_diagnostics: max_diagnostics.unwrap_or(usize::MAX),
         summary_only,
-        switches,
+        complete,
+        settings,
+        load_snapshot: load_snapshot.map(PathBuf::from),
+        save_snapshot: save_snapshot.map(PathBuf::from),
     }))
 }
 

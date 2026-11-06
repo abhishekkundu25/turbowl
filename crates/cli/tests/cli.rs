@@ -746,6 +746,10 @@ fn usage_errors_exit_64() {
         vec![&schema, "--switch", "checks=maybe"],
         vec![&schema, "--complete", "--complete"],
         vec![&schema, "--complete=yes"],
+        vec![&schema, "--load-snapshot"],
+        vec![&schema, "--save-snapshot"],
+        vec![&schema, "--load-snapshot", "a", "--load-snapshot", "b"],
+        vec![&schema, "--save-snapshot", "a", "--save-snapshot", "b"],
         vec![&odd],
         vec!["-"],
     ];
@@ -776,6 +780,8 @@ fn help_and_version_exit_0() {
             "--switch NAME=on|off",
             "--complete",
             "--switches",
+            "--save-snapshot <PATH>",
+            "--load-snapshot <PATH>",
             "--version",
             "Exit status",
             "64",
@@ -819,4 +825,136 @@ fn a_reader_closing_stdout_early_is_not_an_error() {
     assert_eq!(out.status.code(), Some(0), "{stderr}");
     assert!(!stderr.contains("error"), "{stderr}");
     assert!(stderr.contains("20000 base"), "the report still comes: {stderr}");
+}
+
+// Snapshots.
+
+/// The summary of a run with `--diagnostics json` and the closure on stdout.
+fn summary(run: &Run) -> serde_json::Value {
+    json(&run.stderr)["summary"].clone()
+}
+
+/// A run with `args`, writing the closure as N-Triples to stdout and the
+/// report as JSON to stderr.
+fn run_json(args: &[&str]) -> Run {
+    let mut all = args.to_vec();
+    all.extend(["--format", "nt", "--diagnostics", "json"]);
+    turbowl(&all)
+}
+
+#[test]
+fn a_snapshot_saves_the_state_and_loading_it_goes_on_from_there() {
+    let dir = fixtures("snapshot");
+    let (schema, data, more) = (dir.join("schema.ttl"), dir.join("data.nt"), dir.join("more.rdf"));
+    let saved = arg(&dir.join("state.snapshot"));
+
+    let first = run_json(&[&arg(&schema), &arg(&data), "--save-snapshot", &saved]);
+    assert_eq!(first.code, 0, "{first:?}");
+    assert!(std::fs::metadata(&saved).unwrap().len() > 0);
+
+    // The saved state alone: the same closure, and no round to run.
+    let loaded = run_json(&["--load-snapshot", &saved]);
+    assert_eq!(loaded.code, 0, "{loaded:?}");
+    assert_eq!(
+        parsed(&loaded.stdout, Format::NTriples),
+        library(&[schema.clone(), data.clone()], false)
+    );
+    assert_eq!(loaded.stdout, first.stdout, "the same closure, in the same order");
+    let (s1, s2) = (summary(&first), summary(&loaded));
+    assert_eq!((&s2["base"], &s2["inferred"]), (&s1["base"], &s1["inferred"]));
+    assert_eq!(s2["rounds"], 0);
+
+    // More files: added to the saved state, as to the reasoner that was saved.
+    let grown = run_json(&["--load-snapshot", &saved, &arg(&more)]);
+    assert_eq!(grown.code, 0, "{grown:?}");
+    assert_eq!(
+        parsed(&grown.stdout, Format::NTriples),
+        library(&[schema, data, more.clone()], false)
+    );
+
+    // Loading and saving one file: the new state replaces the old.
+    let again = turbowl(&[
+        "--load-snapshot",
+        &saved,
+        &arg(&more),
+        "--save-snapshot",
+        &saved,
+        "--summary-only",
+    ]);
+    assert_eq!(again.code, 0, "{again:?}");
+    assert_eq!(run_json(&["--load-snapshot", &saved]).stdout, grown.stdout);
+    let names: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert!(
+        names.iter().all(|n| !n.to_string_lossy().ends_with(".tmp")),
+        "no temporary file is left: {names:?}"
+    );
+}
+
+#[test]
+fn a_loaded_snapshot_keeps_its_switches_unless_told() {
+    let dir = fixtures("snapshot-switches");
+    let input = dir.join("switched.ttl");
+    let saved = arg(&dir.join("state.snapshot"));
+    let off = Switches::default().off(Switch::Equality);
+    let run = turbowl(&[
+        &arg(&input),
+        "--switch",
+        "equality=off",
+        "--save-snapshot",
+        &saved,
+        "--summary-only",
+    ]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let cases: Vec<(Vec<&str>, Switches)> = vec![
+        (vec![], off),
+        (vec!["--switch", "property-chains=off"], off.off(Switch::PropertyChains)),
+        (vec!["--complete"], Switches::complete()),
+    ];
+    for (flags, expected) in cases {
+        let mut args = vec!["--load-snapshot", saved.as_str()];
+        args.extend(&flags);
+        let run = run_json(&args);
+        assert_eq!(run.code, 0, "{flags:?}: {run:?}");
+        assert_eq!(summary(&run)["switches"], names_on(expected), "{flags:?}");
+        assert_eq!(
+            parsed(&run.stdout, Format::NTriples),
+            library_with(expected, std::slice::from_ref(&input), false),
+            "{flags:?}"
+        );
+    }
+}
+
+#[test]
+fn a_refused_snapshot_exits_1() {
+    let dir = fixtures("snapshot-refused");
+    let schema = arg(&dir.join("schema.ttl"));
+    let saved = dir.join("state.snapshot");
+    assert_eq!(
+        turbowl(&[&schema, "--save-snapshot", &arg(&saved), "--summary-only"]).code,
+        0
+    );
+    let bytes = std::fs::read(&saved).unwrap();
+    let truncated = dir.join("truncated.snapshot");
+    std::fs::write(&truncated, &bytes[..bytes.len() / 2]).unwrap();
+    let cases = [
+        (dir.join("schema.ttl"), "not a TurbOWL snapshot"),
+        (truncated, "the snapshot is truncated"),
+        (dir.join("missing.snapshot"), "missing.snapshot"),
+    ];
+    for (path, says) in cases {
+        let run = turbowl(&["--load-snapshot", &arg(&path)]);
+        assert_eq!(run.code, 1, "{run:?}");
+        assert!(run.stderr.starts_with("turbowl: error: "), "{run:?}");
+        assert!(run.stderr.contains(says) && run.stderr.contains(&arg(&path)), "{run:?}");
+        assert_eq!(run.stderr.lines().count(), 1, "{run:?}");
+        assert_eq!(run.stdout, "");
+    }
+    // A snapshot that cannot be written: exit 1, and no closure.
+    let run = turbowl(&[&schema, "--save-snapshot", &arg(&dir.join("no-such-dir").join("s"))]);
+    assert_eq!(run.code, 1, "{run:?}");
+    assert!(run.stderr.contains("no-such-dir"), "{run:?}");
+    assert_eq!(run.stdout, "");
 }

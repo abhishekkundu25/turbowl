@@ -2056,3 +2056,112 @@ mod parallel {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Snapshots (ticket 19)
+// ---------------------------------------------------------------------------
+
+mod snapshot {
+    use super::*;
+    use crate::Reasoner;
+    use oxrdf::vocab::{rdf, rdfs};
+    use oxrdf::{Literal, NamedNode, NamedNodeRef, Triple};
+
+    const SAME_AS: NamedNodeRef<'_> = NamedNodeRef::new_unchecked("http://www.w3.org/2002/07/owl#sameAs");
+
+    fn ex(local: String) -> NamedNode {
+        NamedNode::new_unchecked(format!("http://example.org/{local}"))
+    }
+
+    /// About `n` triples of a university, as `parallel::university` has
+    /// them, plus what a snapshot holds beyond pairs: a name (a literal) for
+    /// each student, and every 32nd student `owl:sameAs` the next (a class
+    /// in the canon, its triples in representatives).
+    fn university(n: usize) -> Vec<Triple> {
+        let iri = |s: &str| ex(s.to_owned());
+        let mut triples = vec![
+            Triple::new(iri("Graduate"), rdfs::SUB_CLASS_OF, iri("Student")),
+            Triple::new(iri("Student"), rdfs::SUB_CLASS_OF, iri("Person")),
+            Triple::new(iri("takes"), rdfs::DOMAIN, iri("Student")),
+            Triple::new(iri("takes"), rdfs::RANGE, iri("Course")),
+            Triple::new(iri("advisor"), rdfs::SUB_PROPERTY_OF, iri("knows")),
+        ];
+        let students = n / 4;
+        let courses = students / 20 + 1;
+        for i in 0..students {
+            let student = ex(format!("student{i}"));
+            triples.push(Triple::new(student.clone(), rdf::TYPE, iri("Graduate")));
+            triples.push(Triple::new(
+                student.clone(),
+                iri("takes"),
+                ex(format!("course{}", i % courses)),
+            ));
+            triples.push(Triple::new(
+                student.clone(),
+                iri("name"),
+                Literal::new_simple_literal(format!("Student {i}")),
+            ));
+            let next = if i % 32 == 0 {
+                Triple::new(student, SAME_AS, ex(format!("student{}", i + 1)))
+            } else {
+                Triple::new(student, iri("advisor"), ex(format!("professor{}", i % 64)))
+            };
+            triples.push(next);
+        }
+        triples
+    }
+
+    fn reasoned(n: usize) -> Reasoner {
+        let mut r = Reasoner::new();
+        r.insert(university(n).iter().map(Triple::as_ref));
+        r.reason();
+        r
+    }
+
+    fn snapshot(r: &Reasoner) -> Vec<u8> {
+        let mut out = Vec::new();
+        r.write_snapshot(&mut out).unwrap();
+        out
+    }
+
+    /// Writing a reasoned state: the dictionary, the base, the store's
+    /// batches, each counted, then written and hashed. Linear, and the
+    /// snapshot's size grows with the state, not faster.
+    #[test]
+    fn scaling_snapshot_save() {
+        let _lock = lock();
+        let sizes = sizes(4_096);
+        let small = reasoned(sizes[0]);
+        let large = reasoned(sizes[4]);
+        assert!(small.store().canon().merges() > 0, "the canon has classes");
+        let per_tuple = |r: &Reasoner| snapshot(r).len() as f64 / r.store().len() as f64;
+        let (a, b) = (per_tuple(&small), per_tuple(&large));
+        assert!(
+            b <= a * 1.1,
+            "bytes per stored triple: {a:.1} at 4,096, {b:.1} at 65,536"
+        );
+        check(
+            "scaling_snapshot_save",
+            Growth::Linear,
+            &sizes,
+            per_call(reasoned, |r: &mut Reasoner| snapshot(r).len()),
+        );
+    }
+
+    /// Loading a snapshot: the checksum, every check, the dictionary
+    /// interned again, the store's batches restored.
+    #[test]
+    fn scaling_snapshot_load() {
+        let _lock = lock();
+        let sizes = sizes(4_096);
+        let r = reasoned(sizes[0]);
+        let loaded = Reasoner::from_snapshot_bytes(&snapshot(&r)).unwrap();
+        assert!(loaded.triples().eq(r.triples()));
+        linear(
+            "scaling_snapshot_load",
+            &sizes,
+            shared(|n| snapshot(&reasoned(n))),
+            |bytes: Rc<Vec<u8>>| Reasoner::from_snapshot_bytes(&bytes).unwrap(),
+        );
+    }
+}
