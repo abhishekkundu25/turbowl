@@ -1,0 +1,108 @@
+diff --git a/crates/turbowl/src/engine/store.rs b/crates/turbowl/src/engine/store.rs
+index 5aac208..9bf1e4b 100644
+--- a/crates/turbowl/src/engine/store.rs
++++ b/crates/turbowl/src/engine/store.rs
+@@ -1015,6 +1015,7 @@ impl<'a> Round<'a> {
+     /// chunk ([`Round::split_runs`] keeps runs of a key whole). The merges
+     /// keep their order, which the canon's representatives depend on: `f`
+     /// asks for them one item at a time, in item order, or not at all.
++    #[track_caller]
+     pub(crate) fn split<T: Sync, S: Send + Default>(
+         &mut self,
+         items: &[T],
+@@ -1025,6 +1026,7 @@ impl<'a> Round<'a> {
+ 
+     /// [`Round::split`] over pairs sorted by key, with no key's run cut
+     /// across two chunks: for work on a run as a whole.
++    #[track_caller]
+     pub(crate) fn split_runs<K: Eq + Sync, V: Sync, S: Send + Default>(
+         &mut self,
+         items: &[(K, V)],
+@@ -1045,6 +1047,7 @@ impl<'a> Round<'a> {
+         }
+     }
+ 
++    #[track_caller]
+     fn split_by<T: Sync, S: Send + Default>(
+         &mut self,
+         items: &[T],
+@@ -1052,13 +1055,20 @@ impl<'a> Round<'a> {
+         f: impl Fn(&mut Round<'_>, &[T], &mut S) + Sync + Send,
+     ) -> Vec<S> {
+         let workers = &self.store.workers;
++        let trace = std::env::var_os("E11_TRACE").is_some();
++        let loc = std::panic::Location::caller();
++        let t0 = std::time::Instant::now();
+         if !self.parallel || workers.chunk(items.len()) >= items.len() {
+             let mut state = S::default();
+             f(self, items, &mut state);
++            if trace && !items.is_empty() {
++                eprintln!("E11S {}:{} len={} chunks=1 inline wall_us={:.1}", loc.file().rsplit('/').next().unwrap(), loc.line(), items.len(), t0.elapsed().as_secs_f64() * 1e6);
++            }
+             return vec![state];
+         }
+         let store = self.store;
+         let outs = workers.chunks_by(items, same, |chunk| {
++            let c0 = std::time::Instant::now();
+             let mut out = Pending::default();
+             let mut state = S::default();
+             f(
+@@ -1070,9 +1080,21 @@ impl<'a> Round<'a> {
+                 chunk,
+                 &mut state,
+             );
++            let c1 = std::time::Instant::now();
+             out.compact();
+-            (out, state)
++            let c2 = std::time::Instant::now();
++            ((out, state), (c0.duration_since(t0), c1.duration_since(c0), c2.duration_since(c1), c2.duration_since(t0)))
+         });
++        let t1 = std::time::Instant::now();
++        if trace {
++            let n = outs.len();
++            let emit: f64 = outs.iter().map(|o| o.1.1.as_secs_f64()).sum::<f64>() * 1e6;
++            let compact: f64 = outs.iter().map(|o| o.1.2.as_secs_f64()).sum::<f64>() * 1e6;
++            let start_max = outs.iter().map(|o| o.1.0.as_secs_f64()).fold(0.0, f64::max) * 1e6;
++            let end_max = outs.iter().map(|o| o.1.3.as_secs_f64()).fold(0.0, f64::max) * 1e6;
++            eprintln!("E11S {}:{} len={} chunks={n} wall_us={:.1} emit_sum_us={emit:.1} compact_sum_us={compact:.1} last_start_us={start_max:.1} last_end_us={end_max:.1}", loc.file().rsplit('/').next().unwrap(), loc.line(), items.len(), t1.duration_since(t0).as_secs_f64() * 1e6);
++        }
++        let outs: Vec<_> = outs.into_iter().map(|o| o.0).collect();
+         outs.into_iter()
+             .map(|(out, state)| {
+                 self.pending.absorb(out);
+diff --git a/crates/turbowl/src/rules/property.rs b/crates/turbowl/src/rules/property.rs
+index 7f11c02..c6f32be 100644
+--- a/crates/turbowl/src/rules/property.rs
++++ b/crates/turbowl/src/rules/property.rs
+@@ -90,6 +90,7 @@ fn parts_for(table: &Variable<Pair>, recent: bool) -> impl Iterator<Item = &[Pai
+ 
+ /// Emits `f(pair)` for each pair of [`pairs_for`]: a copy of the table,
+ /// read in chunks when it is large ([`Round::split`]).
++#[track_caller]
+ fn copy_each(round: &mut Round<'_>, a: &Axiom<'_>, f: impl Fn(Pair) -> (u32, u32, u32) + Sync + Send) {
+     for part in parts_for(a.table, a.recent) {
+         round.split(part, |round, chunk, _: &mut ()| {
+@@ -156,6 +157,7 @@ fn copies(round: &mut Round<'_>) {
+     let ty = round.constant(vocab::RDF_TYPE.0);
+     let equivalent = round.constant(vocab::OWL_EQUIVALENT_PROPERTY.0);
+     let inverse = round.constant(vocab::OWL_INVERSE_OF.0);
++    if std::env::var_os("E11_TRACE").is_some() { eprintln!("E11 property round start"); }
+     // prp-dom: p rdfs:domain c, x p y => x rdf:type c. Pairs are sorted by
+     // subject within a part, so a subject's run gives one triple.
+     each_axiom(round, round.constant(vocab::RDFS_DOMAIN.0), false, |round, a| {
+@@ -175,6 +177,7 @@ fn copies(round: &mut Round<'_>) {
+     // prp-rng: p rdfs:range c, x p y => y rdf:type c.
+     each_axiom(round, round.constant(vocab::RDFS_RANGE.0), false, |round, a| {
+         let c = a.other;
++        if std::env::var_os("E11_TRACE").is_some() { eprintln!("E11 rng"); }
+         copy_each(round, &a, |(_, y)| (y, ty, c));
+     });
+     // prp-spo1: p1 rdfs:subPropertyOf p2, x p1 y => x p2 y.
+@@ -198,6 +201,7 @@ fn copies(round: &mut Round<'_>) {
+ /// triple of `a.other`, the pair `reversed` or not. A copy of a table into
+ /// itself (`p rdfs:subPropertyOf p`) derives nothing new and is skipped.
+ fn copy(round: &mut Round<'_>, a: &Axiom<'_>, reversed: bool) {
++    if std::env::var_os("E11_TRACE").is_some() { eprintln!("E11 copy reversed={reversed}"); }
+     let to = a.other;
+     if reversed {
+         copy_each(round, a, |(x, y)| (y, to, x));

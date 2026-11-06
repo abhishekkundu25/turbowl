@@ -1,0 +1,213 @@
+load average before: 2.15 2.46 2.51
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+lubm-50 turbowl run 1/1 ... E11S reasoner.rs:996 len=1141746 chunks=1 inline wall_us=1599.2
+E11S reasoner.rs:996 len=10 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=10 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=34 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=5 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=25 chunks=1 inline wall_us=0.2
+E11S reasoner.rs:996 len=18 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=1 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=3 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=5 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=6 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=6 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=6 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=66041 chunks=1 inline wall_us=227.9
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=3.2
+E11S reasoner.rs:996 len=1421819 chunks=1 inline wall_us=2008.7
+E11S reasoner.rs:996 len=24881 chunks=1 inline wall_us=60.0
+E11S reasoner.rs:996 len=204418 chunks=1 inline wall_us=275.0
+E11S reasoner.rs:996 len=160574 chunks=1 inline wall_us=271.0
+E11S reasoner.rs:996 len=35904 chunks=1 inline wall_us=75.2
+E11S reasoner.rs:996 len=35904 chunks=1 inline wall_us=30.5
+E11S reasoner.rs:996 len=524684 chunks=1 inline wall_us=526.7
+E11S reasoner.rs:996 len=711569 chunks=1 inline wall_us=1497.0
+E11S reasoner.rs:996 len=15934 chunks=1 inline wall_us=33.1
+E11S reasoner.rs:996 len=107900 chunks=1 inline wall_us=144.8
+E11S reasoner.rs:996 len=560588 chunks=1 inline wall_us=425.1
+E11S reasoner.rs:996 len=962805 chunks=1 inline wall_us=571.3
+E11S reasoner.rs:996 len=35904 chunks=1 inline wall_us=76.7
+E11S reasoner.rs:996 len=560588 chunks=1 inline wall_us=386.3
+E11 property round start
+E11S property.rs:166 len=24881 chunks=1 inline wall_us=46.3
+E11S property.rs:166 len=204418 chunks=1 inline wall_us=281.7
+E11S property.rs:166 len=160574 chunks=1 inline wall_us=247.4
+E11S property.rs:166 len=35904 chunks=1 inline wall_us=48.4
+E11S property.rs:166 len=35904 chunks=1 inline wall_us=48.5
+E11S property.rs:166 len=711569 chunks=1 inline wall_us=1651.5
+E11S property.rs:166 len=15934 chunks=1 inline wall_us=26.1
+E11S property.rs:166 len=107900 chunks=1 inline wall_us=148.1
+E11S property.rs:166 len=560588 chunks=1 inline wall_us=955.0
+E11S property.rs:166 len=560588 chunks=1 inline wall_us=949.3
+E11 rng
+E11S property.rs:181 len=24881 chunks=1 inline wall_us=41.9
+E11 rng
+E11S property.rs:181 len=204418 chunks=1 inline wall_us=352.7
+E11 rng
+E11S property.rs:181 len=160574 chunks=1 inline wall_us=273.0
+E11 rng
+E11S property.rs:181 len=35904 chunks=1 inline wall_us=76.8
+E11 rng
+E11S property.rs:181 len=35904 chunks=1 inline wall_us=61.7
+E11 rng
+E11S property.rs:181 len=711569 chunks=1 inline wall_us=1255.7
+E11 rng
+E11S property.rs:181 len=15934 chunks=1 inline wall_us=28.0
+E11 rng
+E11S property.rs:181 len=107900 chunks=1 inline wall_us=182.3
+E11 copy reversed=false
+E11S property.rs:209 len=66041 chunks=1 inline wall_us=106.3
+E11 copy reversed=false
+E11S property.rs:209 len=998 chunks=1 inline wall_us=2.5
+E11 copy reversed=false
+E11S property.rs:209 len=160574 chunks=1 inline wall_us=257.7
+E11 copy reversed=false
+E11S property.rs:209 len=35904 chunks=1 inline wall_us=60.6
+E11 copy reversed=false
+E11S property.rs:209 len=35904 chunks=1 inline wall_us=64.5
+E11 copy reversed=true
+E11S property.rs:207 len=524684 chunks=1 inline wall_us=1104.0
+E11S datatype.rs:98 len=1141746 chunks=1 inline wall_us=1758.3
+E11S datatype.rs:98 len=10 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=10 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=34 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=5 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=25 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=18 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=1 chunks=1 inline wall_us=1.9
+E11S datatype.rs:98 len=3 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=5 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=6 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=6 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=6 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=66041 chunks=1 inline wall_us=291.0
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=4.0
+E11S datatype.rs:98 len=1421819 chunks=1 inline wall_us=2308.1
+E11S datatype.rs:98 len=24881 chunks=1 inline wall_us=123.4
+E11S datatype.rs:98 len=204418 chunks=1 inline wall_us=498.2
+E11S datatype.rs:98 len=160574 chunks=1 inline wall_us=362.0
+E11S datatype.rs:98 len=35904 chunks=1 inline wall_us=120.0
+E11S datatype.rs:98 len=35904 chunks=1 inline wall_us=57.7
+E11S datatype.rs:98 len=524684 chunks=1 inline wall_us=990.1
+E11S datatype.rs:98 len=711569 chunks=1 inline wall_us=1325.6
+E11S datatype.rs:98 len=15934 chunks=1 inline wall_us=33.6
+E11S datatype.rs:98 len=107900 chunks=1 inline wall_us=260.0
+E11S datatype.rs:98 len=560588 chunks=1 inline wall_us=5369.0
+E11S datatype.rs:98 len=962805 chunks=1 inline wall_us=5095.3
+E11S datatype.rs:98 len=35904 chunks=1 inline wall_us=311.1
+E11S datatype.rs:98 len=560588 chunks=1 inline wall_us=3142.1
+E11S reasoner.rs:996 len=697201 chunks=1 inline wall_us=471.1
+E11S reasoner.rs:996 len=12 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=4.4
+E11S reasoner.rs:996 len=66041 chunks=1 inline wall_us=276.0
+E11S reasoner.rs:996 len=232272 chunks=1 inline wall_us=327.0
+E11S reasoner.rs:996 len=524684 chunks=1 inline wall_us=243.8
+E11S store.rs:990 len=12 chunks=1 inline wall_us=0.2
+E11S store.rs:997 len=1838947 chunks=1 inline wall_us=1741.0
+E11S store.rs:997 len=1838947 chunks=1 inline wall_us=51.2
+E11S store.rs:990 len=46 chunks=1 inline wall_us=1.1
+E11S store.rs:997 len=12 chunks=1 inline wall_us=0.5
+E11 property round start
+E11S property.rs:166 len=232272 chunks=1 inline wall_us=273.0
+E11S property.rs:166 len=524684 chunks=1 inline wall_us=129.4
+E11 rng
+E11S property.rs:181 len=232272 chunks=1 inline wall_us=432.3
+E11 rng
+E11S property.rs:181 len=524684 chunks=1 inline wall_us=935.7
+E11 copy reversed=false
+E11S property.rs:209 len=998 chunks=1 inline wall_us=4.3
+E11 copy reversed=true
+E11S property.rs:207 len=232272 chunks=1 inline wall_us=365.6
+E11 copy reversed=true
+E11S property.rs:207 len=66041 chunks=1 inline wall_us=105.0
+E11 copy reversed=true
+E11S property.rs:207 len=232272 chunks=1 inline wall_us=503.9
+E11 copy reversed=true
+E11S property.rs:207 len=524684 chunks=1 inline wall_us=998.1
+E11S datatype.rs:98 len=697201 chunks=1 inline wall_us=1277.4
+E11S datatype.rs:98 len=12 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=5.8
+E11S datatype.rs:98 len=66041 chunks=1 inline wall_us=283.8
+E11S datatype.rs:98 len=232272 chunks=1 inline wall_us=419.0
+E11S datatype.rs:98 len=524684 chunks=1 inline wall_us=933.9
+E11S reasoner.rs:996 len=569677 chunks=1 inline wall_us=428.7
+E11S reasoner.rs:996 len=32 chunks=1 inline wall_us=0.2
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=3.0
+E11S reasoner.rs:996 len=66041 chunks=1 inline wall_us=104.3
+E11S reasoner.rs:996 len=232272 chunks=1 inline wall_us=88.1
+E11S store.rs:990 len=32 chunks=1 inline wall_us=1189.7
+E11S store.rs:997 len=569677 chunks=1 inline wall_us=1859.9
+E11S store.rs:997 len=569677 chunks=1 inline wall_us=898.4
+E11S store.rs:990 len=6 chunks=1 inline wall_us=3.5
+E11S store.rs:997 len=569677 chunks=1 inline wall_us=48.9
+E11S store.rs:990 len=32 chunks=1 inline wall_us=1.1
+E11S store.rs:997 len=32 chunks=1 inline wall_us=1.3
+E11S restrictions.rs:112 len=67039 chunks=1 inline wall_us=986.5
+E11S restrictions.rs:112 len=998 chunks=1 inline wall_us=63.8
+E11S restrictions.rs:112 len=1421819 chunks=1 inline wall_us=7043.0
+E11S restrictions.rs:112 len=24881 chunks=1 inline wall_us=830.6
+E11 property round start
+E11S property.rs:166 len=232272 chunks=1 inline wall_us=60.8
+E11S property.rs:166 len=66041 chunks=1 inline wall_us=68.9
+E11 rng
+E11S property.rs:181 len=232272 chunks=1 inline wall_us=440.4
+E11 rng
+E11S property.rs:181 len=66041 chunks=1 inline wall_us=133.0
+E11 copy reversed=true
+E11S property.rs:207 len=232272 chunks=1 inline wall_us=363.1
+E11 copy reversed=true
+E11S property.rs:207 len=998 chunks=1 inline wall_us=2.5
+E11 copy reversed=true
+E11S property.rs:207 len=232272 chunks=1 inline wall_us=407.8
+E11 copy reversed=true
+E11S property.rs:207 len=66041 chunks=1 inline wall_us=109.5
+E11S datatype.rs:98 len=569677 chunks=1 inline wall_us=882.8
+E11S datatype.rs:98 len=32 chunks=1 inline wall_us=0.2
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=4.2
+E11S datatype.rs:98 len=66041 chunks=1 inline wall_us=353.3
+E11S datatype.rs:98 len=232272 chunks=1 inline wall_us=563.8
+E11S reasoner.rs:996 len=1053520 chunks=1 inline wall_us=690.6
+E11S reasoner.rs:996 len=21 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=14936 chunks=1 inline wall_us=33.8
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=1.7
+E11S store.rs:990 len=21 chunks=1 inline wall_us=162.4
+E11S store.rs:997 len=1053520 chunks=1 inline wall_us=1658.5
+E11S store.rs:997 len=1053520 chunks=1 inline wall_us=0.7
+E11S store.rs:997 len=1053520 chunks=1 inline wall_us=910.2
+E11S store.rs:990 len=21 chunks=1 inline wall_us=0.7
+E11S store.rs:997 len=21 chunks=1 inline wall_us=0.5
+E11S lists.rs:134 len=617602 chunks=1 inline wall_us=37148.7
+E11 property round start
+E11S property.rs:166 len=998 chunks=1 inline wall_us=2.2
+E11S property.rs:166 len=14936 chunks=1 inline wall_us=24.4
+E11 rng
+E11S property.rs:181 len=998 chunks=1 inline wall_us=1.5
+E11 rng
+E11S property.rs:181 len=14936 chunks=1 inline wall_us=26.1
+E11 copy reversed=true
+E11S property.rs:207 len=998 chunks=1 inline wall_us=2.8
+E11S datatype.rs:98 len=1053520 chunks=1 inline wall_us=1612.1
+E11S datatype.rs:98 len=21 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=14936 chunks=1 inline wall_us=47.9
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=2.4
+E11S reasoner.rs:996 len=156803 chunks=1 inline wall_us=305.6
+E11S reasoner.rs:996 len=2 chunks=1 inline wall_us=0.1
+E11S store.rs:990 len=2 chunks=1 inline wall_us=0.8
+E11S store.rs:997 len=156803 chunks=1 inline wall_us=717.4
+E11S store.rs:997 len=156803 chunks=1 inline wall_us=0.4
+E11S store.rs:997 len=156803 chunks=1 inline wall_us=313.5
+E11S store.rs:990 len=2 chunks=1 inline wall_us=0.4
+E11S store.rs:997 len=2 chunks=1 inline wall_us=0.6
+E11 property round start
+E11S datatype.rs:98 len=156803 chunks=1 inline wall_us=315.1
+E11S datatype.rs:98 len=2 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=156803 chunks=1 inline wall_us=257.5
+E11S store.rs:997 len=156803 chunks=1 inline wall_us=615.2
+E11S store.rs:997 len=156803 chunks=1 inline wall_us=272.4
+E11S store.rs:997 len=156803 chunks=1 inline wall_us=0.3
+E11 property round start
+E11S datatype.rs:98 len=156803 chunks=1 inline wall_us=276.2
+392.0 ms
+load average after: 2.06 2.43 2.50
+warning: load average over 1 after the runs

@@ -1,0 +1,213 @@
+load average before: 2.15 2.46 2.51
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+lubm-50 turbowl run 1/1 ... E11S reasoner.rs:996 len=1141746 chunks=48 wall_us=463.4 emit_sum_us=4319.0 compact_sum_us=0.7 last_start_us=341.8 last_end_us=442.5
+E11S reasoner.rs:996 len=10 chunks=1 inline wall_us=0.2
+E11S reasoner.rs:996 len=10 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=34 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=5 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=25 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=18 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=1 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=3 chunks=1 inline wall_us=0.1
+E11S reasoner.rs:996 len=5 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=6 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=6 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=6 chunks=1 inline wall_us=0.0
+E11S reasoner.rs:996 len=66041 chunks=17 wall_us=113.2 emit_sum_us=687.9 compact_sum_us=0.3 last_start_us=72.1 last_end_us=101.0
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=3.8
+E11S reasoner.rs:996 len=1421819 chunks=48 wall_us=366.5 emit_sum_us=2599.3 compact_sum_us=0.7 last_start_us=245.2 last_end_us=323.2
+E11S reasoner.rs:996 len=24881 chunks=7 wall_us=50.5 emit_sum_us=175.3 compact_sum_us=0.1 last_start_us=8.2 last_end_us=46.1
+E11S reasoner.rs:996 len=204418 chunks=48 wall_us=189.9 emit_sum_us=1117.9 compact_sum_us=0.7 last_start_us=163.9 last_end_us=181.2
+E11S reasoner.rs:996 len=160574 chunks=40 wall_us=104.8 emit_sum_us=705.1 compact_sum_us=0.5 last_start_us=76.3 last_end_us=90.9
+E11S reasoner.rs:996 len=35904 chunks=9 wall_us=87.0 emit_sum_us=156.4 compact_sum_us=0.2 last_start_us=37.4 last_end_us=70.4
+E11S reasoner.rs:996 len=35904 chunks=9 wall_us=36.9 emit_sum_us=67.9 compact_sum_us=0.2 last_start_us=18.5 last_end_us=25.5
+E11S reasoner.rs:996 len=524684 chunks=48 wall_us=189.0 emit_sum_us=1388.8 compact_sum_us=0.9 last_start_us=144.0 last_end_us=174.5
+E11S reasoner.rs:996 len=711569 chunks=48 wall_us=223.2 emit_sum_us=1931.8 compact_sum_us=0.7 last_start_us=151.6 last_end_us=203.2
+E11S reasoner.rs:996 len=15934 chunks=4 wall_us=41.5 emit_sum_us=79.7 compact_sum_us=0.0 last_start_us=3.8 last_end_us=31.0
+E11S reasoner.rs:996 len=107900 chunks=27 wall_us=87.2 emit_sum_us=238.6 compact_sum_us=0.5 last_start_us=53.0 last_end_us=63.7
+E11S reasoner.rs:996 len=560588 chunks=48 wall_us=196.0 emit_sum_us=1634.9 compact_sum_us=0.8 last_start_us=149.7 last_end_us=181.8
+E11S reasoner.rs:996 len=962805 chunks=48 wall_us=224.0 emit_sum_us=1568.7 compact_sum_us=0.7 last_start_us=174.7 last_end_us=211.7
+E11S reasoner.rs:996 len=35904 chunks=9 wall_us=61.5 emit_sum_us=136.0 compact_sum_us=0.2 last_start_us=30.5 last_end_us=52.3
+E11S reasoner.rs:996 len=560588 chunks=48 wall_us=185.3 emit_sum_us=1567.1 compact_sum_us=0.7 last_start_us=140.5 last_end_us=169.9
+E11 property round start
+E11S property.rs:166 len=24881 chunks=7 wall_us=310.2 emit_sum_us=86.0 compact_sum_us=21.6 last_start_us=64.0 last_end_us=100.1
+E11S datatype.rs:98 len=1141746 chunks=48 wall_us=324.0 emit_sum_us=2565.3 compact_sum_us=0.7 last_start_us=237.9 last_end_us=312.2
+E11S datatype.rs:98 len=10 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=10 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=34 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=5 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=25 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=18 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=1 chunks=1 inline wall_us=2.0
+E11S datatype.rs:98 len=3 chunks=1 inline wall_us=0.1
+E11S datatype.rs:98 len=5 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=6 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=6 chunks=1 inline wall_us=0.0
+E11S datatype.rs:98 len=6 chunks=1 inline wall_us=0.0
+E11S property.rs:166 len=204418 chunks=48 wall_us=150.0 emit_sum_us=692.5 compact_sum_us=234.5 last_start_us=111.2 last_end_us=135.1
+E11S property.rs:166 len=160574 chunks=40 wall_us=105.5 emit_sum_us=458.3 compact_sum_us=174.2 last_start_us=81.8 last_end_us=99.2
+E11S datatype.rs:98 len=66041 chunks=17 wall_us=166.6 emit_sum_us=725.7 compact_sum_us=0.1 last_start_us=93.7 last_end_us=106.7
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=5.5
+E11S property.rs:166 len=35904 chunks=9 wall_us=428.5 emit_sum_us=115.0 compact_sum_us=37.3 last_start_us=38.0 last_end_us=67.2
+E11S datatype.rs:98 len=1421819 chunks=48 wall_us=383.0 emit_sum_us=3633.7 compact_sum_us=0.7 last_start_us=313.7 last_end_us=367.9
+E11S property.rs:166 len=35904 chunks=9 wall_us=83.8 emit_sum_us=137.2 compact_sum_us=39.9 last_start_us=25.3 last_end_us=50.6
+E11S datatype.rs:98 len=24881 chunks=7 wall_us=76.9 emit_sum_us=245.5 compact_sum_us=0.1 last_start_us=5.2 last_end_us=71.6
+E11S datatype.rs:98 len=204418 chunks=48 wall_us=412.0 emit_sum_us=1068.4 compact_sum_us=0.5 last_start_us=299.5 last_end_us=340.5
+E11S property.rs:166 len=711569 chunks=48 wall_us=481.4 emit_sum_us=2508.7 compact_sum_us=466.8 last_start_us=361.5 last_end_us=444.8
+E11S property.rs:166 len=15934 chunks=4 wall_us=50.0 emit_sum_us=29.4 compact_sum_us=12.5 last_start_us=28.1 last_end_us=39.9
+E11S datatype.rs:98 len=160574 chunks=40 wall_us=144.0 emit_sum_us=850.2 compact_sum_us=0.7 last_start_us=106.5 last_end_us=127.0
+E11S property.rs:166 len=107900 chunks=27 wall_us=63.2 emit_sum_us=289.9 compact_sum_us=39.6 last_start_us=29.9 last_end_us=42.7
+E11S datatype.rs:98 len=35904 chunks=9 wall_us=342.7 emit_sum_us=298.5 compact_sum_us=0.1 last_start_us=27.0 last_end_us=96.3
+E11S property.rs:166 len=560588 chunks=48 wall_us=286.8 emit_sum_us=1448.6 compact_sum_us=622.0 last_start_us=182.0 last_end_us=238.5
+E11S datatype.rs:98 len=35904 chunks=9 wall_us=326.5 emit_sum_us=173.7 compact_sum_us=0.2 last_start_us=26.2 last_end_us=81.4
+E11S property.rs:166 len=560588 chunks=48 wall_us=288.0 emit_sum_us=2049.1 compact_sum_us=647.5 last_start_us=209.7 last_end_us=272.0
+E11 rng
+E11S property.rs:181 len=24881 chunks=7 wall_us=194.8 emit_sum_us=66.8 compact_sum_us=285.9 last_start_us=148.2 last_end_us=194.1
+E11 rng
+E11S datatype.rs:98 len=524684 chunks=48 wall_us=250.5 emit_sum_us=1824.3 compact_sum_us=0.8 last_start_us=203.3 last_end_us=246.8
+E11S datatype.rs:98 len=711569 chunks=48 wall_us=575.1 emit_sum_us=2557.0 compact_sum_us=1.0 last_start_us=514.3 last_end_us=567.7
+E11S property.rs:181 len=204418 chunks=48 wall_us=617.0 emit_sum_us=1160.5 compact_sum_us=2702.2 last_start_us=405.8 last_end_us=530.9
+E11 rng
+E11S datatype.rs:98 len=15934 chunks=4 wall_us=44.0 emit_sum_us=71.2 compact_sum_us=0.0 last_start_us=20.5 last_end_us=38.0
+E11S datatype.rs:98 len=107900 chunks=27 wall_us=292.5 emit_sum_us=531.4 compact_sum_us=0.3 last_start_us=230.0 last_end_us=267.8
+E11S property.rs:181 len=160574 chunks=40 wall_us=389.9 emit_sum_us=562.7 compact_sum_us=2130.1 last_start_us=287.9 last_end_us=374.4
+E11 rng
+E11S property.rs:181 len=35904 chunks=9 wall_us=1020.7 emit_sum_us=84.0 compact_sum_us=352.1 last_start_us=312.2 last_end_us=351.0
+E11 rng
+E11S property.rs:181 len=35904 chunks=9 wall_us=138.0 emit_sum_us=186.1 compact_sum_us=374.0 last_start_us=73.8 last_end_us=130.4
+E11S datatype.rs:98 len=560588 chunks=48 wall_us=1306.9 emit_sum_us=13476.4 compact_sum_us=0.8 last_start_us=1054.9 last_end_us=1289.9
+E11 rng
+E11S datatype.rs:98 len=962805 chunks=48 wall_us=1942.5 emit_sum_us=9001.3 compact_sum_us=0.8 last_start_us=1719.9 last_end_us=1939.0
+E11S property.rs:181 len=711569 chunks=48 wall_us=1942.0 emit_sum_us=1926.3 compact_sum_us=8759.4 last_start_us=1670.1 last_end_us=1906.4
+E11 rng
+E11S property.rs:181 len=15934 chunks=4 wall_us=130.3 emit_sum_us=51.0 compact_sum_us=181.1 last_start_us=2.3 last_end_us=82.0
+E11 rng
+E11S datatype.rs:98 len=35904 chunks=9 wall_us=191.5 emit_sum_us=732.5 compact_sum_us=0.0 last_start_us=93.6 last_end_us=172.2
+E11S property.rs:181 len=107900 chunks=27 wall_us=883.4 emit_sum_us=1317.3 compact_sum_us=128.0 last_start_us=111.1 last_end_us=778.2
+E11S datatype.rs:98 len=560588 chunks=48 wall_us=821.0 emit_sum_us=7583.2 compact_sum_us=1.1 last_start_us=672.2 last_end_us=776.0
+E11 copy reversed=false
+E11S property.rs:209 len=66041 chunks=17 wall_us=74.9 emit_sum_us=308.9 compact_sum_us=71.5 last_start_us=44.4 last_end_us=68.7
+E11 copy reversed=false
+E11S property.rs:209 len=998 chunks=1 inline wall_us=2.1
+E11 copy reversed=false
+E11S property.rs:209 len=160574 chunks=40 wall_us=123.6 emit_sum_us=718.3 compact_sum_us=189.3 last_start_us=95.6 last_end_us=120.1
+E11 copy reversed=false
+E11S property.rs:209 len=35904 chunks=9 wall_us=70.1 emit_sum_us=116.8 compact_sum_us=43.9 last_start_us=41.0 last_end_us=67.2
+E11 copy reversed=false
+E11S property.rs:209 len=35904 chunks=9 wall_us=79.9 emit_sum_us=167.4 compact_sum_us=35.1 last_start_us=27.4 last_end_us=73.3
+E11 copy reversed=true
+E11S property.rs:207 len=524684 chunks=48 wall_us=308.5 emit_sum_us=2108.0 compact_sum_us=560.6 last_start_us=233.8 last_end_us=299.1
+E11S reasoner.rs:996 len=697201 chunks=48 wall_us=386.4 emit_sum_us=3178.6 compact_sum_us=0.7 last_start_us=285.1 last_end_us=351.3
+E11S reasoner.rs:996 len=12 chunks=1 inline wall_us=0.2
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=10.2
+E11S reasoner.rs:996 len=66041 chunks=17 wall_us=144.8 emit_sum_us=810.6 compact_sum_us=0.2 last_start_us=112.8 last_end_us=136.0
+E11S reasoner.rs:996 len=232272 chunks=48 wall_us=135.0 emit_sum_us=1100.1 compact_sum_us=0.8 last_start_us=95.8 last_end_us=115.9
+E11S reasoner.rs:996 len=524684 chunks=48 wall_us=89.8 emit_sum_us=362.9 compact_sum_us=0.9 last_start_us=62.9 last_end_us=71.8
+E11 property round start
+E11S store.rs:990 len=12 chunks=1 inline wall_us=0.3
+E11S datatype.rs:98 len=697201 chunks=48 wall_us=1179.9 emit_sum_us=2533.4 compact_sum_us=0.9 last_start_us=313.5 last_end_us=348.6
+E11S datatype.rs:98 len=12 chunks=1 inline wall_us=0.1
+E11S property.rs:166 len=232272 chunks=48 wall_us=1171.2 emit_sum_us=398.8 compact_sum_us=158.5 last_start_us=328.3 last_end_us=345.3
+E11S store.rs:997 len=1838947 chunks=48 wall_us=1136.9 emit_sum_us=3139.6 compact_sum_us=3968.9 last_start_us=581.2 last_end_us=1112.0
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=5.9
+E11S property.rs:166 len=524684 chunks=47 wall_us=107.8 emit_sum_us=286.3 compact_sum_us=2.8 last_start_us=73.9 last_end_us=83.4
+E11S store.rs:997 len=1838947 chunks=48 wall_us=66.2 emit_sum_us=70.1 compact_sum_us=21.7 last_start_us=22.3 last_end_us=64.5
+E11S store.rs:990 len=46 chunks=1 inline wall_us=1.3
+E11S store.rs:997 len=12 chunks=1 inline wall_us=0.5
+E11 rng
+E11S datatype.rs:98 len=66041 chunks=17 wall_us=122.6 emit_sum_us=1053.1 compact_sum_us=0.3 last_start_us=88.1 last_end_us=121.6
+E11S datatype.rs:98 len=232272 chunks=48 wall_us=447.2 emit_sum_us=681.6 compact_sum_us=0.7 last_start_us=347.1 last_end_us=366.8
+E11S property.rs:181 len=232272 chunks=48 wall_us=548.0 emit_sum_us=754.9 compact_sum_us=3275.8 last_start_us=431.3 last_end_us=526.4
+E11 rng
+E11S property.rs:181 len=524684 chunks=48 wall_us=378.4 emit_sum_us=1769.7 compact_sum_us=551.2 last_start_us=321.3 last_end_us=369.5
+E11S datatype.rs:98 len=524684 chunks=48 wall_us=424.4 emit_sum_us=2076.5 compact_sum_us=0.9 last_start_us=274.6 last_end_us=298.1
+E11 copy reversed=false
+E11S property.rs:209 len=998 chunks=1 inline wall_us=3.3
+E11 copy reversed=true
+E11S property.rs:207 len=232272 chunks=48 wall_us=445.0 emit_sum_us=1123.1 compact_sum_us=2881.1 last_start_us=338.7 last_end_us=431.0
+E11 copy reversed=true
+E11S property.rs:207 len=66041 chunks=17 wall_us=156.0 emit_sum_us=257.1 compact_sum_us=757.5 last_start_us=85.3 last_end_us=151.0
+E11 copy reversed=true
+E11S property.rs:207 len=232272 chunks=48 wall_us=484.0 emit_sum_us=884.2 compact_sum_us=2833.2 last_start_us=340.6 last_end_us=457.5
+E11 copy reversed=true
+E11S property.rs:207 len=524684 chunks=48 wall_us=274.0 emit_sum_us=1816.9 compact_sum_us=570.7 last_start_us=217.1 last_end_us=268.0
+E11S reasoner.rs:996 len=569677 chunks=48 wall_us=394.8 emit_sum_us=3517.3 compact_sum_us=0.9 last_start_us=274.5 last_end_us=328.2
+E11S reasoner.rs:996 len=32 chunks=1 inline wall_us=0.3
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=4.2
+E11S reasoner.rs:996 len=66041 chunks=17 wall_us=68.4 emit_sum_us=184.5 compact_sum_us=0.4 last_start_us=36.8 last_end_us=45.9
+E11S reasoner.rs:996 len=232272 chunks=48 wall_us=95.4 emit_sum_us=152.9 compact_sum_us=0.6 last_start_us=37.8 last_end_us=41.0
+E11 property round start
+E11S datatype.rs:98 len=569677 chunks=48 wall_us=306.4 emit_sum_us=2304.7 compact_sum_us=1.0 last_start_us=196.4 last_end_us=263.8
+E11S datatype.rs:98 len=32 chunks=1 inline wall_us=0.2
+E11S property.rs:166 len=232272 chunks=47 wall_us=323.7 emit_sum_us=152.8 compact_sum_us=2.7 last_start_us=29.4 last_end_us=31.2
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=6.9
+E11S datatype.rs:98 len=66041 chunks=17 wall_us=157.8 emit_sum_us=1067.7 compact_sum_us=0.3 last_start_us=93.3 last_end_us=154.4
+E11S property.rs:166 len=66041 chunks=17 wall_us=188.8 emit_sum_us=149.3 compact_sum_us=13.5 last_start_us=138.5 last_end_us=147.8
+E11 rng
+E11S store.rs:990 len=32 chunks=1 inline wall_us=1236.2
+E11S store.rs:997 len=569677 chunks=48 wall_us=1492.1 emit_sum_us=2292.2 compact_sum_us=12001.0 last_start_us=1100.6 last_end_us=1460.8
+E11S property.rs:181 len=232272 chunks=48 wall_us=1991.8 emit_sum_us=626.1 compact_sum_us=2962.0 last_start_us=485.0 last_end_us=583.5
+E11 rng
+E11S datatype.rs:98 len=232272 chunks=48 wall_us=2065.8 emit_sum_us=2177.2 compact_sum_us=0.8 last_start_us=475.5 last_end_us=525.7
+E11S property.rs:181 len=66041 chunks=17 wall_us=241.5 emit_sum_us=166.8 compact_sum_us=743.2 last_start_us=189.0 last_end_us=226.0
+E11 copy reversed=true
+E11S store.rs:997 len=569677 chunks=48 wall_us=296.5 emit_sum_us=1162.5 compact_sum_us=636.4 last_start_us=230.3 last_end_us=274.0
+E11S store.rs:990 len=6 chunks=1 inline wall_us=3.8
+E11S store.rs:997 len=569677 chunks=48 wall_us=75.5 emit_sum_us=54.3 compact_sum_us=17.9 last_start_us=75.2 last_end_us=75.3
+E11S store.rs:990 len=32 chunks=1 inline wall_us=0.9
+E11S store.rs:997 len=32 chunks=1 inline wall_us=1.6
+E11S restrictions.rs:112 len=67039 chunks=17 wall_us=353.4 emit_sum_us=1761.7 compact_sum_us=670.3 last_start_us=197.8 last_end_us=329.1
+E11S property.rs:207 len=232272 chunks=48 wall_us=679.5 emit_sum_us=953.3 compact_sum_us=2916.9 last_start_us=338.2 last_end_us=571.2
+E11 copy reversed=true
+E11S property.rs:207 len=998 chunks=1 inline wall_us=2.0
+E11 copy reversed=true
+E11S restrictions.rs:112 len=998 chunks=1 inline wall_us=132.4
+E11S restrictions.rs:112 len=1421819 chunks=48 wall_us=3225.3 emit_sum_us=12876.5 compact_sum_us=21010.9 last_start_us=2622.0 last_end_us=3213.1
+E11S property.rs:207 len=232272 chunks=48 wall_us=3316.4 emit_sum_us=688.3 compact_sum_us=3050.1 last_start_us=1454.2 last_end_us=1553.2
+E11 copy reversed=true
+E11S property.rs:207 len=66041 chunks=17 wall_us=285.0 emit_sum_us=197.6 compact_sum_us=868.8 last_start_us=168.0 last_end_us=246.8
+E11S restrictions.rs:112 len=24881 chunks=7 wall_us=407.8 emit_sum_us=1519.2 compact_sum_us=236.7 last_start_us=23.3 last_end_us=392.6
+E11S reasoner.rs:996 len=1053520 chunks=48 wall_us=405.2 emit_sum_us=4106.5 compact_sum_us=0.8 last_start_us=303.8 last_end_us=383.2
+E11S reasoner.rs:996 len=21 chunks=1 inline wall_us=0.2
+E11S reasoner.rs:996 len=14936 chunks=4 wall_us=52.3 emit_sum_us=49.9 compact_sum_us=0.0 last_start_us=19.8 last_end_us=28.2
+E11S reasoner.rs:996 len=998 chunks=1 inline wall_us=2.8
+E11 property round start
+E11S property.rs:166 len=998 chunks=1 inline wall_us=3.9
+E11S property.rs:166 len=14936 chunks=4 wall_us=44.8 emit_sum_us=28.0 compact_sum_us=15.4 last_start_us=36.8 last_end_us=44.7
+E11 rng
+E11S property.rs:181 len=998 chunks=1 inline wall_us=2.7
+E11 rng
+E11S store.rs:990 len=21 chunks=1 inline wall_us=177.1
+E11S property.rs:181 len=14936 chunks=4 wall_us=1672.0 emit_sum_us=49.8 compact_sum_us=62.5 last_start_us=42.5 last_end_us=73.7
+E11 copy reversed=true
+E11S store.rs:997 len=1053520 chunks=48 wall_us=1658.9 emit_sum_us=2195.2 compact_sum_us=12011.1 last_start_us=995.3 last_end_us=1610.5
+E11S datatype.rs:98 len=1053520 chunks=48 wall_us=1825.4 emit_sum_us=2892.9 compact_sum_us=1.1 last_start_us=282.2 last_end_us=324.1
+E11S datatype.rs:98 len=21 chunks=1 inline wall_us=0.1
+E11S store.rs:997 len=1053520 chunks=48 wall_us=26.9 emit_sum_us=12.8 compact_sum_us=1.1 last_start_us=23.1 last_end_us=23.2
+E11S property.rs:207 len=998 chunks=1 inline wall_us=3.0
+E11S datatype.rs:98 len=14936 chunks=4 wall_us=44.8 emit_sum_us=45.8 compact_sum_us=0.0 last_start_us=23.5 last_end_us=31.8
+E11S datatype.rs:98 len=998 chunks=1 inline wall_us=20.5
+E11S store.rs:997 len=1053520 chunks=48 wall_us=266.6 emit_sum_us=1140.5 compact_sum_us=480.1 last_start_us=129.1 last_end_us=250.5
+E11S store.rs:990 len=21 chunks=1 inline wall_us=0.8
+E11S store.rs:997 len=21 chunks=1 inline wall_us=0.8
+E11S lists.rs:134 len=617602 chunks=48 wall_us=7897.7 emit_sum_us=86343.4 compact_sum_us=621.2 last_start_us=6575.6 last_end_us=7878.3
+E11S reasoner.rs:996 len=156803 chunks=39 wall_us=159.9 emit_sum_us=1304.6 compact_sum_us=0.7 last_start_us=100.3 last_end_us=124.2
+E11S reasoner.rs:996 len=2 chunks=1 inline wall_us=0.2
+E11S store.rs:990 len=2 chunks=1 inline wall_us=1.2
+E11 property round start
+E11S datatype.rs:98 len=156803 chunks=39 wall_us=558.2 emit_sum_us=549.0 compact_sum_us=0.9 last_start_us=102.7 last_end_us=116.3
+E11S datatype.rs:98 len=2 chunks=1 inline wall_us=0.0
+E11S store.rs:997 len=156803 chunks=39 wall_us=552.8 emit_sum_us=794.2 compact_sum_us=3792.4 last_start_us=397.6 last_end_us=520.4
+E11S store.rs:997 len=156803 chunks=39 wall_us=51.4 emit_sum_us=2.1 compact_sum_us=0.5 last_start_us=45.7 last_end_us=45.8
+E11S store.rs:997 len=156803 chunks=39 wall_us=127.6 emit_sum_us=448.8 compact_sum_us=208.7 last_start_us=73.0 last_end_us=106.9
+E11S store.rs:990 len=2 chunks=1 inline wall_us=0.4
+E11S store.rs:997 len=2 chunks=1 inline wall_us=0.5
+E11S reasoner.rs:996 len=156803 chunks=39 wall_us=119.2 emit_sum_us=887.5 compact_sum_us=0.8 last_start_us=68.5 last_end_us=87.7
+E11 property round start
+E11S datatype.rs:98 len=156803 chunks=39 wall_us=505.2 emit_sum_us=457.5 compact_sum_us=1.0 last_start_us=226.2 last_end_us=240.5
+E11S store.rs:997 len=156803 chunks=39 wall_us=563.2 emit_sum_us=788.7 compact_sum_us=3724.9 last_start_us=407.1 last_end_us=534.9
+E11S store.rs:997 len=156803 chunks=39 wall_us=119.1 emit_sum_us=459.8 compact_sum_us=238.1 last_start_us=81.3 last_end_us=106.1
+E11S store.rs:997 len=156803 chunks=39 wall_us=47.0 emit_sum_us=2.2 compact_sum_us=0.6 last_start_us=29.8 last_end_us=29.9
+105.2 ms
+load average after: 2.15 2.46 2.51
+warning: load average over 1 after the runs
