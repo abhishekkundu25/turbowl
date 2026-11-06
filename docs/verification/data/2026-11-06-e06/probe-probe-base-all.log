@@ -1,0 +1,216 @@
+== probe-base all run 1, load { 1.95 1.85 2.00 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 270.7 MB, lifetime peak 271.0 MB (26.2 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 600.6 MB, lifetime peak 600.6 MB (58.1 B/triple), in use 400.1 MB, max in use 0.0 MB, reason took 149.1 ms
+PEAK 600.6 MB reached between mark 778 (index change begins t0 at 148.49 ms: footprint 599.5, life 599.5, in use 398.0) and mark 779 (index change ends t0 at 148.94 ms: footprint 600.6, in use 400.1, max in use 0.0); gap footprint - in use there 200.5 MB
+PEAK open: reason t0 n0; step t0 n474401; index change t0 n3775750
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     270.7     270.7     270.7     271.0     250.8     250.8     250.8
+start begins -> start ends     0.1     3.7     270.7     304.7     304.7     304.7     250.8     325.0     325.0
+start ends -> step begins     3.7     3.8     304.7     304.7     304.7     304.7     325.0     325.0     325.0
+step 0                   3.8    15.3     304.7     304.8     304.8     304.8     325.0     325.0     325.0
+round 1                 15.4    26.4     304.8     387.0     387.0     387.0     325.0     370.7     370.7
+step 1                  26.5    54.3     387.0     459.1     459.1     459.1     370.7     360.0     413.6
+round 2                 54.4    58.8     459.1     459.9     459.9     459.9     360.0     396.3     396.3
+step 2                  58.9    80.9     459.9     542.5     542.5     542.5     396.3     373.7     430.0
+round 3                 81.0    89.2     542.5     539.4     542.6     542.7     373.7     422.1     422.1
+step 3                  89.2   109.5     539.4     567.3     567.3     567.3     422.1     392.5     456.4
+round 4                109.6   123.5     567.3     566.6     567.3     567.3     392.5     423.0     423.0
+step 4                 123.5   140.1     566.6     599.3     599.3     599.3     423.0     393.8     450.4
+round 5                140.1   141.6     599.3     599.4     599.4     599.4     393.8     401.9     401.9
+step 5                 141.6   145.4     599.4     599.5     599.5     599.5     401.9     396.3     411.4
+round 6                145.5   146.4     599.5     599.5     599.5     599.5     396.3     400.2     400.2
+step 6                 146.5   149.0     599.5     600.6     600.6     600.6     400.2     400.1     400.9
+step ends -> reason ends   149.0   149.1     600.6     600.6     600.6     600.6     400.1     400.1     400.1
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run 2, load { 1.95 1.85 2.00 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 270.6 MB, lifetime peak 270.9 MB (26.2 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 601.4 MB, lifetime peak 601.4 MB (58.1 B/triple), in use 400.1 MB, max in use 0.0 MB, reason took 138.5 ms
+PEAK 601.4 MB reached between mark 766 (index change begins t0 at 134.48 ms: footprint 601.3, life 601.3, in use 396.4) and mark 767 (index change ends t0 at 134.82 ms: footprint 601.4, in use 396.4, max in use 0.0); gap footprint - in use there 205.0 MB
+PEAK open: reason t0 n0; step t0 n788015; index change t0 n3618947
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     270.6     270.6     270.6     270.9     250.8     250.8     250.8
+start begins -> start ends     0.1     3.9     270.6     304.7     304.7     304.7     250.8     325.0     325.0
+start ends -> step begins     3.9     4.0     304.7     304.7     304.7     304.7     325.0     325.0     325.0
+step 0                   4.0    15.9     304.7     304.7     304.7     304.7     325.0     325.0     325.0
+round 1                 16.0    27.0     304.7     387.1     387.1     387.1     325.0     370.7     370.7
+step 1                  27.1    52.8     387.1     460.2     460.2     460.2     370.7     360.0     419.5
+round 2                 52.9    56.8     460.2     460.5     460.5     460.5     360.0     396.3     396.3
+step 2                  56.9    77.0     460.5     541.8     541.8     541.8     396.3     373.7     426.3
+round 3                 77.1    85.2     541.8     539.3     541.8     541.8     373.7     422.1     422.1
+step 3                  85.3   103.1     539.3     567.8     567.8     567.8     422.1     392.5     460.6
+round 4                103.2   115.2     567.8     567.1     567.8     567.8     392.5     423.0     423.0
+step 4                 115.3   129.4     567.1     601.2     601.2     601.2     423.0     393.8     450.1
+round 5                129.5   130.9     601.2     601.2     601.2     601.2     393.8     401.9     401.9
+step 5                 130.9   135.0     601.2     601.4     601.4     601.4     401.9     396.3     411.4
+round 6                135.0   135.9     601.4     601.4     601.4     601.4     396.3     400.2     400.2
+step 6                 136.0   138.4     601.4     601.4     601.4     601.4     400.2     400.1     400.9
+step ends -> reason ends   138.4   138.5     601.4     601.4     601.4     601.4     400.1     400.1     400.1
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run 3, load { 2.68 2.00 2.06 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 269.1 MB, lifetime peak 269.5 MB (26.0 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 598.9 MB, lifetime peak 598.9 MB (57.9 B/triple), in use 400.1 MB, max in use 0.0 MB, reason took 140.8 ms
+PEAK 598.9 MB reached between mark 778 (index change begins t0 at 140.13 ms: footprint 597.8, life 597.8, in use 398.0) and mark 779 (index change ends t0 at 140.62 ms: footprint 598.9, in use 400.1, max in use 0.0); gap footprint - in use there 198.8 MB
+PEAK open: reason t0 n0; step t0 n474401; index change t0 n3775750
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     269.2     269.2     269.2     269.5     250.8     250.8     250.8
+start begins -> start ends     0.1     3.9     269.2     303.2     303.2     303.2     250.8     325.0     325.0
+start ends -> step begins     3.9     4.0     303.2     303.2     303.2     303.2     325.0     325.0     325.0
+step 0                   4.0    15.6     303.2     303.2     303.2     303.2     325.0     325.0     325.0
+round 1                 15.6    26.8     303.2     387.1     387.1     387.1     325.0     370.7     370.7
+step 1                  26.9    52.2     387.1     459.3     459.3     459.3     370.7     360.0     414.4
+round 2                 52.3    56.7     459.3     460.0     460.0     460.0     360.0     396.3     396.3
+step 2                  56.8    77.7     460.0     539.9     539.9     539.9     396.3     373.7     429.9
+round 3                 77.8    86.6     539.9     537.8     540.0     540.0     373.7     422.1     422.1
+step 3                  86.7   105.9     537.8     565.6     565.6     565.6     422.1     392.5     455.8
+round 4                106.0   118.0     565.6     564.9     565.6     569.7     392.5     423.0     423.0
+step 4                 118.1   132.2     564.9     597.7     597.7     597.7     423.0     393.8     450.4
+round 5                132.2   133.6     597.7     597.7     597.7     597.7     393.8     401.9     401.9
+step 5                 133.7   137.1     597.7     597.8     597.8     597.8     401.9     396.3     411.4
+round 6                137.2   138.0     597.8     597.8     597.8     597.8     396.3     400.2     400.2
+step 6                 138.1   140.7     597.8     598.9     598.9     598.9     400.2     400.1     400.9
+step ends -> reason ends   140.7   140.8     598.9     598.9     598.9     598.9     400.1     400.1     400.1
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run 4, load { 2.68 2.00 2.06 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 267.5 MB, lifetime peak 267.9 MB (25.9 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 598.2 MB, lifetime peak 598.2 MB (57.8 B/triple), in use 400.1 MB, max in use 0.0 MB, reason took 136.4 ms
+PEAK 598.2 MB reached between mark 766 (index change begins t0 at 132.80 ms: footprint 598.1, life 598.1, in use 396.4) and mark 767 (index change ends t0 at 133.04 ms: footprint 598.2, in use 396.4, max in use 0.0); gap footprint - in use there 201.9 MB
+PEAK open: reason t0 n0; step t0 n788015; index change t0 n3618947
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     267.6     267.6     267.6     267.9     250.8     250.8     250.8
+start begins -> start ends     0.1     4.0     267.6     301.6     301.6     301.6     250.8     325.0     325.0
+start ends -> step begins     4.0     4.1     301.6     301.6     301.6     301.6     325.0     325.0     325.0
+step 0                   4.1    15.6     301.6     301.6     301.6     301.6     325.0     325.0     325.0
+round 1                 15.7    26.4     301.6     387.0     387.0     387.0     325.0     370.7     370.7
+step 1                  26.5    52.6     387.0     460.4     460.4     460.4     370.7     360.0     413.6
+round 2                 52.6    56.5     460.4     461.6     461.6     461.6     360.0     396.3     396.3
+step 2                  56.6    76.8     461.6     540.1     540.1     540.1     396.3     373.7     430.5
+round 3                 76.8    84.8     540.1     537.5     540.1     540.2     373.7     422.1     422.1
+step 3                  84.9   102.2     537.5     565.5     565.5     565.5     422.1     392.5     460.6
+round 4                102.3   114.2     565.5     564.8     565.5     565.5     392.5     423.0     423.0
+step 4                 114.3   128.4     564.8     598.1     598.1     598.1     423.0     393.8     450.4
+round 5                128.5   129.8     598.1     598.1     598.1     598.1     393.8     401.9     401.9
+step 5                 129.9   133.2     598.1     598.2     598.2     598.2     401.9     396.3     411.4
+round 6                133.2   134.0     598.2     598.2     598.2     598.2     396.3     400.2     400.2
+step 6                 134.1   136.3     598.2     598.2     598.2     598.2     400.2     400.1     400.9
+step ends -> reason ends   136.3   136.4     598.2     598.2     598.2     598.2     400.1     400.1     400.1
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run 5, load { 2.68 2.00 2.06 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 269.1 MB, lifetime peak 269.4 MB (26.0 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 600.1 MB, lifetime peak 600.1 MB (58.0 B/triple), in use 399.6 MB, max in use 0.0 MB, reason took 137.8 ms
+PEAK 600.1 MB reached between mark 778 (index change begins t0 at 137.15 ms: footprint 600.1, life 600.1, in use 398.4) and mark 779 (index change ends t0 at 137.63 ms: footprint 600.1, in use 399.6, max in use 0.0); gap footprint - in use there 200.5 MB
+PEAK open: reason t0 n0; step t0 n474401; index change t0 n3775750
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     269.1     269.1     269.1     269.4     250.8     250.8     250.8
+start begins -> start ends     0.1     3.9     269.1     303.2     303.2     303.2     250.8     325.0     325.0
+start ends -> step begins     3.9     4.0     303.2     303.2     303.2     303.2     325.0     325.0     325.0
+step 0                   4.0    15.6     303.2     303.2     303.2     303.2     325.0     325.0     325.0
+round 1                 15.6    27.0     303.2     389.3     389.3     389.3     325.0     370.7     370.7
+step 1                  27.1    53.1     389.3     462.4     462.4     462.4     370.7     360.0     414.1
+round 2                 53.1    57.6     462.4     462.7     462.7     462.7     360.0     396.3     396.3
+step 2                  57.7    78.0     462.7     542.2     542.2     542.2     396.3     373.7     425.7
+round 3                 78.1    86.1     542.2     540.1     542.3     542.3     373.7     422.1     422.1
+step 3                  86.2   103.3     540.1     567.9     567.9     567.9     422.1     392.5     460.1
+round 4                103.4   115.7     567.9     567.2     568.0     568.0     392.5     423.0     423.0
+step 4                 115.8   129.5     567.2     600.0     600.0     600.0     423.0     393.8     450.4
+round 5                129.5   130.9     600.0     600.0     600.0     600.0     393.8     402.3     402.3
+step 5                 131.0   134.3     600.0     600.1     600.1     600.1     402.3     396.3     411.4
+round 6                134.4   135.3     600.1     600.1     600.1     600.1     396.3     400.2     400.2
+step 6                 135.3   137.7     600.1     600.1     600.1     600.1     400.2     399.6     400.2
+step ends -> reason ends   137.7   137.8     600.1     600.1     600.1     600.1     399.6     399.6     399.6
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run b1, load { 1.97 1.82 1.95 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 267.4 MB, lifetime peak 267.7 MB (25.9 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 600.4 MB, lifetime peak 600.4 MB (58.0 B/triple), in use 400.1 MB, max in use 0.0 MB, reason took 148.6 ms
+PEAK 600.4 MB reached between mark 778 (index change begins t0 at 148.06 ms: footprint 600.4, life 600.4, in use 398.0) and mark 779 (index change ends t0 at 148.44 ms: footprint 600.4, in use 400.1, max in use 0.0); gap footprint - in use there 200.3 MB
+PEAK open: reason t0 n0; step t0 n474401; index change t0 n3775750
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     267.4     267.4     267.4     267.7     250.8     250.8     250.8
+start begins -> start ends     0.1     4.3     267.4     301.5     301.5     301.5     250.8     325.0     325.0
+start ends -> step begins     4.3     4.4     301.5     301.5     301.5     301.5     325.0     325.0     325.0
+step 0                   4.4    16.3     301.5     301.5     301.5     301.5     325.0     325.0     325.0
+round 1                 16.4    29.6     301.5     387.8     387.8     387.8     325.0     370.7     370.7
+step 1                  29.7    57.9     387.8     459.9     459.9     459.9     370.7     360.0     413.6
+round 2                 57.9    62.9     459.9     460.5     460.5     460.5     360.0     396.3     396.3
+step 2                  63.0    85.4     460.5     542.1     542.1     542.1     396.3     373.7     425.7
+round 3                 85.4    94.0     542.1     540.3     542.2     542.2     373.7     422.1     422.1
+step 3                  94.1   112.4     540.3     568.3     568.3     568.3     422.1     392.5     456.5
+round 4                112.5   125.4     568.3     567.6     568.4     568.4     392.5     423.0     423.0
+step 4                 125.5   139.7     567.6     600.3     600.3     600.3     423.0     393.8     450.1
+round 5                139.7   141.2     600.3     600.3     600.3     600.3     393.8     401.9     401.9
+step 5                 141.3   145.1     600.3     600.4     600.4     600.4     401.9     396.3     411.4
+round 6                145.1   146.0     600.4     600.4     600.4     600.4     396.3     400.2     400.2
+step 6                 146.1   148.5     600.4     600.4     600.4     600.4     400.2     400.1     400.9
+step ends -> reason ends   148.5   148.6     600.4     600.4     600.4     600.4     400.1     400.1     400.1
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run b2, load { 2.06 1.84 1.95 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 264.9 MB, lifetime peak 265.3 MB (25.6 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 599.3 MB, lifetime peak 599.3 MB (57.9 B/triple), in use 399.6 MB, max in use 0.0 MB, reason took 137.2 ms
+PEAK 599.3 MB reached between mark 778 (index change begins t0 at 136.67 ms: footprint 598.2, life 598.2, in use 398.4) and mark 779 (index change ends t0 at 137.02 ms: footprint 599.3, in use 399.6, max in use 0.0); gap footprint - in use there 199.7 MB
+PEAK open: reason t0 n0; step t0 n474401; index change t0 n3775750
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     265.0     265.0     265.0     265.3     250.8     250.8     250.8
+start begins -> start ends     0.1     3.9     265.0     299.0     299.0     299.0     250.8     325.0     325.0
+start ends -> step begins     3.9     3.9     299.0     299.0     299.0     299.0     325.0     325.0     325.0
+step 0                   3.9    15.5     299.0     299.0     299.0     299.0     325.0     325.0     325.0
+round 1                 15.5    26.3     299.0     386.4     386.4     386.4     325.0     370.7     370.7
+step 1                  26.4    51.5     386.4     460.2     460.2     460.2     370.7     360.0     418.6
+round 2                 51.5    55.5     460.2     461.1     461.1     461.1     360.0     396.3     396.3
+step 2                  55.6    75.0     461.1     540.8     540.8     540.8     396.3     373.7     430.5
+round 3                 75.1    83.2     540.8     538.0     540.9     540.9     373.7     422.1     422.1
+step 3                  83.3   100.7     538.0     566.0     566.0     566.0     422.1     392.5     455.8
+round 4                100.8   112.8     566.0     565.3     566.0     570.0     392.5     423.0     423.0
+step 4                 112.9   128.2     565.3     598.1     598.1     598.1     423.0     393.8     449.8
+round 5                128.3   129.7     598.1     598.1     598.1     598.1     393.8     402.3     402.3
+step 5                 129.8   133.5     598.1     598.1     598.1     598.1     402.3     396.3     411.4
+round 6                133.6   134.5     598.1     598.2     598.2     598.2     396.3     400.2     400.2
+step 6                 134.6   137.1     598.2     599.3     599.3     599.3     400.2     399.6     400.2
+step ends -> reason ends   137.1   137.2     599.3     599.3     599.3     599.3     399.6     399.6     399.6
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
+== probe-base all run b3, load { 2.06 1.84 1.95 }
+threads all, closure 10345697, base 6572384, marks 782
+after load: footprint 268.8 MB, lifetime peak 269.2 MB (26.0 B/triple), in use 250.8 MB, max in use 0.0 MB
+after reason: footprint 597.4 MB, lifetime peak 597.4 MB (57.7 B/triple), in use 399.6 MB, max in use 0.0 MB, reason took 135.3 ms
+PEAK 597.4 MB reached between mark 766 (index change begins t0 at 131.66 ms: footprint 597.3, life 597.3, in use 396.4) and mark 767 (index change ends t0 at 131.91 ms: footprint 597.4, in use 396.4, max in use 0.0); gap footprint - in use there 201.0 MB
+PEAK open: reason t0 n0; step t0 n788015; index change t0 n3618947
+IN-USE high 0.0 MB reached before mark 0 (reason begins t0 at 0.00 ms); open: 
+phase                from ms   to ms   foot at   foot to  max samp      life   used at   used to  max used
+reason begins -> start begins     0.0     0.1     268.8     268.8     268.8     269.2     250.8     250.8     250.8
+start begins -> start ends     0.1     4.1     268.8     302.9     302.9     302.9     250.8     325.0     325.0
+start ends -> step begins     4.1     4.2     302.9     302.9     302.9     302.9     325.0     325.0     325.0
+step 0                   4.2    16.0     302.9     302.9     302.9     302.9     325.0     325.0     325.0
+round 1                 16.0    27.5     302.9     387.3     387.3     387.3     325.0     370.7     370.7
+step 1                  27.6    52.4     387.3     460.5     460.5     460.5     370.7     360.0     419.7
+round 2                 52.5    56.3     460.5     461.0     461.0     461.0     360.0     396.3     396.3
+step 2                  56.4    76.0     461.0     539.4     539.4     539.4     396.3     373.7     421.5
+round 3                 76.0    84.0     539.4     536.7     539.5     539.6     373.7     422.1     422.1
+step 3                  84.1   101.5     536.7     564.6     564.6     564.6     422.1     392.5     459.5
+round 4                101.6   113.4     564.6     563.8     564.6     564.6     392.5     423.0     423.0
+step 4                 113.5   127.1     563.8     597.2     597.2     597.2     423.0     393.8     450.1
+round 5                127.2   128.6     597.2     597.2     597.2     597.2     393.8     402.3     402.3
+step 5                 128.7   132.0     597.2     597.4     597.4     597.4     402.3     396.3     411.4
+round 6                132.0   133.0     597.4     597.4     597.4     597.4     396.3     400.2     400.2
+step 6                 133.0   135.3     597.4     597.4     597.4     597.4     400.2     399.6     400.2
+step ends -> reason ends   135.3   135.3     597.4     597.4     597.4     597.4     399.6     399.6     399.6
+held after the run: total 376.0 MB; dictionary 171.8, base 78.9, store 125.3, rest 0.0
+MARKS label t n ms footprint life used max_used allocated
