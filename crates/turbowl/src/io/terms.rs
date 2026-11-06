@@ -94,11 +94,18 @@ pub(super) enum Fail {
     Syntax(Failure),
     /// A limit of the dictionary, at no position.
     Limit(String),
+    /// An open text ran short ([`Failure::short`]): no error, but the parse
+    /// cannot go on until more of the document is read.
+    Short,
 }
 
 impl From<Failure> for Fail {
     fn from(failure: Failure) -> Self {
-        Fail::Syntax(failure)
+        if failure.short {
+            Fail::Short
+        } else {
+            Fail::Syntax(failure)
+        }
     }
 }
 
@@ -260,6 +267,7 @@ pub(super) fn error(path: Option<&Path>, text: &[u8], fail: Fail) -> Error {
             error_at(path, line + 1, column + 1, failure.message)
         }
         Fail::Limit(message) => error_at(path, 0, 0, message),
+        Fail::Short => unreachable!("only an open text runs short, and its parse reads on"),
     }
 }
 

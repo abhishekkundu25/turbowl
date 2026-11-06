@@ -1,4 +1,5 @@
-//! Parsing a large document on every core (ticket 18).
+//! Parsing a large document on every core (ticket 18), and a document read
+//! in windows.
 //!
 //! The document is cut at line starts into pieces. Each piece is parsed on a
 //! thread of its own into a term table of its own (a [`Dictionary`]), then the
@@ -32,9 +33,25 @@
 //! fill up, the merge parses the rest on the caller's thread into it, which
 //! fails where the parse on one thread would.
 //!
+//! # Windows
+//!
+//! A text can be a window of the document: it starts at a line start between
+//! statements, in a [`State`] (prefixes and base) the caller carries over,
+//! and, when it is open, the document goes on past its end. An open window's
+//! pieces cover it up to a line start about [`SLACK`] bytes from its end, and
+//! their lexers stop short of the end ([`Fail::Short`]) rather than read it
+//! as the document's end. Its pieces are always speculative, even on one
+//! thread, since only a piece's own table can be dropped: the merge takes
+//! them up to the first that ran short, and gives where it stopped
+//! ([`Outcome::More`]), a line start between statements, with the state
+//! there. The caller reads on from there; nothing past it reached the sink
+//! or the dictionary. A closed window (the document's last) is parsed as a
+//! whole document is.
+//!
 //! The parse on one thread is `ntriples::parse` and `turtle::parse` from the
 //! start; `io/cross_check.rs` compares the two on every test document,
-//! valid and malformed, cut at every few lines.
+//! valid and malformed, cut at every few lines and read in windows of a few
+//! bytes.
 
 use super::iri::Base;
 use super::lexer::{Lexer, Mode};
@@ -69,6 +86,12 @@ const MIN_PIECE: usize = 1 << 16;
 /// a statement, before it takes any line start.
 const LOOK: usize = 1 << 16;
 
+/// What an open window leaves to the next, about: its pieces end at a line
+/// start this far from its end (or half the window, if that is less), so
+/// that the statement there most likely ends inside the window. The rest is
+/// read again with the next window.
+pub(super) const SLACK: usize = 1 << 16;
+
 /// The size of the pieces a document of `len` bytes is parsed in, or `None`
 /// to parse it on one thread: `from` is the threshold, [`PARALLEL_FROM`]
 /// but in the test that measures it.
@@ -85,6 +108,32 @@ pub(super) fn piece_size(workers: &Workers, len: usize, from: usize) -> Option<u
         return Some(len.div_ceil(4 * workers.threads()).max(MIN_PIECE));
     }
     None
+}
+
+/// Where a parse stands at a line start between statements: the prefixes
+/// declared before it, and the base.
+#[derive(Debug, Clone, Default)]
+pub(super) struct State {
+    pub(super) prefixes: Prefixes<'static>,
+    pub(super) base: Option<Base>,
+}
+
+/// How the parse of a text ended.
+#[derive(Debug)]
+pub(super) enum Outcome {
+    /// At the end of the document; the triples handed to the sink.
+    Done(usize),
+    /// An open window, parsed up to `at` (0 when nothing could be parsed):
+    /// a line start between statements, where the parse stands in `state`.
+    /// The triples before `at` went to the sink. When `rest`, the dictionary
+    /// may fill up: the rest of the document must be parsed as one text, so
+    /// that it fails where the parse on one thread would.
+    More {
+        at: usize,
+        triples: usize,
+        state: State,
+        rest: bool,
+    },
 }
 
 /// One piece of the document: from a line start to another (or the end).
@@ -110,6 +159,8 @@ struct Parsed<'a> {
 /// table holding the vocabulary (at the dictionary's ids).
 struct Start<'s, 'a> {
     text: &'a [u8],
+    /// The document goes on past `text`.
+    open: bool,
     format: Format,
     document: DocId,
     vocabulary: &'s Dictionary,
@@ -124,7 +175,7 @@ impl<'a> Start<'_, 'a> {
             Format::NTriples => Mode::NTriples,
             _ => Mode::Turtle,
         };
-        let mut lexer = Lexer::at(text, from, utf8, mode, base);
+        let mut lexer = Lexer::at(text, from, utf8, mode, base, self.open);
         let mut terms = self.vocabulary.clone();
         let mut triples = Vec::new();
         let mut prefixes = prefixes;
@@ -144,65 +195,98 @@ impl<'a> Start<'_, 'a> {
     }
 }
 
-/// Parses N-Triples or Turtle in pieces of about `size` bytes, on `workers`;
-/// gives the triples handed to the sink. The same result as the parse on one
-/// thread, error included.
-///
-/// The first piece is parsed first; the workers then take the others in
-/// order, and the caller's thread merges each as soon as it and those before
-/// it are parsed, so the merge runs beside the parse.
+/// Parses N-Triples or Turtle: `text` runs from a line start between
+/// statements, where the parse stands in `state` (the document's start when
+/// `head`), to the end of the document, or, when `open`, to where the
+/// document has been read so far. A document of [`piece_size`] is parsed
+/// in pieces on `workers` (`from` is the threshold), others on the caller's
+/// thread, but an open window is always parsed in pieces. The same result as
+/// the parse on one thread, error included; an error's line and column count
+/// from the start of `text`.
 #[allow(clippy::too_many_arguments)]
-pub(super) fn parse<'a>(
+pub(super) fn parse(
     dict: &mut Dictionary,
-    text: &'a [u8],
+    text: &[u8],
     format: Format,
-    base: Option<Base>,
+    state: &State,
+    head: bool,
+    open: bool,
     document: DocId,
     path: Option<&Path>,
     workers: &Workers,
-    size: usize,
+    from: usize,
     sink: &mut impl FnMut([TermId; 3]),
-) -> Result<usize, Error> {
-    let pieces = cuts(text, format, size);
-    if pieces.len() == 1 {
-        return whole(dict, text, format, base, document, path, sink);
+) -> Result<Outcome, Error> {
+    let end = if open {
+        match span(text, format) {
+            Some(end) => end,
+            None => return Ok(nothing(state)),
+        }
+    } else {
+        text.len()
+    };
+    let size = match piece_size(workers, end, from) {
+        Some(size) => size,
+        None if open => end,
+        None => return whole(dict, text, format, state, document, path, sink).map(Outcome::Done),
+    };
+    let pieces = cuts(&text[..end], format, size);
+    if pieces.len() == 1 && !open {
+        return whole(dict, text, format, state, document, path, sink).map(Outcome::Done);
     }
     let vocabulary = Dictionary::new();
     let start = Start {
         text,
+        open,
         format,
         document,
         vocabulary: &vocabulary,
     };
-    let head = start.parse(pieces[0].from, pieces[0].until, Prefixes::default(), base.clone());
-    let guessed = (head.prefixes.start(), head.base.clone());
+    // At the document's start, the first piece is parsed first: the others
+    // start with the prefixes and base it ends with. Later in the document
+    // they start with the state the window starts in.
+    let (head, guessed) = if head {
+        let head = start.parse(
+            pieces[0].from,
+            pieces[0].until,
+            state.prefixes.start(),
+            state.base.clone(),
+        );
+        let guessed = (head.prefixes.start(), head.base.clone());
+        (Some(head), guessed)
+    } else {
+        (None, (state.prefixes.start(), state.base.clone()))
+    };
+    let first = usize::from(head.is_some());
     let mut merge = Merge {
         start: &start,
         guessed: &guessed,
         at: 0,
-        prefixes: Prefixes::default(),
-        base,
+        prefixes: state.prefixes.start(),
+        base: state.base.clone(),
         triples: 0,
         map: Vec::new(),
         dict,
         path,
         sink,
     };
-    if let Some(done) = merge.take(pieces[0], Some(head)) {
+    if let Some(head) = head
+        && let Some(done) = merge.take(pieces[0], Some(head))
+    {
         return done;
     }
     let (prefixes, guessed_base) = &guessed;
     let speculate = |piece: Piece| start.parse(piece.from, piece.until, prefixes.start(), guessed_base.clone());
     let threads = workers.threads();
     if threads == 1 {
-        for &piece in &pieces[1..] {
+        for &piece in &pieces[first..] {
             if let Some(done) = merge.take(piece, Some(speculate(piece))) {
                 return done;
             }
         }
-        unreachable!("the last piece reads to the end of the document");
+        return Ok(merge.end());
     }
-    let next = AtomicUsize::new(1);
+    let next = AtomicUsize::new(first);
     let (sent, received) = mpsc::channel();
     std::thread::scope(|scope| {
         let (next, speculate, pieces) = (&next, &speculate, &pieces);
@@ -219,8 +303,8 @@ pub(super) fn parse<'a>(
                 }
             });
         });
-        let mut ready: Vec<Option<Parsed<'a>>> = (0..pieces.len()).map(|_| None).collect();
-        for (i, &piece) in pieces.iter().enumerate().skip(1) {
+        let mut ready: Vec<Option<Parsed<'_>>> = (0..pieces.len()).map(|_| None).collect();
+        for (i, &piece) in pieces.iter().enumerate().skip(first) {
             while ready[i].is_none() {
                 let (j, parsed) = received.recv().expect("every piece is parsed before the workers stop");
                 ready[j] = Some(parsed);
@@ -232,8 +316,27 @@ pub(super) fn parse<'a>(
                 return done;
             }
         }
-        unreachable!("the last piece reads to the end of the document")
+        Ok(merge.end())
     })
+}
+
+/// An open window of which nothing could be parsed.
+fn nothing(state: &State) -> Outcome {
+    Outcome::More {
+        at: 0,
+        triples: 0,
+        state: state.clone(),
+        rest: false,
+    }
+}
+
+/// Where an open window's pieces end: a line start [`SLACK`] bytes (or half
+/// the window) or more before its end; Turtle's as [`cut`] places it. `None`
+/// when there is none.
+fn span(text: &[u8], format: Format) -> Option<usize> {
+    let slack = SLACK.min(text.len() / 2);
+    let end = cut(text, (text.len() - slack).max(1), format, slack / 2);
+    (end < text.len()).then_some(end)
 }
 
 /// The merge of the pieces, in order, into the dictionary and the sink.
@@ -257,8 +360,8 @@ struct Merge<'m, 's, 'a, S> {
 
 impl<'a, S: FnMut([TermId; 3])> Merge<'_, '_, 'a, S> {
     /// Merges the next piece, given its speculative parse; the result when
-    /// the document is done.
-    fn take(&mut self, piece: Piece, parsed: Option<Parsed<'a>>) -> Option<Result<usize, Error>> {
+    /// the text is done.
+    fn take(&mut self, piece: Piece, parsed: Option<Parsed<'a>>) -> Option<Result<Outcome, Error>> {
         let text = self.start.text;
         if piece.until <= self.at && piece.until < text.len() {
             return None; // read already, by the parse of an earlier piece
@@ -270,8 +373,16 @@ impl<'a, S: FnMut([TermId; 3])> Merge<'_, '_, 'a, S> {
                 .start
                 .parse(self.at, piece.until, self.prefixes.start(), self.base.clone()),
         };
+        // An open window's piece that ran short is left to the next window
+        // (it cannot reach the end of the document: its lexer stops first).
+        if matches!(parsed.result, Err(Fail::Short) | Ok(Stop::End)) && self.start.open {
+            return Some(Ok(self.more(false)));
+        }
         let fresh = parsed.terms.len() - vocab::IRIS.len();
         if self.dict.len() + fresh > MAX_TERMS - 3 {
+            if self.start.open {
+                return Some(Ok(self.more(true)));
+            }
             // The dictionary may fill up: read the rest into it, as the
             // parse on one thread would, to fail where it would.
             let rest = sequential(
@@ -285,7 +396,7 @@ impl<'a, S: FnMut([TermId; 3])> Merge<'_, '_, 'a, S> {
                 self.path,
                 self.sink,
             );
-            return Some(rest.map(|n| n + self.triples));
+            return Some(rest.map(|n| Outcome::Done(n + self.triples)));
         }
         let (dict, map) = (&mut *self.dict, &mut self.map);
         map.clear();
@@ -309,7 +420,7 @@ impl<'a, S: FnMut([TermId; 3])> Merge<'_, '_, 'a, S> {
         self.triples += parsed.triples.len();
         match parsed.result {
             Err(fail) => Some(Err(error(self.path, text, fail))),
-            Ok(Stop::End) => Some(Ok(self.triples)),
+            Ok(Stop::End) => Some(Ok(Outcome::Done(self.triples))),
             Ok(Stop::At(q)) => {
                 self.at = q;
                 self.prefixes.follow(&parsed.prefixes);
@@ -332,31 +443,63 @@ impl<'a, S: FnMut([TermId; 3])> Merge<'_, '_, 'a, S> {
             .all(|name| self.prefixes.namespace(name) == prefixes.namespace(name))
             && (!parsed.base_read || self.base.as_ref().map(Base::as_str) == base.as_ref().map(Base::as_str))
     }
+
+    /// Where an open window stopped, with the state there.
+    fn more(&self, rest: bool) -> Outcome {
+        Outcome::More {
+            at: self.at,
+            triples: self.triples,
+            state: State {
+                prefixes: self.prefixes.start(),
+                base: self.base.clone(),
+            },
+            rest,
+        }
+    }
+
+    /// The outcome once every piece is merged: only an open window's pieces
+    /// stop short of the end.
+    fn end(&self) -> Outcome {
+        assert!(self.start.open, "the last piece reads to the end of the document");
+        self.more(false)
+    }
 }
 
-/// Parses N-Triples or Turtle on the caller's thread; gives the triples
-/// handed to the sink.
-pub(super) fn whole(
+/// Parses N-Triples or Turtle on the caller's thread, from the start of
+/// `text` in `state` to the end of the document; gives the triples handed to
+/// the sink.
+fn whole(
     dict: &mut Dictionary,
     text: &[u8],
     format: Format,
-    base: Option<Base>,
+    state: &State,
     document: DocId,
     path: Option<&Path>,
     sink: &mut impl FnMut([TermId; 3]),
 ) -> Result<usize, Error> {
-    sequential(dict, text, format, 0, &Prefixes::default(), base, document, path, sink)
+    sequential(
+        dict,
+        text,
+        format,
+        0,
+        &state.prefixes,
+        state.base.clone(),
+        document,
+        path,
+        sink,
+    )
 }
 
 /// The document from `at`, a line start between statements with these
-/// prefixes and base, parsed on the caller's thread into the dictionary.
+/// prefixes and base, to its end, parsed on the caller's thread into the
+/// dictionary.
 #[allow(clippy::too_many_arguments)]
-fn sequential<'a>(
+fn sequential(
     dict: &mut Dictionary,
-    text: &'a [u8],
+    text: &[u8],
     format: Format,
     at: usize,
-    prefixes: &Prefixes<'a>,
+    prefixes: &Prefixes<'_>,
     base: Option<Base>,
     document: DocId,
     path: Option<&Path>,
@@ -366,7 +509,7 @@ fn sequential<'a>(
         Format::NTriples => Mode::NTriples,
         _ => Mode::Turtle,
     };
-    let mut lexer = Lexer::at(text, at, std::str::from_utf8(&text[at..]).ok(), mode, base);
+    let mut lexer = Lexer::at(text, at, std::str::from_utf8(&text[at..]).ok(), mode, base, false);
     let mut prefixes = prefixes.start();
     let mut out = Out::new(dict, document, sink, path);
     let result = match format {

@@ -51,9 +51,11 @@ pub(super) fn parse<'a, S: FnMut([TermId; 3])>(
 }
 
 /// The prefixes of a parse, and which of them it read without declaring.
+/// The names are owned, so that the prefixes can start the parse of another
+/// text (the next window of a document read in windows).
 #[derive(Debug, Clone, Default)]
 pub(super) struct Prefixes<'a> {
-    map: FxHashMap<&'a str, Prefix>,
+    map: FxHashMap<Box<str>, Prefix>,
     /// The prefixes looked up before this parse declared them (or that were
     /// not declared at all), each once.
     pub(super) read: Vec<&'a str>,
@@ -99,7 +101,7 @@ impl<'a> Prefixes<'a> {
             declared: true,
             read: false,
         };
-        self.map.insert(name, prefix);
+        self.map.insert(name.into(), prefix);
     }
 
     /// The namespace of a prefix, as a parse from here would see it.
@@ -107,9 +109,9 @@ impl<'a> Prefixes<'a> {
         self.map.get(name).map(|p| p.namespace.as_str())
     }
 
-    /// These prefixes as the start of another parse: nothing declared or
-    /// read yet.
-    pub(super) fn start(&self) -> Prefixes<'a> {
+    /// These prefixes as the start of another parse, of this text or another:
+    /// nothing declared or read yet.
+    pub(super) fn start<'b>(&self) -> Prefixes<'b> {
         let mut map = self.map.clone();
         for prefix in map.values_mut() {
             prefix.declared = false;
@@ -124,13 +126,13 @@ impl<'a> Prefixes<'a> {
 
     /// Adds the declarations of `later`, a parse that read on from where
     /// these prefixes stand.
-    pub(super) fn follow(&mut self, later: &Prefixes<'a>) {
-        for (&name, prefix) in &later.map {
+    pub(super) fn follow(&mut self, later: &Prefixes<'_>) {
+        for (name, prefix) in &later.map {
             if prefix.declared {
                 let mut prefix = prefix.clone();
                 prefix.declared = false;
                 prefix.read = false;
-                self.map.insert(name, prefix);
+                self.map.insert(name.clone(), prefix);
             }
         }
     }

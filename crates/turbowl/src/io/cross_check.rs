@@ -11,7 +11,10 @@
 //! And the parse in pieces (`io/parallel.rs`) must give exactly what the parse
 //! on one thread gives: each document is also parsed cut in about 32 pieces
 //! (every line a piece, for the small ones), on four threads or on one, and
-//! compared with the same three rules.
+//! compared with the same three rules. So must the parse of a document read
+//! in windows (`parse_reader_on`): each is also read in windows of a few
+//! bytes (a sixteenth of it, past 4 KiB), and a few documents in windows of
+//! every size, so that a window ends at every byte of them.
 //!
 //! The documents: every `.ttl` and `.nt` file of the repository and of the
 //! fetched data (`data/`, `target/bench-data/`, up to [`MAX_FILE`] bytes, or
@@ -46,6 +49,35 @@ fn on(workers: &Workers, text: &[u8], format: Format, base: Option<&str>) -> Par
     let mut dict = Dictionary::new();
     let mut triples = Vec::new();
     let result = parse_on(workers, &mut dict, text, format, base, None, |t| triples.push(t));
+    parsed(result, triples, dict)
+}
+
+/// The parse on `workers` of `text` read in windows of `window` bytes. The
+/// bytes read are seen once each, in order: all of them unless the parse
+/// failed first.
+fn windowed(workers: &Workers, text: &[u8], format: Format, base: Option<&str>, window: usize) -> Parsed {
+    let mut dict = Dictionary::new();
+    let mut triples = Vec::new();
+    let mut seen = Vec::new();
+    let result = parse_reader_on(
+        workers,
+        &mut dict,
+        &mut std::io::Cursor::new(text),
+        format,
+        base,
+        None,
+        window,
+        |bytes| seen.extend_from_slice(bytes),
+        |t| triples.push(t),
+    );
+    match result {
+        Ok(_) => assert!(seen == text, "every byte is seen once, in order"),
+        Err(_) => assert!(text.starts_with(&seen), "the bytes seen are the text's, in order"),
+    }
+    parsed(result, triples, dict)
+}
+
+fn parsed(result: Result<Loaded, Error>, triples: Vec<[TermId; 3]>, dict: Dictionary) -> Parsed {
     let error = match result {
         Ok(loaded) => {
             assert_eq!(loaded.triples, triples.len());
@@ -116,15 +148,27 @@ fn anonymous(label: &str) -> bool {
 }
 
 /// Compares the two parses of one document; the error says how they differ.
+/// Then the parse in pieces, and the parse in windows of a size that varies
+/// with the document's length: the parse on one thread must give the same.
 fn compare(text: &[u8], format: Format, base: Option<&str>) -> Result<(), String> {
     let a = ours(text, format, base);
     same(&a, &oxigraph(text, format, base), "oxttl")?;
-    let pieces = if text.len().is_multiple_of(2) {
-        threads()
+    let (pieces, windows) = if text.len().is_multiple_of(2) {
+        (threads(), threads())
     } else {
-        Workers::one().every_round()
+        (Workers::one().every_round(), Workers::one())
     };
-    same(&on(&pieces, text, format, base), &a, "one thread")
+    same(&on(&pieces, text, format, base), &a, "one thread")?;
+    let window = if text.len() < 4096 {
+        1 + text.len() % 61
+    } else {
+        text.len() / 16
+    };
+    same(
+        &windowed(&windows, text, format, base, window),
+        &a,
+        &format!("one thread (in windows of {window} bytes)"),
+    )
 }
 
 /// Four threads, every document cut in pieces.
@@ -666,4 +710,150 @@ fn generated_documents_parse_as_oxttl_does() {
         failures.len(),
         failures.iter().take(20).cloned().collect::<Vec<_>>().join("\n")
     );
+}
+
+/// Documents whose statements, strings, names, prefixes, base and line ends
+/// cross windows, valid and broken, each read in windows of every size from
+/// one byte to past its length, on one thread and on four: the same triples,
+/// terms and errors as the parse of the whole text.
+#[test]
+fn windows_of_every_size_parse_as_the_whole_text() {
+    let documents: &[(&str, Format, bool)] = &[
+        // One long statement over many lines, so that a window's end falls
+        // inside it while its pieces read on: every kind of token is cut.
+        (
+            "@prefix ex: <http://example.org/> .\n\
+             ex:s ex:p ex:o1 ,\r\n\
+             ex:b\\.\\.\\.\\.\\.\\.\\.\\.\\.\\.cdefghijklmnop ,\n\
+             ex:a.b.c , ex:a.........b ,\n\
+             1.5e3 , .5 , -3e4 , 12 , 1.0 ,\n\
+             \"x\"@en-GB , \"y\"^^ex:dt , \"z\" ^^ <http://example.org/dt> ,\r\
+             \"\"\"long\nstring\"\"\" , '''x''' , \"\u{e9}\u{1f600}\" , ex:\u{e9} , _:b.c ,\n\
+             # a comment ending in dots ...\n\
+             <http://example.org/x> , true , ( 1 2 ) , [ ex:q ex:r ] ;\n\
+             ex:p2 ex:o2 .\n\
+             ex:t ex:p ex:u .\n",
+            Format::Turtle,
+            true,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\n\
+             ex:s ex:p ex:o1 ,\r\n\
+             ex:o2 ,\r\
+             ex:o3 ;\n\
+             ex:q \"bad \\q\" .\n\
+             ex:t ex:p ex:u .\n",
+            Format::Turtle,
+            false,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\n\
+             ex:s ex:p ex:o1 ,\n\
+             ex:o2 ,\n\
+             nope:abcdefghijklmnop ;\n\
+             ex:q ex:o3 .\n\
+             ex:t ex:p ex:u .\n",
+            Format::Turtle,
+            false,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\n\
+             ex:s ex:p ex:o1 ,\n\
+             <http://example.org/a b> ;\n\
+             ex:q ex:o3 .\n",
+            Format::Turtle,
+            false,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\r\n\
+             ex:a ex:p \"\"\"long\nstring\r\nof lines\"\"\" , 'x'@en-GB ; ex:q ex:b.c .\r\
+             @base <http://example.org/base/> .\n\
+             <s> ex:p ( 1 2.5 -3e4 .5 ) ; ex:r [ ex:t ex:u\\.\\.v ; ex:w \"\u{e9}\u{1f600}\" ] .\n\
+             @prefix ex: <http://example.org/other#> .\n\
+             # a comment \u{e9}\n\
+             ex:\u{e9} ex:p _:b1 .ex:c ex:p ex:d. ex:e ex:p \"x\"^^ex:dt , true , 12 .\n\
+             _:b1 ex:p ex:b\\.\\.\\.\\.\\.\\.\\.\\.\\.\\.cdefghijklmnop , ex:a.b.c , [] .",
+            Format::Turtle,
+            true,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\r\nex:a ex:p ex:b .\rex:a ex:p ex:c .\n\n\r\n  \
+             ex:a ex:p ex:d ; ex:q \"\u{e9}\" .\n ex:a ex:p \"bad \\q\" .\nex:a ex:p ex:e .\n",
+            Format::Turtle,
+            false,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\nex:a ex:p ex:b .\nex:a ex:p \"\"\"never\nclosed .\n\n",
+            Format::Turtle,
+            false,
+        ),
+        (
+            "@prefix ex: <http://example.org/> .\nex:a ex:p ex:b .\nex:a nope:p ex:c .\nex:a ex:p ex:d .\n",
+            Format::Turtle,
+            false,
+        ),
+        (
+            "<http://example.org/s> <http://example.org/p> \"chat\"@fr .\r\n\
+             _:b <http://example.org/p> \"1\"^^<http://www.w3.org/2001/XMLSchema#integer> . # c\r\
+             <http://example.org/s> <http://example.org/p> <http://example.org/\u{e9}> .\n\n\
+             _:b <http://example.org/p> \"x\\u00e9\" .",
+            Format::NTriples,
+            true,
+        ),
+        (
+            "<http://example.org/s> <http://example.org/p> \"a\" .\r\r\n\
+             <http://example.org/s> <http://example.org/p> \"line\njump\" .\n\
+             <http://example.org/s> <http://example.org/p> \"b\" .\n",
+            Format::NTriples,
+            false,
+        ),
+        (
+            "<http://example.org/s> <http://example.org/p> \"a\" .\n<http://example.org/s> <http://example.org/p> \"open",
+            Format::NTriples,
+            false,
+        ),
+    ];
+    let mut failures = Vec::new();
+    let mut cases = 0;
+    for &(text, format, valid) in documents {
+        for base in [None, Some(BASE)] {
+            let whole = ours(text.as_bytes(), format, base);
+            assert_eq!(whole.error.is_none(), valid, "{text:?}: {:?}", whole.error);
+            for window in 1..=text.len() + 1 {
+                for (name, workers) in [("one thread", Workers::one()), ("four threads", threads())] {
+                    cases += 1;
+                    let parsed = windowed(&workers, text.as_bytes(), format, base, window);
+                    if let Err(e) = same(&parsed, &whole, "the whole text") {
+                        failures.push(format!(
+                            "{text:?} (base {base:?}) in windows of {window} on {name}: {e}"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{} of {cases} differ:\n{}",
+        failures.len(),
+        failures.iter().take(20).cloned().collect::<Vec<_>>().join("\n")
+    );
+}
+
+/// A document of many windows, past the slack an open window leaves:
+/// the same as the parse of the whole text, on one thread and on four.
+#[test]
+fn large_windows_parse_as_the_whole_text() {
+    let mut r = Rng(0x2545_F491_4F6C_DD1D);
+    let mut text = String::from("@prefix ex: <http://example.org/> .\n");
+    while text.len() < 3 << 20 {
+        text.push_str(&turtle(&mut r).replace("<a>", "<http://example.org/a>"));
+    }
+    let whole = ours(text.as_bytes(), Format::Turtle, Some(BASE));
+    for window in [200 << 10, 333 << 10, 1 << 20] {
+        for workers in [Workers::one(), threads(), Workers::exactly(4)] {
+            let parsed = windowed(&workers, text.as_bytes(), Format::Turtle, Some(BASE), window);
+            same(&parsed, &whole, "the whole text").unwrap_or_else(|e| panic!("windows of {window}: {e}"));
+        }
+    }
 }

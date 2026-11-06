@@ -21,6 +21,14 @@
 //!
 //! Positions are worked out only for an error ([`Failure::position`]): the
 //! lexer keeps no line count while it runs.
+//!
+//! A lexer can read an open text: a window of a document that goes on past
+//! the window's end ([`Lexer::at`]'s `open`). It then decides nothing the
+//! rest of the document could change: where the next token might reach, or
+//! look, within [`GUARD`] bytes of the end, it stops with a failure that
+//! says so ([`Failure::short`]) instead of reading the end as the end of the
+//! document. The recognizers then take `ending` false, oxttl's `is_ending`:
+//! a name that runs to the end is not a name yet.
 
 use super::iri::{self, Base};
 use rustc_hash::FxHashSet;
@@ -120,13 +128,21 @@ pub(super) enum Event<'a> {
 }
 
 /// A parse error before it has a line and column: the start of the token it
-/// belongs to, the byte where it is, and the message.
+/// belongs to, the byte where it is, and the message. Or, in an open text,
+/// no error: the text ran short ([`Failure::short`]).
 #[derive(Debug)]
 pub(super) struct Failure {
     pub(super) token_start: usize,
     pub(super) offset: usize,
     pub(super) message: String,
+    /// The text ran short: the next token may reach past its end.
+    pub(super) short: bool,
 }
+
+/// How far past a token the lexer may have looked, at most (the next
+/// character of a name, which is up to four bytes, or two bytes after a
+/// number): an open text's token must end this far from its end.
+pub(super) const GUARD: usize = 8;
 
 impl Failure {
     /// An error of the token (or line jump) that starts at `start`.
@@ -135,6 +151,16 @@ impl Failure {
             token_start: start,
             offset: start,
             message,
+            short: false,
+        }
+    }
+
+    /// An open text ran short at `start`: the document must be read further
+    /// before the token there can be.
+    pub(super) fn short(start: usize) -> Self {
+        Failure {
+            short: true,
+            ..Failure::at(start, String::new())
         }
     }
 
@@ -217,6 +243,8 @@ pub(super) struct Lexer<'a> {
     /// Where the last token (or the line after the last line jump) starts.
     token_start: usize,
     mode: Mode,
+    /// The document goes on past the text.
+    open: bool,
     /// The base IRI relative IRIs resolve against (Turtle's `@base` sets it).
     pub(super) base: Option<Base>,
     /// Where the lexer starts, and the document as text from there, when that
@@ -237,13 +265,22 @@ pub(super) struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     /// A lexer from `start`, a line start of `text`, as if it had read the
     /// document up to there. `utf8` is the text from `start` (or a prefix of
-    /// it), when it is UTF-8: an optimisation only.
-    pub(super) fn at(text: &'a [u8], start: usize, utf8: Option<&'a str>, mode: Mode, base: Option<Base>) -> Self {
+    /// it), when it is UTF-8: an optimisation only. `open` when the document
+    /// goes on past `text`: the lexer then stops short of its end.
+    pub(super) fn at(
+        text: &'a [u8],
+        start: usize,
+        utf8: Option<&'a str>,
+        mode: Mode,
+        base: Option<Base>,
+        open: bool,
+    ) -> Self {
         Lexer {
             text,
             pos: start,
             token_start: start,
             mode,
+            open,
             base,
             utf8: (start, utf8),
             base_read: false,
@@ -278,7 +315,11 @@ impl<'a> Lexer<'a> {
 
     /// The next token, line jump or the end. Text a token builds goes into `arena`.
     pub(super) fn next(&mut self, arena: &mut String) -> Result<Event<'a>, Failure> {
-        if self.skip_whitespace_and_comments() {
+        let jumped = self.skip_whitespace_and_comments();
+        if self.open && self.pos + GUARD > self.text.len() {
+            return Err(Failure::short(self.pos));
+        }
+        if jumped {
             self.token_start = self.pos;
             return Ok(Event::LineJump);
         }
@@ -288,9 +329,13 @@ impl<'a> Lexer<'a> {
             return Ok(Event::End);
         }
         match self.recognize(&text[self.pos..], arena) {
+            None if self.open => Err(Failure::short(self.token_start)),
             None => {
                 self.pos = text.len();
                 Err(Failure::at(self.token_start, "Unexpected end of file".into()))
+            }
+            Some((consumed, _)) if self.open && self.runs_short(self.pos + consumed) => {
+                Err(Failure::short(self.token_start))
             }
             Some((consumed, result)) => {
                 self.pos += consumed;
@@ -298,9 +343,19 @@ impl<'a> Lexer<'a> {
                     token_start: self.token_start,
                     offset: self.token_start + at,
                     message,
+                    short: false,
                 })
             }
         }
+    }
+
+    /// True when a token that ends at `end` may have been read differently
+    /// had the text gone on: the recognizers look up to a character past a
+    /// token's end, past the dots a name leaves out (`ex:a..` is `ex:a`
+    /// and two dots, read to the byte after them).
+    fn runs_short(&self, end: usize) -> bool {
+        let dots = self.text[end..].iter().take_while(|&&b| b == b'.').count();
+        end + dots + GUARD > self.text.len()
     }
 
     /// Skips spaces, tabs and comments; true when a line jump (or the line
@@ -365,7 +420,7 @@ impl<'a> Lexer<'a> {
                 }
             }
             b'_' => match *data.get(1)? {
-                b':' => recognize_blank_node_label(data),
+                b':' => recognize_blank_node_label(data, !self.open),
                 c => Some((1, Err((0, format!("Unexpected character '{}'", char::from(c)))))),
             },
             b'"' => {
@@ -431,8 +486,8 @@ impl<'a> Lexer<'a> {
             }
             b'~' => punctuation(1, "~"),
             b'0'..=b'9' | b'+' | b'-' => recognize_number(data),
-            b'?' => recognize_variable(data, arena),
-            _ => recognize_pname_or_keyword(data, arena),
+            b'?' => recognize_variable(data, arena, !self.open),
+            _ => recognize_pname_or_keyword(data, arena, !self.open),
         }
     }
 
@@ -811,8 +866,8 @@ fn digits(data: &[u8]) -> usize {
 }
 
 /// `QUICK_VAR_NAME ::= "?" PN_LOCAL`, as oxttl (Turtle rejects it in the grammar).
-fn recognize_variable<'a>(data: &'a [u8], arena: &mut String) -> Recognized<'a> {
-    let (consumed, result) = recognize_optional_pn_local(&data[1..], arena)?;
+fn recognize_variable<'a>(data: &'a [u8], arena: &mut String, ending: bool) -> Recognized<'a> {
+    let (consumed, result) = recognize_optional_pn_local(&data[1..], arena, ending)?;
     Some((
         consumed + 1,
         result.and_then(|(name, _)| {
@@ -830,7 +885,9 @@ fn recognize_variable<'a>(data: &'a [u8], arena: &mut String) -> Recognized<'a> 
 }
 
 /// `PNAME_NS`, `PNAME_LN` or a keyword (`a`, `true`, `PREFIX`...), as oxttl.
-fn recognize_pname_or_keyword<'a>(data: &'a [u8], arena: &mut String) -> Recognized<'a> {
+/// `ending` is oxttl's `is_ending`: when false, a name that reaches the end
+/// of `data` is `None`, since more text could lengthen it.
+fn recognize_pname_or_keyword<'a>(data: &'a [u8], arena: &mut String, ending: bool) -> Recognized<'a> {
     let mut i = 0;
     loop {
         match recognize_unicode_char(&data[i..], i) {
@@ -856,6 +913,7 @@ fn recognize_pname_or_keyword<'a>(data: &'a [u8], arena: &mut String) -> Recogni
                 }
             }
             Some(Err(e)) => return Some((data.len(), Err(e))),
+            None if !ending => return None,
             None => {
                 while data[..i].ends_with(b".") {
                     i -= 1;
@@ -883,7 +941,7 @@ fn recognize_pname_or_keyword<'a>(data: &'a [u8], arena: &mut String) -> Recogni
     }
     // As oxttl, an error in the local name is placed as if the local name
     // started the token.
-    let (consumed, local) = recognize_optional_pn_local(&data[i..], arena)?;
+    let (consumed, local) = recognize_optional_pn_local(&data[i..], arena, ending)?;
     Some((
         consumed + i,
         local.map(|(local, might_be_invalid_iri)| Token::PrefixedName {
@@ -899,6 +957,7 @@ fn recognize_pname_or_keyword<'a>(data: &'a [u8], arena: &mut String) -> Recogni
 fn recognize_optional_pn_local<'a>(
     data: &'a [u8],
     arena: &mut String,
+    ending: bool,
 ) -> Option<(usize, Result<LocalName<'a>, TokenError>)> {
     let mut i = 0;
     let mut buffer: Option<usize> = None; // where the decoded text starts in the arena
@@ -998,6 +1057,7 @@ fn recognize_optional_pn_local<'a>(
                 }
             }
             Some(Err(e)) => return Some((data.len(), Err(e))),
+            None if !ending => return None,
             None => {
                 // The end of the input.
                 let text = if let Some(start) = buffer {
@@ -1026,7 +1086,7 @@ fn recognize_optional_pn_local<'a>(
 }
 
 /// `BLANK_NODE_LABEL ::= '_:' (PN_CHARS_U | [0-9]) ((PN_CHARS | '.')* PN_CHARS)?`, as oxttl.
-fn recognize_blank_node_label(data: &[u8]) -> Recognized<'_> {
+fn recognize_blank_node_label(data: &[u8], ending: bool) -> Recognized<'_> {
     let mut i = 2;
     let label = |i: usize| {
         if i > 2 {
@@ -1050,6 +1110,7 @@ fn recognize_blank_node_label(data: &[u8]) -> Recognized<'_> {
                 }
             }
             Some(Err(e)) => return Some((data.len(), Err(e))),
+            None if !ending => return None,
             None => {
                 while data[i - 1] == b'.' {
                     i -= 1;
@@ -1176,7 +1237,7 @@ mod tests {
     use super::*;
 
     fn tokens(text: &str, mode: Mode) -> Result<Vec<String>, (u64, u64, String)> {
-        let mut lexer = Lexer::at(text.as_bytes(), 0, Some(text), mode, None);
+        let mut lexer = Lexer::at(text.as_bytes(), 0, Some(text), mode, None, false);
         let mut arena = String::new();
         let mut out = Vec::new();
         loop {
@@ -1248,12 +1309,14 @@ mod tests {
             token_start: 0,
             offset: 4,
             message: String::new(),
+            short: false,
         };
         assert_eq!(f.position(b"<\nab\\q>"), (0, 4));
         let f = Failure {
             token_start: 0,
             offset: 5,
             message: String::new(),
+            short: false,
         };
         assert_eq!(f.position(b"<a\nbc\\q>"), (1, 2));
         assert_eq!(line_jumps(b"a\r\nb\rc\n"), (3, 7));

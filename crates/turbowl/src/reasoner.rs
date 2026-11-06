@@ -201,7 +201,7 @@ pub struct Reasoner {
     counters: Counters,
     /// The documents loaded since the last removal ([`document_key`]).
     #[cfg(feature = "io")]
-    loaded: FxHashSet<u128>,
+    loaded: Documents,
 }
 
 // The interface promises `Send`: checked here, at compile time.
@@ -268,20 +268,63 @@ impl Reasoner {
             diagnostics: Vec::new(),
             counters: Counters::default(),
             #[cfg(feature = "io")]
-            loaded: FxHashSet::default(),
+            loaded: Documents::default(),
         }
     }
 
     /// Adds a file's triples to the base (format from its extension). See
     /// [`Reasoner::load_str`].
+    ///
+    /// An N-Triples or Turtle file is read in windows of 32 MiB, never whole
+    /// (`io::WINDOW`). It is keyed as it is read, so that a second load of
+    /// it is a no-op; when a document of its length was loaded already, it
+    /// is read once first to be keyed (and then not parsed if it is that
+    /// document).
     #[cfg(feature = "io")]
     pub fn load_file(&mut self, path: &std::path::Path) -> Result<(), Error> {
+        use std::io::{Read, Seek};
         let format = crate::io::format_of(path)?;
-        let text = std::fs::read(path).map_err(|source| Error::Io {
+        let failed = |source| Error::Io {
             path: Some(path.into()),
             source,
-        })?;
-        self.load(&text, format, None, Some(path))
+        };
+        let mut file = std::fs::File::open(path).map_err(failed)?;
+        let metadata = file.metadata().map_err(failed)?;
+        if !metadata.is_file() {
+            // A pipe or a device reads once, and cannot be read again for
+            // an error's line: read it whole.
+            let mut text = Vec::new();
+            file.read_to_end(&mut text).map_err(failed)?;
+            return self.load(&text, format, None, Some(path));
+        }
+        if self.loaded.may_hold(metadata.len()) {
+            let key = DocumentKey::read(&mut file, format, None).map_err(failed)?;
+            if self.loaded.contains(key) {
+                return Ok(());
+            }
+            file.rewind().map_err(failed)?;
+        }
+        let mut key = DocumentKey::new(format, None);
+        let mut triples = Vec::new();
+        crate::io::parse_reader_on(
+            &self.workers,
+            &mut self.terms,
+            &mut file,
+            format,
+            None,
+            Some(path),
+            crate::io::WINDOW,
+            |bytes| key.feed(bytes),
+            |[s, p, o]| triples.push([s.0, p.0, o.0]),
+        )?;
+        let (key, len) = key.finish();
+        // Only if the file changed after it was keyed above.
+        if self.loaded.contains(key) {
+            return Ok(());
+        }
+        self.add(triples);
+        self.loaded.insert(key, len);
+        Ok(())
     }
 
     /// Adds a document's triples to the base. Blank nodes are scoped to this
@@ -302,7 +345,7 @@ impl Reasoner {
         path: Option<&std::path::Path>,
     ) -> Result<(), Error> {
         let key = document_key(text, format, base_iri);
-        if self.loaded.contains(&key) {
+        if self.loaded.contains(key) {
             return Ok(());
         }
         let mut triples = Vec::new();
@@ -318,7 +361,7 @@ impl Reasoner {
             },
         )?;
         self.add(triples);
-        self.loaded.insert(key);
+        self.loaded.insert(key, text.len() as u64);
         Ok(())
     }
 
@@ -540,7 +583,7 @@ impl Reasoner {
     fn saved(&self) -> Saved<'_> {
         #[cfg(feature = "io")]
         let (probe, documents) = {
-            let mut keys: Vec<u128> = self.loaded.iter().copied().collect();
+            let mut keys: Vec<u128> = self.loaded.keys.iter().copied().collect();
             keys.sort_unstable();
             (probe_key(), keys)
         };
@@ -581,7 +624,7 @@ impl Reasoner {
         // no document here: forget them, as a removal does.
         #[cfg(feature = "io")]
         if r.probe == probe_key() {
-            out.loaded = r.documents.into_iter().collect();
+            out.loaded = Documents::restored(r.documents);
         }
         // Without `io` no document is loaded, and the keys name none.
         #[cfg(not(feature = "io"))]
@@ -672,7 +715,7 @@ impl Reasoner {
                 .map(|f| profile::vec_bytes(&f.terms))
                 .sum::<usize>();
         #[cfg(feature = "io")]
-        let loaded = profile::hash_bytes(self.loaded.capacity(), size_of::<u128>());
+        let loaded = self.loaded.bytes();
         #[cfg(not(feature = "io"))]
         let loaded = 0;
         Memory {
@@ -984,20 +1027,164 @@ fn added(old: &[[u32; 3]], new: &[[u32; 3]]) -> Option<Vec<[u32; 3]>> {
 /// Identifies a document for [`Reasoner::load_str`]'s "the same document
 /// again": its bytes, format and base IRI, hashed twice (FxHash and
 /// SipHash, 128 bits together), so that two different documents share a key
-/// with a probability near 2^-128.
+/// with a probability near 2^-128 ([`DocumentKey`]).
 #[cfg(feature = "io")]
 fn document_key(text: &[u8], format: Format, base_iri: Option<&str>) -> u128 {
-    use std::hash::{DefaultHasher, Hash, Hasher};
-    fn feed(h: &mut impl Hasher, text: &[u8], format: Format, base_iri: Option<&str>) -> u64 {
-        (format as u8).hash(h);
-        base_iri.hash(h);
-        text.len().hash(h);
-        h.write(text);
-        h.finish()
+    let mut key = DocumentKey::new(format, base_iri);
+    key.feed(text);
+    key.finish().0
+}
+
+/// A document's key, fed its bytes as they are read: the format and base
+/// IRI, then the bytes in blocks of [`KEY_BLOCK`] (the last one shorter),
+/// then their count, each into both hashers. The blocks fall at the same
+/// offsets however the bytes come, so a file read in windows and the same
+/// text in memory get the same key.
+#[cfg(feature = "io")]
+struct DocumentKey {
+    fx: rustc_hash::FxHasher,
+    sip: std::hash::DefaultHasher,
+    /// The bytes of the block being filled.
+    block: Vec<u8>,
+    len: u64,
+}
+
+/// The bytes hashed at a time by a [`DocumentKey`].
+#[cfg(feature = "io")]
+const KEY_BLOCK: usize = 1 << 16;
+
+#[cfg(feature = "io")]
+impl DocumentKey {
+    fn new(format: Format, base_iri: Option<&str>) -> Self {
+        use std::hash::Hash;
+        let mut key = DocumentKey {
+            fx: rustc_hash::FxHasher::default(),
+            sip: std::hash::DefaultHasher::new(),
+            block: Vec::new(),
+            len: 0,
+        };
+        (format as u8).hash(&mut key.fx);
+        base_iri.hash(&mut key.fx);
+        (format as u8).hash(&mut key.sip);
+        base_iri.hash(&mut key.sip);
+        key
     }
-    let fx = feed(&mut rustc_hash::FxHasher::default(), text, format, base_iri);
-    let sip = feed(&mut DefaultHasher::new(), text, format, base_iri);
-    (u128::from(fx) << 64) | u128::from(sip)
+
+    /// The key of the document `reader` holds.
+    fn read(reader: &mut impl std::io::Read, format: Format, base_iri: Option<&str>) -> std::io::Result<u128> {
+        let mut key = DocumentKey::new(format, base_iri);
+        let mut buffer = vec![0; 1 << 20];
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => return Ok(key.finish().0),
+                Ok(n) => key.feed(&buffer[..n]),
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    /// The next bytes of the document.
+    fn feed(&mut self, mut bytes: &[u8]) {
+        self.len += bytes.len() as u64;
+        if !self.block.is_empty() {
+            let more = (KEY_BLOCK - self.block.len()).min(bytes.len());
+            self.block.extend_from_slice(&bytes[..more]);
+            bytes = &bytes[more..];
+            if self.block.len() < KEY_BLOCK {
+                return;
+            }
+            Self::write(&mut self.fx, &mut self.sip, &self.block);
+            self.block.clear();
+        }
+        let (blocks, rest) = bytes.as_chunks::<KEY_BLOCK>();
+        for block in blocks {
+            Self::write(&mut self.fx, &mut self.sip, block);
+        }
+        self.block.extend_from_slice(rest);
+    }
+
+    fn write(fx: &mut impl std::hash::Hasher, sip: &mut impl std::hash::Hasher, block: &[u8]) {
+        fx.write(block);
+        sip.write(block);
+    }
+
+    /// The key, and the document's length in bytes.
+    fn finish(mut self) -> (u128, u64) {
+        use std::hash::{Hash, Hasher};
+        if !self.block.is_empty() {
+            Self::write(&mut self.fx, &mut self.sip, &self.block);
+        }
+        self.len.hash(&mut self.fx);
+        self.len.hash(&mut self.sip);
+        let key = (u128::from(self.fx.finish()) << 64) | u128::from(self.sip.finish());
+        (key, self.len)
+    }
+}
+
+/// The documents loaded since the last removal: their keys, and their
+/// lengths, which say whether a file must be keyed before it is parsed (a
+/// file of no loaded length is no loaded document).
+#[cfg(feature = "io")]
+#[derive(Debug)]
+struct Documents {
+    keys: FxHashSet<u128>,
+    /// `None` when some lengths are not known: keys restored from a snapshot.
+    lengths: Option<FxHashSet<u64>>,
+}
+
+#[cfg(feature = "io")]
+impl Default for Documents {
+    fn default() -> Self {
+        Documents {
+            keys: FxHashSet::default(),
+            lengths: Some(FxHashSet::default()),
+        }
+    }
+}
+
+#[cfg(feature = "io")]
+impl Documents {
+    /// The documents of these keys, of lengths not known.
+    fn restored(keys: Vec<u128>) -> Self {
+        Documents {
+            lengths: if keys.is_empty() {
+                Some(FxHashSet::default())
+            } else {
+                None
+            },
+            keys: keys.into_iter().collect(),
+        }
+    }
+
+    fn contains(&self, key: u128) -> bool {
+        self.keys.contains(&key)
+    }
+
+    /// True when a loaded document may be `len` bytes long.
+    fn may_hold(&self, len: u64) -> bool {
+        !self.keys.is_empty() && self.lengths.as_ref().is_none_or(|lengths| lengths.contains(&len))
+    }
+
+    fn insert(&mut self, key: u128, len: u64) {
+        self.keys.insert(key);
+        if let Some(lengths) = &mut self.lengths {
+            lengths.insert(len);
+        }
+    }
+
+    fn clear(&mut self) {
+        *self = Documents::default();
+    }
+
+    /// The bytes the sets take.
+    fn bytes(&self) -> usize {
+        profile::hash_bytes(self.keys.capacity(), size_of::<u128>())
+            + self
+                .lengths
+                .as_ref()
+                .map_or(0, |l| profile::hash_bytes(l.capacity(), size_of::<u64>()))
+    }
 }
 
 /// The fewest triples the base's hash set holds before it is merged into
@@ -1224,6 +1411,103 @@ mod tests {
 
     fn all(v: &Variable<Pair>) -> Vec<Pair> {
         v.parts().flatten().copied().collect()
+    }
+
+    /// A document's key is the same however its bytes come: whole, a byte
+    /// at a time, in blocks of the key's size and around it, or as a file
+    /// read in windows hands them over.
+    #[test]
+    fn a_document_key_does_not_depend_on_how_the_bytes_come() {
+        let mut text = String::from("@prefix ex: <http://example.org/> .\n");
+        let mut i = 0;
+        while text.len() < 5 * KEY_BLOCK / 2 {
+            text.push_str(&format!("ex:s{i} ex:p ex:o{i} ; ex:q \"label {i}\"@en .\n"));
+            i += 1;
+        }
+        let bytes = text.as_bytes();
+        let whole = document_key(bytes, Format::Turtle, None);
+        for chunk in [
+            1,
+            7,
+            KEY_BLOCK - 1,
+            KEY_BLOCK,
+            KEY_BLOCK + 1,
+            3 * KEY_BLOCK,
+            bytes.len(),
+        ] {
+            let mut key = DocumentKey::new(Format::Turtle, None);
+            for part in bytes.chunks(chunk) {
+                key.feed(part);
+            }
+            assert_eq!(key.finish(), (whole, bytes.len() as u64), "in parts of {chunk} bytes");
+        }
+        // As a file read in windows of a few KiB hands them over.
+        for window in [4 << 10, 50_000] {
+            let mut key = DocumentKey::new(Format::Turtle, None);
+            crate::io::parse_reader_on(
+                &Workers::one(),
+                &mut Dictionary::new(),
+                &mut std::io::Cursor::new(bytes),
+                Format::Turtle,
+                None,
+                None,
+                window,
+                |part| key.feed(part),
+                |_| {},
+            )
+            .unwrap();
+            assert_eq!(key.finish().0, whole, "in windows of {window} bytes");
+        }
+        // The format, the base IRI and the bytes each change the key.
+        assert_ne!(whole, document_key(bytes, Format::NTriples, None));
+        assert_ne!(whole, document_key(bytes, Format::Turtle, Some("http://example.org/")));
+        assert_ne!(whole, document_key(&bytes[1..], Format::Turtle, None));
+        assert_ne!(
+            document_key(b"", Format::Turtle, None),
+            document_key(b"\0", Format::Turtle, None)
+        );
+    }
+
+    /// A file and the same text in memory are one document, whichever is
+    /// loaded first, and so is a file loaded again after a snapshot.
+    #[test]
+    fn a_file_and_its_text_are_one_document() {
+        let text = format!("{PREFIXES}ex:a ex:p [ ex:q ex:b ] , ( ex:c ex:d ) .\nex:a a ex:C .\n");
+        let path = std::env::temp_dir().join(format!("turbowl-one-document-{}.ttl", std::process::id()));
+        std::fs::write(&path, &text).unwrap();
+        let mut r = Reasoner::new();
+        r.load_file(&path).unwrap();
+        let (base, terms) = (r.reason().base, r.terms.len());
+        r.load_str(&text, Format::Turtle, None).unwrap();
+        r.load_file(&path).unwrap();
+        assert_eq!((r.reason().rounds, r.reason().base, r.terms.len()), (0, base, terms));
+
+        let mut r = Reasoner::new();
+        r.load_str(&text, Format::Turtle, None).unwrap();
+        r.load_file(&path).unwrap();
+        assert_eq!((r.reason().base, r.terms.len()), (base, terms));
+
+        // A snapshot keeps the keys but not the lengths: the file is keyed
+        // before it is parsed, and is the same document.
+        let mut bytes = Vec::new();
+        r.write_snapshot(&mut bytes).unwrap();
+        let mut r = Reasoner::from_snapshot_bytes(&bytes).unwrap();
+        assert!(r.loaded.lengths.is_none());
+        r.load_file(&path).unwrap();
+        assert_eq!((r.reason().rounds, r.reason().base, r.terms.len()), (0, base, terms));
+
+        // A file of a loaded document's length but other bytes is another
+        // document.
+        let other = text.replace("ex:C", "ex:D");
+        assert_eq!(other.len(), text.len());
+        std::fs::write(&path, &other).unwrap();
+        r.load_file(&path).unwrap();
+        assert_eq!(
+            r.reason().base,
+            base + 8,
+            "its own blank nodes' 7 triples, and ex:a a ex:D"
+        );
+        std::fs::remove_file(path).unwrap();
     }
 
     /// `ex:anc` is transitive: recent pairs joined with all, on both sides.

@@ -437,7 +437,7 @@ mod io {
     use super::*;
     use crate::Format;
     use crate::engine::Workers;
-    use crate::io::{parse, parse_from, parse_on, write};
+    use crate::io::{parse, parse_from, parse_on, parse_reader_on, write};
     use crate::term::{Dictionary, TermId};
     use std::fmt::Write as _;
 
@@ -582,6 +582,78 @@ mod io {
                 shared(make),
                 |text: Rc<String>| parse_counting_on(&workers, &text, format),
             );
+        }
+    }
+
+    /// A reader that keeps the most bytes one read asked for.
+    struct Reads<R> {
+        inner: R,
+        most: usize,
+    }
+
+    impl<R: std::io::Read> std::io::Read for Reads<R> {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.most = self.most.max(buf.len());
+            self.inner.read(buf)
+        }
+    }
+
+    impl<R: std::io::Seek> std::io::Seek for Reads<R> {
+        fn seek(&mut self, to: std::io::SeekFrom) -> std::io::Result<u64> {
+            self.inner.seek(to)
+        }
+    }
+
+    /// The parse of `text` read in windows of `window` bytes; gives what it
+    /// parsed and the most bytes one read asked for.
+    fn load_in_windows(workers: &Workers, text: &str, format: Format, window: usize) -> (Loaded, usize) {
+        let mut d = Dictionary::new();
+        let mut triples = Vec::new();
+        let mut reader = Reads {
+            inner: std::io::Cursor::new(text.as_bytes()),
+            most: 0,
+        };
+        parse_reader_on(
+            workers,
+            &mut d,
+            &mut reader,
+            format,
+            None,
+            None,
+            window,
+            |_| {},
+            |t| triples.push(t),
+        )
+        .unwrap();
+        ((d, triples), reader.most)
+    }
+
+    /// A document read in windows of 256 KiB (from about 2 to 26 windows),
+    /// on one thread and on twelve, gives what the parse of the whole text
+    /// gives, never reads more than a window at once, and grows linearly.
+    #[test]
+    fn scaling_parse_in_windows() {
+        let _lock = lock();
+        const WINDOW: usize = 256 << 10;
+        for (threads, workers) in [("one thread", Workers::one()), ("twelve threads", Workers::exactly(12))] {
+            for (name, make, format) in documents() {
+                let sizes = sizes(4_096);
+                for &n in &sizes {
+                    let text = make(n);
+                    let (d1, t1) = load(&text, format);
+                    let ((d2, t2), most) = load_in_windows(&workers, &text, format, WINDOW);
+                    assert_eq!(t1, t2);
+                    assert_eq!(d1.len(), d2.len());
+                    assert!((0..d1.len() as u32).all(|i| d1.term(TermId(i)) == d2.term(TermId(i))));
+                    assert!(most <= WINDOW, "{name}, {n} triples: a read of {most} bytes");
+                }
+                linear(
+                    &format!("scaling_parse_in_windows ({name}, {threads})"),
+                    &sizes,
+                    shared(make),
+                    |text: Rc<String>| load_in_windows(&workers, &text, format, WINDOW).1,
+                );
+            }
         }
     }
 

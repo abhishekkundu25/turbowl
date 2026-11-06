@@ -17,7 +17,7 @@
 //! kept.
 //!
 //! # Interface (for `reasoner.rs`; `parse_file` is for the tests, since the
-//! reasoner reads a file itself to key the document)
+//! reasoner opens a file itself to key the document)
 //!
 //! ```text
 //! format_of(path: &Path) -> Result<Format, Error>
@@ -29,9 +29,24 @@
 //!     -> Result<Loaded, Error>
 //! parse_on(workers: &Workers, dict, text, format, base_iri, path, sink)
 //!     -> Result<Loaded, Error>
+//! parse_reader_on(workers, dict, reader: &mut (impl Read + Seek), format,
+//!                 base_iri, path, window: usize, seen: impl FnMut(&[u8]), sink)
+//!     -> Result<Loaded, Error>
 //! write(dict: &Dictionary, triples: impl IntoIterator<Item = [TermId; 3]>,
 //!       out: impl Write, format: Format) -> Result<usize, Error>
 //! ```
+//!
+//! - `parse_reader_on` reads N-Triples and Turtle in windows of `window`
+//!   bytes ([`WINDOW`] for the reasoner), so that a large file is never in
+//!   memory at once; N3 and RDF/XML it reads whole. Each window is parsed as
+//!   [`parse_on`] parses a text, in pieces on the workers, up to a line start
+//!   between statements near its end; the rest of the window, and the
+//!   prefixes and base there, carry over to the next. The result is that of
+//!   `parse_on` on the whole text, whatever the window: the same triples,
+//!   terms and ids, and the same error at the same line and column (the
+//!   lines before a window are counted, by reading the document again from
+//!   the start, only when an error is found). `seen` sees every byte read,
+//!   once and in order (the reasoner keys the document with it).
 //!
 //! - N-Triples and Turtle of 384 KiB or more are parsed on every core
 //!   ([`parallel`]): `parse` uses rayon's global pool, `parse_on` the given
@@ -46,7 +61,7 @@
 //!   before the error: a caller that wants all or nothing buffers them and
 //!   commits on `Ok`. Terms interned before an error stay in the dictionary
 //!   (harmless: unused ids).
-//! - `parse_file` reads the whole file, then parses the bytes. Its format is
+//! - `parse_file` reads the file as `parse_reader_on` does. Its format is
 //!   `format`, or else the file's extension ([`format_of`]). In `parse`,
 //!   `path` only labels errors.
 //! - `base_iri` resolves relative IRIs (Turtle, N3, RDF/XML; N-Triples has
@@ -86,8 +101,19 @@ use oxrdfxml::{RdfXmlParser, RdfXmlSerializer};
 use oxttl::n3::{N3Parser, N3Quad, N3Term};
 use oxttl::{NTriplesSerializer, TurtleSerializer, TurtleSyntaxError};
 use std::fmt::Display;
-use std::io::{BufWriter, Write};
+use std::io::{BufWriter, Read, Seek, Write};
 use std::path::Path;
+
+/// The bytes read at a time from an N-Triples or Turtle file: 32 MiB. A
+/// window is the only part of a file in memory while it is parsed, where
+/// the whole file was before (lubm-50's 891 MiB). On 12 threads a window is
+/// cut in 48 pieces of about 680 KiB; smaller windows make smaller pieces,
+/// whose terms the merge interns again. Measured with the bench on lubm-50
+/// on 2026-11-06 (3 runs each, load 2.2 to 2.8): a peak of 610 MB with 16
+/// MiB windows, 604 MB with 32, 669 MB with 64 and 769 MB with 128, and
+/// loading in 821, 813, 800 and 782 ms. 32 MiB has the lowest peak; larger
+/// windows load at most 4% faster.
+pub(crate) const WINDOW: usize = 32 << 20;
 
 /// What one parse added.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,11 +147,22 @@ pub(crate) fn parse_file(
         Some(format) => format,
         None => format_of(path)?,
     };
-    let text = std::fs::read(path).map_err(|source| Error::Io {
+    let failed = |source| Error::Io {
         path: Some(path.into()),
         source,
-    })?;
-    parse(dict, &text, format, base_iri, Some(path), sink)
+    };
+    let mut file = std::fs::File::open(path).map_err(failed)?;
+    parse_reader_on(
+        &Workers::all(),
+        dict,
+        &mut file,
+        format,
+        base_iri,
+        Some(path),
+        WINDOW,
+        |_| {},
+        sink,
+    )
 }
 
 /// Parses a document held in memory: one document. `path` only labels errors.
@@ -194,16 +231,14 @@ fn read(
     mut sink: impl FnMut([TermId; 3]),
 ) -> Result<Loaded, Error> {
     let document = dict.new_document();
-    let bad_base = |e: &dyn Display| error_at(path, 0, 0, format_args!("invalid base IRI: {e}"));
     let (triples, skipped) = match format {
         Format::NTriples | Format::Turtle => {
-            let base = match format {
-                Format::Turtle => base_iri.map(iri::Base::new).transpose().map_err(|e| bad_base(&e))?,
-                _ => None,
-            };
-            let triples = match parallel::piece_size(workers, text.len(), from) {
-                Some(size) => parallel::parse(dict, text, format, base, document, path, workers, size, &mut sink)?,
-                None => parallel::whole(dict, text, format, base, document, path, &mut sink)?,
+            let state = start(format, base_iri, path)?;
+            let outcome = parallel::parse(
+                dict, text, format, &state, true, false, document, path, workers, from, &mut sink,
+            )?;
+            let parallel::Outcome::Done(triples) = outcome else {
+                unreachable!("a whole document is parsed to its end")
             };
             (triples, 0)
         }
@@ -224,6 +259,170 @@ fn read(
         triples,
         skipped,
     })
+}
+
+/// Where an N-Triples or Turtle document's parse starts: no prefixes, and
+/// the base IRI (Turtle's).
+fn start(format: Format, base_iri: Option<&str>, path: Option<&Path>) -> Result<parallel::State, Error> {
+    let base = match format {
+        Format::Turtle => base_iri
+            .map(iri::Base::new)
+            .transpose()
+            .map_err(|e| error_at(path, 0, 0, format_args!("invalid base IRI: {e}")))?,
+        _ => None,
+    };
+    Ok(parallel::State {
+        prefixes: Default::default(),
+        base,
+    })
+}
+
+/// Reads a document from `reader` and parses it: one document. N-Triples
+/// and Turtle are read in windows of `window` bytes, N3 and RDF/XML whole.
+/// `seen` sees every byte read, once and in order. The same result as
+/// [`parse_on`] of the whole text. `path` labels errors.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn parse_reader_on<R: Read + Seek>(
+    workers: &Workers,
+    dict: &mut Dictionary,
+    reader: &mut R,
+    format: Format,
+    base_iri: Option<&str>,
+    path: Option<&Path>,
+    window: usize,
+    mut seen: impl FnMut(&[u8]),
+    mut sink: impl FnMut([TermId; 3]),
+) -> Result<Loaded, Error> {
+    let failed = |source| Error::Io {
+        path: path.map(Into::into),
+        source,
+    };
+    if matches!(format, Format::N3 | Format::RdfXml) {
+        let mut text = Vec::new();
+        reader.read_to_end(&mut text).map_err(failed)?;
+        seen(&text);
+        return parse_on(workers, dict, &text, format, base_iri, path, sink);
+    }
+    let document = dict.new_document();
+    let mut state = start(format, base_iri, path)?;
+    let window = window.max(1);
+    // Room for a window and what the last one leaves over, most times.
+    let mut text = Vec::with_capacity(window.saturating_add(2 * parallel::SLACK));
+    // Where `text` starts in the document; the triples handed over before.
+    let (mut offset, mut triples) = (0u64, 0);
+    let mut want = window;
+    loop {
+        let before = text.len();
+        if want < usize::MAX {
+            text.reserve_exact(want);
+        }
+        let read = reader
+            .by_ref()
+            .take(want as u64)
+            .read_to_end(&mut text)
+            .map_err(failed)?;
+        seen(&text[before..]);
+        let open = read == want;
+        let outcome = parallel::parse(
+            dict,
+            &text,
+            format,
+            &state,
+            offset == 0,
+            open,
+            document,
+            path,
+            workers,
+            parallel::PARALLEL_FROM,
+            &mut sink,
+        )
+        .map_err(|e| placed(e, reader, offset))?;
+        match outcome {
+            parallel::Outcome::Done(n) => {
+                return Ok(Loaded {
+                    document,
+                    triples: triples + n,
+                    skipped: 0,
+                });
+            }
+            parallel::Outcome::More {
+                at,
+                triples: n,
+                state: next,
+                rest,
+            } => {
+                triples += n;
+                state = next;
+                text.drain(..at);
+                offset += at as u64;
+                // Nothing parsed: a statement longer than the window. The
+                // window doubles until it holds one.
+                want = if rest {
+                    usize::MAX
+                } else if at == 0 {
+                    text.len().max(window)
+                } else {
+                    window
+                };
+            }
+        }
+    }
+}
+
+/// An error of the window that starts at `offset` in the document, at its
+/// line in the document: the lines before the window are counted from the
+/// start, as the lexer counts them (`\n`, `\r\n` and a lone `\r` each end a
+/// line). An error at no position (line 0) stays as it is.
+fn placed(e: Error, reader: &mut (impl Read + Seek), offset: u64) -> Error {
+    let Error::Parse {
+        path,
+        line,
+        column,
+        message,
+    } = e
+    else {
+        return e;
+    };
+    if line == 0 || offset == 0 {
+        return Error::Parse {
+            path,
+            line,
+            column,
+            message,
+        };
+    }
+    match lines_before(reader, offset) {
+        Ok(before) => Error::Parse {
+            path,
+            line: line + before,
+            column,
+            message,
+        },
+        Err(source) => Error::Io { path, source },
+    }
+}
+
+/// The lines that end in the first `len` bytes of the document.
+fn lines_before(reader: &mut (impl Read + Seek), len: u64) -> std::io::Result<u64> {
+    reader.rewind()?;
+    let mut buffer = vec![0; 1 << 16];
+    let (mut lines, mut left, mut cr) = (0, len, false);
+    while left > 0 {
+        let n = reader.read(&mut buffer[..usize::try_from(left).unwrap_or(usize::MAX).min(1 << 16)])?;
+        if n == 0 {
+            break;
+        }
+        for &b in &buffer[..n] {
+            match b {
+                b'\n' => lines += u64::from(!cr),
+                b'\r' => lines += 1,
+                _ => {}
+            }
+            cr = b == b'\r';
+        }
+        left -= n as u64;
+    }
+    Ok(lines)
 }
 
 /// One document's parse into the dictionary.
