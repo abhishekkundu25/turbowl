@@ -24,12 +24,12 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 25 | [Memory: OWL2Bench RL, UOBM-010 U and OpenCyc](25-memory.md) | done | 13 | `crates/turbowl/` (where the cause is), `crates/turbowl/src/scaling.rs` |
 | 26 | [OWL-RL's datatype and identity faults](26-owlrl-faults.md) | done | 08 | `crates/oracle/src/differences.rs`, `crates/oracle/src/cases/datatypes.rs` |
 | 15 | [Close-out: phase 1](15-close-out-phase-1.md) | done | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
-| 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
-| 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
-| 18 | [All cores: parallel parsing](18-parallel-parsing.md) | done (budget at the close-out) | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
-| 19 | [Snapshots](19-snapshots.md) | done (budget at the close-out) | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
+| 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | done; loading met at the close-out on all cores | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
+| 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done; the speed-up gap accepted | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
+| 18 | [All cores: parallel parsing](18-parallel-parsing.md) | done; loading met on all cores | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
+| 19 | [Snapshots](19-snapshots.md) | done; 9.2 times on all cores, a gap | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
 | 20 | [The improvement loop](20-improvement-loop.md) | done (two gaps accepted) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
-| 21 | [Close-out: phase 2](21-close-out-phase-2.md) | todo | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
+| 21 | [Close-out: phase 2](21-close-out-phase-2.md) | done (gaps listed) | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
 | 27 | [The full-size scoreboard race](27-full-scoreboard-race.md) | todo, pending the owner | 21 | `docs/verification/` (the scoreboard record) |
 | 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
 | 23 | [Removals: FBF](23-fbf.md) | todo | 22 | as for 22 |
@@ -532,3 +532,21 @@ Departures from the plan, as they happen.
   2's short race (VLog on lubm-50 with every rule on, stopped after about
   9 minutes against TurbOWL's 2.1 s); the bench should gain it as an option
   before ticket 27's full race.
+- **21.** Phase 2 closed on 2026-11-07, at commit `1faa436` (the code of
+  `b654de6`), on a busy machine (load average 3 to 5)
+  (`docs/verification/2026-11-07-v2-phase-2.md`). Correctness ran in full:
+  every suite, the slow tier, and 100,000 chaos iterations of each kind,
+  every iteration also comparing one thread with all cores. Departures:
+  - **The short race**, at the owner's request: the editor-size scenarios
+    only, against Nemo, Soufflé and VLog, in both configurations, TurbOWL
+    on one thread and on all cores. The data-size scenarios ran with
+    TurbOWL alone, one run each. The full-size race is ticket 27.
+  - **The 3-times stop rule**, the owner's, applied by hand once: VLog on
+    lubm-50 in the complete configuration, stopped after about 9 minutes.
+    The bench does not stop a run itself yet.
+  - **The snapshot gap**, new: lubm-50's snapshot loads 9.2 times as fast
+    as parsing and reasoning on all cores (0.10 against 0.92 s), against
+    10, and about 19 times on one thread. Ticket 19 measured 15 times;
+    parsing and reasoning got faster since. The snapshot is now
+    285 MB, against ticket 19's 312 MB at format version 1. It waits for
+    the owner, as does one-thread loading (1.52 s against 1.31 s).

@@ -53,6 +53,10 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Configuration**: the switches that are on for a run. The **default
   configuration** has each switch at its default; the **complete
   configuration** has every switch on, which is the W3C rule set.
+- **Thread mode**: one thread or all cores (`Threads::ONE`,
+  `Threads::ALL`, the default). A round below a measured size runs on the
+  caller's thread in either mode. The closure, the diagnostics and the
+  order of every read are the same in both.
 
 ## Results
 
@@ -64,6 +68,13 @@ leverage, locality) follow the codebase-design vocabulary.
   the fixpoint.
 - **Incremental run**: a run after base triples were added or removed, which
   reuses the previous closure instead of starting over.
+- **Snapshot**: a reasoner's whole state (the dictionary, the base, the
+  stored closure, the canon, the findings, the switches) in one versioned,
+  checksummed file or byte string, loaded back without parsing or
+  reasoning. One of another format or TurbOWL version is refused.
+- **Counters**: what the last run did, per round and per step, and the
+  bytes the reasoner holds, by part (`Reasoner::profile`, for the bench).
+  The code calls them the profile; not an OWL 2 profile.
 
 ## Verification
 
@@ -113,7 +124,8 @@ leverage, locality) follow the codebase-design vocabulary.
 - **Baseline**: this project's own last kept version, which each experiment
   is compared against.
 - **Chaos run**: generated inputs from a seed, checked against the reference
-  evaluator; a failure prints the seed to replay it.
+  evaluator, and on one thread against all cores; a failure prints the
+  seed to replay it.
 - **Experiment**: one measured change after version 1, with a hypothesis, a
   result, and a decision (kept or reverted), recorded in
   `docs/specs/experiments.md`.

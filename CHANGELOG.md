@@ -4,6 +4,99 @@ What changed in each version of TurbOWL. Nothing has been published yet:
 the versions here are the repository's. The numbers come from the records
 in `docs/verification/`.
 
+## Unreleased: version 2, phase 2
+
+Speed: TurbOWL's own parsers, every core, snapshots, and the improvement
+loop's iterations 1 to 11 (`docs/specs/v2-2-speed.md`,
+`docs/specs/experiments.md`, record
+`docs/verification/2026-11-07-v2-phase-2.md`).
+
+### Added
+
+- **TurbOWL's own N-Triples and Turtle parsers**, ports of oxttl 0.2.5's,
+  which intern each term straight into its id. They give the same triples,
+  term ids and errors (line and column) as Oxigraph's on 16,235 parses of
+  the suites' files and strings and on 120,000 generated documents. N3 and
+  RDF/XML keep Oxigraph's parsers. Oxigraph's MIT notice is in
+  `THIRD-PARTY-NOTICES.md`.
+- **Parallel parsing**: an N-Triples or Turtle document of 384 KiB or more
+  is cut at line starts and parsed in pieces on every core, then merged in
+  order. The result is the sequential parse's.
+- **Windowed reading**: `Reasoner::load_file` reads N-Triples and Turtle in
+  windows of 32 MiB, never whole.
+- **Parallel rounds**: `Threads` (`Threads::ONE`, `Threads::ALL` and
+  `every_round()`), `Reasoner::set_threads` and `Reasoner::threads`, behind
+  the `parallel` cargo feature (on by default, native only; rayon). A round
+  of 65,536 tuples or more runs its rule families as tasks and advances
+  each predicate's table on its own thread. The closure, the diagnostics,
+  the summary and every read's order are the same at any thread count.
+  `RAYON_NUM_THREADS=1` gives one thread without a flag.
+- **Snapshots**: a reasoner's whole state in one versioned, checksummed
+  file. `Reasoner::save_snapshot` (written to a temporary file, then
+  renamed), `Reasoner::from_snapshot`, `Reasoner::write_snapshot`,
+  `Reasoner::from_snapshot_bytes` (for WebAssembly) and `Error::Snapshot`.
+  The CLI gains `--save-snapshot PATH` and `--load-snapshot PATH`; Python
+  gains `Reasoner.save_snapshot`, `Reasoner.from_snapshot` and
+  `SnapshotError`.
+- **Counters**: `Reasoner::profile` and the `profile` module, for the
+  bench: per round, the delta and each family's tuples and time; per step,
+  the sort and change times; the bytes held by part. Not in the CLI or
+  Python.
+- **The bench**: `--threads one|all` (TurbOWL's threads; the competitors
+  run as they do by default), the profile in each run (results schema 8)
+  and the thread mode (schema 9).
+- **Chaos** compares one thread with all cores on every iteration: the
+  summary, the closure in read order and the diagnostics.
+
+### Changed
+
+- **The default is `Threads::ALL`**: a run parses and reasons on every
+  core. Rounds below the 65,536-tuple threshold, such as an editor's
+  changes, stay on the caller's thread. A reasoner set to one thread also
+  parses on one.
+- **Snapshot format version 2**: the base is stored as sorted pairs by
+  predicate, not as triples. A version 1 snapshot is refused. lubm-50's
+  snapshot is 285 MB.
+- **The step** sorts each predicate's table on its own, not the whole
+  round: lubm-50's reasoning on one thread went from 739 to 803 ms to 423
+  to 438 ms (ticket 17, at load 2 to 4).
+- **The store and the dictionary**, by the loop's kept iterations 3 to 8:
+  relations sized to their contents, dictionary hash slots up to three
+  quarters full, a full run from exact sorted batches, object indexes
+  sorted in place, and the base as sorted pairs by predicate in one flat
+  vector. Iterations 6, 9 and 10 were reverted, and 11 was not built.
+- **The CLI**: exit status 1 also covers a refused snapshot, and no input
+  file is a usage error only without `--load-snapshot`.
+- **Python**: snapshots release the GIL, as parsing, reasoning and writing
+  do.
+- **`oxiri`** is a direct dependency of the core (it was already in the
+  build), and rayon is one off WebAssembly.
+
+### Results
+
+Measured at a 1-minute load average of 3 to 5, not on a quiet machine.
+
+- lubm-50 against version 1: loading 3.93 s → 1.52 s on one thread and
+  0.80 s on all cores; reasoning 735 → 393 and 102 ms; total 4.66 s →
+  2.02 s and 0.89 s; peak memory 150 → 46.6 and 53.0 bytes per closure
+  triple. Every editor-size scenario's total is below version 1's on both
+  thread modes.
+- The short race, at editor size only (the full one is ticket 27): TurbOWL
+  leads all 22 scenario and axis pairs where an engine finished, in both
+  configurations. The fastest other engine takes 6.7 to 26 times as long
+  in the default configuration and 10.6 to 28 in the complete one. A
+  competitor run past 3 times TurbOWL's time could be stopped, by the
+  owner's rule: VLog on lubm-50 in the complete configuration was.
+- Correctness: W3C OWL 2 RL 101 of 119 and RDF-MT 35 of 51 in the complete
+  configuration; Brick and the 108 building models equal to Nemo in both
+  configurations; 100,000 full and 100,000 incremental chaos iterations
+  pass.
+- Gaps: the all-cores speed-up is 3.9 times against 5, and the all-cores
+  peak about 53 bytes per closure triple against 50, both accepted by the
+  owner on 2026-11-07. A snapshot loads 9.2 times as fast as parsing and
+  reasoning on all cores, against 10. One-thread loading takes 1.52 s
+  against a bar of 1.31 s.
+
 ## Unreleased: version 2, phase 1
 
 Every rule of the W3C OWL 2 RL tables, the switches, and the scoreboard

@@ -11,3 +11,5 @@ test incremental_runs_match_a_full_run_0 ... incremental shard 0: 49595 compared
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2498.19s
 test incremental_runs_match_a_full_run_1 ... incremental shard 1: 49581 compared ({"complete": 16465, "default": 16709, "random": 16407}); not compared: 419 too large for the reference
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2492.69s
+incremental slowest iterations: 86115 (12.25s), 83475 (10.39s), 71710 (7.46s), 91900 (7.18s), 80275 (6.36s)
+incremental slowest iterations: 34438 (8.26s), 39639 (7.67s), 27401 (7.65s), 19220 (7.25s), 24666 (6.72s)

@@ -23,7 +23,12 @@ verification suite that judges it against several independent oracles.
      rule, the switches, the scoreboard) is closed:
      `docs/verification/2026-11-06-v2-phase-1.md` has its results and the
      gaps the owner accepted, and the tickets README its follow-ups. Phase
-     2, speed, is next: tickets 16 and 17 first.
+     2 (speed: own parsers, every core, snapshots, loop iterations 1 to 11)
+     is closed with gaps: `docs/verification/2026-11-07-v2-phase-2.md`.
+     The owner accepted the all-cores speed-up and memory gaps; the
+     snapshot's 9.2 times against 10 and one-thread loading wait for the
+     owner. Phase 3, removals, is next: tickets 22 to 24. Ticket 27, the
+     full-size scoreboard race, is pending the owner.
    - After version 1, **the improvement loop** (rate, find, change,
      evaluate, decide, record): `docs/specs/experiments.md`. This is how the
      project improves; its table is the history, and its last section says
@@ -35,18 +40,22 @@ verification suite that judges it against several independent oracles.
 
 - The public interface: `crates/turbowl/src/lib.rs` (the
   `Reasoner`, `Format`, `Summary`, `Diagnostic`, `Severity`, `Error`,
-  `Switch`, `Switches`). The crate doc's switch table gives each switch's
-  default and the reason for it.
+  `Switch`, `Switches`, `Threads`, and the `profile` module for the
+  bench). The crate doc's switch table gives each switch's default and the
+  reason for it.
   Everything else in the crate is `pub(crate)`. Add to the interface only
   when an adapter (CLI, Python, oracle, bench) needs it, and say so in the
   crate doc.
-- Internal modules: `term.rs` (term ids, dictionary), `io.rs` (parse,
-  write), `engine/` (relations, rounds, joins, and `canon.rs`, the
-  union-find of `owl:sameAs` whose representatives the store rewrites
-  into; knows no rules), `rules/` (one file per rule family, registered
-  one line each in `rules/mod.rs` with the switch it belongs to),
-  `switch.rs` (the switches and their defaults), `diagnostics.rs`,
-  `reasoner.rs`.
+- Internal modules: `term.rs` (term ids, dictionary), `io.rs` and `io/`
+  (parse, write; TurbOWL's own N-Triples and Turtle parsers, parsing in
+  pieces, and `cross_check.rs`, their parity with Oxigraph's), `engine/`
+  (relations, rounds, joins, `parallel.rs` for the threads, and
+  `canon.rs`, the union-find of `owl:sameAs` whose representatives the
+  store rewrites into; knows no rules), `rules/` (one file per rule
+  family, registered one line each in `rules/mod.rs` with the switch it
+  belongs to),
+  `switch.rs` (the switches and their defaults), `snapshot.rs` (the
+  snapshot format, documented there), `diagnostics.rs`, `reasoner.rs`.
 - Adapters: `crates/cli` (the `turbowl` binary; `--help` and the crate
   doc in `src/main.rs` define its report, the JSON fields and the exit
   codes 0, 1, 2 and 64), `crates/python` (the `turbowl` Python package:
@@ -90,15 +99,18 @@ timeout 120 cargo test --release --locked -p turbowl-cli  # runs the built binar
 cargo run --release -p turbowl-bench -- --list
 ```
 
-- A chaos failure prints `CHAOS_SEED`, `CHAOS_ITERS` and `CHAOS_ONLY` to
-  replay it and saves the input under `target/chaos/`. Fix what it finds,
-  with a unit test on the reduced input; never `#[ignore]` a test or exempt
-  a check.
+- A chaos failure prints `CHAOS_SEED`, `CHAOS_ITERS`, `CHAOS_ONLY` and
+  `CHAOS_SWITCHES` to replay it and saves the input under `target/chaos/`.
+  Fix what it finds, with a unit test on the reduced input; never
+  `#[ignore]` a test or exempt a check.
+- Every chaos iteration also runs the core on one thread and on all cores
+  (every round parallel) and compares the two: the summary, the closure in
+  read order and the diagnostics.
 - 100,000 chaos iterations: run each of the four shard tests alone
-  (`--exact`) with `CHAOS_ITERS=100000`; each shard holds 50,000. Since
-  the complete configuration came in, a full shard takes about 32 minutes
-  and an incremental one about 37 minutes, most of it in the reference
-  evaluator. The four can run in parallel from one built test binary.
+  (`--exact`) with `CHAOS_ITERS=100000`; each shard holds 50,000. A shard
+  takes about 35 to 42 minutes (phase 2's close-out: full shards about 35,
+  incremental ones about 42, the four side by side). The four can run in
+  parallel from one built test binary.
 - The slow oracle tier runs with `ORACLE_SLOW=1`, one test at a time
   (`--exact`). The Brick variants and soda hall take under a minute each.
   `building_models` (108 models) takes about half an hour, the one test
@@ -109,8 +121,13 @@ cargo run --release -p turbowl-bench -- --list
   needs Python 3.10 or later on PATH.
 - After a clean of ignored files deletes the built native module,
   `uv sync --reinstall-package turbowl` in `crates/python` builds it again.
+- The bench runs TurbOWL on one thread by default; `--threads all` runs it
+  on every core. The competitors run as they do by default in both modes.
 - Benchmarks run only on a quiet machine (load average under 1), never next
   to a build or a test run.
+- The loop judges the all-cores peak memory on 10 single runs per side,
+  alternating the Baseline and the change, by medians and middle halves:
+  the largest of the bench's 3 runs is noise on all cores.
 - Every full verification is stored: `docs/verification/<date>-<name>.md`
   and its raw results in `docs/verification/data/`.
 
