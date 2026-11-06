@@ -36,6 +36,10 @@
 //! are sorted, and the merges and the requested indexes keep the order one
 //! thread gives them, so the store evolves as it does on one thread,
 //! whatever the thread count ([`Store::set_workers`]) or the schedule.
+//!
+//! A full run's input skips the round buffer: [`Store::fill`] queues each
+//! table's tuples as one sorted batch of exactly their size, built from the
+//! base's sorted triples, so the first step neither copies nor sorts them.
 
 use super::canon::{Canon, Merged};
 use super::join::join_slices;
@@ -278,6 +282,9 @@ pub(crate) struct Store {
     delta: usize,
     /// The steps of the last run ([`Store::take_steps`]).
     steps: Vec<Step>,
+    /// The pairs [`Store::fill`] queued in the tables, for the next step's
+    /// count of its pairs ([`Step::pairs`]).
+    filled: usize,
     /// Rounds and steps that ran in parallel.
     #[cfg(test)]
     engaged: usize,
@@ -392,6 +399,30 @@ impl Store {
         }
     }
 
+    /// Fills a new store with the union of `triples` and `more`, each
+    /// sorted and deduplicated: each predicate's pairs as one batch of
+    /// exactly its length, queued in its table, so that the first step
+    /// neither copies nor sorts them (a full run's base and facts). The
+    /// batches are made in chunks on the workers when there are many
+    /// ([`by_predicate`]).
+    ///
+    /// Taken in `[s, p, o]` order, one predicate's `(s, o)` pairs are
+    /// strictly increasing, so each batch is sorted as it fills. That holds
+    /// only while every id is its own representative: the canon must have
+    /// no class. The store must have no table and nothing queued, so that
+    /// its tables are made in ascending predicate order, as a step makes
+    /// them.
+    pub(crate) fn fill(&mut self, triples: &[[u32; 3]], more: &[[u32; 3]]) {
+        debug_assert!(self.canon.is_empty(), "the pairs are in representatives");
+        debug_assert!(self.tables.is_empty() && self.pending.is_empty(), "a new store");
+        for (p, pairs) in by_predicate(&self.workers, triples, more) {
+            let t = self.table_index(p);
+            self.filled += pairs.len();
+            self.tables[t].so.insert(Relation::from_sorted(pairs));
+            self.activate(t);
+        }
+    }
+
     /// Indexes predicate `p` by object from the next round on.
     pub(crate) fn index_by_object(&mut self, p: u32) {
         self.pending.by_object.push(p);
@@ -440,6 +471,8 @@ impl Store {
 
     /// The step's work, its counts and times kept in `log`.
     fn advance(&mut self, pending: &mut Pending, log: &mut Step) -> bool {
+        // The pairs `fill` queued, distinct and in tables that were empty.
+        log.pairs = std::mem::take(&mut self.filled);
         // Object indexes first, so that the rewriting below covers them.
         pending.by_object.sort_unstable();
         pending.by_object.dedup();
@@ -706,6 +739,166 @@ fn canonical(canon: &Canon, groups: &mut Vec<(u32, Vec<Vec<Pair>>)>) {
         }
     }
     *groups = merged;
+}
+
+/// Each predicate's `(s, o)` pairs in the union of `a` and `b`, each sorted
+/// and deduplicated: ascending by predicate, each in a vector of exactly
+/// its length, in `[s, p, o]` order. A first pass counts each predicate's
+/// triples, a second writes them. With threads and many triples, both run
+/// in chunks side by side, and each chunk writes its pairs into its own
+/// range of each vector, the ranges in chunk order.
+///
+/// The vectors are allocated, not zeroed: a zeroed allocation takes fresh
+/// pages from the system, where a plain one reuses the pages the allocator
+/// holds (on lubm-50, one thread, the run's peak was 13 MB higher with
+/// zeroed vectors).
+fn by_predicate(workers: &Workers, a: &[[u32; 3]], b: &[[u32; 3]]) -> Vec<(u32, Vec<Pair>)> {
+    let total = a.len() + b.len();
+    let pieces = if workers.engage(total) {
+        a.len().div_ceil(workers.chunk(total)).max(1)
+    } else {
+        1
+    };
+    // `a` is cut evenly, and `b` where each cut's triple falls, so a triple
+    // in both lands in one chunk.
+    let cut = |i: usize| {
+        let at = i * a.len() / pieces;
+        let other = if i == 0 {
+            0
+        } else if i == pieces {
+            b.len()
+        } else {
+            b.partition_point(|t| t < &a[at])
+        };
+        (at, other)
+    };
+    let mut chunks: Vec<Chunk<'_>> = (0..pieces)
+        .map(|i| {
+            let ((a0, b0), (a1, b1)) = (cut(i), cut(i + 1));
+            Chunk {
+                a: &a[a0..a1],
+                b: &b[b0..b1],
+                index: FxHashMap::default(),
+                recent: [None; 64],
+                counts: Vec::new(),
+            }
+        })
+        .collect();
+    workers.for_each(&mut chunks, |chunk| {
+        let (a, b) = (chunk.a, chunk.b);
+        union(a, b, |[_, p, _]| {
+            let i = chunk.slot(p);
+            chunk.counts[i].1 += 1;
+        });
+    });
+
+    if let [chunk] = &mut chunks[..] {
+        // One chunk: each vector is filled by pushes, each pair written once.
+        let mut vectors: Vec<Vec<Pair>> = chunk.counts.iter().map(|&(_, n)| Vec::with_capacity(n)).collect();
+        let (a, b) = (chunk.a, chunk.b);
+        union(a, b, |[s, p, o]| vectors[chunk.slot(p)].push((s, o)));
+        let mut out: Vec<(u32, Vec<Pair>)> = chunk.counts.iter().map(|&(p, _)| p).zip(vectors).collect();
+        out.sort_unstable_by_key(|&(p, _)| p);
+        return out;
+    }
+
+    let mut totals: Vec<(u32, usize)> = chunks.iter().flat_map(|c| c.counts.iter().copied()).collect();
+    totals.sort_unstable_by_key(|&(p, _)| p);
+    totals.dedup_by(|next, kept| {
+        let same = next.0 == kept.0;
+        if same {
+            kept.1 += next.1;
+        }
+        same
+    });
+    // Each vector at its size, its pairs written side by side: first
+    // placeholders, then each chunk's pairs over them.
+    let mut vectors: Vec<(u32, usize, Vec<Pair>)> =
+        totals.iter().map(|&(p, n)| (p, n, Vec::with_capacity(n))).collect();
+    workers.for_each(&mut vectors, |(_, n, v)| v.resize(*n, (0, 0)));
+    let at: FxHashMap<u32, usize> = totals.iter().enumerate().map(|(i, &(p, _))| (p, i)).collect();
+    let mut rest: Vec<&mut [Pair]> = vectors.iter_mut().map(|(_, _, v)| &mut v[..]).collect();
+    let mut fills: Vec<(Chunk<'_>, Vec<&mut [Pair]>)> = chunks
+        .into_iter()
+        .map(|chunk| {
+            let ranges = chunk
+                .counts
+                .iter()
+                .map(|&(p, n)| {
+                    let r = &mut rest[at[&p]];
+                    let (range, tail) = std::mem::take(r).split_at_mut(n);
+                    *r = tail;
+                    range
+                })
+                .collect();
+            (chunk, ranges)
+        })
+        .collect();
+    debug_assert!(rest.iter().all(|r| r.is_empty()), "the ranges cover every vector");
+    workers.for_each(&mut fills, |(chunk, ranges)| {
+        let mut written = vec![0; ranges.len()];
+        let (a, b) = (chunk.a, chunk.b);
+        union(a, b, |[s, p, o]| {
+            let i = chunk.slot(p);
+            ranges[i][written[i]] = (s, o);
+            written[i] += 1;
+        });
+    });
+    drop(fills);
+    vectors.into_iter().map(|(p, _, v)| (p, v)).collect()
+}
+
+/// A chunk of [`by_predicate`]'s triples, and the predicates it holds.
+struct Chunk<'a> {
+    a: &'a [[u32; 3]],
+    b: &'a [[u32; 3]],
+    /// Predicate to its place in `counts`.
+    index: FxHashMap<u32, usize>,
+    /// Predicates looked up and their places, one per hash of the
+    /// predicate: a base has few predicates, so this answers nearly every
+    /// lookup without the map (on lubm-50 the counting pass took 15 ms
+    /// with the map alone, 8 to 10 with this).
+    recent: [Option<(u32, usize)>; 64],
+    /// Each predicate of the chunk, in the order it first came, and its
+    /// triples.
+    counts: Vec<(u32, usize)>,
+}
+
+impl Chunk<'_> {
+    /// The place of `p` in `counts`, made when it has none.
+    #[inline]
+    fn slot(&mut self, p: u32) -> usize {
+        // Fibonacci hashing: the top 6 bits of `p` times 2^32 / phi.
+        let h = (p.wrapping_mul(0x9E37_79B9) >> 26) as usize;
+        if let Some((q, i)) = self.recent[h]
+            && q == p
+        {
+            return i;
+        }
+        let counts = &mut self.counts;
+        let i = *self.index.entry(p).or_insert_with(|| {
+            counts.push((p, 0));
+            counts.len() - 1
+        });
+        self.recent[h] = Some((p, i));
+        i
+    }
+}
+
+/// Calls `f` on each triple of the union of sorted, duplicate-free `a` and
+/// `b`, in order, a triple in both once. `b` is the short one: each of its
+/// triples finds its place in `a` by binary search.
+fn union(mut a: &[[u32; 3]], b: &[[u32; 3]], mut f: impl FnMut([u32; 3])) {
+    for &y in b {
+        let before = a.partition_point(|x| *x < y);
+        a[..before].iter().for_each(|&x| f(x));
+        a = &a[before..];
+        if a.first() == Some(&y) {
+            a = &a[1..];
+        }
+        f(y);
+    }
+    a.iter().for_each(|&x| f(x));
 }
 
 /// One table's part of a step.

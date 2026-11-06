@@ -575,6 +575,149 @@ fn parallel_rounds_match_one_thread() {
     }
 }
 
+/// A store filled with sorted triples ([`Store::fill`]) starts its first
+/// round with each table holding exactly its triples, in one sorted part
+/// with no spare room, the tables made in ascending predicate order. It then
+/// runs as a store given the same triples through the round buffer: the
+/// same triples in the same order, the same rounds and the same counts in
+/// every step. On one thread, and on four with every round parallel (the
+/// triples cut into chunks).
+#[test]
+fn a_filled_store_starts_with_exact_tables() {
+    const P: u32 = 7;
+    const Q: u32 = 8;
+    const R: u32 = 9;
+    let predicates = [3, P, Q, R, 20];
+    for seed in 0..SEEDS {
+        let mut rng = Rng::new(seed);
+        let domain = rng.below(25) + 2;
+        let triple = |rng: &mut Rng| {
+            let p = predicates[rng.below(predicates.len() as u32) as usize];
+            [rng.below(domain), p, rng.below(domain)]
+        };
+        let mut triples: Vec<[u32; 3]> = (0..rng.below(120)).map(|_| triple(&mut rng)).collect();
+        triples.sort_unstable();
+        triples.dedup();
+        // The facts: a few of the triples again, and a few new ones.
+        let mut more: Vec<[u32; 3]> = triples.iter().copied().filter(|_| rng.below(8) == 0).collect();
+        more.extend((0..rng.below(6)).map(|_| triple(&mut rng)));
+        more.sort_unstable();
+        more.dedup();
+        let mut expected: BTreeSet<(u32, u32, u32)> = BTreeSet::new();
+        expected.extend(triples.iter().chain(&more).map(|&[s, p, o]| (p, s, o)));
+
+        for workers in [Workers::one(), Workers::exactly(4).every_round()] {
+            let mut filled = Store::new();
+            filled.set_workers(workers.clone());
+            filled.fill(&triples, &more);
+            assert_eq!(filled.buffered(), 0, "nothing goes through the round buffer");
+            let mut queued = Store::new();
+            queued.set_workers(workers);
+            queued.extend(more.iter().map(|&[s, p, o]| (s, p, o)));
+            queued.extend_from_slice(&triples);
+
+            let mut checked = false;
+            let rounds = filled.run(|round| {
+                if round.number() == 1 {
+                    let store = round.store();
+                    let mut got: Vec<(u32, u32, u32)> = Vec::new();
+                    for (p, table) in store.tables() {
+                        let so = table.by_subject();
+                        assert!(so.stable().is_empty(), "seed {seed}");
+                        let recent = so.recent();
+                        assert_eq!(recent.bytes(), recent.len() * size_of::<Pair>(), "seed {seed}");
+                        assert!(table.by_object().is_none());
+                        got.extend(recent.iter().map(|&(s, o)| (p, s, o)));
+                    }
+                    assert_eq!(got, expected.iter().copied().collect::<Vec<_>>(), "seed {seed}");
+                    checked = true;
+                }
+                store_parallel_rules(round, P, Q, R);
+            });
+            assert_eq!(checked, !expected.is_empty(), "seed {seed}");
+            assert_eq!(queued.run(|round| store_parallel_rules(round, P, Q, R)), rounds);
+            assert_eq!(
+                filled.triples().collect::<Vec<_>>(),
+                queued.triples().collect::<Vec<_>>(),
+                "seed {seed}"
+            );
+            let counts = |steps: Vec<crate::profile::Step>| -> Vec<(usize, usize)> {
+                steps.iter().map(|s| (s.pairs, s.new)).collect()
+            };
+            assert_eq!(counts(filled.take_steps()), counts(queued.take_steps()), "seed {seed}");
+            // Later runs continue from the filled store as from the other.
+            let extra = rng.some_pairs(20, domain);
+            for store in [&mut filled, &mut queued] {
+                store.extend(extra.iter().map(|&(s, o)| (s, P, o)));
+            }
+            let rounds = filled.run(|round| store_parallel_rules(round, P, Q, R));
+            assert_eq!(queued.run(|round| store_parallel_rules(round, P, Q, R)), rounds);
+            assert_eq!(
+                filled.triples().collect::<Vec<_>>(),
+                queued.triples().collect::<Vec<_>>(),
+                "seed {seed}"
+            );
+        }
+    }
+}
+
+/// Past [`PARALLEL_FROM`] triples, the threads fill each table in chunks
+/// side by side, and every table is what one thread gives: its pairs in
+/// order, in a vector of exactly their length.
+#[test]
+fn filling_in_chunks_matches_one_thread() {
+    let mut rng = Rng::new(5);
+    let n = PARALLEL_FROM + 20_000;
+    let mut triples: Vec<[u32; 3]> = (0..n)
+        .map(|_| [rng.below(50_000), rng.below(40), rng.below(50_000)])
+        .collect();
+    triples.sort_unstable();
+    triples.dedup();
+    let len = triples.len();
+    // The facts: triples of the base at and around every 64th of it (where
+    // the chunks are cut), a predicate of their own, and a triple after
+    // every other.
+    let mut more = vec![[0, 99, 0], [60_000, 5, 1], triples[len - 1]];
+    for k in 0..64 {
+        let at = k * len / 64;
+        more.extend_from_slice(&triples[at.saturating_sub(1)..(at + 2).min(len)]);
+    }
+    more.sort_unstable();
+    more.dedup();
+    let tables = |workers: Workers| -> Vec<(u32, Vec<Pair>, usize)> {
+        let mut store = Store::new();
+        store.set_workers(workers);
+        store.fill(&triples, &more);
+        let mut got = Vec::new();
+        store.run(|round| {
+            if round.number() == 1 {
+                for (p, table) in round.store().tables() {
+                    let recent = table.by_subject().recent();
+                    got.push((p, recent.to_vec(), recent.bytes() / size_of::<Pair>()));
+                }
+            }
+        });
+        got
+    };
+    let one = tables(Workers::one());
+    let mut expected: Vec<(u32, u32, u32)> = triples.iter().chain(&more).map(|&[s, p, o]| (p, s, o)).collect();
+    expected.sort_unstable();
+    expected.dedup();
+    let flat: Vec<(u32, u32, u32)> = one
+        .iter()
+        .flat_map(|(p, pairs, _)| pairs.iter().map(move |&(s, o)| (*p, s, o)))
+        .collect();
+    assert_eq!(flat, expected);
+    assert!(one.iter().all(|(_, pairs, room)| *room == pairs.len()));
+    if Workers::exactly(4).threads() > 1 {
+        assert!(
+            Workers::exactly(4).engage(triples.len()),
+            "the triples are cut into chunks"
+        );
+    }
+    assert_eq!(tables(Workers::exactly(4)), one);
+}
+
 /// A forced split cuts a slice into several chunks, never inside a run of
 /// one key ([`Round::split_runs`]); the chunks cover the slice in order.
 #[test]

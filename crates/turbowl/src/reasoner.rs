@@ -844,11 +844,21 @@ impl Reasoner {
         self.closure = Store::with_canon(canon);
         self.closure.set_workers(self.workers.clone());
         self.rdf = 0;
-        for family in families {
-            self.closure
-                .extend(family.facts.iter().map(|&[s, p, o]| (s.0, p.0, o.0)));
+        let facts = families.iter().flat_map(|f| f.facts).map(|&[s, p, o]| [s.0, p.0, o.0]);
+        if self.closure.canon().is_empty() {
+            // Every id is its own representative, so the base's order is
+            // each table's: the tables get their tuples as sorted batches of
+            // exact size, which the first step neither copies nor sorts.
+            let mut facts: Vec<[u32; 3]> = facts.collect();
+            facts.sort_unstable();
+            facts.dedup();
+            self.closure.fill(self.base.flush(), &facts);
+        } else {
+            // After a restart: the canon rewrites the triples, and the step
+            // sorts them.
+            self.closure.extend(facts.map(|[s, p, o]| (s, p, o)));
+            self.closure.extend_from_slice(self.base.flush());
         }
-        self.closure.extend_from_slice(self.base.flush());
     }
 
     /// Runs `families` (those that are on) on the store to its fixpoint (or
@@ -2128,6 +2138,42 @@ mod tests {
         assert!(runs[0].1.1.len() > 1, "the input has findings: {:?}", runs[0].1.1);
         for run in &runs[1..] {
             assert_eq!(run, &runs[0]);
+        }
+    }
+
+    /// A full run hands each table its base triples and the facts as one
+    /// sorted batch of exactly their size: in the first round each table
+    /// holds them and nothing else, in one part with no spare room. A fact
+    /// that is in the base too is held once. On one thread, and on three
+    /// with every round parallel.
+    #[test]
+    fn a_full_run_starts_with_exact_tables() {
+        for threads in [Threads::ONE, Threads::exactly(3).every_round()] {
+            let mut r = toy();
+            r.set_threads(threads);
+            load(&mut r, INPUT);
+            load(&mut r, "owl:Thing a owl:Class .");
+            let facts = TOY.iter().flat_map(|f| f.facts).map(|&[s, p, o]| [s.0, p.0, o.0]);
+            let mut expected: Vec<(u32, u32, u32)> = r.base.iter().chain(facts).map(|[s, p, o]| (p, s, o)).collect();
+            expected.sort_unstable();
+            expected.dedup();
+            assert_eq!(expected.len(), r.base.len(), "the fact is in the base");
+            let families: Vec<&'static Family> = TOY.iter().collect();
+            r.start(&families, equality::canon());
+            assert_eq!(r.closure.buffered(), 0, "nothing goes through the round buffer");
+            let mut got = Vec::new();
+            r.closure.run(|round| {
+                if round.number() == 1 {
+                    for (p, table) in round.store().tables() {
+                        let so = table.by_subject();
+                        assert!(so.stable().is_empty());
+                        let recent = so.recent();
+                        assert_eq!(recent.bytes(), recent.len() * size_of::<Pair>(), "{p}");
+                        got.extend(recent.iter().map(|&(s, o)| (p, s, o)));
+                    }
+                }
+            });
+            assert_eq!(got, expected);
         }
     }
 
