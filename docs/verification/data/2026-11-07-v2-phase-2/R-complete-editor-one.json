@@ -1,0 +1,4533 @@
+{
+  "meta": {
+    "build": "release",
+    "changes": 100,
+    "commit": "1faa4369c6eba4d7ddfaf45a9071d549eebd0885",
+    "configuration": "complete",
+    "cores": 12,
+    "cpu": "Apple M6",
+    "data_dir": "<repo>/data",
+    "date": "2026-11-06T22:31:57Z",
+    "dirty": false,
+    "load_after": [
+      3.3291015625,
+      3.28173828125,
+      3.4384765625
+    ],
+    "load_before": [
+      4.041015625,
+      3.56103515625,
+      4.9111328125
+    ],
+    "memory_bytes": 34359738368,
+    "memory_cap_bytes": 17179869184,
+    "os": "macOS 27.0 (kernel 27.0.0, aarch64)",
+    "peak_memory": "lifetime peak physical footprint",
+    "runs": 1,
+    "switches": [
+      "equality",
+      "property-chains",
+      "checks",
+      "identity",
+      "schema",
+      "trivial",
+      "literal-values"
+    ],
+    "threads": 1,
+    "timeout_s": 600,
+    "versions": {
+      "bench": "0.1.0",
+      "nemo": "0.10.1",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "souffle": "2.5",
+      "turbowl": "0.1.0",
+      "vlog": "1.3.7"
+    }
+  },
+  "problems": [
+    "lubm-50 vlog: the run exited with signal: 15 (SIGTERM) and wrote no result (out of memory?)"
+  ],
+  "published_counts": [],
+  "results": [
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 47718,
+          "closure_counted": 47718,
+          "load_ms": 8.644416999999999,
+          "peak_rss_bytes": 7258544,
+          "profile": {
+            "changed_ms": 0.594,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 119176,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 143360,
+              "dictionary_slots": 131072,
+              "dictionary_text": 396544,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 180792,
+                  "predicate": "<http://www.w3.org/2000/01/rdf-schema#subClassOf>",
+                  "recent": 96,
+                  "stable": 180696,
+                  "tuples": 22575
+                },
+                {
+                  "object_index": 78448,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 78352,
+                  "tuples": 9782
+                },
+                {
+                  "object_index": 19112,
+                  "predicate": "<http://www.w3.org/2002/07/owl#equivalentClass>",
+                  "recent": 96,
+                  "stable": 19016,
+                  "tuples": 2365
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>",
+                  "recent": 96,
+                  "stable": 23112,
+                  "tuples": 2877
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>",
+                  "recent": 96,
+                  "stable": 23112,
+                  "tuples": 2877
+                }
+              ],
+              "other": 35560,
+              "store_other": {
+                "object_index": 201632,
+                "recent": 3360,
+                "stable": 327392,
+                "tuples": 40504
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 78448,
+                "recent": 96,
+                "stable": 78352,
+                "tuples": 9782
+              },
+              "total": 1525636
+            },
+            "round_count": 7,
+            "rounds": {
+              "delta": [
+                14860,
+                13650,
+                8899,
+                7521,
+                5146,
+                209,
+                1
+              ],
+              "emitted": [
+                [
+                  226,
+                  8858,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2860,
+                  6715,
+                  1130
+                ],
+                [
+                  5555,
+                  8429,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  458,
+                  3606,
+                  0
+                ],
+                [
+                  42318,
+                  4,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  3353,
+                  0,
+                  0
+                ],
+                [
+                  58967,
+                  2981,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2392,
+                  0,
+                  0
+                ],
+                [
+                  52548,
+                  465,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  456,
+                  247,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  3,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.018,
+                  0.031,
+                  0.0,
+                  0.002,
+                  0.034,
+                  0.0,
+                  0.0,
+                  0.254,
+                  0.191,
+                  0.109
+                ],
+                [
+                  0.236,
+                  0.021,
+                  0.0,
+                  0.113,
+                  0.161,
+                  0.0,
+                  0.0,
+                  0.046,
+                  0.212,
+                  0.104
+                ],
+                [
+                  0.332,
+                  0.002,
+                  0.0,
+                  0.002,
+                  0.015,
+                  0.0,
+                  0.0,
+                  0.149,
+                  0.007,
+                  0.005
+                ],
+                [
+                  0.44,
+                  0.01,
+                  0.0,
+                  0.004,
+                  0.013,
+                  0.0,
+                  0.0,
+                  0.115,
+                  0.006,
+                  0.004
+                ],
+                [
+                  0.348,
+                  0.003,
+                  0.0,
+                  0.004,
+                  0.008,
+                  0.0,
+                  0.0,
+                  0.047,
+                  0.004,
+                  0.002
+                ],
+                [
+                  0.013,
+                  0.003,
+                  0.0,
+                  0.003,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.003,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.006,
+                  0.001,
+                  0.0,
+                  0.001,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "ms": [
+                0.653,
+                0.906,
+                0.522,
+                0.604,
+                0.423,
+                0.023,
+                0.009
+              ]
+            },
+            "rules_ms": 3.14,
+            "sort_ms": 2.273,
+            "step_ms": 2.88,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                0.04,
+                0.098,
+                0.172,
+                0.207,
+                0.068,
+                0.007,
+                0.0
+              ],
+              "ms": [
+                0.005,
+                0.335,
+                0.352,
+                0.734,
+                0.911,
+                0.529,
+                0.013,
+                0.001
+              ],
+              "new": [
+                14860,
+                13650,
+                8899,
+                7521,
+                5146,
+                209,
+                1,
+                0
+              ],
+              "pairs": [
+                14860,
+                14575,
+                12716,
+                18706,
+                19761,
+                6813,
+                357,
+                3
+              ],
+              "sort_ms": [
+                0.0,
+                0.293,
+                0.252,
+                0.56,
+                0.703,
+                0.46,
+                0.006,
+                0.0
+              ]
+            }
+          },
+          "reason_ms": 6.221875,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "brick-small1",
+      "status": "ok",
+      "summary": {
+        "closure": 47718,
+        "export_median_ms": null,
+        "load_median_ms": 8.644,
+        "max_ms": 6.222,
+        "measure": "reason_ms",
+        "median_ms": 6.222,
+        "min_ms": 6.222,
+        "peak_bytes_per_closure_triple": 152.113,
+        "peak_rss_bytes": 7258544,
+        "peak_rss_min_bytes": 7258544,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 2.5,
+            "dictionary": 14.1,
+            "not_counted": 120.1,
+            "peak": 152.1,
+            "rest": 0.7,
+            "store": 14.7
+          },
+          "changed_median_ms": 0.594,
+          "memory": {
+            "base": 119176,
+            "dictionary": 670976,
+            "rest": 35564,
+            "store": 699920,
+            "total": 1525636
+          },
+          "rounds": 7,
+          "rules_median_ms": 3.14,
+          "sort_median_ms": 2.273,
+          "step_median_ms": 2.88
+        },
+        "reason_median_ms": 6.222,
+        "total_median_ms": 14.866,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 47718,
+          "closure_counted": 47718,
+          "export_ms": 30.0,
+          "load_ms": 117.0,
+          "peak_rss_bytes": 27623952,
+          "reason_ms": 1195.0,
+          "status": "ok",
+          "wall_ms": 1355.0715
+        }
+      ],
+      "scenario": "brick-small1",
+      "status": "ok",
+      "summary": {
+        "closure": 47718,
+        "export_median_ms": 30.0,
+        "load_median_ms": 117.0,
+        "max_ms": 1195.0,
+        "measure": "reason_ms",
+        "median_ms": 1195.0,
+        "min_ms": 1195.0,
+        "peak_bytes_per_closure_triple": 578.9,
+        "peak_rss_bytes": 27623952,
+        "peak_rss_min_bytes": 27623952,
+        "reason_median_ms": 1195.0,
+        "total_median_ms": 1312.0,
+        "wall_median_ms": 1355.072
+      },
+      "x_turbowl": {
+        "peak_rss": 3.806,
+        "time": 192.06,
+        "total": 88.255
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 47718,
+          "closure_counted": 47718,
+          "load_ms": null,
+          "peak_rss_bytes": 22905264,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 269.38633400000003,
+          "wall_ms": 269.38633400000003
+        }
+      ],
+      "scenario": "brick-small1",
+      "status": "ok",
+      "summary": {
+        "closure": 47718,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 480.013,
+        "peak_rss_bytes": 22905264,
+        "peak_rss_min_bytes": 22905264,
+        "reason_median_ms": null,
+        "total_median_ms": 269.386,
+        "wall_median_ms": 269.386
+      },
+      "x_turbowl": {
+        "peak_rss": 3.156,
+        "time": null,
+        "total": 18.121
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 47718,
+          "closure_counted": 47718,
+          "export_ms": 78.0,
+          "load_ms": null,
+          "peak_rss_bytes": 163972152,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 405.0,
+          "wall_ms": 1870.955166
+        }
+      ],
+      "scenario": "brick-small1",
+      "status": "ok",
+      "summary": {
+        "closure": 47718,
+        "export_median_ms": 78.0,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 3436.275,
+        "peak_rss_bytes": 163972152,
+        "peak_rss_min_bytes": 163972152,
+        "reason_median_ms": null,
+        "total_median_ms": 405.0,
+        "wall_median_ms": 1870.955
+      },
+      "x_turbowl": {
+        "peak_rss": 22.59,
+        "time": null,
+        "total": 27.243
+      }
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/soda_hall.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 82381,
+          "closure_counted": 82381,
+          "load_ms": 11.325541,
+          "peak_rss_bytes": 11092400,
+          "profile": {
+            "changed_ms": 0.915,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 255640,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 143360,
+              "dictionary_slots": 131072,
+              "dictionary_text": 396544,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 245048,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 244952,
+                  "tuples": 30607
+                },
+                {
+                  "object_index": 180792,
+                  "predicate": "<http://www.w3.org/2000/01/rdf-schema#subClassOf>",
+                  "recent": 96,
+                  "stable": 180696,
+                  "tuples": 22575
+                },
+                {
+                  "object_index": 19112,
+                  "predicate": "<http://www.w3.org/2002/07/owl#equivalentClass>",
+                  "recent": 96,
+                  "stable": 19016,
+                  "tuples": 2365
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<https://brickschema.org/schema/1.1/Brick#hasTag>",
+                  "recent": 96,
+                  "stable": 27944,
+                  "tuples": 3481
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<https://brickschema.org/schema/1.1/Brick#isTagOf>",
+                  "recent": 96,
+                  "stable": 27944,
+                  "tuples": 3481
+                }
+              ],
+              "other": 35560,
+              "store_other": {
+                "object_index": 201632,
+                "recent": 3744,
+                "stable": 424760,
+                "tuples": 52627
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 245048,
+                "recent": 96,
+                "stable": 244952,
+                "tuples": 30607
+              },
+              "total": 2093052
+            },
+            "round_count": 7,
+            "rounds": {
+              "delta": [
+                18620,
+                16463,
+                12814,
+                16610,
+                15096,
+                3373,
+                258
+              ],
+              "emitted": [
+                [
+                  226,
+                  13566,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2860,
+                  6715,
+                  1130
+                ],
+                [
+                  9723,
+                  13125,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  458,
+                  3606,
+                  0
+                ],
+                [
+                  78634,
+                  3652,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  3353,
+                  0,
+                  0
+                ],
+                [
+                  121631,
+                  7562,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2392,
+                  0,
+                  0
+                ],
+                [
+                  291850,
+                  11888,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  713,
+                  7025,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  262,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.02,
+                  0.038,
+                  0.0,
+                  0.002,
+                  0.038,
+                  0.0,
+                  0.0,
+                  0.231,
+                  0.156,
+                  0.086
+                ],
+                [
+                  0.231,
+                  0.025,
+                  0.0,
+                  0.162,
+                  0.156,
+                  0.0,
+                  0.001,
+                  0.042,
+                  0.199,
+                  0.098
+                ],
+                [
+                  0.392,
+                  0.008,
+                  0.0,
+                  0.004,
+                  0.02,
+                  0.0,
+                  0.0,
+                  0.139,
+                  0.009,
+                  0.006
+                ],
+                [
+                  0.763,
+                  0.042,
+                  0.0,
+                  0.017,
+                  0.026,
+                  0.0,
+                  0.0,
+                  0.107,
+                  0.012,
+                  0.008
+                ],
+                [
+                  0.873,
+                  0.022,
+                  0.0,
+                  0.096,
+                  0.024,
+                  0.0,
+                  0.0,
+                  0.044,
+                  0.011,
+                  0.007
+                ],
+                [
+                  0.018,
+                  0.017,
+                  0.0,
+                  0.082,
+                  0.005,
+                  0.0,
+                  0.0,
+                  0.003,
+                  0.003,
+                  0.002
+                ],
+                [
+                  0.007,
+                  0.002,
+                  0.0,
+                  0.008,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "ms": [
+                0.587,
+                0.928,
+                0.592,
+                0.995,
+                1.091,
+                0.132,
+                0.019
+              ]
+            },
+            "rules_ms": 4.342,
+            "sort_ms": 5.278,
+            "step_ms": 6.204,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                0.046,
+                0.124,
+                0.225,
+                0.36,
+                0.12,
+                0.035,
+                0.004
+              ],
+              "ms": [
+                0.005,
+                0.377,
+                0.466,
+                1.201,
+                1.717,
+                2.334,
+                0.098,
+                0.006
+              ],
+              "new": [
+                18620,
+                16463,
+                12814,
+                16610,
+                15096,
+                3373,
+                258,
+                0
+              ],
+              "pairs": [
+                18620,
+                17388,
+                19444,
+                33370,
+                40408,
+                23138,
+                4837,
+                262
+              ],
+              "sort_ms": [
+                0.0,
+                0.329,
+                0.34,
+                0.975,
+                1.356,
+                2.214,
+                0.062,
+                0.002
+              ]
+            }
+          },
+          "reason_ms": 10.872875,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "brick-soda-hall",
+      "status": "ok",
+      "summary": {
+        "closure": 82381,
+        "export_median_ms": null,
+        "load_median_ms": 11.326,
+        "max_ms": 10.873,
+        "measure": "reason_ms",
+        "median_ms": 10.873,
+        "min_ms": 10.873,
+        "peak_bytes_per_closure_triple": 134.648,
+        "peak_rss_bytes": 11092400,
+        "peak_rss_min_bytes": 11092400,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 3.1,
+            "dictionary": 8.1,
+            "not_counted": 109.2,
+            "peak": 134.6,
+            "rest": 0.4,
+            "store": 13.7
+          },
+          "changed_median_ms": 0.915,
+          "memory": {
+            "base": 255640,
+            "dictionary": 670976,
+            "rest": 35564,
+            "store": 1130872,
+            "total": 2093052
+          },
+          "rounds": 7,
+          "rules_median_ms": 4.342,
+          "sort_median_ms": 5.278,
+          "step_median_ms": 6.204
+        },
+        "reason_median_ms": 10.873,
+        "total_median_ms": 22.198,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/soda_hall.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 82381,
+          "closure_counted": 82381,
+          "export_ms": 42.0,
+          "load_ms": 133.0,
+          "peak_rss_bytes": 32883192,
+          "reason_ms": 2052.0,
+          "status": "ok",
+          "wall_ms": 2234.005208
+        }
+      ],
+      "scenario": "brick-soda-hall",
+      "status": "ok",
+      "summary": {
+        "closure": 82381,
+        "export_median_ms": 42.0,
+        "load_median_ms": 133.0,
+        "max_ms": 2052.0,
+        "measure": "reason_ms",
+        "median_ms": 2052.0,
+        "min_ms": 2052.0,
+        "peak_bytes_per_closure_triple": 399.16,
+        "peak_rss_bytes": 32883192,
+        "peak_rss_min_bytes": 32883192,
+        "reason_median_ms": 2052.0,
+        "total_median_ms": 2185.0,
+        "wall_median_ms": 2234.005
+      },
+      "x_turbowl": {
+        "peak_rss": 2.964,
+        "time": 188.724,
+        "total": 98.432
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/soda_hall.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 82381,
+          "closure_counted": 82381,
+          "load_ms": null,
+          "peak_rss_bytes": 34505184,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 400.624834,
+          "wall_ms": 400.624834
+        }
+      ],
+      "scenario": "brick-soda-hall",
+      "status": "ok",
+      "summary": {
+        "closure": 82381,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 418.849,
+        "peak_rss_bytes": 34505184,
+        "peak_rss_min_bytes": 34505184,
+        "reason_median_ms": null,
+        "total_median_ms": 400.625,
+        "wall_median_ms": 400.625
+      },
+      "x_turbowl": {
+        "peak_rss": 3.111,
+        "time": null,
+        "total": 18.048
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/soda_hall.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 82381,
+          "closure_counted": 82381,
+          "export_ms": 126.0,
+          "load_ms": null,
+          "peak_rss_bytes": 175768656,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 602.0,
+          "wall_ms": 1886.675083
+        }
+      ],
+      "scenario": "brick-soda-hall",
+      "status": "ok",
+      "summary": {
+        "closure": 82381,
+        "export_median_ms": 126.0,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 2133.607,
+        "peak_rss_bytes": 175768656,
+        "peak_rss_min_bytes": 175768656,
+        "reason_median_ms": null,
+        "total_median_ms": 602.0,
+        "wall_median_ms": 1886.675
+      },
+      "x_turbowl": {
+        "peak_rss": 15.846,
+        "time": null,
+        "total": 27.12
+      }
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/benches/python/buildings/ACAD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AMRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AOB4(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AQUA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARTX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ASMUN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BIXB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BRIG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BWFP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/Bainer(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/C113(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEMX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CONT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/COWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CRUS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CURR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/DH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/EPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/FDPD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GBSF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GHA_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GIEDT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GILM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUNT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUTCH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HWC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/JUNGER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KERR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KING(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KLEIBER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LFH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LSA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MADDY(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MANN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MATH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MEYR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MIWF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MRAK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MUSIC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/OLS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PES_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PHSL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PINE(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PRB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RECH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ROES(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RPL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RYER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCHM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SEQU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SHIELDS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLAB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLEC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SMOA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SOCS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SPRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/STOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SURGE3(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TAPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THUR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TUPP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VEIH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM2(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3A(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3B(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMEP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMIF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMLF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WELL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WSRC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/YOUNG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-animal-shelter(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-movie-theatre(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-public-works-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-recreation-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-veterans-hall(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/berkeley-corporate-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee-13-dec-2019(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/csu-dominguez-hills(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/garber(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-1(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-8(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/jesse-turner-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/local-butcher-shop(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/north-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-community-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-public-library(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/rfs(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/sdh(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/south-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/word-of-faith-cc(v1.1).ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 1366430,
+          "closure_counted": 1366430,
+          "load_ms": 62.288375,
+          "peak_rss_bytes": 169804400,
+          "profile": {
+            "changed_ms": 10.336,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 2051200,
+              "canon": 4,
+              "diagnostics": 6480,
+              "dictionary_entries": 2293760,
+              "dictionary_slots": 2097152,
+              "dictionary_text": 6344704,
+              "findings": 416,
+              "largest": [
+                {
+                  "object_index": 8489968,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 8489872,
+                  "tuples": 1061222
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<https://brickschema.org/schema/1.1/Brick#hasTag>",
+                  "recent": 96,
+                  "stable": 946816,
+                  "tuples": 118340
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<https://brickschema.org/schema/1.1/Brick#isTagOf>",
+                  "recent": 96,
+                  "stable": 946816,
+                  "tuples": 118340
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/2002/07/owl#sameAs>",
+                  "recent": 96,
+                  "stable": 423648,
+                  "tuples": 52944
+                },
+                {
+                  "object_index": 182296,
+                  "predicate": "<http://www.w3.org/2000/01/rdf-schema#subClassOf>",
+                  "recent": 96,
+                  "stable": 182200,
+                  "tuples": 22763
+                }
+              ],
+              "other": 268160,
+              "store_other": {
+                "object_index": 203520,
+                "recent": 4800,
+                "stable": 5010256,
+                "tuples": 624823
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 8489968,
+                "recent": 96,
+                "stable": 8489872,
+                "tuples": 1061222
+              },
+              "total": 35271028
+            },
+            "round_count": 7,
+            "rounds": {
+              "delta": [
+                203109,
+                490366,
+                139768,
+                318512,
+                406436,
+                122587,
+                5267
+              ],
+              "emitted": [
+                [
+                  226,
+                  212223,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2860,
+                  316843,
+                  52944
+                ],
+                [
+                  151462,
+                  172794,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  460,
+                  3712,
+                  0
+                ],
+                [
+                  1320749,
+                  145330,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  3469,
+                  0,
+                  0
+                ],
+                [
+                  2383297,
+                  260883,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2406,
+                  0,
+                  0
+                ],
+                [
+                  12464862,
+                  456350,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  19237,
+                  262144,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  7025,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.018,
+                  0.396,
+                  0.0,
+                  0.002,
+                  0.56,
+                  0.0,
+                  0.0,
+                  0.231,
+                  16.278,
+                  3.301
+                ],
+                [
+                  0.498,
+                  0.274,
+                  0.0,
+                  3.537,
+                  15.453,
+                  0.012,
+                  0.001,
+                  0.045,
+                  14.431,
+                  7.444
+                ],
+                [
+                  2.734,
+                  0.252,
+                  0.0,
+                  0.034,
+                  0.215,
+                  0.0,
+                  0.0,
+                  0.144,
+                  0.084,
+                  0.062
+                ],
+                [
+                  14.218,
+                  0.48,
+                  0.0,
+                  0.331,
+                  0.498,
+                  0.0,
+                  0.001,
+                  0.113,
+                  0.215,
+                  0.143
+                ],
+                [
+                  25.723,
+                  0.792,
+                  0.0,
+                  5.261,
+                  0.64,
+                  0.0,
+                  0.001,
+                  0.051,
+                  0.271,
+                  0.181
+                ],
+                [
+                  0.672,
+                  0.484,
+                  0.0,
+                  4.719,
+                  0.2,
+                  0.0,
+                  0.001,
+                  0.004,
+                  0.106,
+                  0.075
+                ],
+                [
+                  0.011,
+                  0.017,
+                  0.0,
+                  0.216,
+                  0.009,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.004,
+                  0.003
+                ]
+              ],
+              "ms": [
+                20.896,
+                41.919,
+                3.598,
+                16.15,
+                33.105,
+                6.311,
+                0.262
+              ]
+            },
+            "rules_ms": 122.241,
+            "sort_ms": 181.807,
+            "step_ms": 192.164,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                0.657,
+                1.293,
+                1.728,
+                4.421,
+                1.435,
+                0.734,
+                0.067
+              ],
+              "ms": [
+                0.005,
+                9.504,
+                5.472,
+                20.982,
+                36.313,
+                116.347,
+                3.421,
+                0.12
+              ],
+              "new": [
+                203109,
+                490366,
+                139768,
+                318512,
+                406436,
+                122587,
+                5267,
+                0
+              ],
+              "pairs": [
+                203109,
+                491395,
+                258467,
+                509826,
+                809455,
+                651155,
+                175057,
+                7025
+              ],
+              "sort_ms": [
+                0.0,
+                8.842,
+                4.177,
+                19.252,
+                31.889,
+                114.909,
+                2.686,
+                0.052
+              ]
+            }
+          },
+          "reason_ms": 318.592583,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "brick-buildings",
+      "status": "ok",
+      "summary": {
+        "closure": 1366430,
+        "export_median_ms": null,
+        "load_median_ms": 62.288,
+        "max_ms": 318.593,
+        "measure": "reason_ms",
+        "median_ms": 318.593,
+        "min_ms": 318.593,
+        "peak_bytes_per_closure_triple": 124.269,
+        "peak_rss_bytes": 169804400,
+        "peak_rss_min_bytes": 169804400,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 1.5,
+            "dictionary": 7.9,
+            "not_counted": 98.5,
+            "peak": 124.3,
+            "rest": 0.2,
+            "store": 16.3
+          },
+          "changed_median_ms": 10.336,
+          "memory": {
+            "base": 2051200,
+            "dictionary": 10735616,
+            "rest": 275060,
+            "store": 22209152,
+            "total": 35271028
+          },
+          "rounds": 7,
+          "rules_median_ms": 122.241,
+          "sort_median_ms": 181.807,
+          "step_median_ms": 192.164
+        },
+        "reason_median_ms": 318.593,
+        "total_median_ms": 380.881,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/benches/python/buildings/ACAD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AMRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AOB4(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AQUA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARTX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ASMUN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BIXB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BRIG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BWFP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/Bainer(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/C113(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEMX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CONT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/COWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CRUS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CURR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/DH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/EPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/FDPD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GBSF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GHA_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GIEDT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GILM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUNT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUTCH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HWC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/JUNGER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KERR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KING(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KLEIBER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LFH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LSA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MADDY(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MANN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MATH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MEYR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MIWF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MRAK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MUSIC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/OLS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PES_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PHSL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PINE(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PRB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RECH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ROES(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RPL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RYER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCHM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SEQU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SHIELDS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLAB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLEC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SMOA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SOCS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SPRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/STOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SURGE3(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TAPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THUR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TUPP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VEIH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM2(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3A(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3B(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMEP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMIF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMLF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WELL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WSRC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/YOUNG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-animal-shelter(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-movie-theatre(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-public-works-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-recreation-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-veterans-hall(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/berkeley-corporate-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee-13-dec-2019(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/csu-dominguez-hills(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/garber(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-1(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-8(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/jesse-turner-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/local-butcher-shop(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/north-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-community-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-public-library(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/rfs(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/sdh(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/south-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/word-of-faith-cc(v1.1).ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 1366430,
+          "closure_counted": 1366430,
+          "export_ms": 754.0,
+          "load_ms": 1957.0,
+          "peak_rss_bytes": 539608048,
+          "reason_ms": 43289.0,
+          "status": "ok",
+          "wall_ms": 46008.249209
+        }
+      ],
+      "scenario": "brick-buildings",
+      "status": "ok",
+      "summary": {
+        "closure": 1366430,
+        "export_median_ms": 754.0,
+        "load_median_ms": 1957.0,
+        "max_ms": 43289.0,
+        "measure": "reason_ms",
+        "median_ms": 43289.0,
+        "min_ms": 43289.0,
+        "peak_bytes_per_closure_triple": 394.904,
+        "peak_rss_bytes": 539608048,
+        "peak_rss_min_bytes": 539608048,
+        "reason_median_ms": 43289.0,
+        "total_median_ms": 45246.0,
+        "wall_median_ms": 46008.249
+      },
+      "x_turbowl": {
+        "peak_rss": 3.178,
+        "time": 135.876,
+        "total": 118.793
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/benches/python/buildings/ACAD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AMRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AOB4(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AQUA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARTX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ASMUN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BIXB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BRIG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BWFP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/Bainer(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/C113(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEMX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CONT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/COWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CRUS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CURR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/DH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/EPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/FDPD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GBSF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GHA_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GIEDT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GILM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUNT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUTCH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HWC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/JUNGER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KERR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KING(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KLEIBER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LFH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LSA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MADDY(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MANN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MATH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MEYR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MIWF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MRAK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MUSIC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/OLS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PES_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PHSL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PINE(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PRB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RECH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ROES(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RPL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RYER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCHM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SEQU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SHIELDS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLAB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLEC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SMOA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SOCS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SPRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/STOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SURGE3(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TAPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THUR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TUPP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VEIH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM2(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3A(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3B(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMEP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMIF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMLF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WELL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WSRC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/YOUNG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-animal-shelter(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-movie-theatre(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-public-works-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-recreation-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-veterans-hall(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/berkeley-corporate-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee-13-dec-2019(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/csu-dominguez-hills(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/garber(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-1(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-8(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/jesse-turner-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/local-butcher-shop(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/north-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-community-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-public-library(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/rfs(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/sdh(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/south-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/word-of-faith-cc(v1.1).ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 1366430,
+          "closure_counted": 1366430,
+          "load_ms": null,
+          "peak_rss_bytes": 619496384,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 10713.494167,
+          "wall_ms": 10713.494167
+        }
+      ],
+      "scenario": "brick-buildings",
+      "status": "ok",
+      "summary": {
+        "closure": 1366430,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 453.369,
+        "peak_rss_bytes": 619496384,
+        "peak_rss_min_bytes": 619496384,
+        "reason_median_ms": null,
+        "total_median_ms": 10713.494,
+        "wall_median_ms": 10713.494
+      },
+      "x_turbowl": {
+        "peak_rss": 3.648,
+        "time": null,
+        "total": 28.128
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/benches/python/buildings/ACAD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AMRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AOB4(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/AQUA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ARTX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ASMUN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BIXB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BRIG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/BWFP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/Bainer(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/C113(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CHEMX(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CONT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/COWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CRUS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/CURR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/DH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/EPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/FDPD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GBSF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GHA_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GIEDT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/GILM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HART(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUNT(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HUTCH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/HWC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/JUNGER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KERR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KING(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/KLEIBER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LFH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/LSA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MADDY(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MANN(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MATH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MEYR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MIWF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MRAK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MSD(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/MUSIC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/OLS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PES_ICS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PHSL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PINE(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/PRB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RECH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ROES(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RPL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/RYER(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SCHM(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SEQU(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SHIELDS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLAB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SLEC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SMOA(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SOCS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SPRL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/STOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SURGE3(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/SWL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TAPS(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THOR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/THUR(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/TUPP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VEIH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM2(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3A(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VM3B(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMEP(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMIF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMLF(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTH(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHB(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/VMTHC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WELL(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WICK(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/WSRC(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/YOUNG(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-animal-shelter(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-movie-theatre(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-public-works-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-recreation-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/avenal-veterans-hall(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/berkeley-corporate-yard(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/ciee-13-dec-2019(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/csu-dominguez-hills(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/garber(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-1(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/hayward-station-8(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/jesse-turner-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/local-butcher-shop(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/north-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-community-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/orinda-public-library(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/rfs(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/sdh(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/south-berkeley-senior-center(v1.1).ttl",
+        "<repo>/data/reasonable/benches/python/buildings/word-of-faith-cc(v1.1).ttl"
+      ],
+      "message": "its memory, 16517 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "brick-buildings",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-1.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 225358,
+          "closure_counted": 225358,
+          "load_ms": 32.366082999999996,
+          "peak_rss_bytes": 39797216,
+          "profile": {
+            "changed_ms": 1.488,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 931992,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 1146880,
+              "dictionary_slots": 524288,
+              "dictionary_text": 1586176,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 1613536,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 1613440,
+                  "tuples": 201668
+                },
+                {
+                  "object_index": 195824,
+                  "predicate": "<http://example.org/univ-bench#takesCourse>",
+                  "recent": 96,
+                  "stable": 195728,
+                  "tuples": 24454
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/2002/07/owl#sameAs>",
+                  "recent": 96,
+                  "stable": 161648,
+                  "tuples": 20194
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#name>",
+                  "recent": 96,
+                  "stable": 137056,
+                  "tuples": 17120
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#publicationAuthor>",
+                  "recent": 96,
+                  "stable": 104696,
+                  "tuples": 13075
+                }
+              ],
+              "other": 132800,
+              "store_other": {
+                "object_index": 219192,
+                "recent": 3168,
+                "stable": 1094648,
+                "tuples": 136434
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 1613536,
+                "recent": 96,
+                "stable": 1613440,
+                "tuples": 201668
+              },
+              "total": 8876860
+            },
+            "round_count": 6,
+            "rounds": {
+              "delta": [
+                116060,
+                160894,
+                16570,
+                38869,
+                2867,
+                2842
+              ],
+              "emitted": [
+                [
+                  12,
+                  73990,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  10,
+                  113049,
+                  20194
+                ],
+                [
+                  16565,
+                  34864,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  262,
+                  0
+                ],
+                [
+                  255168,
+                  32953,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  477,
+                  0,
+                  0
+                ],
+                [
+                  182644,
+                  93378,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  152,
+                  0,
+                  0
+                ],
+                [
+                  53942,
+                  7216,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  10,
+                  0,
+                  0
+                ],
+                [
+                  25668,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.005,
+                  0.158,
+                  0.0,
+                  0.002,
+                  0.344,
+                  0.0,
+                  0.0,
+                  0.008,
+                  2.475,
+                  1.659
+                ],
+                [
+                  0.056,
+                  0.062,
+                  0.0,
+                  0.006,
+                  2.066,
+                  0.005,
+                  0.001,
+                  0.006,
+                  4.559,
+                  2.519
+                ],
+                [
+                  0.613,
+                  0.203,
+                  0.0,
+                  0.003,
+                  0.028,
+                  0.0,
+                  0.0,
+                  0.012,
+                  0.014,
+                  0.009
+                ],
+                [
+                  0.925,
+                  0.205,
+                  0.0,
+                  0.002,
+                  0.062,
+                  0.0,
+                  0.0,
+                  0.005,
+                  0.027,
+                  0.018
+                ],
+                [
+                  0.111,
+                  0.014,
+                  0.0,
+                  0.005,
+                  0.005,
+                  0.0,
+                  0.0,
+                  0.002,
+                  0.005,
+                  0.002
+                ],
+                [
+                  0.047,
+                  0.001,
+                  0.0,
+                  0.001,
+                  0.005,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.002,
+                  0.001
+                ]
+              ],
+              "ms": [
+                4.763,
+                9.357,
+                0.896,
+                1.269,
+                0.154,
+                0.061
+              ]
+            },
+            "rules_ms": 16.501,
+            "sort_ms": 11.792,
+            "step_ms": 13.301,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                0.255,
+                0.332,
+                0.321,
+                0.332,
+                0.17,
+                0.078
+              ],
+              "ms": [
+                0.006,
+                3.79,
+                1.147,
+                3.719,
+                3.526,
+                0.795,
+                0.319
+              ],
+              "new": [
+                116060,
+                160894,
+                16570,
+                38869,
+                2867,
+                2842,
+                0
+              ],
+              "pairs": [
+                116060,
+                169696,
+                38779,
+                89025,
+                57523,
+                21571,
+                13152
+              ],
+              "sort_ms": [
+                0.0,
+                3.531,
+                0.812,
+                3.392,
+                3.191,
+                0.625,
+                0.241
+              ]
+            }
+          },
+          "reason_ms": 30.868,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "lubm-1",
+      "status": "ok",
+      "summary": {
+        "closure": 225358,
+        "export_median_ms": null,
+        "load_median_ms": 32.366,
+        "max_ms": 30.868,
+        "measure": "reason_ms",
+        "median_ms": 30.868,
+        "min_ms": 30.868,
+        "peak_bytes_per_closure_triple": 176.596,
+        "peak_rss_bytes": 39797216,
+        "peak_rss_min_bytes": 39797216,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 4.1,
+            "dictionary": 14.5,
+            "not_counted": 137.2,
+            "peak": 176.6,
+            "rest": 0.6,
+            "store": 20.2
+          },
+          "changed_median_ms": 1.488,
+          "memory": {
+            "base": 931992,
+            "dictionary": 3257344,
+            "rest": 132804,
+            "store": 4554720,
+            "total": 8876860
+          },
+          "rounds": 6,
+          "rules_median_ms": 16.501,
+          "sort_median_ms": 11.792,
+          "step_median_ms": 13.301
+        },
+        "reason_median_ms": 30.868,
+        "total_median_ms": 63.234,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-1.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 225358,
+          "closure_counted": 225358,
+          "export_ms": 161.0,
+          "load_ms": 416.0,
+          "peak_rss_bytes": 84263464,
+          "reason_ms": 3638.0,
+          "status": "ok",
+          "wall_ms": 4235.307709
+        }
+      ],
+      "scenario": "lubm-1",
+      "status": "ok",
+      "summary": {
+        "closure": 225358,
+        "export_median_ms": 161.0,
+        "load_median_ms": 416.0,
+        "max_ms": 3638.0,
+        "measure": "reason_ms",
+        "median_ms": 3638.0,
+        "min_ms": 3638.0,
+        "peak_bytes_per_closure_triple": 373.909,
+        "peak_rss_bytes": 84263464,
+        "peak_rss_min_bytes": 84263464,
+        "reason_median_ms": 3638.0,
+        "total_median_ms": 4054.0,
+        "wall_median_ms": 4235.308
+      },
+      "x_turbowl": {
+        "peak_rss": 2.117,
+        "time": 117.857,
+        "total": 64.111
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-1.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 225358,
+          "closure_counted": 225358,
+          "load_ms": null,
+          "peak_rss_bytes": 164479528,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 671.107334,
+          "wall_ms": 671.107334
+        }
+      ],
+      "scenario": "lubm-1",
+      "status": "ok",
+      "summary": {
+        "closure": 225358,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 729.859,
+        "peak_rss_bytes": 164479528,
+        "peak_rss_min_bytes": 164479528,
+        "reason_median_ms": null,
+        "total_median_ms": 671.107,
+        "wall_median_ms": 671.107
+      },
+      "x_turbowl": {
+        "peak_rss": 4.133,
+        "time": null,
+        "total": 10.613
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-1.ttl"
+      ],
+      "message": "its memory, 16475 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "lubm-1",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-10.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 2451113,
+          "closure_counted": 2451113,
+          "load_ms": 318.24933300000004,
+          "peak_rss_bytes": 213090928,
+          "profile": {
+            "changed_ms": 14.129,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 10282096,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 9175040,
+              "dictionary_slots": 8388608,
+              "dictionary_text": 25378816,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 17272920,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 17272824,
+                  "tuples": 2159091
+                },
+                {
+                  "object_index": 2206712,
+                  "predicate": "<http://example.org/univ-bench#takesCourse>",
+                  "recent": 96,
+                  "stable": 2206616,
+                  "tuples": 275815
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/2002/07/owl#sameAs>",
+                  "recent": 96,
+                  "stable": 1752504,
+                  "tuples": 219051
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#name>",
+                  "recent": 96,
+                  "stable": 1505152,
+                  "tuples": 188132
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#publicationAuthor>",
+                  "recent": 96,
+                  "stable": 1129400,
+                  "tuples": 141163
+                }
+              ],
+              "other": 1050304,
+              "store_other": {
+                "object_index": 2408968,
+                "recent": 3168,
+                "stable": 12041120,
+                "tuples": 1504743
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 17272920,
+                "recent": 96,
+                "stable": 17272824,
+                "tuples": 2159091
+              },
+              "total": 103284604
+            },
+            "round_count": 6,
+            "rounds": {
+              "delta": [
+                1284823,
+                1724131,
+                170895,
+                421040,
+                31485,
+                31460
+              ],
+              "emitted": [
+                [
+                  12,
+                  816446,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  10,
+                  1206931,
+                  219051
+                ],
+                [
+                  174079,
+                  387797,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  262,
+                  0
+                ],
+                [
+                  2758514,
+                  342193,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  477,
+                  0,
+                  0
+                ],
+                [
+                  2007419,
+                  1021630,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  152,
+                  0,
+                  0
+                ],
+                [
+                  600031,
+                  80366,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  10,
+                  0,
+                  0
+                ],
+                [
+                  284125,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.008,
+                  1.481,
+                  0.0,
+                  0.002,
+                  4.02,
+                  0.0,
+                  0.0,
+                  0.008,
+                  25.415,
+                  18.351
+                ],
+                [
+                  0.312,
+                  0.658,
+                  0.0,
+                  0.003,
+                  22.22,
+                  0.048,
+                  0.001,
+                  0.006,
+                  64.896,
+                  34.538
+                ],
+                [
+                  6.35,
+                  0.638,
+                  0.0,
+                  0.003,
+                  0.271,
+                  0.0,
+                  0.0,
+                  0.011,
+                  0.136,
+                  0.096
+                ],
+                [
+                  11.583,
+                  2.031,
+                  0.0,
+                  0.002,
+                  0.646,
+                  0.0,
+                  0.0,
+                  0.005,
+                  0.278,
+                  0.187
+                ],
+                [
+                  1.029,
+                  0.132,
+                  0.0,
+                  0.002,
+                  0.057,
+                  0.0,
+                  0.0,
+                  0.003,
+                  0.024,
+                  0.016
+                ],
+                [
+                  0.571,
+                  0.003,
+                  0.0,
+                  0.002,
+                  0.049,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.023,
+                  0.015
+                ]
+              ],
+              "ms": [
+                50.618,
+                123.295,
+                7.611,
+                14.982,
+                1.322,
+                0.706
+              ]
+            },
+            "rules_ms": 198.533,
+            "sort_ms": 133.96,
+            "step_ms": 148.11,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                2.33,
+                3.07,
+                3.027,
+                3.038,
+                1.776,
+                0.886
+              ],
+              "ms": [
+                0.006,
+                41.933,
+                12.557,
+                42.841,
+                37.401,
+                9.512,
+                3.86
+              ],
+              "new": [
+                1284823,
+                1724131,
+                170895,
+                421040,
+                31485,
+                31460,
+                0
+              ],
+              "pairs": [
+                1284823,
+                1818447,
+                409654,
+                952117,
+                631042,
+                240316,
+                145675
+              ],
+              "sort_ms": [
+                0.0,
+                39.598,
+                9.483,
+                39.81,
+                34.361,
+                7.735,
+                2.973
+              ]
+            }
+          },
+          "reason_ms": 358.59616700000004,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "lubm-10",
+      "status": "ok",
+      "summary": {
+        "closure": 2451113,
+        "export_median_ms": null,
+        "load_median_ms": 318.249,
+        "max_ms": 358.596,
+        "measure": "reason_ms",
+        "median_ms": 358.596,
+        "min_ms": 358.596,
+        "peak_bytes_per_closure_triple": 86.936,
+        "peak_rss_bytes": 213090928,
+        "peak_rss_min_bytes": 213090928,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 4.2,
+            "dictionary": 17.5,
+            "not_counted": 44.8,
+            "peak": 86.9,
+            "rest": 0.4,
+            "store": 20.0
+          },
+          "changed_median_ms": 14.129,
+          "memory": {
+            "base": 10282096,
+            "dictionary": 42942464,
+            "rest": 1050308,
+            "store": 49009736,
+            "total": 103284604
+          },
+          "rounds": 6,
+          "rules_median_ms": 198.533,
+          "sort_median_ms": 133.96,
+          "step_median_ms": 148.11
+        },
+        "reason_median_ms": 358.596,
+        "total_median_ms": 676.846,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-10.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 2451113,
+          "closure_counted": 2451113,
+          "export_ms": 1737.0,
+          "load_ms": 4207.0,
+          "peak_rss_bytes": 956171704,
+          "reason_ms": 40971.0,
+          "status": "ok",
+          "wall_ms": 46932.987875
+        }
+      ],
+      "scenario": "lubm-10",
+      "status": "ok",
+      "summary": {
+        "closure": 2451113,
+        "export_median_ms": 1737.0,
+        "load_median_ms": 4207.0,
+        "max_ms": 40971.0,
+        "measure": "reason_ms",
+        "median_ms": 40971.0,
+        "min_ms": 40971.0,
+        "peak_bytes_per_closure_triple": 390.097,
+        "peak_rss_bytes": 956171704,
+        "peak_rss_min_bytes": 956171704,
+        "reason_median_ms": 40971.0,
+        "total_median_ms": 45178.0,
+        "wall_median_ms": 46932.988
+      },
+      "x_turbowl": {
+        "peak_rss": 4.487,
+        "time": 114.254,
+        "total": 66.748
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-10.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 2451113,
+          "closure_counted": 2451113,
+          "load_ms": null,
+          "peak_rss_bytes": 1837598592,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 8931.217625000001,
+          "wall_ms": 8931.217625000001
+        }
+      ],
+      "scenario": "lubm-10",
+      "status": "ok",
+      "summary": {
+        "closure": 2451113,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 749.7,
+        "peak_rss_bytes": 1837598592,
+        "peak_rss_min_bytes": 1837598592,
+        "reason_median_ms": null,
+        "total_median_ms": 8931.218,
+        "wall_median_ms": 8931.218
+      },
+      "x_turbowl": {
+        "peak_rss": 8.624,
+        "time": null,
+        "total": 13.195
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-10.ttl"
+      ],
+      "message": "its memory, 16412 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "lubm-10",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 12519479,
+          "closure_counted": 12519479,
+          "load_ms": 1599.301333,
+          "peak_rss_bytes": 991184192,
+          "profile": {
+            "changed_ms": 74.285,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 52582928,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 36700160,
+              "dictionary_slots": 33554432,
+              "dictionary_text": 101515264,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 88288840,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 88288744,
+                  "tuples": 11036081
+                },
+                {
+                  "object_index": 11374744,
+                  "predicate": "<http://example.org/univ-bench#takesCourse>",
+                  "recent": 96,
+                  "stable": 11374648,
+                  "tuples": 1421819
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/2002/07/owl#sameAs>",
+                  "recent": 96,
+                  "stable": 8976704,
+                  "tuples": 1122076
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#name>",
+                  "recent": 96,
+                  "stable": 7702536,
+                  "tuples": 962805
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#publicationAuthor>",
+                  "recent": 96,
+                  "stable": 5692648,
+                  "tuples": 711569
+                }
+              ],
+              "other": 8390336,
+              "store_other": {
+                "object_index": 12370936,
+                "recent": 3168,
+                "stable": 61542944,
+                "tuples": 7692419
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 88288840,
+                "recent": 96,
+                "stable": 88288744,
+                "tuples": 11036081
+              },
+              "total": 483248492
+            },
+            "round_count": 6,
+            "rounds": {
+              "delta": [
+                6572427,
+                8816993,
+                869302,
+                2156147,
+                156828,
+                156803
+              ],
+              "emitted": [
+                [
+                  12,
+                  4157053,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  10,
+                  6173699,
+                  1122076
+                ],
+                [
+                  886040,
+                  1974795,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  48,
+                  262,
+                  0
+                ],
+                [
+                  14133727,
+                  1720958,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  477,
+                  0,
+                  0
+                ],
+                [
+                  10329713,
+                  5192323,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  152,
+                  0,
+                  0
+                ],
+                [
+                  3024903,
+                  408836,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  10,
+                  0,
+                  0
+                ],
+                [
+                  1416217,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.013,
+                  8.05,
+                  0.0,
+                  0.002,
+                  23.465,
+                  0.0,
+                  0.001,
+                  0.012,
+                  139.451,
+                  164.269
+                ],
+                [
+                  1.88,
+                  3.664,
+                  0.0,
+                  0.004,
+                  116.711,
+                  0.25,
+                  0.001,
+                  0.007,
+                  378.889,
+                  223.131
+                ],
+                [
+                  33.957,
+                  3.16,
+                  0.0,
+                  0.004,
+                  1.964,
+                  0.0,
+                  0.001,
+                  0.013,
+                  0.962,
+                  0.722
+                ],
+                [
+                  65.736,
+                  10.372,
+                  0.0,
+                  0.008,
+                  3.378,
+                  0.0,
+                  0.0,
+                  0.007,
+                  1.45,
+                  0.966
+                ],
+                [
+                  5.963,
+                  0.729,
+                  0.0,
+                  0.004,
+                  0.344,
+                  0.0,
+                  0.001,
+                  0.004,
+                  0.179,
+                  0.104
+                ],
+                [
+                  2.662,
+                  0.005,
+                  0.0,
+                  0.007,
+                  0.327,
+                  0.0,
+                  0.0,
+                  0.001,
+                  0.173,
+                  0.107
+                ]
+              ],
+              "ms": [
+                343.085,
+                728.233,
+                41.46,
+                83.161,
+                7.666,
+                3.595
+              ]
+            },
+            "rules_ms": 1207.2,
+            "sort_ms": 753.675,
+            "step_ms": 827.992,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                12.193,
+                17.5,
+                15.822,
+                15.069,
+                8.999,
+                4.701
+              ],
+              "ms": [
+                0.007,
+                236.842,
+                70.322,
+                239.74,
+                207.765,
+                52.353,
+                20.963
+              ],
+              "new": [
+                6572427,
+                8816993,
+                869302,
+                2156147,
+                156828,
+                156803,
+                0
+              ],
+              "pairs": [
+                6572427,
+                9297088,
+                2091221,
+                4864405,
+                3235663,
+                1215478,
+                726735
+              ],
+              "sort_ms": [
+                0.0,
+                224.642,
+                52.816,
+                223.91,
+                192.693,
+                43.353,
+                16.26
+              ]
+            }
+          },
+          "reason_ms": 2103.897667,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "lubm-50",
+      "status": "ok",
+      "summary": {
+        "closure": 12519479,
+        "export_median_ms": null,
+        "load_median_ms": 1599.301,
+        "max_ms": 2103.898,
+        "measure": "reason_ms",
+        "median_ms": 2103.898,
+        "min_ms": 2103.898,
+        "peak_bytes_per_closure_triple": 79.171,
+        "peak_rss_bytes": 991184192,
+        "peak_rss_min_bytes": 991184192,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 4.2,
+            "dictionary": 13.7,
+            "not_counted": 40.6,
+            "peak": 79.2,
+            "rest": 0.7,
+            "store": 20.0
+          },
+          "changed_median_ms": 74.285,
+          "memory": {
+            "base": 52582928,
+            "dictionary": 171769856,
+            "rest": 8390340,
+            "store": 250505368,
+            "total": 483248492
+          },
+          "rounds": 6,
+          "rules_median_ms": 1207.2,
+          "sort_median_ms": 753.675,
+          "step_median_ms": 827.992
+        },
+        "reason_median_ms": 2103.898,
+        "total_median_ms": 3703.199,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 12519479,
+          "closure_counted": 12519479,
+          "export_ms": 8647.0,
+          "load_ms": 23421.0,
+          "peak_rss_bytes": 3916222568,
+          "reason_ms": 213651.0,
+          "status": "ok",
+          "wall_ms": 245750.708417
+        }
+      ],
+      "scenario": "lubm-50",
+      "status": "ok",
+      "summary": {
+        "closure": 12519479,
+        "export_median_ms": 8647.0,
+        "load_median_ms": 23421.0,
+        "max_ms": 213651.0,
+        "measure": "reason_ms",
+        "median_ms": 213651.0,
+        "min_ms": 213651.0,
+        "peak_bytes_per_closure_triple": 312.81,
+        "peak_rss_bytes": 3916222568,
+        "peak_rss_min_bytes": 3916222568,
+        "reason_median_ms": 213651.0,
+        "total_median_ms": 237072.0,
+        "wall_median_ms": 245750.708
+      },
+      "x_turbowl": {
+        "peak_rss": 3.951,
+        "time": 101.55,
+        "total": 64.018
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 12519479,
+          "closure_counted": 12519479,
+          "load_ms": null,
+          "peak_rss_bytes": 9657852016,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 55048.74825,
+          "wall_ms": 55048.74825
+        }
+      ],
+      "scenario": "lubm-50",
+      "status": "ok",
+      "summary": {
+        "closure": 12519479,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 771.426,
+        "peak_rss_bytes": 9657852016,
+        "peak_rss_min_bytes": 9657852016,
+        "reason_median_ms": null,
+        "total_median_ms": 55048.748,
+        "wall_median_ms": 55048.748
+      },
+      "x_turbowl": {
+        "peak_rss": 9.744,
+        "time": null,
+        "total": 14.865
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
+      ],
+      "message": "the run exited with signal: 15 (SIGTERM) and wrote no result (out of memory?)",
+      "runs": [],
+      "scenario": "lubm-50",
+      "status": "error",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [
+            0.7290000000000001,
+            0.2015,
+            0.72575,
+            0.6577500000000001,
+            0.448208,
+            0.8045829999999999,
+            0.220375,
+            0.229708,
+            0.227416,
+            0.262917,
+            0.939041,
+            1.07775,
+            0.28774999999999995,
+            0.283916,
+            0.968,
+            0.248125,
+            0.911875,
+            0.929916,
+            0.5632919999999999,
+            0.923542,
+            0.239875,
+            0.234292,
+            0.240542,
+            0.239292,
+            0.871584,
+            0.863209,
+            0.230042,
+            0.237667,
+            0.8242079999999999,
+            0.233083,
+            0.802458,
+            0.776833,
+            0.4625,
+            0.737958,
+            0.188542,
+            0.18075,
+            0.190333,
+            0.201458,
+            0.7505,
+            0.728666,
+            0.1865,
+            0.1875,
+            0.726,
+            0.196166,
+            0.753833,
+            0.768542,
+            0.484791,
+            0.809542,
+            0.195709,
+            0.188125,
+            0.196334,
+            0.195375,
+            0.666458,
+            0.6539999999999999,
+            0.187625,
+            0.188,
+            0.6457499999999999,
+            0.18725,
+            0.653792,
+            0.6655,
+            0.455541,
+            0.734167,
+            0.20125,
+            0.19375,
+            0.200583,
+            0.201042,
+            0.706542,
+            0.696583,
+            0.19575,
+            0.195542,
+            0.726,
+            0.196667,
+            0.7105,
+            0.723875,
+            0.4613330000000001,
+            0.7420420000000001,
+            0.187917,
+            0.180916,
+            0.188542,
+            0.188375,
+            0.665875,
+            0.673958,
+            0.18825,
+            0.188584,
+            0.697083,
+            0.201375,
+            0.733084,
+            0.76025,
+            0.4705,
+            0.782333,
+            0.197708,
+            0.189416,
+            0.201917,
+            0.197791,
+            0.689167,
+            0.6990409999999999,
+            0.198083,
+            0.197292,
+            0.703,
+            0.197667
+          ],
+          "closure": 48748,
+          "closure_counted": 48748,
+          "load_ms": 10.100334,
+          "peak_rss_bytes": 7635376,
+          "profile": {
+            "changed_ms": 0.654,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 120632,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 143360,
+              "dictionary_slots": 131072,
+              "dictionary_text": 396544,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 180792,
+                  "predicate": "<http://www.w3.org/2000/01/rdf-schema#subClassOf>",
+                  "recent": 96,
+                  "stable": 180696,
+                  "tuples": 22575
+                },
+                {
+                  "object_index": 83320,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 83224,
+                  "tuples": 10379
+                },
+                {
+                  "object_index": 19112,
+                  "predicate": "<http://www.w3.org/2002/07/owl#equivalentClass>",
+                  "recent": 96,
+                  "stable": 19016,
+                  "tuples": 2365
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>",
+                  "recent": 96,
+                  "stable": 23112,
+                  "tuples": 2877
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>",
+                  "recent": 96,
+                  "stable": 23112,
+                  "tuples": 2877
+                }
+              ],
+              "other": 33800,
+              "store_other": {
+                "object_index": 201632,
+                "recent": 3360,
+                "stable": 330248,
+                "tuples": 40837
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 83320,
+                "recent": 96,
+                "stable": 83224,
+                "tuples": 10379
+              },
+              "total": 1537932
+            },
+            "round_count": 7,
+            "rounds": {
+              "delta": [
+                14860,
+                13650,
+                8899,
+                7521,
+                5146,
+                209,
+                1
+              ],
+              "emitted": [
+                [
+                  226,
+                  8858,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2860,
+                  6715,
+                  1130
+                ],
+                [
+                  5555,
+                  8429,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  458,
+                  3606,
+                  0
+                ],
+                [
+                  42318,
+                  4,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  3353,
+                  0,
+                  0
+                ],
+                [
+                  58967,
+                  2981,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2392,
+                  0,
+                  0
+                ],
+                [
+                  52548,
+                  465,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  456,
+                  247,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  3,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.021,
+                  0.034,
+                  0.0,
+                  0.002,
+                  0.036,
+                  0.0,
+                  0.0,
+                  0.271,
+                  0.189,
+                  0.122
+                ],
+                [
+                  0.259,
+                  0.021,
+                  0.0,
+                  0.118,
+                  0.173,
+                  0.0,
+                  0.001,
+                  0.049,
+                  0.232,
+                  0.113
+                ],
+                [
+                  0.365,
+                  0.002,
+                  0.0,
+                  0.002,
+                  0.017,
+                  0.0,
+                  0.0,
+                  0.162,
+                  0.008,
+                  0.005
+                ],
+                [
+                  0.464,
+                  0.009,
+                  0.0,
+                  0.004,
+                  0.014,
+                  0.0,
+                  0.0,
+                  0.12,
+                  0.006,
+                  0.004
+                ],
+                [
+                  0.4,
+                  0.003,
+                  0.0,
+                  0.004,
+                  0.009,
+                  0.0,
+                  0.0,
+                  0.052,
+                  0.004,
+                  0.003
+                ],
+                [
+                  0.014,
+                  0.003,
+                  0.0,
+                  0.003,
+                  0.001,
+                  0.0,
+                  0.0,
+                  0.003,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.007,
+                  0.001,
+                  0.0,
+                  0.001,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "ms": [
+                0.691,
+                0.98,
+                0.57,
+                0.633,
+                0.482,
+                0.025,
+                0.01
+              ]
+            },
+            "rules_ms": 3.39,
+            "sort_ms": 2.47,
+            "step_ms": 3.138,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                0.043,
+                0.107,
+                0.179,
+                0.238,
+                0.078,
+                0.008,
+                0.0
+              ],
+              "ms": [
+                0.006,
+                0.368,
+                0.385,
+                0.786,
+                0.984,
+                0.593,
+                0.015,
+                0.001
+              ],
+              "new": [
+                14860,
+                13650,
+                8899,
+                7521,
+                5146,
+                209,
+                1,
+                0
+              ],
+              "pairs": [
+                14860,
+                14575,
+                12716,
+                18706,
+                19761,
+                6813,
+                357,
+                3
+              ],
+              "sort_ms": [
+                0.0,
+                0.322,
+                0.276,
+                0.605,
+                0.746,
+                0.514,
+                0.007,
+                0.0
+              ]
+            }
+          },
+          "reason_ms": 6.751084,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "incremental-add",
+      "status": "ok",
+      "summary": {
+        "closure": 48748,
+        "export_median_ms": null,
+        "load_median_ms": 10.1,
+        "max_ms": 0.368,
+        "measure": "change_median_ms",
+        "median_ms": 0.368,
+        "min_ms": 0.368,
+        "peak_bytes_per_closure_triple": 156.63,
+        "peak_rss_bytes": 7635376,
+        "peak_rss_min_bytes": 7635376,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 2.5,
+            "dictionary": 13.8,
+            "not_counted": 125.1,
+            "peak": 156.6,
+            "rest": 0.7,
+            "store": 14.6
+          },
+          "changed_median_ms": 0.654,
+          "memory": {
+            "base": 120632,
+            "dictionary": 670976,
+            "rest": 33804,
+            "store": 712520,
+            "total": 1537932
+          },
+          "rounds": 7,
+          "rules_median_ms": 3.39,
+          "sort_median_ms": 2.47,
+          "step_median_ms": 3.138
+        },
+        "reason_median_ms": 6.751,
+        "total_median_ms": 16.851,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": "a Datalog engine runs a program once over its input; it has no incremental changes",
+      "runs": [],
+      "scenario": "incremental-add",
+      "status": "unsupported",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": "a Datalog engine runs a program once over its input; it has no incremental changes",
+      "runs": [],
+      "scenario": "incremental-add",
+      "status": "unsupported",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": "a Datalog engine runs a program once over its input; it has no incremental changes",
+      "runs": [],
+      "scenario": "incremental-add",
+      "status": "unsupported",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [
+            6.247166999999999,
+            6.33775,
+            6.202709,
+            6.248458,
+            6.152,
+            6.102792,
+            6.216374999999999,
+            6.1203330000000005,
+            6.14525,
+            6.128125,
+            6.030875,
+            6.2604169999999995,
+            6.334458000000001,
+            6.13,
+            6.160457999999999,
+            6.0617090000000005,
+            6.17075,
+            6.086125,
+            6.051792000000001,
+            6.34075,
+            6.236625,
+            5.996292,
+            6.04925,
+            6.183,
+            6.378375,
+            5.9765,
+            6.06475,
+            6.002459,
+            6.194875,
+            6.262333,
+            6.129083,
+            7.301625,
+            8.171666,
+            8.937917,
+            9.448041,
+            9.398292,
+            8.784583,
+            7.221166,
+            6.796708000000001,
+            6.803916999999999,
+            6.481,
+            6.43325,
+            6.459917,
+            6.435625,
+            6.746375,
+            6.638917,
+            6.505249999999999,
+            6.478541,
+            6.389542,
+            6.435333,
+            6.400125,
+            6.423208,
+            6.424458,
+            6.426583,
+            6.435459,
+            6.421125,
+            6.409,
+            6.447417000000001,
+            6.433584,
+            6.400208999999999,
+            6.399833,
+            6.429208,
+            6.388875,
+            6.222250000000001,
+            6.157458,
+            6.102125,
+            6.147583,
+            6.11275,
+            6.054333000000001,
+            6.1295,
+            6.094625000000001,
+            6.131374999999999,
+            6.118541,
+            6.095459,
+            6.136709,
+            6.061667,
+            6.1188329999999995,
+            6.121583,
+            6.058,
+            6.123916,
+            6.1627920000000005,
+            6.1112079999999995,
+            6.125541,
+            6.1613750000000005,
+            6.118250000000001,
+            6.093334,
+            6.074209,
+            6.103,
+            6.151584,
+            6.102792,
+            6.076625000000001,
+            6.130833,
+            6.065708000000001,
+            6.090833,
+            6.077208,
+            6.0195,
+            6.1505,
+            6.041291,
+            6.079584,
+            6.076333
+          ],
+          "closure": 47009,
+          "closure_counted": 47009,
+          "load_ms": 9.083375,
+          "peak_rss_bytes": 14074288,
+          "profile": {
+            "changed_ms": 0.639,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality",
+              "identity",
+              "schema",
+              "trivial",
+              "literal-values"
+            ],
+            "memory": {
+              "base": 119176,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 143360,
+              "dictionary_slots": 131072,
+              "dictionary_text": 396544,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 177464,
+                  "predicate": "<http://www.w3.org/2000/01/rdf-schema#subClassOf>",
+                  "recent": 96,
+                  "stable": 177368,
+                  "tuples": 22159
+                },
+                {
+                  "object_index": 77824,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 77728,
+                  "tuples": 9704
+                },
+                {
+                  "object_index": 19080,
+                  "predicate": "<http://www.w3.org/2002/07/owl#equivalentClass>",
+                  "recent": 96,
+                  "stable": 18984,
+                  "tuples": 2361
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>",
+                  "recent": 96,
+                  "stable": 23112,
+                  "tuples": 2877
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>",
+                  "recent": 96,
+                  "stable": 23112,
+                  "tuples": 2877
+                }
+              ],
+              "other": 34360,
+              "store_other": {
+                "object_index": 198264,
+                "recent": 3264,
+                "stable": 321832,
+                "tuples": 39821
+              },
+              "store_rest": 10640,
+              "store_type": {
+                "object_index": 77824,
+                "recent": 96,
+                "stable": 77728,
+                "tuples": 9704
+              },
+              "total": 1514164
+            },
+            "round_count": 7,
+            "rounds": {
+              "delta": [
+                14860,
+                13650,
+                8899,
+                7521,
+                5146,
+                209,
+                1
+              ],
+              "emitted": [
+                [
+                  226,
+                  8858,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2860,
+                  6715,
+                  1130
+                ],
+                [
+                  5555,
+                  8429,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  458,
+                  3606,
+                  0
+                ],
+                [
+                  42318,
+                  4,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  3353,
+                  0,
+                  0
+                ],
+                [
+                  58967,
+                  2981,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  2392,
+                  0,
+                  0
+                ],
+                [
+                  52548,
+                  465,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  456,
+                  247,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  3,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.02,
+                  0.031,
+                  0.0,
+                  0.002,
+                  0.034,
+                  0.0,
+                  0.0,
+                  0.263,
+                  0.172,
+                  0.095
+                ],
+                [
+                  0.249,
+                  0.019,
+                  0.0,
+                  0.111,
+                  0.168,
+                  0.0,
+                  0.001,
+                  0.048,
+                  0.222,
+                  0.108
+                ],
+                [
+                  0.354,
+                  0.002,
+                  0.0,
+                  0.003,
+                  0.016,
+                  0.0,
+                  0.0,
+                  0.155,
+                  0.008,
+                  0.005
+                ],
+                [
+                  0.452,
+                  0.01,
+                  0.0,
+                  0.004,
+                  0.014,
+                  0.0,
+                  0.0,
+                  0.121,
+                  0.006,
+                  0.004
+                ],
+                [
+                  0.389,
+                  0.003,
+                  0.0,
+                  0.004,
+                  0.009,
+                  0.0,
+                  0.0,
+                  0.05,
+                  0.004,
+                  0.003
+                ],
+                [
+                  0.014,
+                  0.003,
+                  0.0,
+                  0.003,
+                  0.001,
+                  0.0,
+                  0.0,
+                  0.003,
+                  0.001,
+                  0.0
+                ],
+                [
+                  0.008,
+                  0.001,
+                  0.0,
+                  0.001,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              ],
+              "ms": [
+                0.63,
+                0.939,
+                0.551,
+                0.622,
+                0.47,
+                0.025,
+                0.011
+              ]
+            },
+            "rules_ms": 3.249,
+            "sort_ms": 2.434,
+            "step_ms": 3.087,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                0.04,
+                0.101,
+                0.18,
+                0.232,
+                0.078,
+                0.008,
+                0.0
+              ],
+              "ms": [
+                0.005,
+                0.353,
+                0.365,
+                0.773,
+                0.981,
+                0.592,
+                0.015,
+                0.002
+              ],
+              "new": [
+                14860,
+                13650,
+                8899,
+                7521,
+                5146,
+                209,
+                1,
+                0
+              ],
+              "pairs": [
+                14860,
+                14575,
+                12716,
+                18706,
+                19761,
+                6813,
+                357,
+                3
+              ],
+              "sort_ms": [
+                0.0,
+                0.311,
+                0.263,
+                0.592,
+                0.748,
+                0.514,
+                0.007,
+                0.0
+              ]
+            }
+          },
+          "reason_ms": 6.54375,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "incremental-remove",
+      "status": "ok",
+      "summary": {
+        "closure": 47009,
+        "export_median_ms": null,
+        "load_median_ms": 9.083,
+        "max_ms": 6.159,
+        "measure": "change_median_ms",
+        "median_ms": 6.159,
+        "min_ms": 6.159,
+        "peak_bytes_per_closure_triple": 299.396,
+        "peak_rss_bytes": 14074288,
+        "peak_rss_min_bytes": 14074288,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 2.5,
+            "dictionary": 14.3,
+            "not_counted": 267.2,
+            "peak": 299.4,
+            "rest": 0.7,
+            "store": 14.7
+          },
+          "changed_median_ms": 0.639,
+          "memory": {
+            "base": 119176,
+            "dictionary": 670976,
+            "rest": 34364,
+            "store": 689648,
+            "total": 1514164
+          },
+          "rounds": 7,
+          "rules_median_ms": 3.249,
+          "sort_median_ms": 2.434,
+          "step_median_ms": 3.087
+        },
+        "reason_median_ms": 6.544,
+        "total_median_ms": 15.627,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": "a Datalog engine runs a program once over its input; it has no incremental changes",
+      "runs": [],
+      "scenario": "incremental-remove",
+      "status": "unsupported",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": "a Datalog engine runs a program once over its input; it has no incremental changes",
+      "runs": [],
+      "scenario": "incremental-remove",
+      "status": "unsupported",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
+      ],
+      "message": "a Datalog engine runs a program once over its input; it has no incremental changes",
+      "runs": [],
+      "scenario": "incremental-remove",
+      "status": "unsupported",
+      "summary": null,
+      "x_turbowl": null
+    }
+  ],
+  "scaling": [
+    {
+      "engine": "turbowl",
+      "family": "lubm",
+      "memory_exponent": 0.789,
+      "missing": [],
+      "points": [
+        {
+          "input_triples": 116513,
+          "peak_rss_bytes": 39797216,
+          "scenario": "lubm-1",
+          "total_median_ms": 63.234
+        },
+        {
+          "input_triples": 1290416,
+          "peak_rss_bytes": 213090928,
+          "scenario": "lubm-10",
+          "total_median_ms": 676.846
+        },
+        {
+          "input_triples": 6600957,
+          "peak_rss_bytes": 991184192,
+          "scenario": "lubm-50",
+          "total_median_ms": 3703.199
+        }
+      ],
+      "time_exponent": 1.007
+    },
+    {
+      "engine": "nemo",
+      "family": "lubm",
+      "memory_exponent": 0.955,
+      "missing": [],
+      "points": [
+        {
+          "input_triples": 116513,
+          "peak_rss_bytes": 84263464,
+          "scenario": "lubm-1",
+          "total_median_ms": 4054.0
+        },
+        {
+          "input_triples": 1290416,
+          "peak_rss_bytes": 956171704,
+          "scenario": "lubm-10",
+          "total_median_ms": 45178.0
+        },
+        {
+          "input_triples": 6600957,
+          "peak_rss_bytes": 3916222568,
+          "scenario": "lubm-50",
+          "total_median_ms": 237072.0
+        }
+      ],
+      "time_exponent": 1.007
+    },
+    {
+      "engine": "souffle",
+      "family": "lubm",
+      "memory_exponent": 1.008,
+      "missing": [],
+      "points": [
+        {
+          "input_triples": 116513,
+          "peak_rss_bytes": 164479528,
+          "scenario": "lubm-1",
+          "total_median_ms": 671.107
+        },
+        {
+          "input_triples": 1290416,
+          "peak_rss_bytes": 1837598592,
+          "scenario": "lubm-10",
+          "total_median_ms": 8931.218
+        },
+        {
+          "input_triples": 6600957,
+          "peak_rss_bytes": 9657852016,
+          "scenario": "lubm-50",
+          "total_median_ms": 55048.748
+        }
+      ],
+      "time_exponent": 1.091
+    },
+    {
+      "engine": "vlog",
+      "family": "lubm",
+      "memory_exponent": null,
+      "missing": [
+        {
+          "scenario": "lubm-1",
+          "status": "over-memory"
+        },
+        {
+          "scenario": "lubm-10",
+          "status": "over-memory"
+        },
+        {
+          "scenario": "lubm-50",
+          "status": "error"
+        }
+      ],
+      "points": [],
+      "time_exponent": null
+    }
+  ],
+  "schema": 9
+}

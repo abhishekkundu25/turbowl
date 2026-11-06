@@ -1,0 +1,13 @@
+commit 1faa436, start 02:42:56, load 2.84 2.42 2.29
+== full_runs_match_the_reference_1: exit 0 after 2065 s, load 8.72 8.50 8.02
+== full_runs_match_the_reference_0: exit 0 after 2118 s, load 8.11 8.35 7.99
+== incremental_runs_match_a_full_run_1: exit 0 after 2496 s, load 5.69 6.54 7.21
+== incremental_runs_match_a_full_run_0: exit 0 after 2502 s, load 5.32 6.45 7.17
+test full_runs_match_the_reference_0 ... full shard 0: 49580 compared ({"complete": 16579, "default": 16718, "random": 16283}); not compared: 420 too large for the reference
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2114.93s
+test full_runs_match_the_reference_1 ... full shard 1: 49572 compared ({"complete": 16369, "default": 16836, "random": 16367}); not compared: 428 too large for the reference
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2061.77s
+test incremental_runs_match_a_full_run_0 ... incremental shard 0: 49595 compared ({"complete": 16675, "default": 16589, "random": 16331}); not compared: 405 too large for the reference
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2498.19s
+test incremental_runs_match_a_full_run_1 ... incremental shard 1: 49581 compared ({"complete": 16465, "default": 16709, "random": 16407}); not compared: 419 too large for the reference
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2492.69s

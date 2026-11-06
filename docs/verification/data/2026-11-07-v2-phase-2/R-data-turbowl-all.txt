@@ -1,0 +1,64 @@
+load average before: 3.55 3.36 3.45
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+claros-l turbowl run 1/1 ... 2684.2 ms
+uobm-010-l turbowl run 1/1 ... 104.5 ms
+uobm-010-u turbowl run 1/1 ... 412.4 ms
+owl2bench-rl-1 turbowl run 1/1 ... 69.5 ms
+owl2bench-rl-2 turbowl run 1/1 ... 259.2 ms
+owl2bench-rl-5 turbowl run 1/1 ... 3079.2 ms
+lubm-uba-10-l turbowl run 1/1 ... 22.1 ms
+lubm-uba-100-l turbowl run 1/1 ... 176.2 ms
+load average after: 4.83 3.70 3.57
+warning: load average over 1 after the runs
+claros-l: counting the data and the ontology's own closure (not timed) ...
+uobm-010-u: counting the data and the ontology's own closure (not timed) ...
+
+TurbOWL bench: default configuration, turbowl on all cores, 1 runs each; load average 3.55 3.36 3.45 before, 4.83 3.70 3.57 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| claros-l | turbowl | 1 | 2930.1 | 2684.2 | 2684.2 | 2684.2 | 5614.2 | 5711 | 91006354 | 66 | 1.00 | 1.00 | 1.00 |
+| uobm-010-l | turbowl | 1 | 280.6 | 104.5 | 104.5 | 104.5 | 385.1 | 231 | 4602841 | 53 | 1.00 | 1.00 | 1.00 |
+| uobm-010-u | turbowl | 1 | 293.3 | 412.4 | 412.4 | 412.4 | 705.6 | 506 | 21319560 | 25 | 1.00 | 1.00 | 1.00 |
+| owl2bench-rl-1 | turbowl | 1 | 33.1 | 69.5 | 69.5 | 69.5 | 102.6 | 84 | 1449561 | 61 | 1.00 | 1.00 | 1.00 |
+| owl2bench-rl-2 | turbowl | 1 | 60.1 | 259.2 | 259.2 | 259.2 | 319.3 | 294 | 5014109 | 61 | 1.00 | 1.00 | 1.00 |
+| owl2bench-rl-5 | turbowl | 1 | 189.5 | 3079.2 | 3079.2 | 3079.2 | 3268.7 | 3284 | 53294620 | 65 | 1.00 | 1.00 | 1.00 |
+| lubm-uba-10-l | turbowl | 1 | 722.0 | 22.1 | 22.1 | 22.1 | 744.1 | 207 | 1961993 | 110 | 1.00 | 1.00 | 1.00 |
+| lubm-uba-100-l | turbowl | 1 | 7709.4 | 176.2 | 176.2 | 176.2 | 7885.6 | 2128 | 20659897 | 108 | 1.00 | 1.00 | 1.00 |
+
+Breakdown (turbowl): bytes per closure triple, the peak and what the reasoner holds after the run
+(rest: canon, findings, diagnostics; not counted: peak - held). Times: medians of the full run's.
+
+| scenario | B/triple peak | dictionary | base | store | rest | not counted | rounds | rules ms | step ms | sort ms | changed ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| claros-l | 65.8 | 7.5 | 1.7 | 13.6 | 3.3 | 39.7 | 5 | 687.9 | 1821.7 | 2575.3 | 460.0 |
+| uobm-010-l | 52.7 | 8.4 | 3.9 | 11.4 | 0.5 | 28.6 | 6 | 29.1 | 49.2 | 79.5 | 31.9 |
+| uobm-010-u | 24.9 | 1.8 | 0.8 | 7.6 | 0.1 | 14.5 | 14 | 191.9 | 173.1 | 217.6 | 110.1 |
+| owl2bench-rl-1 | 60.9 | 0.9 | 0.3 | 15.6 | 0.0 | 44.1 | 7 | 49.1 | 16.5 | 18.8 | 3.5 |
+| owl2bench-rl-2 | 61.4 | 0.5 | 0.2 | 15.7 | 0.0 | 45.0 | 7 | 183.8 | 61.5 | 64.3 | 14.4 |
+| owl2bench-rl-5 | 64.6 | 0.1 | 0.1 | 15.9 | 0.0 | 48.5 | 7 | 2255.0 | 665.7 | 605.5 | 121.1 |
+| lubm-uba-10-l | 110.4 | 19.7 | 5.2 | 12.1 | 0.0 | 73.4 | 6 | 8.1 | 13.3 | 14.0 | 4.7 |
+| lubm-uba-100-l | 108.0 | 16.6 | 5.2 | 12.1 | 0.0 | 74.1 | 6 | 68.1 | 103.4 | 125.0 | 36.6 |
+
+Published counts: turbowl's before is the data's distinct triples; its after, the closure less
+the triples of the ontology's own closure that are not data. A paper's count is printed to its precision.
+
+| scenario | turbowl before | turbowl after (closure - ontology alone) | paper | program | variant | paper before -> after | before | after |
+|---|---:|---:|---|---|---|---|---|---|
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | aaai2014-a | Oxford AAAI 2014 Claros_L (2,174 rules) | L | 18.8 M -> 95.5 M | matches | differs (-4.7%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | aaai2014-b | Oxford AAAI 2014 Claros_L (2,174 rules) | L | 18.8 M -> 95.5 M | matches | differs (-4.7%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | aaai2015 | AAAI 2015 Claros L-eq (1,312 rules, 42 with owl:sameAs in the head) | L-eq AX | 19 M -> 102 M | matches | differs (-10.8%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | aaai2015 | AAAI 2015 Claros L-eq (1,312 rules) | L-eq REW | 19 M -> 79.7 M | matches | differs (+14.2%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | aij2019 | AIJ 2019 Claros L (1,310 rules) | L | 18.8 M -> 73.8 M | matches | differs (+23.3%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | vlog2016 | Oxford AAAI 2014 Claros_L (VLog's rewriting: 2,689 rules) | L | 18.8 M -> 95.5 M | matches | differs (-4.7%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | cikm2019 | Claros L (1,310 rules, as AIJ 2019) | L | 18.8 M -> 73.8 M | matches | differs (+23.3%) |
+| claros-l | 18793277 | 91002501 (91006354 - 3853) | glog2021 | Claros L (VLog's rewriting: 2,689 rules) | L | 13.8 M -> ? | differs (+36.2%) | not published |
+| uobm-010-u | 2217286 | 21318447 (21319560 - 1113) | aaai2014-a | Oxford AAAI 2014 UOBM_U (518 rules) | U | 2.2 M -> 35.6 M | matches | differs (-40.1%) |
+| uobm-010-u | 2217286 | 21318447 (21319560 - 1113) | aaai2015 | AAAI 2015 UOBM U-eq (279 rules, 4 with owl:sameAs in the head) | U-eq AX | 2.2 M -> 36 M | matches | differs (-40.8%) |
+| uobm-010-u | 2217286 | 21318447 (21319560 - 1113) | aaai2015 | AAAI 2015 UOBM U-eq (279 rules) | U-eq REW | 2.2 M -> 9.7 M | matches | differs (+119.8%) |
+
+wrote <scratch>/race2/R-data-turbowl-all.json

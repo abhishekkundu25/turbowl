@@ -1,0 +1,142 @@
+# Scoreboard
+
+- <scratch>/race2/R-default-editor-one.json: schema 9, 2026-11-06T22:05:56Z at 1faa4369c6, configuration default, one thread, load average 3.96 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+- <scratch>/race2/R-default-editor-all.json: schema 9, 2026-11-06T22:06:09Z at 1faa4369c6, configuration default, all cores, load average 3.31 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+- <scratch>/race2/R-complete-editor-one.json: schema 9, 2026-11-06T22:31:57Z at 1faa4369c6, configuration complete, one thread, load average 4.04 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+- <scratch>/race2/R-complete-editor-all.json: schema 9, 2026-11-06T22:32:15Z at d662fe024d, configuration complete, all cores, load average 3.33 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+
+Each cell is the median over the runs (min..max). The leader has the lowest median and leads only when its range lies below every other engine's; overlapping ranges tie. Soufflé and VLog report load and reasoning as one time: their reasoning is n/a, and Soufflé's total also holds writing its output (README).
+
+## default configuration, one thread
+
+From <scratch>/race2/R-default-editor-one.json.
+
+| scenario | axis | turbowl | nemo | souffle | vlog | leader |
+|---|---|---:|---:|---:|---:|---|
+| brick-small1 | reasoning | 2.3 ms (2.3 ms..4.2 ms) | 293.0 ms (293.0 ms..299.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| brick-small1 | total (load + reasoning) | 11.5 ms (11.0 ms..22.5 ms) | 353.0 ms (351.0 ms..367.0 ms) | 100.2 ms (100.2 ms..136.4 ms) | 146.0 ms (140.0 ms..173.0 ms) | turbowl |
+| brick-small1 | peak memory | 6 MB (6 MB..6 MB) | 17 MB (17 MB..17 MB) | 9 MB (9 MB..10 MB) | 87 MB (76 MB..88 MB) | turbowl |
+| brick-soda-hall | reasoning | 4.6 ms (4.6 ms..5.9 ms) | 731.0 ms (723.0 ms..732.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| brick-soda-hall | total (load + reasoning) | 16.1 ms (15.4 ms..19.2 ms) | 811.0 ms (802.0 ms..822.0 ms) | 199.8 ms (194.1 ms..209.5 ms) | 242.0 ms (241.0 ms..253.0 ms) | turbowl |
+| brick-soda-hall | peak memory | 7 MB (7 MB..7 MB) | 20 MB (20 MB..20 MB) | 18 MB (17 MB..18 MB) | 83 MB (83 MB..84 MB) | turbowl |
+| brick-buildings | reasoning | 88.5 ms (85.4 ms..88.6 ms) | 18.6 s (18.3 s..18.6 s) | n/a (not split) | n/a (not split) | turbowl |
+| brick-buildings | total (load + reasoning) | 158.4 ms (157.8 ms..167.6 ms) | 19.7 s (19.4 s..19.7 s) | 6986.9 ms (6921.2 ms..7079.4 ms) | 4141.0 ms (4111.0 ms..4158.0 ms) | turbowl |
+| brick-buildings | peak memory | 43 MB (43 MB..43 MB) | 244 MB (244 MB..247 MB) | 354 MB (341 MB..357 MB) | 471 MB (471 MB..471 MB) | turbowl |
+| lubm-1 | reasoning | 5.9 ms (5.9 ms..6.0 ms) | 931.0 ms (930.0 ms..931.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-1 | total (load + reasoning) | 29.7 ms (29.7 ms..31.1 ms) | 1135.0 ms (1127.0 ms..1136.0 ms) | 199.8 ms (198.5 ms..202.1 ms) | 309.0 ms (308.0 ms..313.0 ms) | turbowl |
+| lubm-1 | peak memory | 25 MB (25 MB..25 MB) | 46 MB (46 MB..46 MB) | 50 MB (50 MB..50 MB) | 113 MB (113 MB..113 MB) | turbowl |
+| lubm-10 | reasoning | 69.4 ms (69.3 ms..69.5 ms) | 10.7 s (10.7 s..10.8 s) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-10 | total (load + reasoning) | 380.4 ms (372.8 ms..391.0 ms) | 12.9 s (12.7 s..13.0 s) | 2634.5 ms (2522.2 ms..2657.0 ms) | 3338.0 ms (3284.0 ms..3652.0 ms) | turbowl |
+| lubm-10 | peak memory | 119 MB (119 MB..122 MB) | 526 MB (525 MB..529 MB) | 574 MB (574 MB..574 MB) | 549 MB (548 MB..551 MB) | turbowl |
+| lubm-50 | reasoning | 394.6 ms (384.9 ms..406.6 ms) | 58.6 s (58.2 s..58.7 s) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-50 | total (load + reasoning) | 2019.3 ms (1955.8 ms..2099.7 ms) | 70.3 s (69.6 s..70.7 s) | 15.8 s (15.1 s..16.2 s) | 17.5 s (17.4 s..18.2 s) | turbowl |
+| lubm-50 | peak memory | 461 MB (460 MB..462 MB) | 2071 MB (1996 MB..2207 MB) | 3003 MB (3003 MB..3003 MB) | 2735 MB (2733 MB..2747 MB) | turbowl |
+| incremental-add | per change | 0.2 ms (0.2 ms..0.2 ms) | unsupported | unsupported | unsupported | turbowl |
+| incremental-add | peak memory | 6 MB (6 MB..6 MB) | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | per change | 1.9 ms (1.9 ms..1.9 ms) | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | peak memory | 13 MB (13 MB..13 MB) | unsupported | unsupported | unsupported | turbowl |
+
+turbowl leads 22 and ties 0 of the 22 where an engine finished.
+
+## default configuration, all cores
+
+From <scratch>/race2/R-default-editor-all.json.
+
+| scenario | axis | turbowl | nemo | souffle | vlog | leader |
+|---|---|---:|---:|---:|---:|---|
+| brick-small1 | reasoning | 2.3 ms (2.3 ms..2.3 ms) | not run | not run | not run | turbowl |
+| brick-small1 | total (load + reasoning) | 10.9 ms (10.8 ms..11.0 ms) | not run | not run | not run | turbowl |
+| brick-small1 | peak memory | 6 MB (6 MB..6 MB) | not run | not run | not run | turbowl |
+| brick-soda-hall | reasoning | 4.6 ms (4.6 ms..4.6 ms) | not run | not run | not run | turbowl |
+| brick-soda-hall | total (load + reasoning) | 15.7 ms (15.4 ms..15.9 ms) | not run | not run | not run | turbowl |
+| brick-soda-hall | peak memory | 7 MB (7 MB..7 MB) | not run | not run | not run | turbowl |
+| brick-buildings | reasoning | 41.0 ms (40.8 ms..41.1 ms) | not run | not run | not run | turbowl |
+| brick-buildings | total (load + reasoning) | 93.7 ms (93.2 ms..118.5 ms) | not run | not run | not run | turbowl |
+| brick-buildings | peak memory | 75 MB (72 MB..76 MB) | not run | not run | not run | turbowl |
+| lubm-1 | reasoning | 5.6 ms (5.6 ms..5.8 ms) | not run | not run | not run | turbowl |
+| lubm-1 | total (load + reasoning) | 19.0 ms (18.9 ms..19.5 ms) | not run | not run | not run | turbowl |
+| lubm-1 | peak memory | 34 MB (33 MB..35 MB) | not run | not run | not run | turbowl |
+| lubm-10 | reasoning | 23.0 ms (22.2 ms..24.8 ms) | not run | not run | not run | turbowl |
+| lubm-10 | total (load + reasoning) | 170.4 ms (169.6 ms..171.1 ms) | not run | not run | not run | turbowl |
+| lubm-10 | peak memory | 155 MB (153 MB..156 MB) | not run | not run | not run | turbowl |
+| lubm-50 | reasoning | 94.4 ms (94.4 ms..99.2 ms) | not run | not run | not run | turbowl |
+| lubm-50 | total (load + reasoning) | 891.7 ms (888.5 ms..916.8 ms) | not run | not run | not run | turbowl |
+| lubm-50 | peak memory | 521 MB (517 MB..522 MB) | not run | not run | not run | turbowl |
+| incremental-add | per change | 0.2 ms (0.2 ms..0.2 ms) | not run | not run | not run | turbowl |
+| incremental-add | peak memory | 6 MB (6 MB..6 MB) | not run | not run | not run | turbowl |
+| incremental-remove | per change | 1.9 ms (1.8 ms..1.9 ms) | not run | not run | not run | turbowl |
+| incremental-remove | peak memory | 13 MB (13 MB..14 MB) | not run | not run | not run | turbowl |
+
+turbowl leads 22 and ties 0 of the 22 where an engine finished.
+
+## complete configuration, one thread
+
+From <scratch>/race2/R-complete-editor-one.json.
+
+| scenario | axis | turbowl | nemo | souffle | vlog | leader |
+|---|---|---:|---:|---:|---:|---|
+| brick-small1 | reasoning | 6.2 ms | 1195.0 ms | n/a (not split) | n/a (not split) | turbowl |
+| brick-small1 | total (load + reasoning) | 14.9 ms | 1312.0 ms | 269.4 ms | 405.0 ms | turbowl |
+| brick-small1 | peak memory | 7 MB | 26 MB | 22 MB | 156 MB | turbowl |
+| brick-soda-hall | reasoning | 10.9 ms | 2052.0 ms | n/a (not split) | n/a (not split) | turbowl |
+| brick-soda-hall | total (load + reasoning) | 22.2 ms | 2185.0 ms | 400.6 ms | 602.0 ms | turbowl |
+| brick-soda-hall | peak memory | 11 MB | 31 MB | 33 MB | 168 MB | turbowl |
+| brick-buildings | reasoning | 318.6 ms | 43.3 s | n/a (not split) | over-memory | turbowl |
+| brick-buildings | total (load + reasoning) | 380.9 ms | 45.2 s | 10.7 s | over-memory | turbowl |
+| brick-buildings | peak memory | 162 MB | 515 MB | 591 MB | over-memory | turbowl |
+| lubm-1 | reasoning | 30.9 ms | 3638.0 ms | n/a (not split) | over-memory | turbowl |
+| lubm-1 | total (load + reasoning) | 63.2 ms | 4054.0 ms | 671.1 ms | over-memory | turbowl |
+| lubm-1 | peak memory | 38 MB | 80 MB | 157 MB | over-memory | turbowl |
+| lubm-10 | reasoning | 358.6 ms | 41.0 s | n/a (not split) | over-memory | turbowl |
+| lubm-10 | total (load + reasoning) | 676.8 ms | 45.2 s | 8931.2 ms | over-memory | turbowl |
+| lubm-10 | peak memory | 203 MB | 912 MB | 1752 MB | over-memory | turbowl |
+| lubm-50 | reasoning | 2103.9 ms | 213.7 s | n/a (not split) | error | turbowl |
+| lubm-50 | total (load + reasoning) | 3703.2 ms | 237.1 s | 55.0 s | error | turbowl |
+| lubm-50 | peak memory | 945 MB | 3735 MB | 9210 MB | error | turbowl |
+| incremental-add | per change | 0.4 ms | unsupported | unsupported | unsupported | turbowl |
+| incremental-add | peak memory | 7 MB | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | per change | 6.2 ms | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | peak memory | 13 MB | unsupported | unsupported | unsupported | turbowl |
+
+turbowl leads 22 and ties 0 of the 22 where an engine finished.
+
+## complete configuration, all cores
+
+From <scratch>/race2/R-complete-editor-all.json.
+
+| scenario | axis | turbowl | nemo | souffle | vlog | leader |
+|---|---|---:|---:|---:|---:|---|
+| brick-small1 | reasoning | 5.9 ms (5.9 ms..6.2 ms) | not run | not run | not run | turbowl |
+| brick-small1 | total (load + reasoning) | 14.7 ms (14.6 ms..16.7 ms) | not run | not run | not run | turbowl |
+| brick-small1 | peak memory | 7 MB (7 MB..7 MB) | not run | not run | not run | turbowl |
+| brick-soda-hall | reasoning | 8.7 ms (8.7 ms..8.8 ms) | not run | not run | not run | turbowl |
+| brick-soda-hall | total (load + reasoning) | 19.6 ms (19.5 ms..22.1 ms) | not run | not run | not run | turbowl |
+| brick-soda-hall | peak memory | 14 MB (14 MB..15 MB) | not run | not run | not run | turbowl |
+| brick-buildings | reasoning | 152.7 ms (148.6 ms..156.6 ms) | not run | not run | not run | turbowl |
+| brick-buildings | total (load + reasoning) | 209.4 ms (205.2 ms..225.9 ms) | not run | not run | not run | turbowl |
+| brick-buildings | peak memory | 410 MB (407 MB..411 MB) | not run | not run | not run | turbowl |
+| lubm-1 | reasoning | 17.1 ms (17.0 ms..17.2 ms) | not run | not run | not run | turbowl |
+| lubm-1 | total (load + reasoning) | 30.1 ms (30.0 ms..30.4 ms) | not run | not run | not run | turbowl |
+| lubm-1 | peak memory | 49 MB (48 MB..50 MB) | not run | not run | not run | turbowl |
+| lubm-10 | reasoning | 158.6 ms (158.3 ms..160.8 ms) | not run | not run | not run | turbowl |
+| lubm-10 | total (load + reasoning) | 309.2 ms (309.2 ms..317.4 ms) | not run | not run | not run | turbowl |
+| lubm-10 | peak memory | 295 MB (294 MB..296 MB) | not run | not run | not run | turbowl |
+| lubm-50 | reasoning | 898.5 ms (896.9 ms..900.2 ms) | not run | not run | not run | turbowl |
+| lubm-50 | total (load + reasoning) | 1694.3 ms (1693.1 ms..1704.1 ms) | not run | not run | not run | turbowl |
+| lubm-50 | peak memory | 1562 MB (1555 MB..1573 MB) | not run | not run | not run | turbowl |
+| incremental-add | per change | 0.3 ms (0.3 ms..0.3 ms) | not run | not run | not run | turbowl |
+| incremental-add | peak memory | 7 MB (7 MB..7 MB) | not run | not run | not run | turbowl |
+| incremental-remove | per change | 5.5 ms (5.5 ms..5.5 ms) | not run | not run | not run | turbowl |
+| incremental-remove | peak memory | 13 MB (13 MB..13 MB) | not run | not run | not run | turbowl |
+
+turbowl leads 22 and ties 0 of the 22 where an engine finished.
+
+## Estimates: RDFox through its published results
+
+Never measured here, and always an estimate: RDFox's time in the paper x the bridge's time here / the bridge's time in the paper, on the same job (`src/published.rs` says when). A published RDFox number is a floor: RDFox has improved since (ADR 0006).
+
+No estimate: no published result meets every condition.

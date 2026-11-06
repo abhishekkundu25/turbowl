@@ -1,0 +1,19 @@
+03:25:18 load 4.13 6.02 6.98 :: race at 1faa436
+03:25:18 load 4.13 6.02 6.98 :: start R-default-editor-one: --engines turbowl,nemo,souffle,vlog --runs 3 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --threads one
+03:35:56 load 3.31 3.41 4.88 :: end R-default-editor-one: exit 0
+03:35:56 load 3.31 3.41 4.88 :: start R-default-editor-all: --engines turbowl --runs 3 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --threads all
+03:36:09 load 4.04 3.56 4.91 :: end R-default-editor-all: exit 0
+03:36:09 load 4.04 3.56 4.91 :: start R-complete-editor-one: --engines turbowl,nemo,souffle,vlog --runs 1 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --threads one --complete
+04:01:57 load 3.33 3.28 3.44 :: end R-complete-editor-one: exit 1
+04:01:57 load 3.33 3.28 3.44 :: start R-complete-editor-all: --engines turbowl --runs 3 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --threads all --complete
+04:02:15 load 3.99 3.44 3.49 :: end R-complete-editor-all: exit 0
+04:02:15 load 3.99 3.44 3.49 :: start R-loading-lubm50-one: --engines turbowl --runs 5 --only lubm-50 --threads one
+04:02:31 load 3.62 3.39 3.47 :: end R-loading-lubm50-one: exit 0
+04:02:31 load 3.62 3.39 3.47 :: start R-loading-lubm50-all: --engines turbowl --runs 5 --only lubm-50 --threads all
+04:02:41 load 3.29 3.32 3.45 :: end R-loading-lubm50-all: exit 0
+04:02:41 load 3.29 3.32 3.45 :: start R-data-turbowl-one: --engines turbowl --runs 1 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2,uobm-010-u,owl2bench-rl-5,lubm-uba-100-l,claros-l --threads one
+04:03:46 load 3.55 3.36 3.45 :: end R-data-turbowl-one: exit 0
+04:03:46 load 3.55 3.36 3.45 :: start R-data-turbowl-all: --engines turbowl --runs 1 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2,uobm-010-u,owl2bench-rl-5,lubm-uba-100-l,claros-l --threads all
+04:04:39 load 4.81 3.75 3.59 :: end R-data-turbowl-all: exit 0
+04:04:39 load 4.81 3.75 3.59 :: snapshot budget
+04:04:46 load 4.58 3.72 3.58 :: race end

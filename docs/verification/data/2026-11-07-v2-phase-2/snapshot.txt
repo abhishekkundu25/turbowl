@@ -1,0 +1,11 @@
+parse+reason 0.92
+snapshot-load 0.10
+parse+reason 0.93
+snapshot-load 0.10
+parse+reason 0.92
+snapshot-load 0.10
+parse+reason 0.92
+snapshot-load 0.10
+parse+reason 0.93
+snapshot-load 0.10
+snapshot bytes 285441174
