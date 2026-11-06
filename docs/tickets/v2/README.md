@@ -30,6 +30,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 19 | [Snapshots](19-snapshots.md) | done (budget at the close-out) | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
 | 20 | [The improvement loop](20-improvement-loop.md) | done (two gaps accepted) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
 | 21 | [Close-out: phase 2](21-close-out-phase-2.md) | todo | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
+| 27 | [The full-size scoreboard race](27-full-scoreboard-race.md) | todo, pending the owner | 21 | `docs/verification/` (the scoreboard record) |
 | 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
 | 23 | [Removals: FBF](23-fbf.md) | todo | 22 | as for 22 |
 | 24 | [Close-out: phase 3 and the claim](24-close-out-phase-3.md) | todo | 22, 23 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
@@ -521,4 +522,7 @@ Departures from the plan, as they happen.
   build one split per property rule. lubm-50: reasoning 735 ms (version 1) to
   about 387 ms on one thread and 93 ms on all cores; peak memory 1,483 MB to
   about 482 MB on one thread and 544 MB on all cores.
+- **Owner decision, 2026-11-07: phase 2's close-out runs a short race**, the
+  editor-size scenarios only, without GLog or a multi-core Soufflé. The
+  full-size race is ticket 27, pending.
 
