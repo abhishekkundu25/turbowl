@@ -484,3 +484,16 @@ Departures from the plan, as they happen.
     can cost up to one more sequential parse (cap the overrun); a
     `Workers::every_round()` getter would be cleaner than detecting it
     with `engage(0)`.
+- **Owner decision, 2026-11-06: the memory budget measures the process's
+  footprint**, on one thread and on all cores, as the bench records it for
+  every engine. Iteration 6's probe had shown that on all cores the
+  reasoner never holds more than about 461 MB at once (under the 517.3 MB
+  budget) while the footprint reaches about 602 MB, mostly memory the
+  allocator keeps after the run frees it. With this answer the all-cores
+  budget stays open; the loop works on what the run allocates.
+- **Loop process, from iteration 4:** two candidates that touch disjoint
+  files may be built in parallel, but each is evaluated and decided alone,
+  against the version kept before it. From iteration 6 the all-cores peak
+  is judged on 10 alternating single runs per side, by medians and middle
+  halves: the bench's largest of 3 runs is noise on all cores.
+

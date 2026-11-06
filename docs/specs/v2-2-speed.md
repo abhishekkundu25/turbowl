@@ -122,6 +122,14 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
 - Peak memory on lubm-50 is at most 50 bytes per closure triple (RDFox
   uses 37 to 51), so that LUBM-1K L (182.4 M triples) fits in about 9 GB.
   Lowered from 85 by the owner on 2026-11-06.
+  The measure is the process's peak footprint, as the bench records it for
+  every engine, on one thread and on all cores (the owner, 2026-11-06),
+  not only the bytes the reasoner holds: memory it freed and the allocator
+  keeps counts. On all cores the largest of 10 alternating runs must stay
+  under 517.3 MB. The bytes in use are recorded beside it. The platform is
+  named with each number (here macOS, the system allocator), and no
+  allocator choice or memory-return call made by the bench or the CLI
+  counts toward it.
 - Every oracle agrees at every thread count, and 100,000 full and 100,000
   incremental chaos iterations pass.
 - The WebAssembly build passes; fmt and clippy are clean.
