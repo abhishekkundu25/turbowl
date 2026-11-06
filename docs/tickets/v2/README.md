@@ -502,3 +502,11 @@ Departures from the plan, as they happen.
   60 ms once on a lubm-50-sized input, microseconds on editor-sized ones),
   to bring the all-cores footprint under its budget (iteration 8's
   candidate 2, run as iteration 9).
+- **Owner decision, 2026-11-07: the all-cores memory gap is accepted.**
+  After loop iterations 1 to 9, lubm-50 on all cores peaks at about 547 MB
+  in the largest run against 517.3 MB (5.8% over); one thread meets the
+  budget. Closing it needed a large structural change (sharing the base
+  with the tables, or splitting IRIs), each a few hours at medium to high
+  risk. Phase 2's remaining effort goes to the all-cores speed-up and the
+  close-out; the two candidates stay open in the loop's list.
+

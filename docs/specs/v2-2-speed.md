@@ -130,6 +130,12 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
   named with each number (here macOS, the system allocator), and no
   allocator choice or memory-return call made by the bench or the CLI
   counts toward it.
+  On 2026-11-07 the owner accepted a gap on all cores: after loop
+  iterations 1 to 9, lubm-50's largest all-cores run peaks at about 547 MB
+  (52.9 bytes per closure triple), 30 MB (5.8%) over, while one thread
+  meets the budget at about 46.7. The remaining candidates were small and
+  overlapping, or large structural changes (sharing the base with the
+  tables, splitting IRIs); they stay open in `docs/specs/experiments.md`.
 - Every oracle agrees at every thread count, and 100,000 full and 100,000
   incremental chaos iterations pass.
 - The WebAssembly build passes; fmt and clippy are clean.
