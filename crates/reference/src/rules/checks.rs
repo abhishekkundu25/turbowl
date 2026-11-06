@@ -5,13 +5,14 @@
 //! in the same switch, is in `datatypes.rs`.
 //!
 //! The list rules (cax-adc, prp-adp, eq-diff2, eq-diff3) read positions
-//! along the paths from the head to `rdf:nil` ([`before`]).
+//! along the paths from the head to `rdf:nil` ([`before`]), each head once
+//! a diagnosis ([`pairs_before`]).
 
 use super::{EMPTY, Family, Found};
 use crate::evaluate::View;
 use crate::vocab::*;
 use oxrdf::{Literal, Term};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 const OWL: &str = "http://www.w3.org/2002/07/owl#";
 
@@ -83,14 +84,15 @@ fn diagnose(v: &View, found: &mut Vec<Found>) {
             }
         }
     }
-    different(v, found);
-    all_disjoint(v, found);
+    let mut read = HashMap::new();
+    different(v, &mut read, found);
+    all_disjoint(v, &mut read, found);
     negative_assertions(v, found);
     max_zero(v, found);
 }
 
 /// eq-diff1 (x, y); eq-diff2 and eq-diff3 (x, zi, zj).
-fn different(v: &View, found: &mut Vec<Found>) {
+fn different(v: &View, read: &mut HashMap<Term, HashSet<(Term, Term)>>, found: &mut Vec<Found>) {
     let same = iri(OWL_SAME_AS);
     // dt-diff's triples (`literal_values.rs`) are owl:differentFrom triples
     // the closure does not list.
@@ -103,11 +105,9 @@ fn different(v: &View, found: &mut Vec<Found>) {
     }
     for x in v.subjects(&iri(RDF_TYPE), &owl("AllDifferent")) {
         for (code, predicate) in [("eq-diff2", "members"), ("eq-diff3", "distinctMembers")] {
-            for head in v.objects(x, &owl(predicate)) {
-                for (zi, zj) in before(v, head) {
-                    if v.has(&zi, &same, &zj) {
-                        found.push((code, vec![x.clone(), zi, zj]));
-                    }
+            for (zi, zj) in pairs_before(v, v.objects(x, &owl(predicate)), read) {
+                if v.has(&zi, &same, &zj) {
+                    found.push((code, vec![x.clone(), zi, zj]));
                 }
             }
         }
@@ -115,26 +115,22 @@ fn different(v: &View, found: &mut Vec<Found>) {
 }
 
 /// cax-adc (z, ci, cj) and prp-adp (pi, pj, u, v).
-fn all_disjoint(v: &View, found: &mut Vec<Found>) {
+fn all_disjoint(v: &View, read: &mut HashMap<Term, HashSet<(Term, Term)>>, found: &mut Vec<Found>) {
     let (ty, members) = (iri(RDF_TYPE), owl("members"));
     for x in v.subjects(&ty, &owl("AllDisjointClasses")) {
-        for head in v.objects(x, &members) {
-            for (ci, cj) in before(v, head) {
-                for z in v.subjects(&ty, &ci) {
-                    if v.has(z, &ty, &cj) {
-                        found.push(("cax-adc", vec![z.clone(), ci.clone(), cj.clone()]));
-                    }
+        for (ci, cj) in pairs_before(v, v.objects(x, &members), read) {
+            for z in v.subjects(&ty, &ci) {
+                if v.has(z, &ty, &cj) {
+                    found.push(("cax-adc", vec![z.clone(), ci.clone(), cj.clone()]));
                 }
             }
         }
     }
     for x in v.subjects(&ty, &owl("AllDisjointProperties")) {
-        for head in v.objects(x, &members) {
-            for (pi, pj) in before(v, head) {
-                for (u, w) in v.pairs(&pi) {
-                    if v.has(u, &pj, w) {
-                        found.push(("prp-adp", vec![pi.clone(), pj.clone(), u.clone(), w.clone()]));
-                    }
+        for (pi, pj) in pairs_before(v, v.objects(x, &members), read) {
+            for (u, w) in v.pairs(&pi) {
+                if v.has(u, &pj, w) {
+                    found.push(("prp-adp", vec![pi.clone(), pj.clone(), u.clone(), w.clone()]));
                 }
             }
         }
@@ -240,13 +236,31 @@ fn before(v: &View, head: &Term) -> HashSet<(Term, Term)> {
     let mut live = vec![head.clone()];
     live.extend(after(head).into_iter().filter(|c| c != head));
     for l in &live {
-        for m in after(l) {
-            for a in v.objects(l, &first) {
-                for b in v.objects(&m, &first) {
-                    pairs.insert((a.clone(), b.clone()));
-                }
+        // The members after `l`, each once: when equality makes the cells
+        // aliases of each other, every cell is after `l` and holds every
+        // member.
+        let later: HashSet<&Term> = after(l).iter().flat_map(|m| v.objects(m, &first)).collect();
+        for a in v.objects(l, &first) {
+            for b in &later {
+                pairs.insert((a.clone(), (*b).clone()));
             }
         }
+    }
+    pairs
+}
+
+/// The pairs [`before`] gives over the lists at `heads`, each head read once
+/// a diagnosis (`read`): equality gives a list's head many aliases, each a
+/// head of the same list, and the same heads come back for each axiom.
+fn pairs_before(v: &View, heads: &[Term], read: &mut HashMap<Term, HashSet<(Term, Term)>>) -> HashSet<(Term, Term)> {
+    let mut pairs = HashSet::new();
+    for head in heads {
+        pairs.extend(
+            read.entry(head.clone())
+                .or_insert_with(|| before(v, head))
+                .iter()
+                .cloned(),
+        );
     }
     pairs
 }

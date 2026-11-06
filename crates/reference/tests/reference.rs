@@ -350,6 +350,30 @@ fn container_membership_derives_nothing() {
     expect_derived("ex:bag rdf:_1 ex:a . ex:bag rdf:_2 ex:b .", "");
 }
 
+/// `rdf:rest` equal to `owl:sameAs` makes every cell of a list, and
+/// `rdf:nil`, aliases of each other: each cell then comes after every cell,
+/// itself included, and every alias is a head of the list. Chaos found an
+/// input of this shape (seed 1592590597, iteration 27725) that took this
+/// evaluator 29 s, reading each alias's pairs anew.
+#[test]
+fn all_disjoint_over_a_list_whose_cells_are_all_equal() {
+    assert_eq!(
+        diagnostics(
+            "owl:sameAs owl:sameAs rdf:rest .
+             ex:X a owl:AllDisjointClasses ; owl:members ex:c1 .
+             ex:c1 rdf:first ex:A ; rdf:rest ex:c2 . ex:c2 rdf:first ex:B ; rdf:rest ex:c3 .
+             ex:c3 rdf:first ex:C ; rdf:rest rdf:nil .
+             ex:z a ex:A , ex:C ."
+        ),
+        findings(&[
+            ("cax-adc", &["ex:z", "ex:A", "ex:A"]),
+            ("cax-adc", &["ex:z", "ex:A", "ex:C"]),
+            ("cax-adc", &["ex:z", "ex:C", "ex:A"]),
+            ("cax-adc", &["ex:z", "ex:C", "ex:C"]),
+        ])
+    );
+}
+
 #[test]
 fn disjoint_classes_fire_once_in_the_stated_direction() {
     assert_eq!(
