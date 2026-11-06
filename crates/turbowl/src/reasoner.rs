@@ -783,6 +783,9 @@ impl Reasoner {
     /// fresh store (`full`), or from what was queued; again from the base
     /// after each restart. Returns the rounds.
     fn run(&mut self, full: bool) -> usize {
+        if full && self.workers.threads() > 1 {
+            self.terms.drop_slots();
+        }
         let families: Vec<&'static Family> = self.families.iter().filter(|f| f.is_on(self.switches)).collect();
         self.counters = Counters::new(&families);
         let mut start = full.then(equality::canon);

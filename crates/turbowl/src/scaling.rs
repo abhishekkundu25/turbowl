@@ -431,9 +431,11 @@ mod dictionary {
     /// Times the dictionary on `DICTIONARY_TIMING_TERMS` terms (lubm-50 has
     /// about 2.2 million), fastest of `DICTIONARY_TIMING_RUNS` runs (default
     /// 5): interning them into a new dictionary, interning them again (every
-    /// probe a hit), looking up as many absent IRIs (every probe a miss), and
-    /// appending and indexing them at once (as a snapshot loads). Does
-    /// nothing without the variable. For measuring the slots' fill.
+    /// probe a hit), looking up as many absent IRIs (every probe a miss),
+    /// appending and indexing them at once (as a snapshot loads), and the
+    /// first lookup after the slots are dropped, which rebuilds them (from
+    /// `term::DROP_FROM` terms on). Does nothing without the variable. For
+    /// measuring the slots' fill and the rebuild.
     #[test]
     fn timing_dictionary_lookups() {
         let Some(n) = std::env::var("DICTIONARY_TIMING_TERMS")
@@ -471,6 +473,12 @@ mod dictionary {
             start.elapsed()
         });
         let (_, slots) = d.slot_fill();
+        let rebuild = fastest(&mut || {
+            d.drop_slots();
+            let start = Instant::now();
+            assert!(black_box(d.get_iri(&absent[0])).is_none());
+            start.elapsed()
+        });
         let bulk = fastest(&mut || {
             let mut b = Dictionary::new();
             let from = b.len();
@@ -502,12 +510,14 @@ mod dictionary {
              intern new   {fresh:>10.1?} ({:.1} ns per term)\n  \
              intern again {hits:>10.1?} ({:.1} ns per term)\n  \
              absent IRIs  {misses:>10.1?} ({:.1} ns per term)\n  \
+             rebuild      {rebuild:>10.1?} ({:.1} ns per term)\n  \
              bulk index   {bulk:>10.1?} ({:.1} ns per term)",
             d.len(),
             100.0 * d.len() as f64 / slots as f64,
             per(fresh),
             per(hits),
             per(misses),
+            per(rebuild),
             per(bulk),
         );
     }
