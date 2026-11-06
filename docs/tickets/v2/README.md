@@ -27,7 +27,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | todo | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
-| 19 | [Snapshots](19-snapshots.md) | todo | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
+| 19 | [Snapshots](19-snapshots.md) | done (budget at the close-out) | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
 | 20 | [The improvement loop](20-improvement-loop.md) | todo | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
 | 21 | [Close-out: phase 2](21-close-out-phase-2.md) | todo | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
 | 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
@@ -442,3 +442,24 @@ Departures from the plan, as they happen.
     CLI, the bench or Python get a threads option (`RAYON_NUM_THREADS`
     works today). `cargo test -p turbowl --no-default-features` does not
     compile (the rule tests use `io`), which predates 17.
+- **19, landed (`628edad`).** Snapshot format version 1: a header, nine
+  sections and an XXH64 trailer, documented in `snapshot.rs`. lubm-50's
+  snapshot is 312 MB, about 30 bytes per closure triple, and loaded in
+  0.109 s against 1.69 s to parse and reason, at load 3.5. Departures:
+  - Its `impl Dictionary` block sits just before `term.rs`'s test module,
+    not at the end of the file, because clippy's `items_after_test_module`
+    forbids that. It reads the dictionary's private internals, which
+    ticket 18 is editing in the same wave; 18 was told what they are.
+  - **pytest in the worktrees tested the main checkout.** The `.venv` that
+    `slice.sh new` clones keeps console scripts that point at the main
+    checkout's environment, so `uv run pytest` in a worktree imported the
+    main checkout's package. Ticket 19 found it. Every pytest run on a
+    merged tree, after each landing, ran in the main checkout and tested
+    the landed code; the slices' own pytest results did not. From now on a
+    new worktree runs `uv sync --reinstall` in `crates/python` first.
+  - `Error` gained a variant and is not `#[non_exhaustive]`: worth deciding
+    before anything is published.
+  - Open: a snapshot from the same TurbOWL version but other rules (during
+    development) is not detected; a rules fingerprint would close it. The
+    base takes 79 MB of the 312, mostly a copy of stored pairs. A crash
+    mid-save can leave a `.NAME.PID-N.tmp` file beside the snapshot.
