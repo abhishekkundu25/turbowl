@@ -22,14 +22,23 @@
 //! weaker than reading on, so the representative of `rdf:nil` ends a path
 //! even when its class holds other terms.
 //!
-//! For each property set, the individuals of `c` are grouped by hashing
-//! their tuples of values (one tuple for each choice of a value per
-//! property), and the members of a group are the same: no two individuals
-//! are compared. Semi-naive: a tuple is recent when the individual's type,
-//! one of its values, the `owl:hasKey` triple or a cell of the list is
-//! recent, and a group pairs its recent members with all of its members. A
-//! key with nothing recent is skipped; one with something recent groups its
-//! whole class again, at the cost of the class's size.
+//! A list that is a chain, as RDF lists are, has one property set. The
+//! individuals of `c` are grouped by hashing their tuples of values for it
+//! (one tuple for each choice of a value per property), and the members of
+//! a group are the same: no two individuals are compared. Semi-naive: a
+//! tuple is recent when the individual's type, one of its values, the
+//! `owl:hasKey` triple or a cell of the list is recent, and a group pairs
+//! its recent members with all of its members. A key with nothing recent is
+//! skipped; one with something recent groups its whole class again, at the
+//! cost of the class's size.
+//!
+//! A list of any other shape (a cell with two firsts or two rests, which an
+//! `owl:sameAs` between list terms makes, and the schema rules can close
+//! into a clique of rests) can have exponentially many property sets, so it
+//! is read by pairs instead ([`along_paths`]): the individuals that share a
+//! value of some property of the list, kept when a path of the list runs
+//! along properties they share. A chaos input with `owl:equivalentProperty
+//! owl:sameAs rdf:rest` took 32 s by sets, and real keys are chains.
 //!
 //! # cls-maxc2, cls-maxqc3, cls-maxqc4
 //!
@@ -61,7 +70,6 @@ use crate::engine::{Pair, Round, Variable, View, gallop};
 use crate::term::{DocId, TermId, vocab};
 use oxrdf::LiteralRef;
 use rustc_hash::FxHashMap;
-use std::collections::BTreeSet;
 
 /// The identity rules have no empty-body rule.
 pub(crate) const FACTS: &[[TermId; 3]] = &[];
@@ -145,9 +153,11 @@ fn prp_key(round: &mut Round<'_>, same_as: u32, instances: &Variable<Pair>) {
     let mut keyed = Keyed::default();
     for (part, recent) in tagged(keys) {
         for &(class, head) in part {
-            let (sets, touched) = lists.property_sets(head);
-            for set in &sets {
-                keyed.group(round, same_as, instances, class, set, recent || touched);
+            let list = lists.read(head);
+            let changed = recent || list.touched;
+            match list.chain() {
+                Some(set) => keyed.group(round, same_as, instances, class, &set, changed),
+                None => along_paths(round, same_as, instances, class, &list, changed),
             }
         }
     }
@@ -164,19 +174,14 @@ struct Lists<'a> {
 }
 
 impl Lists<'_> {
-    /// The property sets of the list at `head` (each sorted, without
-    /// duplicates), and whether a cell of the list is touched this round.
-    ///
-    /// A cell's sets are `{p}` for each first `p` when a rest is `rdf:nil`,
-    /// and `{p} ∪ s` for each first `p` and each set `s` of a rest that is
-    /// not `rdf:nil`, to a fixpoint: a cycle adds nothing a shorter path
-    /// does not give, and a list that never reaches `rdf:nil` has none.
-    fn property_sets(&self, head: u32) -> (BTreeSet<Vec<u32>>, bool) {
-        // The cells, breadth first along rdf:rest, each once, never past
-        // rdf:nil; with their firsts, and their rests as cell indexes.
+    /// The list at `head`: its cells, breadth first along `rdf:rest`, each
+    /// once, never past `rdf:nil`, with their firsts and their rests as
+    /// cell indexes; and whether a cell is touched this round.
+    fn read(&self, head: u32) -> KeyList {
         let mut cells = vec![head];
-        let mut firsts: Vec<Vec<u32>> = Vec::new();
-        let mut rests: Vec<(bool, Vec<usize>)> = Vec::new();
+        let mut index: FxHashMap<u32, usize> = FxHashMap::default();
+        index.insert(head, 0);
+        let mut list = KeyList::default();
         let mut i = 0;
         while i < cells.len() {
             let cell = cells[i];
@@ -189,46 +194,174 @@ impl Lists<'_> {
                     to_nil = true;
                     return;
                 }
-                let at = cells.iter().position(|&c| c == tail).unwrap_or_else(|| {
+                let at = *index.entry(tail).or_insert_with(|| {
                     cells.push(tail);
                     cells.len() - 1
                 });
                 next.push(at);
             });
-            firsts.push(own);
-            rests.push((to_nil, next));
+            list.firsts.push(own);
+            list.rests.push((to_nil, next));
             i += 1;
         }
-        let touched = cells.iter().any(|c| self.touched.binary_search(c).is_ok());
-        let mut sets: Vec<BTreeSet<Vec<u32>>> = vec![BTreeSet::new(); cells.len()];
-        let mut found = Vec::new();
-        loop {
-            let mut grew = false;
-            for i in (0..cells.len()).rev() {
-                let (to_nil, next) = &rests[i];
-                for &p in &firsts[i] {
-                    if *to_nil {
-                        found.push(vec![p]);
-                    }
-                    for &r in next {
-                        for s in &sets[r] {
-                            let mut with = s.clone();
-                            if let Err(at) = with.binary_search(&p) {
-                                with.insert(at, p);
-                            }
-                            found.push(with);
-                        }
-                    }
-                }
-                for s in found.drain(..) {
-                    grew |= sets[i].insert(s);
-                }
+        list.touched = cells.iter().any(|c| self.touched.binary_search(c).is_ok());
+        list
+    }
+}
+
+/// A key's list, as [`Lists::read`] reads it from its head (cell 0).
+#[derive(Debug, Default)]
+struct KeyList {
+    /// Each cell's `rdf:first`s.
+    firsts: Vec<Vec<u32>>,
+    /// Each cell's `rdf:rest`s: whether one is `rdf:nil`, and the cells of
+    /// the others.
+    rests: Vec<(bool, Vec<usize>)>,
+    /// A cell has a recent `rdf:first` or `rdf:rest`.
+    touched: bool,
+}
+
+impl KeyList {
+    /// The key's one property set (sorted, without duplicates) when the
+    /// list is a chain, as an RDF list is: each cell has one first and one
+    /// rest, the next cell's, and the last cell's is `rdf:nil`. `None` for
+    /// any other shape, which [`along_paths`] reads.
+    fn chain(&self) -> Option<Vec<u32>> {
+        let n = self.firsts.len();
+        let mut set = Vec::with_capacity(n);
+        for (i, (firsts, (to_nil, next))) in self.firsts.iter().zip(&self.rests).enumerate() {
+            let [p] = firsts[..] else { return None };
+            let last = i + 1 == n;
+            let links = if last {
+                *to_nil && next.is_empty()
+            } else {
+                !*to_nil && next[..] == [i + 1]
+            };
+            if !links {
+                return None;
             }
-            if !grew {
-                break;
+            set.push(p);
+        }
+        set.sort_unstable();
+        set.dedup();
+        Some(set)
+    }
+
+    /// Whether some path from the head to `rdf:nil` takes, at each cell,
+    /// a first that `shared` holds: the least fixpoint of "a cell has such
+    /// a first, and a rest that is `rdf:nil` or such a cell".
+    fn has_path(&self, shared: impl Fn(u32) -> bool) -> bool {
+        let usable: Vec<bool> = self.firsts.iter().map(|ps| ps.iter().any(|&p| shared(p))).collect();
+        let mut good = vec![false; usable.len()];
+        let mut grew = true;
+        while grew {
+            grew = false;
+            for i in (0..good.len()).rev() {
+                if !good[i] && usable[i] && (self.rests[i].0 || self.rests[i].1.iter().any(|&j| good[j])) {
+                    good[i] = true;
+                    grew = true;
+                }
             }
         }
-        (std::mem::take(&mut sets[0]), touched)
+        good.first().copied().unwrap_or(false)
+    }
+}
+
+/// prp-key for a key list that is no chain: a cell with two firsts or two
+/// rests (an `owl:sameAs` between list terms makes one, and the schema rules
+/// can then close the rests), a cell without a first, or no end. The W3C
+/// rule matches each path from the head to `rdf:nil`, and the property sets
+/// of those paths can be exponentially many, so this reads pairs instead,
+/// as the reference evaluator does: the individuals of `class` that share a
+/// value of some property of the list (each with itself when it has one),
+/// kept when [`KeyList::has_path`] finds a path along the properties the
+/// two share. Naive: when anything it reads is recent, every pair is read
+/// again; the store keeps each `owl:sameAs` once.
+fn along_paths(
+    round: &mut Round<'_>,
+    same_as: u32,
+    instances: &Variable<Pair>,
+    class: u32,
+    list: &KeyList,
+    changed: bool,
+) {
+    let mut properties: Vec<u32> = list.firsts.iter().flatten().copied().collect();
+    properties.sort_unstable();
+    properties.dedup();
+    let store = round.store();
+    let tables: Vec<Option<&Variable<Pair>>> = properties
+        .iter()
+        .map(|&p| store.table(p).map(|t| t.by_subject()))
+        .collect();
+    let recent_class = !range(instances.recent(), class).is_empty();
+    if !changed && !recent_class && tables.iter().flatten().all(|t| t.recent().is_empty()) {
+        return;
+    }
+    let mut individuals: Vec<u32> = tagged(instances)
+        .flat_map(|(part, _)| range(part, class).iter().map(|&(_, x)| x))
+        .collect();
+    individuals.sort_unstable();
+    individuals.dedup();
+    // Each individual's values of each property, sorted.
+    let mut found = Vec::new();
+    let values: Vec<Vec<Vec<u32>>> = individuals
+        .iter()
+        .map(|&x| {
+            tables
+                .iter()
+                .map(|table| {
+                    found.clear();
+                    if let Some(table) = table {
+                        values_of(table, x, &mut found);
+                    }
+                    let mut vs: Vec<u32> = found.iter().map(|&(v, _)| v).collect();
+                    vs.sort_unstable();
+                    vs.dedup();
+                    vs
+                })
+                .collect()
+        })
+        .collect();
+    // The candidates: two individuals with a common value of a property.
+    let mut sharing: FxHashMap<(usize, u32), Vec<usize>> = FxHashMap::default();
+    for (i, by_property) in values.iter().enumerate() {
+        for (k, vs) in by_property.iter().enumerate() {
+            for &v in vs {
+                sharing.entry((k, v)).or_default().push(i);
+            }
+        }
+    }
+    let mut pairs: Vec<(usize, usize)> = sharing
+        .values()
+        .flat_map(|group| {
+            group
+                .iter()
+                .flat_map(move |&i| group.iter().filter(move |&&j| i <= j).map(move |&j| (i, j)))
+        })
+        .collect();
+    pairs.sort_unstable();
+    pairs.dedup();
+    let shares = |a: &[u32], b: &[u32]| {
+        let (mut x, mut y) = (0, 0);
+        while x < a.len() && y < b.len() {
+            match a[x].cmp(&b[y]) {
+                std::cmp::Ordering::Less => x += 1,
+                std::cmp::Ordering::Greater => y += 1,
+                std::cmp::Ordering::Equal => return true,
+            }
+        }
+        false
+    };
+    for (i, j) in pairs {
+        let shared = |p: u32| {
+            let k = properties.binary_search(&p).expect("a property of the list");
+            shares(&values[i][k], &values[j][k])
+        };
+        if list.has_path(shared) {
+            let (x, y) = (individuals[i], individuals[j]);
+            round.emit(x, same_as, y);
+            round.emit(y, same_as, x);
+        }
     }
 }
 
@@ -556,6 +689,25 @@ mod tests {
              ex:R owl:hasKey rdf:nil . ex:u a ex:R . ex:v a ex:R .");
         has_all(&run, "ex:a owl:sameAs ex:b");
         has_none(&run, "ex:x owl:sameAs ex:y\nex:u owl:sameAs ex:v");
+    }
+
+    /// A cell with two firsts, and a cell with two rests (one of them
+    /// `rdf:nil`), give a key for each path, read by pairs (`along_paths`).
+    #[test]
+    fn a_branching_key_list_gives_a_key_for_each_path() {
+        let run = run("ex:P owl:hasKey _:h . _:h rdf:first ex:p , ex:q ; rdf:rest _:t .
+             _:t rdf:first ex:r ; rdf:rest rdf:nil .
+             ex:a a ex:P ; ex:p \"1\" ; ex:r \"2\" . ex:b a ex:P ; ex:p \"1\" ; ex:r \"2\" .
+             ex:c a ex:P ; ex:q \"3\" ; ex:r \"4\" . ex:d a ex:P ; ex:q \"3\" ; ex:r \"4\" .
+             ex:e a ex:P ; ex:p \"5\" ; ex:r \"6\" . ex:f a ex:P ; ex:p \"5\" ; ex:r \"7\" .
+             ex:Q owl:hasKey _:u . _:u rdf:first ex:s ; rdf:rest rdf:nil , _:v .
+             _:v rdf:first ex:z ; rdf:rest rdf:nil .
+             ex:g a ex:Q ; ex:s \"8\" . ex:h a ex:Q ; ex:s \"8\" .");
+        has_all(
+            &run,
+            "ex:a owl:sameAs ex:b\nex:c owl:sameAs ex:d\nex:g owl:sameAs ex:h\nex:e owl:sameAs ex:e",
+        );
+        has_none(&run, "ex:e owl:sameAs ex:f\nex:a owl:sameAs ex:c");
     }
 
     /// Whatever arrives last, across incremental runs, the closure is the

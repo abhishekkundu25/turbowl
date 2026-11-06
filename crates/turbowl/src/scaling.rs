@@ -1345,6 +1345,60 @@ mod identity {
         );
     }
 
+    /// A key list of `n` cells, each with two firsts, `ex:p{i}` and
+    /// `ex:q{i}`, so 2^n paths: `ex:a` and `ex:b` share every `ex:p{i}`,
+    /// `ex:c` and `ex:d` every `ex:q{i}` but the last. Only `ex:a` and
+    /// `ex:b` are the same.
+    fn branching(n: usize) -> String {
+        let mut text = String::with_capacity(n * 200);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix owl: <http://www.w3.org/2002/07/owl#> .\n\
+             @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n\
+             ex:K owl:hasKey ex:cell0 .\n\
+             ex:a a ex:K . ex:b a ex:K . ex:c a ex:K . ex:d a ex:K .\n",
+        );
+        for i in 0..n {
+            let rest = if i + 1 == n {
+                "rdf:nil".to_owned()
+            } else {
+                format!("ex:cell{}", i + 1)
+            };
+            let _ = writeln!(text, "ex:cell{i} rdf:first ex:p{i} , ex:q{i} ; rdf:rest {rest} .");
+            let _ = writeln!(text, "ex:a ex:p{i} \"v{i}\" . ex:b ex:p{i} \"v{i}\" .");
+            if i + 1 == n {
+                let _ = writeln!(text, "ex:c ex:q{i} \"x\" . ex:d ex:q{i} \"y\" .");
+            } else {
+                let _ = writeln!(text, "ex:c ex:q{i} \"w{i}\" . ex:d ex:q{i} \"w{i}\" .");
+            }
+        }
+        text
+    }
+
+    /// prp-key on a key list with 2^n paths (a chaos find, where
+    /// `owl:equivalentProperty owl:sameAs rdf:rest` closed a list's rests):
+    /// linear in the cells, as the pairs are read, not the paths.
+    #[test]
+    fn scaling_identity_keys_on_a_branching_list() {
+        let _lock = lock();
+        let sizes = sizes(1_024);
+        for &n in &sizes {
+            let mut r = loaded(&branching(n));
+            r.reason();
+            assert_eq!(r.store().canon().merges(), 1, "n = {n}: ex:a and ex:b only");
+        }
+        let mut text = shared(branching);
+        linear(
+            "scaling_identity_keys_on_a_branching_list",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                (summary, r)
+            },
+        );
+    }
+
     /// `n` individuals of a restriction to one value of `ex:p`, each with
     /// two values, the second the next one's first: cls-maxc2 makes all
     /// `n + 1` values one class.
