@@ -24,7 +24,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 25 | [Memory: OWL2Bench RL, UOBM-010 U and OpenCyc](25-memory.md) | done | 13 | `crates/turbowl/` (where the cause is), `crates/turbowl/src/scaling.rs` |
 | 26 | [OWL-RL's datatype and identity faults](26-owlrl-faults.md) | done | 08 | `crates/oracle/src/differences.rs`, `crates/oracle/src/cases/datatypes.rs` |
 | 15 | [Close-out: phase 1](15-close-out-phase-1.md) | done | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
-| 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | todo | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
+| 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | todo | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | todo | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
 | 19 | [Snapshots](19-snapshots.md) | todo | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
@@ -399,3 +399,23 @@ Departures from the plan, as they happen.
     to 18 times as long (brick-small1: 187 to 234 ms reported against
     1,659 to 4,311 ms of wall time). Decide whether the scoreboard should
     show wall time for every engine that runs as a process.
+- **16, landed (`75fae9f`).** TurbOWL's own N-Triples and Turtle parsers,
+  ports of oxttl 0.2.5's lexer and recognizers, with oxiri 0.2.11's IRI
+  parser behind a fast scan. N3 and RDF/XML keep Oxigraph's. Departures:
+  - The dictionary's layout did not change: it already was one text arena
+    with each term's hash stored in its slot. The alternative (a slot that
+    points at the text, one read less per lookup) costs 16 to 32 bytes
+    more per term, about 35 to 70 MB on lubm-50, against phase 2's memory
+    budget, so the speed came from the parser.
+  - The ported files keep Oxigraph's MIT notice (`THIRD-PARTY-NOTICES.md`),
+    which the slice had left out.
+  - The IRI parser is a port only because `oxiri` was not a direct
+    dependency and `Cargo.toml` was ticket 17's this wave. `oxiri` is
+    already in the build through `oxrdf` and `oxttl`, so depending on it
+    directly adds no crate and removes about 600 lines of `io/iri.rs`: do
+    it once 17 lands.
+  - Loading univ-bench and lubm-50 took 1.36 to 1.42 s at load 2, against
+    the Baseline's 3.9 s; the budget is measured at the close-out. About
+    0.5 s of it is outside `io`, in `reasoner.rs`: `document_key` hashes
+    the whole document twice (FxHash and SipHash), and the base is sorted
+    and deduplicated. A follow-up for after 17.
