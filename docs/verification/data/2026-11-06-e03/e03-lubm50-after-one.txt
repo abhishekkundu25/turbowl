@@ -1,0 +1,26 @@
+load average before: 1.58 2.38 2.44
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+lubm-50 turbowl run 1/3 ... 417.1 ms
+lubm-50 turbowl run 2/3 ... 417.1 ms
+lubm-50 turbowl run 3/3 ... 416.9 ms
+load average after: 1.56 2.35 2.43
+warning: load average over 1 after the runs
+
+TurbOWL bench: default configuration, turbowl on one thread, 3 runs each; load average 1.58 2.38 2.44 before, 1.56 2.35 2.43 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| lubm-50 | turbowl | 3 | 1519.5 | 417.1 | 416.9 | 417.1 | 1936.6 | 525 | 10345697 | 53 | 1.00 | 1.00 | 1.00 |
+
+Breakdown (turbowl): bytes per closure triple, the peak and what the reasoner holds after the run
+(rest: canon, findings, diagnostics; not counted: peak - held). Times: medians of the full run's.
+
+| scenario | B/triple peak | dictionary | base | store | rest | not counted | rounds | rules ms | step ms | sort ms | changed ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| lubm-50 | 53.2 | 19.8 | 7.6 | 12.2 | 0.0 | 13.6 | 6 | 118.2 | 272.2 | 234.5 | 37.7 |
+
+wrote <results>/e03-lubm50-after-one.json
