@@ -42,7 +42,6 @@ pub const KNOWN: &[(&str, &str, Fault)] = &[
     ("eq-diff2", "OWL-RL: expectations", Fault::F6),
     ("eq-diff3", "OWL-RL: expectations", Fault::F6),
     ("eq-diff2-eq-ref", "OWL-RL: expectations", Fault::F6),
-    ("dt-not-type-map", "OWL-RL: expectations", Fault::F12),
     ("dt-diff", "OWL-RL: expectations", Fault::F15),
 ];
 
