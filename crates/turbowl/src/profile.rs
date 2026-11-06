@@ -73,8 +73,8 @@ pub struct Step {
     /// `owl:sameAs` and the rewriting they cause, new object indexes, and
     /// the bookkeeping.
     pub ns: u64,
-    /// Sorting and deduplicating each table's pairs: the ones the step got,
-    /// and their flipped copies for the object indexes.
+    /// Sorting each table's pairs: the ones the step got, deduplicated,
+    /// and their flipped copies for the object indexes, which are distinct.
     pub sort_ns: u64,
     /// Finding what changed: merging each table's last delta into its
     /// stable batches, and dropping the known tuples from its new pairs

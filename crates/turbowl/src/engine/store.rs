@@ -481,11 +481,10 @@ impl Store {
             let table = &mut self.tables[t];
             if table.os.is_none() {
                 let start = Clock::now();
-                let mut flipped: Vec<Pair> = Vec::with_capacity(table.so.len());
-                flipped.extend(table.so.all().iter().map(|(s, o)| (o, s)));
-                let workers = self.workers.engage(flipped.len()).then_some(&self.workers);
+                let workers = self.workers.engage(table.so.len()).then_some(&self.workers);
+                let parts: Vec<&[Pair]> = table.so.parts().collect();
                 let mut os = Variable::new();
-                os.insert(sorted(flipped, workers));
+                os.insert(flipped(&parts, workers));
                 table.os = Some(os);
                 log.sort_ns += start.elapsed_ns();
                 self.activate(t);
@@ -958,8 +957,7 @@ impl Job<'_> {
         if let Some(os) = os
             && !so.recent().is_empty()
         {
-            let flipped: Vec<Pair> = so.recent().iter().map(|&(s, o)| (o, s)).collect();
-            os.insert(sorted(flipped, workers));
+            os.insert(flipped(&[&so.recent()[..]], workers));
         }
     }
 
@@ -972,9 +970,17 @@ impl Job<'_> {
     }
 }
 
-/// `pairs` sorted and deduplicated, on `workers` when given.
-fn sorted(pairs: Vec<Pair>, workers: Option<&Workers>) -> Relation<Pair> {
-    sorted_batches(vec![pairs], workers)
+/// The object index of `parts`, pairs by subject: each pair flipped, in one
+/// vector of exactly their length, sorted in place, on `workers` when
+/// given. The parts are a variable's, disjoint and each duplicate-free, so
+/// no two flipped pairs are equal and there is nothing to deduplicate
+/// ([`Workers::sort_distinct`] checks it in debug builds).
+pub(crate) fn flipped(parts: &[&[Pair]], workers: Option<&Workers>) -> Relation<Pair> {
+    let one = Workers::one();
+    let workers = workers.unwrap_or(&one);
+    let mut pairs = workers.map_parts(parts, |&(s, o)| (o, s));
+    workers.sort_distinct(&mut pairs);
+    Relation::from_sorted(pairs)
 }
 
 /// The pairs of `batches`, sorted and deduplicated, on `workers` when given.

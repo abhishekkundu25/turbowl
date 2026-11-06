@@ -30,7 +30,7 @@ use std::sync::Arc;
 pub(crate) const PARALLEL_FROM: usize = 65_536;
 
 /// The fewest items a chunk gets once a round is parallel.
-const GRAIN: usize = 4_096;
+pub(crate) const GRAIN: usize = 4_096;
 
 /// Where a round's parallel work runs.
 #[derive(Debug, Clone, Default)]
@@ -197,6 +197,45 @@ impl Workers {
         items
     }
 
+    /// The items of `parts`, each mapped by `f`, one part after another in
+    /// one vector of exactly their length. With threads and many items,
+    /// each part is mapped in chunks side by side, straight into the
+    /// vector.
+    pub(crate) fn map_parts<T: Sync, U: Send>(&self, parts: &[&[T]], f: impl Fn(&T) -> U + Sync + Send) -> Vec<U> {
+        let total: usize = parts.iter().map(|part| part.len()).sum();
+        let mut out = Vec::with_capacity(total);
+        #[cfg(all(feature = "parallel", not(target_family = "wasm")))]
+        if self.threaded() && total >= 4 * GRAIN {
+            self.install(|| {
+                for part in parts {
+                    out.par_extend(part.par_iter().with_min_len(GRAIN).map(&f));
+                }
+            });
+            return out;
+        }
+        for part in parts {
+            out.extend(part.iter().map(&f));
+        }
+        out
+    }
+
+    /// Sorts `items`, no two of which are equal, in place. With threads and
+    /// many items, by rayon's parallel quicksort (`par_sort_unstable`),
+    /// which needs no buffer; otherwise by `sort_unstable`. With no two
+    /// items equal, an unstable sort gives the one order there is, and
+    /// there is nothing to deduplicate. Debug builds check that no two
+    /// items are equal.
+    pub(crate) fn sort_distinct<T: Ord + Send>(&self, items: &mut [T]) {
+        #[cfg(all(feature = "parallel", not(target_family = "wasm")))]
+        if self.threaded() && items.len() >= 4 * GRAIN {
+            self.install(|| items.par_sort_unstable());
+            debug_assert!(strictly_increasing(items), "sort_distinct: two items are equal");
+            return;
+        }
+        items.sort_unstable();
+        debug_assert!(strictly_increasing(items), "sort_distinct: two items are equal");
+    }
+
     /// The batches, `total` items, one after another in one vector.
     fn joined<T: Copy + Send + Sync + Default>(&self, mut batches: Vec<Vec<T>>, total: usize) -> Vec<T> {
         if batches.len() == 1 {
@@ -322,6 +361,11 @@ pub(crate) fn absent_from<T: Ord + Copy>(fresh: &[T], known: &[T]) -> Vec<T> {
         }
     }
     kept
+}
+
+/// True when each item is less than the next: sorted, no two equal.
+pub(crate) fn strictly_increasing<T: Ord>(items: &[T]) -> bool {
+    items.windows(2).all(|w| w[0] < w[1])
 }
 
 /// The vectors one after another, copied side by side into one.

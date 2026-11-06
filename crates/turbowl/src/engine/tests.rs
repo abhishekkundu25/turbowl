@@ -891,3 +891,188 @@ fn a_store_holds_little_spare_room() {
         assert!(checked > 20, "{checked} parts checked");
     }
 }
+
+/// `count` distinct random pairs over `0..domain`, in random order.
+fn distinct_pairs(rng: &mut Rng, count: usize, domain: u32) -> Vec<(u32, u32)> {
+    let mut seen = BTreeSet::new();
+    let mut pairs = Vec::with_capacity(count);
+    while pairs.len() < count {
+        let pair = (rng.below(domain), rng.below(domain));
+        if seen.insert(pair) {
+            pairs.push(pair);
+        }
+    }
+    pairs
+}
+
+/// The sizes around the two thresholds an index build meets: where a step
+/// hands it the workers ([`PARALLEL_FROM`]) and where the workers cut the
+/// work (`4 * GRAIN`).
+fn sizes_around_the_thresholds() -> Vec<usize> {
+    let inner = 4 * parallel::GRAIN;
+    vec![
+        0,
+        1,
+        2,
+        inner - 1,
+        inner,
+        inner + 1,
+        PARALLEL_FROM - 1,
+        PARALLEL_FROM,
+        PARALLEL_FROM + 1,
+    ]
+}
+
+/// An object index built by flipping a variable's parts and sorting them in
+/// place ([`store::flipped`]) is the one the step built before: the flip
+/// sorted and deduplicated ([`Workers::sort_dedup`]), on one thread and on
+/// four. It is strictly increasing, in a vector of exactly its length, on
+/// any workers, at the thresholds and around them.
+#[test]
+fn an_index_sorted_in_place_matches_the_deduplicated_sort() {
+    let (one, four) = (Workers::one(), Workers::exactly(4));
+    let workers = [
+        Workers::one(),
+        Workers::exactly(4),
+        Workers::all(),
+        Workers::exactly(4).every_round(),
+    ];
+    for (seed, n) in sizes_around_the_thresholds().into_iter().enumerate() {
+        let mut rng = Rng::new(seed as u64);
+        // A table's pairs by subject, in a few stable batches and a recent
+        // part, from a few rounds of random size.
+        let pairs = distinct_pairs(&mut rng, n, 1_000);
+        let mut so: Variable<Pair> = Variable::new();
+        let mut rest = &pairs[..];
+        while !rest.is_empty() {
+            let take = (rng.below(rest.len() as u32) as usize + 1).min(rest.len());
+            so.extend(rest[..take].iter().copied());
+            so.changed();
+            rest = &rest[take..];
+        }
+        assert_eq!(so.len(), n);
+        let parts: Vec<&[Pair]> = so.parts().collect();
+        let flip: Vec<Pair> = parts
+            .iter()
+            .flat_map(|part| part.iter().map(|&(s, o)| (o, s)))
+            .collect();
+        let before = one.sort_dedup(flip.clone());
+        assert_eq!(four.sort_dedup(flip), before, "n {n}");
+        assert_eq!(before.len(), n, "the flip of distinct pairs is distinct");
+        for w in std::iter::once(None).chain(workers.iter().map(Some)) {
+            let index = store::flipped(&parts, w);
+            assert_eq!(&index[..], &before[..], "n {n}, {w:?}");
+            assert!(parallel::strictly_increasing(&index), "n {n}, {w:?}");
+            assert_eq!(index.bytes(), n * size_of::<Pair>(), "n {n}, {w:?}: capacity is length");
+        }
+        // A recent part alone, as a step's incremental index flips it.
+        let recent: &[Pair] = so.recent();
+        let expected = one.sort_dedup(recent.iter().map(|&(s, o)| (o, s)).collect());
+        for w in workers.iter().map(Some) {
+            let index = store::flipped(&[recent], w);
+            assert_eq!(&index[..], &expected[..], "n {n}, {w:?}");
+            assert_eq!(index.bytes(), size_of_val(recent), "n {n}, {w:?}");
+        }
+    }
+}
+
+/// Mapping parts into one vector gives the items in part order, in a vector
+/// of exactly their length, on one thread and on four, at the threshold
+/// where the workers cut the work and around it.
+#[test]
+fn mapping_parts_matches_one_thread() {
+    let mut rng = Rng::new(11);
+    for n in sizes_around_the_thresholds() {
+        let items: Vec<u32> = (0..n).map(|_| rng.below(1 << 30)).collect();
+        let cut = rng.below(n as u32 + 1) as usize;
+        let parts: Vec<&[u32]> = vec![&items[..cut], &[], &items[cut..]];
+        let expected: Vec<u64> = items.iter().map(|&x| u64::from(x) * 3).collect();
+        for w in [Workers::one(), Workers::exactly(4), Workers::exactly(4).every_round()] {
+            let mapped = w.map_parts(&parts, |&x| u64::from(x) * 3);
+            assert_eq!(mapped, expected, "n {n}, {w:?}");
+            assert_eq!(mapped.capacity(), n, "n {n}, {w:?}");
+        }
+    }
+}
+
+/// Sorting distinct items in place gives what sorting and deduplicating
+/// gives, on any workers. Items that repeat trip the debug assertion in a
+/// debug build (and only there; a release build does not check).
+#[test]
+fn sorting_distinct_items_checks_them_in_debug_builds() {
+    let mut rng = Rng::new(12);
+    for n in sizes_around_the_thresholds() {
+        let items = distinct_pairs(&mut rng, n, 1_000);
+        let expected = Workers::one().sort_dedup(items.clone());
+        for w in [Workers::one(), Workers::exactly(4), Workers::exactly(4).every_round()] {
+            let mut sorted = items.clone();
+            w.sort_distinct(&mut sorted);
+            assert_eq!(sorted, expected, "n {n}, {w:?}");
+        }
+    }
+    assert!(parallel::strictly_increasing::<u32>(&[]));
+    assert!(parallel::strictly_increasing(&[1, 2, 5]));
+    assert!(!parallel::strictly_increasing(&[1, 2, 2]));
+    assert!(!parallel::strictly_increasing(&[2, 1]));
+    for w in [Workers::one(), Workers::exactly(4)] {
+        let mut repeated: Vec<u32> = (0..5 * parallel::GRAIN as u32).map(|i| i / 2).collect();
+        let tripped =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.sort_distinct(&mut repeated))).is_err();
+        assert_eq!(tripped, cfg!(debug_assertions), "{w:?}");
+    }
+}
+
+/// A store builds a table's object index whole when a rule first asks for
+/// it, and then flips each step's new pairs into it: on one thread, on
+/// four and on every core, at [`PARALLEL_FROM`] and around it, the index
+/// holds the table's pairs flipped, in the same parts, and the first build
+/// is a part of exactly its length.
+#[test]
+fn a_store_builds_its_object_index_in_place() {
+    const P: u32 = 7;
+    fn index(store: &Store) -> Vec<Vec<Pair>> {
+        let os = store.table(P).and_then(Table::by_object).expect("an index");
+        os.parts().map(<[Pair]>::to_vec).collect()
+    }
+    for n in [PARALLEL_FROM - 1, PARALLEL_FROM, PARALLEL_FROM + 1] {
+        let mut rng = Rng::new(n as u64);
+        let first = distinct_pairs(&mut rng, n, 1_000);
+        // The second run: new pairs, and some known ones again.
+        let mut second = distinct_pairs(&mut rng, n, 1_000);
+        second.extend_from_slice(&first[..n / 8]);
+        let mut expected: Option<Vec<Vec<Vec<Pair>>>> = None;
+        for workers in [Workers::one(), Workers::exactly(4), Workers::all()] {
+            let mut store = Store::new();
+            store.set_workers(workers.clone());
+            let mut got = Vec::new();
+            for pairs in [&first, &second] {
+                store.extend(pairs.iter().map(|&(s, o)| (s, P, o)));
+                let mut built = None;
+                store.run(|round| {
+                    if let Some(os) = round.by_object(P)
+                        && built.is_none()
+                    {
+                        built = Some((os.recent().len(), os.recent().bytes()));
+                    }
+                });
+                if let Some((len, bytes)) = built
+                    && got.is_empty()
+                {
+                    assert_eq!(len, n, "the first build holds every pair");
+                    assert_eq!(bytes, n * size_of::<Pair>(), "{workers:?}: capacity is length");
+                }
+                let so = store.table(P).expect("a table").by_subject();
+                let mut flip: Vec<Pair> = so.all().iter().map(|(s, o)| (o, s)).collect();
+                flip.sort_unstable();
+                let mut all: Vec<Pair> = index(&store).concat();
+                all.sort_unstable();
+                assert_eq!(all, flip, "n {n}, {workers:?}");
+                got.push(index(&store));
+            }
+            match &expected {
+                None => expected = Some(got),
+                Some(e) => assert_eq!(&got, e, "n {n}, {workers:?}"),
+            }
+        }
+    }
+}
