@@ -309,6 +309,94 @@ still costs a full run until phase 3's DRed; inside phase 2's scope it is
 memory, at 151 bytes per closure triple on lubm-50 against a budget of 50,
 and the candidates below start there.
 
+### Iteration 3: the rating
+
+The `v2` branch at `21a789c`: the code iteration 1 rated, plus P0
+(`fafa7b6`) and the windowed reading (`b1d4b93`). Rated from the code, the
+newest record (`docs/verification/2026-11-06-v2-phase-1.md`, on
+`660e3bd`) and iteration 2's evaluation: an editor-size A/B on one thread
+(5 runs, twice interleaved) and the lubm-50 breakdown in both thread modes
+(3 runs), at load 2.1 to 3.2. Iterations 1 and 2 have no verification
+record: `docs/verification/` has nothing after phase 1, although step 4
+asks for one. The evaluation script ran the default suites (the minimal
+inputs, W3C, Brick, the reference, chaos at its default count, pytest),
+but their output is not kept in the repository. The scoreboard is still
+phase 1's. P0 reads the bytes held after the run, not at the peak, so
+"not counted" mixes loading's transients, the steps' transients, the
+allocator's caches and the binary.
+
+- **Correctness: 8/10.** Unchanged in substance since iteration 1. The
+  phase 1 record has every judge agreeing on `660e3bd`. The windowed
+  reader has its own judge: the cross-check reads every document the tests
+  read in windows of every small size and compares it with the whole
+  parse (`io/cross_check.rs`, `b1d4b93`). The closure of lubm-50 is
+  10,345,697 triples before and after iteration 2, on one thread and on
+  all cores. Not higher: no oracle suite, slow tier or 100,000-iteration
+  chaos run has checked phase 2's parsers, parallel rounds, snapshots or
+  windows (1,068 changed lines in the parse path alone since the last
+  record). The judges' gaps of iteration 0 remain. The evidence is weaker
+  than iteration 1's: two kept iterations have no record to cite.
+- **Coverage: 9/10.** Unchanged: no rule changed since iteration 1. All
+  78 rules are in, and TurbOWL passes the 101 of 119 runnable W3C OWL 2 RL
+  cases Nemo passes. Not 10 for iteration 1's reason: three failures come
+  from how the runner reads a case.
+- **Speed (full run): 8/10.** On lubm-50, reasoning takes 416.8 ms on one
+  thread and 107.3 ms on all cores (medians of 3, load 2 to 3). The total
+  is 1.93 s and 0.92 s, against 15.6 s for Soufflé, the fastest other
+  engine on the phase 1 scoreboard (8.1 and 17 times). That comparison
+  crosses records, configurations and machine loads. The editor-size
+  scenarios stayed within the spread through iteration 2. Not higher: the
+  scoreboard predates phase 2, no competitor has run on all cores, and
+  RDFox has no estimate. All cores give 3.9 times one thread (3.5 to 4.1
+  over the runs) against the budget's 5. Iteration 2 made loading 2 to 4%
+  slower. Loading is 0.81 s on all cores and 1.52 s on one thread,
+  against a bar of 1.30 s (a third of version 1's 3.9 s). The spec does
+  not name the thread mode, so the bar is met on all cores only.
+- **Speed (incremental): 5/10.** Unchanged. One added triple costs
+  0.2 ms and one removal 1.9 to 2.0 ms, against a full run of 2.3 to
+  5.0 ms on brick-small1 (`incremental-*` in iteration 2's A/B). A removal
+  still runs again from the base.
+- **Memory: 7/10.** Up 1. Iteration 2 cut lubm-50's peak from 1,422 MB to
+  567 MB on one thread (57.5 bytes per closure triple) and from 1,616 MB
+  to 643 MB on all cores (65.2). That is 3.0 to 3.5 times under Nemo's
+  1,957 MB and 4.7 to 5.3 times under Soufflé's 3,005 MB (phase 1
+  scoreboard). Not higher: the budget of 50 is missed in both modes. The
+  papers put VLog at about 12 bytes per triple. The comparison crosses
+  records and configurations. The all-cores peak varies by 51 MB over 3
+  runs (624 to 675 MB), so the scheduling decides part of it.
+- **Architecture: 7/10.** Down 1. The interface gained `Reasoner::profile`
+  and the public `profile` module, for one adapter (the bench), and the
+  crate doc says so (`lib.rs`). That follows `AGENTS.md`. The rest went
+  the wrong way. `reasoner.rs` grew from 1,656 to 2,157 lines (tests
+  included), and the document key (`DocumentKey`, `Documents`, about
+  160 lines) lives there, not in `io`. `io::parse_reader_on` takes 9
+  arguments, and `io::read` passes 11 to `parallel::parse`, two of them
+  bare booleans, under `#[allow(clippy::too_many_arguments)]`. The engine
+  still keeps unused code behind `#![allow(dead_code, unused_imports)]`
+  (`engine/mod.rs:68`), and `Dictionary::reserve` is still unused
+  (`term.rs:193`). The one-thread and parallel forms of each step give the
+  same tuples but not the same memory: 21.2 against 12.1 bytes per closure
+  triple of store (see the open candidates).
+- **Embeddability: 7/10.** Unchanged. The core builds for wasm32 without
+  `io` and `parallel` (the evaluation's `check-wasm.sh`). Python still has
+  no thread setting (`crates/python/src/lib.rs` has none), and the wasm32
+  build still has no parser.
+- **Operability: 7/10.** Unchanged. A parse error still names its file,
+  line and column, and the windowed reader counts the lines before each
+  window (`b1d4b93`). Not higher: `README.md` and `CHANGELOG.md` have not
+  changed since `529a5d5`, so snapshots, threads, parallel loading and
+  windowed reading are missing from both. The CLI reads `-` as a file name
+  (`main.rs:501`) and has no thread option. The terms of a diagnostic are
+  positional, and `Error` is not `#[non_exhaustive]`.
+
+Total: 58/80.
+
+The weakest dimension is incremental speed, because a one-triple removal
+still costs a full run until phase 3's DRed. Inside phase 2 it is memory:
+57.5 bytes per closure triple on one thread and 65.2 on all cores, against
+a budget of 50. The candidates below start there, and the all-cores
+candidates also serve the 5-times budget.
+
 ## For the next agent
 
 To continue the loop cold: read `AGENTS.md`, then this file from the top,
@@ -318,172 +406,255 @@ are listed below; a new reviewer may reuse or replace them.
 
 ### Open candidates
 
-Ranked by iteration 1's reviewer, for iterations 2 and later; iteration 1
-is P0, counters and a memory breakdown (ticket 20). They are ranked by
-expected gain per effort against the phase 2 budgets that are not met or
-not yet measured (`docs/specs/v2-2-speed.md`, Non-functional budgets).
-Every number marked as an estimate waits for P0. The research's §10
+Ranked by iteration 3's reviewer, for iterations 3 and later, by expected
+gain per effort against the phase 2 budgets still open
+(`docs/specs/v2-2-speed.md`, Non-functional budgets). Numbers marked as
+estimates are not measured. The research's §10
 (`docs/research/sota-algorithms-2026-11.md`) ranks the starting candidates,
 P0 and E1 to E9, with hypotheses and how to measure them; §11 lists what
 not to do and why.
 
-Where the budgets stand, on the indicative numbers. Memory: 151 bytes per
-closure triple on lubm-50, against at most 50. All cores: 3.7 to 4.3
-times one thread, against at least 5 (ticket 17). Loading: probably met,
-not measured. Ticket 19 took 1.69 s to parse and reason lubm-50 before
-ticket 18, and ticket 18 then cut the parse by about 0.64 s, so loading is
-now about 0.9 to 1.0 s against a bar of 1.3 s (an estimate). Of that,
-`document_key` and the base's sort are about 0.5 s (ticket 16's log).
-Total time below the Baseline: not measured since phase 1.
+Where the budgets stand, from iteration 2's evaluation (lubm-50, 3 runs,
+load 2 to 3, indicative):
 
-1. **Read the input file in windows, not whole.** Memory.
-   - Hypothesis: lubm-50's peak falls from 1,486 MB (151 bytes per
-     closure triple) to about 600 MB (about 60 bytes). `Reasoner::load_file`
-     reads the whole file into one buffer (`reasoner.rs:276-283`). The
-     bench's lubm-50 is one Turtle file of 934,393,037 bytes
-     (`target/bench-data/lubm-v1-50.ttl`), 891 of the bench's MB (which
-     are MiB): 60% of the peak, held while the dictionary and the parsed
-     triples grow. Windows of about 64 MiB, cut at line starts as ticket
-     18 cuts its pieces, hold about 7% of that.
-   - Effect on the rubric: Memory +1, the lead over Nemo on lubm-50 from
-     1.32× to about 3×. Alone it does not reach 50 bytes: candidate 2 and
-     P0's breakdown say what else must go. Loading time stays within the
-     spread, or improves if reading overlaps parsing.
-   - Files: `reasoner.rs` (`load_file`, `load`; `document_key` fed window
-     by window), `io.rs` (`parse_on` over a reader), `io/parallel.rs`
-     (pieces from each window; the tail and the Turtle state carried to
-     the next), `io/cross_check.rs` (cuts at window ends).
-   - Risk: an error's line and column across windows; a statement or a
-     multi-line string longer than a window; the all-or-nothing rule on a
-     parse error (the triples are still collected before `add`); blank
-     nodes stay scoped per document. A memory map would avoid the copy,
-     but it needs `unsafe` or a new dependency, and a file truncated under
-     the map faults the process: not proposed.
-   - Measure: P0's memory breakdown at the end of loading and at the
-     reasoning peak, to confirm that the peak lies in loading; the bench's
-     peak memory and load time on lubm-10 and lubm-50, 5 runs; a
-     cross-check test with windows of a few KiB, so that every boundary
-     case is hit.
+- **Memory:** 57.5 bytes per closure triple on one thread and 65.2 on all
+  cores (60.3 to 65.2 over the runs), against at most 50. Held after the
+  run: the dictionary 19.8 (text 9.8, hash slots 6.5, entries 3.5), the
+  base 7.6, and the store 21.2 on one thread and 12.1 on all cores. Not
+  held: 8.8 and 25.6.
+- **All cores against one thread:** 3.9 times (416.8 against 107.3 ms),
+  against at least 5, which needs about 83 ms on all cores. On one thread
+  the rounds take 118 ms, the steps 273 ms (233 ms of it sorting) and the
+  rest 26 ms. On all cores they take 36 to 41 ms, 62 to 74 ms and 4 ms. The
+  rounds gain 2.9 to 3.3 times, the steps 3.7 to 4.4 and the rest 6. The
+  machine's 12 cores are 2 Super, 4 Performance and 6 Efficiency cores
+  (`sysctl hw.perflevel*`), and one thread runs on a Super core, so 12
+  threads are worth fewer than 12 single threads. At load 2, other jobs
+  also held about 2 cores. Measure the ratio on the Baseline on a quiet
+  machine before deciding it.
+- **Loading:** 0.81 s on all cores and 1.52 s on one thread, against a
+  bar of 1.30 s (a third of version 1's 3.9 s). Met on all cores. The
+  spec does not name the thread mode, and the owner decides which reading
+  holds. If it is both, "hash a document once" (below) comes first for
+  loading.
+- **Total time:** 1.93 s on one thread and 0.92 s on all cores, against
+  version 1's 4.66 s on lubm-50. Met there. The data-size scenarios have
+  not run since phase 1.
 
-2. **Keep the base by predicate, as sorted (s, o) pairs.** Memory, and
-   full runs.
-   - Hypothesis: the base takes 79 MB on lubm-50, as `[s, p, o]` triples
-     of 12 bytes (`Base` in `reasoner.rs`; the snapshot's breakdown in
-     `snapshot.rs`). One sorted relation of (s, o) pairs per predicate
-     takes 53 MB, 2.5 bytes less per closure triple. A full run with an
-     empty canon then inserts each predicate's base relation into its
-     table as one sorted batch, instead of pushing 6.6 M triples through
-     the round buffer (`Reasoner::start`, `Store::extend_from_slice`) and
-     sorting them again per table. The reasoning peak falls by 26 to
-     80 MiB (2.5 to 8 bytes per closure triple: the base's 4 bytes a
-     triple, and the round buffer's slack), and the first step sorts
-     6.6 M pairs fewer.
-   - Effect on the rubric: Memory, with candidate 1, toward 50 bytes;
-     Speed (full run), a few percent on lubm-50 and on every full run
-     after a removal (incremental-remove).
-   - Files: `reasoner.rs` (`Base`, `start`, `set_base`, `remove`, the
-     inferred-only reads), `engine/store.rs` (a table takes a sorted
-     batch), `snapshot.rs` (the `BASE` section, in a new format version).
-   - Risk: every reader of the base changes (`contains`, `added`,
-     `sorted_all`, `remove`). After a restart the canon is not empty, so
-     the base must still be rewritten into representatives and sorted:
-     the fast path is for an empty canon only. Older snapshots are
-     refused, as the format intends.
-   - Measure: P0's memory breakdown (base, round buffer, tables) at the
-     reasoning peak; the bench's peak and reasoning time on lubm-10,
-     lubm-50, brick-buildings and incremental-remove; chaos for the
-     restart and equality paths.
+**Why the store holds 21.2 bytes per triple on one thread and 12.1 on all
+cores.** Both modes hold the same 10,345,697 pairs. The difference is
+capacity, 94.4 MB, or 9.1 bytes per closure triple: 76.6 MB in the stable
+batches, 8.4 MB in recent parts that are empty and 9.4 MB in the object
+indexes. The two modes end a round through different code:
 
-3. **Flip the object index's pairs on the workers.** All cores.
-   - Hypothesis: lubm-50 reasoning on all cores goes from 3.7 to 4.3
-     times one thread to at least 5 times. By Amdahl's law on 12 threads,
-     4 times leaves 16 to 20% of the one-thread time on one thread, about
-     70 to 88 ms of 430 ms, and 5 times allows at most 13%, about 55 ms.
-     Each table's step copies its new (s, o) pairs into the (o, s) index
-     in one sequential loop (`store.rs:646`), and a requested index is
-     built by a sequential flip of the whole table, one table after
-     another (`store.rs:404`). `rdf:type`, the largest table, pays both.
-     Done in chunks on the workers, the flips leave the serial path.
-   - Effect on the rubric: Speed (full run), on the all-cores axis. It
-     meets the budget only if P0 shows the flips at 15 ms or more of the
-     serial path. If P0 names a larger serial part (cls-int1's candidate
-     building, `rdf:type`'s single job, a family that dominates a round:
-     ticket 17's "Still sequential"), take that part instead, alone.
-   - Files: `engine/store.rs` (`step`, `Job::advance`), and
-     `engine/parallel.rs` if a flip needs a helper there.
-   - Risk: low for correctness. A flip is a map, and the sort after it
-     restores the order. Chaos at one thread and at all cores checks that
-     the result does not change; below `PARALLEL_FROM` nothing changes.
-   - Measure: P0's time per round at 1 and 12 threads, split into the
-     families and the step, and the step into sorts, `changed()`, flips
-     and index builds; the bench's reasoning time on lubm-10 and lubm-50
-     at one thread and all cores, 5 runs. Measure the 5-times budget on
-     the Baseline on a quiet machine first: at load 2 to 4, other jobs
-     held 2 to 4 of the 12 cores.
+- One thread (`Variable::changed`) keeps every allocation it is given.
+  The step joins a table's pairs into the largest batch's vector, which
+  grew by doubling as the rules pushed into it, duplicates included, and
+  sorts and deduplicates it in place (`Workers::sort_dedup_batches` on one
+  thread). `retain_absent` filters it in place into the new recent part.
+  `Relation::merge` keeps the larger vector and grows it by doubling when
+  full (`merge_into`). So `rdf:type`'s stable batch holds 64 MiB for
+  3,775,750 pairs (30.2 MB of them). `memberOf` holds 17.8 MB for 591,723
+  pairs (4.7 MB). After the fixpoint every recent part is empty, yet
+  `rdf:type`'s still holds 4 MiB and the others another 4 MiB.
+- All cores (`Variable::changed_on` with workers) builds a new vector for
+  each large merge, sort and filter (`Workers::merge`, `sort_dedup`,
+  `absent`), each made by `concat` with exactly its length. So every table
+  holds 8 bytes a pair: `rdf:type` 30,206,096 bytes, its recent part
+  96 bytes. The price is copies. At each `concat` the inputs, the pieces
+  per chunk and the output are all alive, and rayon's `par_sort` adds a
+  buffer as long as its input. The tables step side by side. So all
+  cores hold less after the run and more at the peak: 25.6 bytes per
+  closure triple not held, against 8.8 on one thread.
 
-4. **Hash a document once, on the workers.** Loading and total time.
-   - Hypothesis: `document_key` hashes the whole document twice on one
-     thread, with FxHash and then SipHash (`reasoner.rs:902-914`): two
-     passes over lubm-50's 934 MB. XXH64, already in `snapshot.rs`, run
-     with two seeds over 1 MiB blocks on the workers, the block hashes
-     then hashed in order, takes under 0.05 s (an estimate), and cuts
-     loading by about 0.3 s of about 0.9 s.
-   - Effect on the rubric: Speed (full run). On all cores loading is
-     about 90% of lubm-50's total time, so the total falls by about a
-     third (an estimate), on the scenarios where Soufflé comes closest.
-     It serves total time, not the loading budget, which is probably met.
-   - Files: `reasoner.rs` (`document_key`, `probe_key`), `snapshot.rs`
-     (`xxh64` shared with the crate).
-   - Risk: the key is not cryptographic, as today. A snapshot saved
-     before the change keeps no document keys on load, since its probe
-     key differs (the format intends this), so loading the same document
-     again after such a snapshot parses it again. If candidate 1 lands
-     first, each window's blocks are hashed as they come, which this
-     design allows.
-   - Measure: P0's load breakdown (read, key, parse, merge, base sort);
-     the bench's load time on lubm-10 and lubm-50, 5 runs; brick-small1
-     for no regression (a small document stays on one thread).
+1. **Size the store's relations to their contents.** Memory, on one
+   thread. **Iteration 3.**
+   - Hypothesis: on one thread, the store's 21.2 bytes per closure triple
+     fall to 12.1 to 13.0, the all-cores figure. The peak falls from 57.5
+     to about 49 to 51 (an estimate). The vectors grow through the run,
+     so most of the 94 MB of slack is probably held at the peak too, and
+     the budget is met if at least 78 MB of it is. Rule: after a sort, a
+     filter or a merge, a relation that holds more than an eighth of
+     slack gives it back (`Base::merge` already does this with a
+     quarter), and an empty recent part holds no allocation. All cores
+     do not change: their vectors are exact already.
+   - Effect on the rubric: Memory, +1 if one thread passes under 50; it
+     closes half of the memory budget. Speed within the spread.
+   - Files: `engine/relation.rs` (`from_vec`, `merge`, `merge_into`),
+     `engine/variable.rs` (`end_round`, `retain_absent`), and
+     `engine/store.rs` if the one-thread sort in `sorted_batches` needs
+     it.
+   - Risk: low for correctness, since no tuple changes. A shrink is a
+     `realloc`, in place for a large block, but a later merge into a
+     shrunk vector must grow it again, so a run of small rounds could copy
+     a large tier each time. The tiering merges a recent part into a tier
+     only when the tier is at most twice its size, so each copy is paid by
+     its merge. The `scaling_variable_*` tests check that. One-thread
+     reasoning may move by 1 to 2%.
+   - Measure: P0's store parts on one thread (stable, recent, object
+     index; `rdf:type` and the others) against the all-cores ones. Peak
+     and reasoning time on one thread and all cores, lubm-10 and lubm-50,
+     5 runs. Brick-buildings and the incremental scenarios, for no
+     regression. The engine's `scaling_*` tests. To tell loading's peak
+     from reasoning's, read the footprint once after `load` alone (a
+     one-off probe).
 
-5. **Sort the parsed base on the workers.** Loading and total time.
-   - Hypothesis: `Base::fresh` sorts and deduplicates the parsed batch on
-     one thread (`reasoner.rs:958-962`): 6.6 M triples of 12 bytes on
-     lubm-50. `Workers::sort_dedup` (`engine/parallel.rs:156`) does it on
-     every core, which cuts the sort to a fifth or less and loading by
-     about 0.1 s (an estimate: ticket 16 gives 0.5 s for the key and the
-     sort together, and P0 splits them).
-   - Effect on the rubric: Speed (full run), as candidate 4. If candidate
-     2 lands first, the same change applies to its sort per predicate.
-   - Files: `reasoner.rs` (`Base::fresh`, `Base::flush`, and `add`, which
-     then needs the workers).
-   - Risk: rayon's `par_sort` is a merge sort with a buffer as large as
-     its input, so the sort holds about 79 MB more while it runs, against
-     candidate 1's gain. Measure the peak too. Small batches (an insert)
-     stay on one thread.
-   - Measure: P0's load breakdown; the bench's load time and peak memory
-     on lubm-10 and lubm-50.
+2. **Merge a parallel step's sorted batches instead of joining and
+   sorting them.** All cores: speed and memory.
+   - Hypothesis: in a parallel step a table's pairs come as many batches.
+     There is one per chunk of each split, already sorted and deduplicated
+     (`Pending::compact`), one per chunk of the base in the first step
+     (sorted, since the base is sorted by subject, predicate, object),
+     and one per family task (unsorted). `sort_dedup_batches` copies them
+     into one vector (`concat`). It sorts that with `par_sort`, a merge
+     sort with a buffer as long as its input. It deduplicates into a
+     vector per chunk and copies those into one vector again. That writes
+     each pair about four times and holds 3 to 4 times the input at once.
+     Instead, sort each unsorted batch in place, one task each. Then merge
+     all batches k ways, in ranges cut by values of the largest batch,
+     side by side, dropping duplicates as it goes, into one output. Each
+     pair is then written once. P0 puts the all-cores step at 62 to 74 ms
+     of 103 to 118 ms, and its sorting at 114 to 125 ms summed over tasks,
+     against 17 to 23 ms of changes. Expected (estimates): steps down to
+     45 to 55 ms, reasoning to 85 to 90 ms (4.6 to 4.9 times one thread),
+     and the all-cores transient from 25.6 to about 17 bytes per closure
+     triple. One thread does not change: its round has one buffer, so a
+     table gets one batch.
+   - Effect on the rubric: Speed (full run) on the all-cores axis, which
+     brings the 5-times budget within reach, probably not alone. Memory on
+     all cores.
+   - Files: `engine/parallel.rs` (`sort_dedup_batches`: a k-way path for
+     sorted batches), `engine/store.rs` (`Pending`: say which batches are
+     sorted, or sort a task's own batch in its task).
+   - Risk: medium. A batch the merge takes for sorted that is not gives a
+     wrong table: assert it in debug builds, and compare chaos at one
+     thread with all cores. The result is the sorted set, as on one
+     thread, so thread-count invariance holds. With 48 chunks and several
+     families, k can reach several hundred: a loser tree costs about log k
+     comparisons a pair.
+   - Measure: P0's step wall time and sort time per step on all cores; the
+     bench's reasoning time at one thread and all cores, lubm-10 and
+     lubm-50, 5 runs, on a quiet machine; the all-cores peak and its
+     spread; chaos at one thread and all cores.
+
+3. **Keep the dictionary's hash slots up to three quarters full.**
+   Memory, both modes.
+   - Hypothesis: the slots are `u64` and at most half full (`term.rs`:
+     `insert`, `index_appended`, `reserve`). lubm-50's terms (the entries
+     hold 2,293,760) sit in 8,388,608 slots, 64 MiB, about 27% full. With
+     slots up to 3/4 full they fit in 4,194,304 slots, 32 MiB: 3.2 bytes
+     per closure triple less in both modes. Over all input sizes a term
+     costs 10.7 to 21.3 bytes of slots instead of 16 to 32, a third less.
+     With candidate 1, one thread would reach about 46 to 48 (an
+     estimate).
+   - Effect on the rubric: Memory, in both modes.
+   - Files: `term.rs` (the three growth rules and the doc comment on
+     `slots`); `snapshot.rs` only if it sizes the slots itself.
+   - Risk: linear probing at 3/4 full reads more slots. A miss, which
+     every new term is, reads about 8.5 slots at 3/4 against 2.5 at 1/2,
+     in one or two cache lines, since each slot holds the term's 32-bit
+     hash. The slot comes from FxHash's low bits, and clusters grow with
+     the load. Interning bounds loading (the merge takes 110 to 150 ms on
+     one thread, ticket 18), so loading may slow 1 to 3% (an estimate).
+   - Measure: P0's `dictionary_slots`; the bench's load time on lubm-10
+     and lubm-50, one thread and all cores, 5 runs; the interning
+     `scaling_*` tests; the snapshot's load time.
+
+4. **Write a parallel merge and a parallel filter into one vector.**
+   Memory, all cores.
+   - Hypothesis: `Workers::merge` merges each range into a vector of its
+     own, and `concat` copies them into one. At the copy, the two inputs,
+     the pieces and the output are alive: 3 times the merged size.
+     `Workers::absent` does the same. Ending a round merges parts that are
+     disjoint (a variable keeps its tiers and its recent part disjoint),
+     so the result has exactly a + b pairs, and each range's offset
+     follows from its cuts. The ranges can then write into one vector
+     directly, which holds 2 times the merged size. The filter can keep
+     each chunk's survivors in place and close the gaps after. On
+     lubm-50, `rdf:type`'s tiers reach 30 MB. Expected (estimates): 2 to
+     5 bytes per closure triple less at the all-cores peak, and a fifth
+     off the all-cores change time (17 to 23 ms summed over tasks).
+   - Effect on the rubric: Memory on all cores; speed a little.
+   - Files: `engine/parallel.rs` (`merge`, `parallel_merge`, `absent`),
+     `engine/variable.rs` (`changed_on`: the disjoint merge for the tiers;
+     the general merge stays for two queued batches, which may overlap).
+   - Risk: the disjoint form on parts that overlap writes duplicates. Use
+     it only where the invariant holds, with a debug assertion. Chaos at
+     one thread and all cores checks it.
+   - Measure: the all-cores peak and its spread, 5 runs; P0's change
+     time per step; chaos at one thread and all cores.
+
+5. **Flip the object index's pairs on the workers.** All cores
+   (iteration 1's candidate 3, re-ranked).
+   - Hypothesis: a newly requested index is built by a sequential flip of
+     the whole table at the start of a step, one table after another
+     (`Store::advance`). Each step also flips each indexed table's new
+     pairs in one loop (`Job::sort_index`). On lubm-50, `rdf:type`
+     (3.78 M pairs at the end) and `takesCourse` (1.42 M) have object
+     indexes. `rdf:type`'s job is the longest of each step, so its flips
+     sit on the serial path. In chunks on the workers they leave it: 3 to
+     6 ms off the all-cores reasoning (an estimate), or 3.9 to about 4.1
+     times one thread.
+   - Effect on the rubric: Speed (full run), all-cores axis. Together with
+     candidate 2 it may reach 5 times.
+   - Files: `engine/store.rs` (`advance`, `Job::sort_index`).
+   - Risk: low. A flip is a map, and the sort after it restores the order.
+     Below `PARALLEL_FROM` nothing changes.
+   - Measure: P0's step wall times at one thread and all cores (the flips
+     are inside the sort time, not apart); the bench's reasoning time,
+     lubm-10 and lubm-50, 5 runs, on a quiet machine.
+
+Still open from iteration 1, ranked after these five:
+
+6. **Hash a document once.** Loading and total time (iteration 1's
+   candidate 4). `DocumentKey` hashes all 934 MB of lubm-50 twice on one
+   thread, with FxHash and SipHash (`reasoner.rs`). XXH64, already in
+   `snapshot.rs`, run with two seeds in blocks, would cut about 0.3 s from
+   both modes (an estimate). On one thread it is the change that would
+   bring loading (1.52 s) under the 1.30 s bar, if the owner reads the
+   budget for both modes. Risk and measurement as iteration 1 wrote them:
+   older snapshots keep no document keys; P0's load breakdown; load time
+   on lubm-10 and lubm-50.
+7. **Keep the base by predicate, as sorted (s, o) pairs.** Memory and
+   full runs (iteration 1's candidate 2). The base is 7.6 bytes per
+   closure triple (78.9 MB, 12 bytes a triple). Pairs per predicate take
+   8 bytes, 2.5 bytes per closure triple less in both modes, and a full
+   run with an empty canon could hand each predicate's pairs to its table
+   as one sorted batch. More effort than candidates 1 to 4 for a similar
+   gain. Take it if memory is still above 50 after them.
+8. **Sort the parsed base on the workers.** Loading on all cores
+   (iteration 1's candidate 5). `Base::fresh` sorts 6.6 M triples on one
+   thread. `par_sort` adds a 79 MB buffer while it runs, against the
+   memory budget. Loading is met on all cores, and this does nothing on
+   one thread, so it comes last.
 
 Not ranked here, and why:
 
+- **The families that gain little from threads.** In round 1 the
+  property family takes 8.1 ms on one thread and 7.8 to 8.7 ms on all
+  cores, and the datatype family 22.0 against 7.5 to 8.0 ms. In round 3
+  the class family takes 12.7 against 7.4 to 8.7 ms. Together they may
+  hold 5 to 10 ms of the 5-times gap (an estimate). P0 gives each
+  family's time, not why it does not scale. The property family runs a
+  split, and so a barrier, per axiom and part. Count them before changing
+  anything.
 - **E2, E8 and E1** (the owner's first picks, research §10) act on
-  Brick's class hierarchy. No phase 2 budget is open on Brick, where
-  TurbOWL's total time leads by 11× to 17×, and LUBM's hierarchy is
-  shallow, so their gain on lubm-50 is small. They come next once the
-  memory and all-cores budgets are met, or first if the owner keeps that
-  order.
-- **E7** (CSR for `rdf:type`'s object index): stored pairs are 125 MB of
-  lubm-50's 312 MB state, and the object indexes are part of that. Worth
-  it only if P0 shows that relations, not loading or transient buffers,
-  hold the peak.
-- **E10** (found by the scaling tests): a blocked Bloom filter on each
-  large stable tier of a variable, so a round's duplicate check costs
-  O(1) per tier instead of a gallop. Hypothesis: many-round inputs (long
-  chains, incremental edits) go from N·log²(N/b) to N log N in the
-  duplicate check, for about 12 to 15% more memory, which works against
-  the memory budget now. Measure:
-  `scaling_variable_small_batches_comparisons`, the chain and
-  incremental scenarios, and peak memory on brick-buildings and lubm-50.
-  Few-round inputs (Brick, LUBM) should not change.
+  Brick's class hierarchy. No phase 2 budget is open on Brick, and LUBM's
+  hierarchy is shallow. They come after the memory and all-cores budgets,
+  or first if the owner keeps that order.
+- **E7** (CSR for `rdf:type`'s object index): P0 now puts that index at
+  30.2 MB, 2.9 bytes per closure triple. A CSR of 4-byte subjects with
+  offsets per class would save about 1.5 (an estimate). Worth it after
+  candidates 1 to 4 if memory is still above 50.
+- **E10** (a blocked Bloom filter on each large stable tier): for
+  many-round inputs. It costs 12 to 15% more memory, against the budget
+  now.
+- **Split IRIs into a namespace and a local name in the dictionary.** The
+  text is 9.8 bytes per closure triple (101.5 MB, about 44 bytes a term),
+  and LUBM's IRIs share a few thousand namespaces. A namespace id fits in
+  the entry's 32-bit field, which an IRI leaves unused. It might save 4
+  to 5 bytes per triple, but every reader of a borrowed `Term::Iri(&str)`
+  changes, and so does the snapshot format: the largest change here.
 - **The dictionary merge** runs on one thread, 110 to 150 ms on lubm-50
-  (ticket 18's log). A sharded dictionary that keeps first-seen ids
-  would run it in parallel, for more effort than candidates 4 and 5 and a
-  similar gain.
+  (ticket 18's log). A sharded dictionary that keeps first-seen ids would
+  run it in parallel, for more effort than candidate 6 and a similar gain.
