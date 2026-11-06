@@ -186,6 +186,17 @@ impl<T: Ord + Copy> Variable<T> {
         }
     }
 
+    /// The bytes the variable holds: its stable batches (and their list),
+    /// and its recent part with what is queued. Capacities, not lengths.
+    pub(crate) fn bytes(&self) -> (usize, usize) {
+        let stable = self.stable.capacity() * std::mem::size_of::<Relation<T>>()
+            + self.stable.iter().map(Relation::bytes).sum::<usize>();
+        let recent = self.recent.bytes()
+            + self.to_add.capacity() * std::mem::size_of::<Relation<T>>()
+            + self.to_add.iter().map(Relation::bytes).sum::<usize>();
+        (stable, recent)
+    }
+
     /// Tuples joins see (`to_add` not counted).
     pub(crate) fn len(&self) -> usize {
         self.stable.iter().map(|b| b.len()).sum::<usize>() + self.recent.len()

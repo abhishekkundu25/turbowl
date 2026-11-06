@@ -61,6 +61,11 @@ impl<T: Ord + Copy> Relation<T> {
         self.elements.binary_search(x).is_ok()
     }
 
+    /// The bytes the relation holds: its capacity, not its length.
+    pub(crate) fn bytes(&self) -> usize {
+        self.elements.capacity() * std::mem::size_of::<T>()
+    }
+
     /// The tuples, as a vector.
     pub(crate) fn into_vec(self) -> Vec<T> {
         self.elements

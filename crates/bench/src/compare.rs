@@ -184,7 +184,7 @@ mod tests {
     use super::{differences, verdict};
     use serde_json::json;
 
-    /// Every schema from 1 to 7 reads, and compares with any other: what an
+    /// Every schema from 1 to 8 reads, and compares with any other: what an
     /// older file leaves out reads as what it ran (the default
     /// configuration, the peak resident size, one thread).
     #[test]
@@ -199,7 +199,7 @@ mod tests {
         };
         let engine = |schema: u64| if schema < 4 { "turtle-reasoner" } else { "turbowl" };
         let mut read = Vec::new();
-        for schema in 1..=8 {
+        for schema in 1..=9 {
             let path = dir.join(format!("v{schema}.json"));
             let row = json!({ "scenario": "lubm-1", "engine": engine(schema), "status": "ok",
                               "summary": { "median_ms": 1.0, "min_ms": 1.0, "max_ms": 1.0 } });
@@ -210,17 +210,17 @@ mod tests {
             .unwrap();
             match crate::read_results(&path) {
                 Ok((v, skipped)) => {
-                    assert!(schema <= 7, "schema {schema} read");
+                    assert!(schema <= 8, "schema {schema} read");
                     assert!(skipped.is_empty());
                     assert_eq!(v["results"][0]["engine"], "turbowl", "schema {schema}");
                     read.push(v);
                 }
-                Err(e) => assert_eq!(schema, 8, "{e}"),
+                Err(e) => assert_eq!(schema, 9, "{e}"),
             }
         }
-        assert_eq!(read.len(), 7);
-        for old in 1..=7 {
-            for new in 1..=7 {
+        assert_eq!(read.len(), 8);
+        for old in 1..=8 {
+            for new in 1..=8 {
                 assert_eq!(
                     super::run(&dir.join(format!("v{old}.json")), &dir.join(format!("v{new}.json"))),
                     std::process::ExitCode::SUCCESS
@@ -237,7 +237,7 @@ mod tests {
             fields(6, 7),
             ["configuration differs (\"default\" vs \"default, equality off\")"]
         );
-        assert!(fields(7, 7).is_empty());
+        assert!(fields(7, 8).is_empty());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

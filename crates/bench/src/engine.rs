@@ -325,6 +325,9 @@ fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> R
     let start = Instant::now();
     let mut summary = r.reason();
     let reason_ms = ms(start);
+    // The counters of the full run, before the changes replace them (not
+    // timed); the memory is read at the end.
+    let full = (mode != Mode::Full).then(|| r.profile());
 
     let mut change_ms = Vec::with_capacity(stream.len());
     for t in &stream {
@@ -336,8 +339,11 @@ fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> R
         summary = r.reason();
         change_ms.push(ms(start));
     }
-    // Read the peak before the check below, which holds a hash per triple.
+    // Read the peak before the check below, which holds a hash per triple,
+    // and before the profile, whose walk allocates a little.
     let peak_rss_bytes = crate::machine::own_peak_bytes();
+    let held = r.profile();
+    let profile = crate::profile::to_json(full.as_ref().unwrap_or(&held), &held.memory);
     let reported = summary.base + summary.inferred;
     let counted = distinct_triples(r.triples(), reported);
     Ok(json!({
@@ -348,5 +354,6 @@ fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> R
         "peak_rss_bytes": peak_rss_bytes,
         "closure": reported,
         "closure_counted": counted,
+        "profile": profile,
     }))
 }

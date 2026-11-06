@@ -133,6 +133,19 @@ nothing.
   or a failed run is a **problem**: it is printed, listed in the results
   file, and makes the bench exit 1. A timeout, a run over the memory cap, a
   skipped scenario and an unsupported one are results, not problems.
+- **Counters** (this reasoner only; experiment P0 of
+  `docs/specs/experiments.md`). Each run records `Reasoner::profile()`
+  (`turbowl::profile`): for the full run (the first `reason()`), per round
+  the delta and each rule family's emitted tuples and time, and per step
+  the time in sorting, in finding what changed (`changed`) and in all, with
+  the distinct pairs it got and the tuples among them that were new; and,
+  read just after the peak, the bytes the reasoner holds by part (the
+  dictionary's text, entries and slots; the base; the store's `rdf:type`
+  table, its other tables and its own structures, and its five largest
+  tables; the canon; the findings and diagnostics; the rest). Bytes are
+  capacities, what the process holds. The counts cost an integer add per
+  family and round; the clock is read a few times per round and step; the
+  bytes are walked after the timings. On WebAssembly every time is 0.
 - A panic in this reasoner is caught by the child and recorded as an
   `error` with its message: a problem.
 - Every engine's closure is the full one on every scenario, `owl:sameAs`
@@ -361,7 +374,7 @@ sizes are listed with their status.
 
 ## The scoreboard
 
-`--scoreboard FILE...` reads results files (schemas 1 to 7) and prints, in
+`--scoreboard FILE...` reads results files (schemas 1 to 8) and prints, in
 Markdown, one section per configuration and thread mode: `default` and
 `complete`, each with one thread and with all cores, then any other
 configuration a file ran (`default, equality off`). A mode no file ran says
@@ -463,7 +476,12 @@ estimate is made today, and three more conditions fail besides the counts:
 
 ## The results file (`--json`)
 
-Schema version 7. Times are in milliseconds, memory in bytes.
+Schema version 8. Times are in milliseconds, memory in bytes.
+
+Version 8 adds this reasoner's counters and memory breakdown: a `profile`
+in each of its runs, and a `profile` in its summary (both described in the
+sample below; a competitor's runs and summary have none). Nothing else
+changes, and `--compare` and `--scoreboard` do not read them.
 
 Version 7 adds `meta.switches` (the names of the switches that were on),
 `meta.threads` (the threads each engine ran on: 1, as every file before
@@ -489,7 +507,7 @@ file's `turtle-reasoner` engine as `turbowl`. Version 3 adds the top-level
 Version 2 changed from 1: the engines were renamed; a result's `status` can
 be `unsupported`; each result has `x_turtle_reasoner`; the summary has
 `export_median_ms` and `wall_median_ms`; Nemo's runs have `export_ms` and
-`wall_ms`; and `meta.versions` has `nemo`. `--compare` and `--scoreboard` read versions 1 to 7.
+`wall_ms`; and `meta.versions` has `nemo`. `--compare` and `--scoreboard` read versions 1 to 8.
 
 Files written before version 2 of this project also hold the rows and the
 `meta.versions` entry of an engine the bench no longer runs (ADR 0006).
@@ -498,7 +516,7 @@ skipped from which file, and compares the rest.
 
 ```jsonc
 {
-  "schema": 7,
+  "schema": 8,
   "meta": {
     "date": "2026-11-05T10:00:00Z",          // UTC, when the file was written
     "commit": "fcca1da…", "dirty": false,     // the repository's HEAD; tracked files changed?
@@ -538,7 +556,21 @@ skipped from which file, and compares the rest.
         "peak_rss_bytes": 268468224,          // the largest peak of the runs (meta.peak_memory)
         "peak_rss_min_bytes": 266000000,      // the smallest
         "closure": 204521,                    // closure triples (base + inferred), last run
-        "peak_bytes_per_closure_triple": 1312.7 // peak_rss_bytes / closure; null when the closure is 0
+        "peak_bytes_per_closure_triple": 1312.7, // peak_rss_bytes / closure; null when the closure is 0
+        "profile": {                          // turbowl only (schema 8): the runs' profiles summed up
+          "rounds": 7,                        // the last run's
+          "rules_median_ms": 3.04,            // medians over the runs of the full run's times:
+          "step_median_ms": 1.75,             //   the rounds (families), the steps,
+          "sort_median_ms": 1.16,             //   their sorts,
+          "changed_median_ms": 0.5,           //   and their changes
+          "memory": { "dictionary": 670976, "base": 196832, "store": 812408,
+                      "rest": 1656, "total": 1681872 },   // the last run's, by part; rest = total - the others
+          "bytes_per_closure_triple": {       // over the last run's closure
+            "peak": 242.2,                    // = peak_bytes_per_closure_triple
+            "dictionary": 25.4, "base": 7.5, "store": 30.8, "rest": 0.1,
+            "not_counted": 178.5              // peak - total: the binary, allocator slack, transient peaks
+          }
+        }
       },
       "x_turbowl": {                          // this engine over turbowl, same scenario;
         "time": 6.03,                         //   null when either has no finished run.
@@ -552,7 +584,33 @@ skipped from which file, and compares the rest.
           "export_ms": 95.0, "wall_ms": 410.3, // competitors' runs only
           // "total_ms": 300.0,               // Souffle's and VLog's runs: load_ms and reason_ms are null
           "closure": 204521,                  // what the engine reports
-          "closure_counted": 204521 }         // distinct triples counted
+          "closure_counted": 204521,          // distinct triples counted
+          "profile": {                        // turbowl only (schema 8): Reasoner::profile()
+            "families": ["class", "property"],  // the rule families that ran, in order
+            "rounds": {                       // the full run's, one entry per round
+              "delta": [14819, 2946],         // tuples new as the round starts
+              "emitted": [[6000, 3084], [7000, 4124]], // per family: tuples emitted, duplicates included
+              "family_ms": [[0.2, 0.1], [0.3, 0.2]],   // per family: its own time
+              "ms": [0.31, 0.52]              // the round's wall time
+            },
+            "steps": {                        // one entry per step: one more than the rounds
+              "ms": [0.15, 0.26, 0.01], "sort_ms": [0.07, 0.21, 0.0], "changed_ms": [0.0, 0.04, 0.0],
+              "pairs": [14819, 3871, 4],      // distinct pairs the step got (the input, then a round's output)
+              "new": [14819, 2946, 0]         // of them, new: the next round's delta
+            },
+            "round_count": 2, "rules_ms": 0.83, "step_ms": 0.42, "sort_ms": 0.28, "changed_ms": 0.04,
+            "memory": {                       // bytes held at the end of the run (capacities)
+              "dictionary_text": 396544, "dictionary_entries": 143360, "dictionary_slots": 131072,
+              "base": 196832,
+              "store_type": { "tuples": 2657, "stable": 73824, "recent": 128, "object_index": 37984 },
+              "store_other": { "tuples": 23724, "stable": 468832, "recent": 101888, "object_index": 119112 },
+              "store_rest": 10640,            // the table list, the predicate index, the queued triples
+              "largest": [ { "predicate": "<http://www.w3.org/2000/01/rdf-schema#subClassOf>",
+                             "tuples": 9267, "stable": 262240, "recent": 32864, "object_index": 117584 } ],
+              "canon": 4, "findings": 0, "diagnostics": 0, "other": 1652,
+              "total": 1681872                // the sum of the parts (largest is inside store_*)
+            }
+          } }
       ]
     }
   ],
@@ -586,6 +644,26 @@ skipped from which file, and compares the rest.
 
 A run that ends early keeps the runs before it: `status` is the first
 non-`ok` status, `runs` holds the finished ones.
+
+## The breakdown
+
+After the main table, the text report prints one line per scenario this
+reasoner ran, from its summary's `profile`: the peak in bytes per closure
+triple, what the reasoner holds after the run per closure triple, split
+into the dictionary, the base, the store and the rest (canon, findings,
+diagnostics, the rest), and what the held parts do not explain (`not
+counted`: the binary, allocator slack and the transient peaks of loading
+and of the steps); then the rounds and the medians of the time in the
+rounds' rule families, in the steps, and in the steps' sorts and changes.
+In a parallel step the sorts and changes are summed over threads, so they
+can pass the step's time. For example (one run on a busy machine: the
+format, not a measurement):
+
+```text
+| scenario | B/triple peak | dictionary | base | store | rest | not counted | rounds | rules ms | step ms | sort ms | changed ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | 242.2 | 25.4 | 7.5 | 30.8 | 0.1 | 178.5 | 7 | 3.0 | 1.8 | 1.2 | 0.5 |
+```
 
 ## Comparing two results files
 

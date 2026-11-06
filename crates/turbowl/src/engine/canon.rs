@@ -160,6 +160,16 @@ impl Canon {
         self.merges
     }
 
+    /// The bytes the canon holds: the representatives, the classes'
+    /// members and their map, and the watched constants.
+    pub(crate) fn bytes(&self) -> usize {
+        use crate::profile::{hash_bytes, vec_bytes};
+        vec_bytes(&self.rep)
+            + hash_bytes(self.classes.capacity(), std::mem::size_of::<(u32, Vec<u32>)>())
+            + self.classes.values().map(vec_bytes).sum::<usize>()
+            + vec_bytes(&self.watched)
+    }
+
     /// Ids below this are the rules' constants.
     pub(crate) fn constants(&self) -> u32 {
         self.constants

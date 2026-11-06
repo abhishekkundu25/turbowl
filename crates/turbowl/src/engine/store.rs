@@ -42,6 +42,7 @@ use super::join::join_slices;
 use super::parallel::Workers;
 use super::relation::Relation;
 use super::variable::Variable;
+use crate::profile::{self, Clock, Parts, Step};
 use rustc_hash::FxHashMap;
 
 /// A `(subject, object)` pair, or `(object, subject)` in an object index.
@@ -75,6 +76,20 @@ impl Table {
 
     fn is_active(&self) -> bool {
         self.so.is_active() || self.os.as_ref().is_some_and(Variable::is_active)
+    }
+
+    /// The bytes the table holds, by part.
+    pub(crate) fn parts(&self) -> Parts {
+        let (stable, recent) = self.so.bytes();
+        Parts {
+            tuples: self.so.len(),
+            stable,
+            recent,
+            object_index: self.os.as_ref().map_or(0, |os| {
+                let (stable, recent) = os.bytes();
+                stable + recent
+            }),
+        }
     }
 }
 
@@ -216,6 +231,24 @@ impl Pending {
             .map(|s| s.pairs.capacity() + s.more.iter().map(Vec::capacity).sum::<usize>())
             .sum()
     }
+
+    /// The bytes the buffer holds: its pairs, slots and index.
+    fn bytes(&self) -> usize {
+        let slots: usize = self
+            .slots
+            .iter()
+            .map(|s| {
+                profile::vec_bytes(&s.pairs)
+                    + profile::vec_bytes(&s.more)
+                    + s.more.iter().map(profile::vec_bytes).sum::<usize>()
+            })
+            .sum();
+        slots
+            + profile::vec_bytes(&self.slots)
+            + profile::hash_bytes(self.index.capacity(), std::mem::size_of::<(u32, usize)>())
+            + profile::vec_bytes(&self.by_object)
+            + profile::vec_bytes(&self.merges)
+    }
 }
 
 /// Predicate tables, semi-naively evaluated.
@@ -243,6 +276,8 @@ pub(crate) struct Store {
     /// The tuples in the recent parts (both indexes) after the last step:
     /// the next round's delta.
     delta: usize,
+    /// The steps of the last run ([`Store::take_steps`]).
+    steps: Vec<Step>,
     /// Rounds and steps that ran in parallel.
     #[cfg(test)]
     engaged: usize,
@@ -367,6 +402,7 @@ impl Store {
     /// inserts, it continues semi-naively from the stored state.
     pub(crate) fn run(&mut self, mut rules: impl FnMut(&mut Round<'_>)) -> usize {
         debug_assert!(!self.restarted, "a store that stopped for a restart is not run again");
+        self.steps.clear();
         let mut pending = std::mem::take(&mut self.pending);
         let mut rounds = 0;
         while self.step(&mut pending) {
@@ -394,6 +430,16 @@ impl Store {
     /// some table has a non-empty recent part or an id moved, so another
     /// round is needed.
     fn step(&mut self, pending: &mut Pending) -> bool {
+        let start = Clock::now();
+        let mut log = Step::default();
+        let changed = self.advance(pending, &mut log);
+        log.ns = start.elapsed_ns();
+        self.steps.push(log);
+        changed
+    }
+
+    /// The step's work, its counts and times kept in `log`.
+    fn advance(&mut self, pending: &mut Pending, log: &mut Step) -> bool {
         // Object indexes first, so that the rewriting below covers them.
         pending.by_object.sort_unstable();
         pending.by_object.dedup();
@@ -401,11 +447,13 @@ impl Store {
             let t = self.table_index(p);
             let table = &mut self.tables[t];
             if table.os.is_none() {
+                let start = Clock::now();
                 let flipped: Vec<Pair> = table.so.all().iter().map(|(s, o)| (o, s)).collect();
                 let workers = self.workers.engage(flipped.len()).then_some(&self.workers);
                 let mut os = Variable::new();
                 os.insert(sorted(flipped, workers));
                 table.os = Some(os);
+                log.sort_ns += start.elapsed_ns();
                 self.activate(t);
             }
         }
@@ -463,14 +511,34 @@ impl Store {
                 batches,
                 new: false,
                 recent: 0,
+                pairs: 0,
+                sort_ns: 0,
+                changed_ns: 0,
             });
         }
         debug_assert!(work.next().is_none(), "every table with new pairs is active");
         let workers = &self.workers;
         if parallel {
+            // Each table on its own thread, timed on its own.
             workers.for_each(&mut jobs, |job| job.advance(Some(workers)));
+            for job in &jobs {
+                log.sort_ns += job.sort_ns;
+                log.changed_ns += job.changed_ns;
+            }
         } else {
-            jobs.iter_mut().for_each(|job| job.advance(None));
+            // On this thread, phase by phase, so that a few clock readings
+            // time every table.
+            let t0 = Clock::now();
+            jobs.iter_mut().for_each(|job| job.sort(None));
+            let t1 = Clock::now();
+            jobs.iter_mut().for_each(|job| job.change(None));
+            let t2 = Clock::now();
+            jobs.iter_mut().for_each(|job| job.sort_index(None));
+            let t3 = Clock::now();
+            jobs.iter_mut().for_each(|job| job.change_index(None));
+            let t4 = Clock::now();
+            log.sort_ns += t0.ns_to(t1) + t2.ns_to(t3);
+            log.changed_ns += t1.ns_to(t2) + t3.ns_to(t4);
         }
 
         let mut changed = false;
@@ -478,6 +546,8 @@ impl Store {
         for job in jobs {
             changed |= job.new;
             self.delta += job.recent;
+            log.pairs += job.pairs;
+            log.new += job.table.so.recent().len();
             if job.new {
                 self.active.push(job.t);
             } else {
@@ -594,6 +664,27 @@ impl Store {
     pub(crate) fn rounds(&self) -> usize {
         self.rounds
     }
+
+    /// The steps of the last run, taken: each run starts a new list.
+    pub(crate) fn take_steps(&mut self) -> Vec<Step> {
+        std::mem::take(&mut self.steps)
+    }
+
+    /// The bytes the store's own structures hold, its tables left out: the
+    /// list of tables, the index from predicate to table, the active list,
+    /// the round buffer (the triples queued for the next run) and the ids
+    /// the last step moved.
+    pub(crate) fn own_bytes(&self) -> usize {
+        use std::mem::size_of;
+        profile::vec_bytes(&self.tables)
+            + profile::vec_bytes(&self.predicates)
+            + profile::hash_bytes(self.index.capacity(), size_of::<(u32, usize)>())
+            + profile::vec_bytes(&self.active)
+            + profile::vec_bytes(&self.is_active)
+            + self.pending.bytes()
+            + profile::vec_bytes(&self.moved)
+            + profile::vec_bytes(&self.steps)
+    }
 }
 
 /// Rewrites a round's output into representatives: each pair, and each
@@ -626,30 +717,64 @@ struct Job<'a> {
     new: bool,
     /// The tuples in its recent parts after the step.
     recent: usize,
+    /// The distinct pairs the round gave it.
+    pairs: usize,
+    /// Its time in sorts and in changes ([`Job::advance`] only).
+    sort_ns: u64,
+    changed_ns: u64,
 }
 
 impl Job<'_> {
     /// Queues the round's pairs in the table, sorted, and ends the round for
-    /// it ([`Variable::changed`]). With `workers`, its large sorts, merges
-    /// and filters run in parallel.
+    /// it ([`Variable::changed`]): the four phases below, timed. With
+    /// `workers`, its large sorts, merges and filters run in parallel.
     fn advance(&mut self, workers: Option<&Workers>) {
-        let table = &mut *self.table;
+        let t0 = Clock::now();
+        self.sort(workers);
+        let t1 = Clock::now();
+        self.change(workers);
+        let t2 = Clock::now();
+        self.sort_index(workers);
+        let t3 = Clock::now();
+        self.change_index(workers);
+        let t4 = Clock::now();
+        self.sort_ns = t0.ns_to(t1) + t2.ns_to(t3);
+        self.changed_ns = t1.ns_to(t2) + t3.ns_to(t4);
+    }
+
+    /// Queues the round's pairs in the table, sorted and deduplicated.
+    fn sort(&mut self, workers: Option<&Workers>) {
         if let Some(batches) = self.batches.take() {
-            table.so.insert(sorted_batches(batches, workers));
+            let pairs = sorted_batches(batches, workers);
+            self.pairs = pairs.len();
+            self.table.so.insert(pairs);
         }
-        let Table { so, os } = table;
-        let new_so = so.changed_on(workers);
-        // The object index gets what is new by subject, flipped: the same
-        // tuples, so it sorts no pair that is not new.
-        let new_os = os.as_mut().is_some_and(|os| {
-            if !so.recent().is_empty() {
-                let flipped: Vec<Pair> = so.recent().iter().map(|&(s, o)| (o, s)).collect();
-                os.insert(sorted(flipped, workers));
-            }
-            os.changed_on(workers)
-        });
-        self.new = new_so || new_os;
-        self.recent = so.recent().len() + os.as_ref().map_or(0, |os| os.recent().len());
+    }
+
+    /// Ends the round for the pairs by subject: the new ones become recent.
+    fn change(&mut self, workers: Option<&Workers>) {
+        self.new = self.table.so.changed_on(workers);
+        self.recent = self.table.so.recent().len();
+    }
+
+    /// The object index gets what is new by subject, flipped: the same
+    /// tuples, so it sorts no pair that is not new.
+    fn sort_index(&mut self, workers: Option<&Workers>) {
+        let Table { so, os } = &mut *self.table;
+        if let Some(os) = os
+            && !so.recent().is_empty()
+        {
+            let flipped: Vec<Pair> = so.recent().iter().map(|&(s, o)| (o, s)).collect();
+            os.insert(sorted(flipped, workers));
+        }
+    }
+
+    /// Ends the round for the object index.
+    fn change_index(&mut self, workers: Option<&Workers>) {
+        if let Some(os) = &mut self.table.os {
+            self.new |= os.changed_on(workers);
+            self.recent += os.recent().len();
+        }
     }
 }
 

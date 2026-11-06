@@ -104,6 +104,24 @@
 //!
 //! The format, and what loading checks, are documented in `src/snapshot.rs`.
 //!
+//! # Counters
+//!
+//! [`Reasoner::profile`] tells what the last run did and what the reasoner
+//! holds ([`profile::Profile`]): per round, the delta and each family's
+//! emitted tuples and time; per step, the time in sorting and in finding
+//! what changed, and the distinct and new tuples; and the bytes held by the
+//! dictionary, the base, the store (`rdf:type`'s table, the others, the
+//! five largest), the canon and the findings. Every run keeps the counts,
+//! at an integer add per family and round and a few clock readings per
+//! round and step; the bytes are computed only when asked.
+//!
+//! The method and the [`profile`] module are in the interface for one
+//! adapter, the bench (`crates/bench`), which records them in its results
+//! file so that every claim of the improvement loop
+//! (`docs/specs/experiments.md`) comes with what bounds it. They are kept
+//! out of the CLI and Python. Their fields may change with what the loop
+//! needs to measure.
+//!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.
 
@@ -112,6 +130,7 @@ mod engine;
 mod error;
 #[cfg(feature = "io")]
 mod io;
+pub mod profile;
 mod reasoner;
 mod rules;
 #[cfg(test)]

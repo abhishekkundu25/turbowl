@@ -19,6 +19,7 @@ mod engine;
 mod lubm;
 mod machine;
 mod nemo;
+mod profile;
 mod published;
 mod report;
 mod scaling;
@@ -36,7 +37,7 @@ use std::time::{Duration, Instant};
 use turbowl::{Switch, Switches};
 
 /// The results file's format version.
-const SCHEMA: u64 = 7;
+const SCHEMA: u64 = 8;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
 /// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
 /// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name
@@ -46,8 +47,10 @@ const SCHEMA: u64 = 7;
 /// `total_ms` (an engine that does not split loading from reasoning), and
 /// the peak memory becomes the peak physical footprint on macOS, 7 adds
 /// `meta.switches`, `meta.threads` and `published_counts`, and
-/// `meta.configuration` can name switches turned from the default.
-const READS: [u64; 7] = [1, 2, 3, 4, 5, 6, 7];
+/// `meta.configuration` can name switches turned from the default, 8 only
+/// adds this reasoner's counters and memory breakdown (`profile` in its runs
+/// and summaries).
+const READS: [u64; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
 /// This reasoner's engine name in results files before version 4.
 const OLD_NAME: &str = "turtle-reasoner";
 
@@ -460,7 +463,7 @@ impl Row {
             spread(&xs).map(|s| round(s.0))
         };
         let closure = self.runs.last().and_then(|r| r["closure"].as_u64());
-        Some(json!({
+        let mut summary = json!({
             "measure": if self.scenario.mode == Mode::Full { "reason_ms" } else { "change_median_ms" },
             "median_ms": round(median),
             "min_ms": round(min),
@@ -475,7 +478,12 @@ impl Row {
             "closure": closure,
             // The memory rubric's measure (docs/specs/experiments.md).
             "peak_bytes_per_closure_triple": closure.filter(|&c| c > 0).map(|c| round(peak.2 / c as f64)),
-        }))
+        });
+        // This reasoner's counters and memory breakdown (P0).
+        if let Some(p) = profile::summary(&self.runs, peak.2, closure) {
+            summary["profile"] = p;
+        }
+        Some(summary)
     }
 }
 
@@ -838,6 +846,11 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
         );
     }
     println!();
+    let profiles: Vec<(&str, Value)> = rows
+        .iter()
+        .filter_map(|r| Some((r.scenario.name, r.summary()?.get("profile")?.clone())))
+        .collect();
+    profile::print(&profiles);
 }
 
 /// Reads a results file. The rows of an engine this bench no longer runs

@@ -70,8 +70,9 @@
 //! switches would give.
 //!
 //! Each round calls every family that is on, in table order, as
-//! `rules/testing.rs` does, and [`Counters`] records the round's delta and
-//! what each family emitted.
+//! `rules/testing.rs` does, and [`Counters`] records the round's delta,
+//! what each family emitted and its time, and the store's steps
+//! ([`Reasoner::profile`] reads them, with the bytes held).
 //!
 //! # Threads (ticket 17)
 //!
@@ -117,6 +118,7 @@
 
 use crate::Error;
 use crate::engine::{Canon, Relation, Round, Store, Workers};
+use crate::profile::{self, Clock, Memory, Parts, Profile, Step};
 use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
 use crate::snapshot::{self, Restored, Saved};
@@ -615,6 +617,81 @@ impl Reasoner {
         &self.counters
     }
 
+    /// What the last [`Reasoner::reason`] did, round by round and step by
+    /// step, and the bytes the reasoner holds now, by part: for the bench
+    /// (`crates/bench`), which records them beside its times. The counts
+    /// are kept by every run at a cost of an integer add per family and
+    /// round; the bytes are computed here, by a walk that visits each
+    /// table's batches, not its tuples. See [`profile`](crate::profile).
+    pub fn profile(&self) -> Profile {
+        let c = &self.counters;
+        let f = c.families.len();
+        let rounds = (0..c.delta.len())
+            .map(|r| profile::Round {
+                delta: c.delta[r],
+                emitted: c.emitted[r * f..(r + 1) * f].to_vec(),
+                family_ns: c.family_ns[r * f..(r + 1) * f].to_vec(),
+                ns: c.round_ns[r],
+            })
+            .collect();
+        Profile {
+            families: c.families.clone(),
+            rounds,
+            steps: c.steps.clone(),
+            memory: self.memory(),
+        }
+    }
+
+    /// The bytes the reasoner holds, by part ([`Memory`]).
+    fn memory(&self) -> Memory {
+        use std::mem::size_of;
+        let (dictionary_text, dictionary_entries, dictionary_slots) = self.terms.bytes();
+        let canon = self.closure.canon();
+        let rdf_type = canon.find(vocab::RDF_TYPE.0);
+        let (mut store_type, mut store_other) = (Parts::default(), Parts::default());
+        let mut tables: Vec<(u32, Parts)> = Vec::new();
+        for (p, table) in self.closure.tables() {
+            let parts = table.parts();
+            if p == rdf_type {
+                store_type.add(&parts);
+            } else {
+                store_other.add(&parts);
+            }
+            tables.push((p, parts));
+        }
+        tables.sort_unstable_by_key(|(p, parts)| (std::cmp::Reverse(parts.bytes()), *p));
+        let largest = tables
+            .iter()
+            .take(5)
+            .map(|&(p, parts)| (self.terms.to_oxrdf(TermId(p)).to_string(), parts))
+            .collect();
+        let findings = profile::vec_bytes(&self.findings)
+            + self
+                .findings
+                .iter()
+                .map(|f| profile::vec_bytes(&f.terms))
+                .sum::<usize>();
+        #[cfg(feature = "io")]
+        let loaded = profile::hash_bytes(self.loaded.capacity(), size_of::<u128>());
+        #[cfg(not(feature = "io"))]
+        let loaded = 0;
+        Memory {
+            dictionary_text,
+            dictionary_entries,
+            dictionary_slots,
+            base: profile::vec_bytes(&self.base.sorted)
+                + profile::hash_bytes(self.base.recent.capacity(), size_of::<[u32; 3]>()),
+            store_type,
+            store_other,
+            store_rest: self.closure.own_bytes(),
+            largest,
+            canon: canon.bytes(),
+            findings,
+            diagnostics: profile::diagnostic_bytes(&self.diagnostics),
+            other: profile::vec_bytes(&self.same_as_itself) + loaded + self.counters.bytes(),
+        }
+    }
+
     /// A triple of the caller's as term ids, interned (blank nodes of no document).
     fn intern(&mut self, t: TripleRef<'_>) -> [u32; 3] {
         [
@@ -754,9 +831,11 @@ impl Reasoner {
                 family,
                 findings: Vec::new(),
                 emitted: 0,
+                ns: 0,
             })
             .collect();
-        closure.run(|round| {
+        let rounds = closure.run(|round| {
+            let start = Clock::now();
             let (tuples, triples) = delta(round, terms, &weights);
             counters.delta.push(tuples);
             *rdf += triples;
@@ -766,15 +845,21 @@ impl Reasoner {
                     switches,
                     findings: &mut task.findings,
                 };
+                let begin = Clock::now();
                 let before = round.emitted();
                 (task.family.rules)(round, &mut cx);
                 task.emitted = round.emitted() - before;
+                task.ns = begin.elapsed_ns();
             });
             for task in &mut tasks {
                 counters.emitted.push(task.emitted);
+                counters.family_ns.push(task.ns);
                 found.append(&mut task.findings);
             }
-        })
+            counters.round_ns.push(start.elapsed_ns());
+        });
+        counters.steps.extend(closure.take_steps());
+        rounds
     }
 
     /// True when `(s, p, _)` is an RDF triple: a subject that is not a
@@ -834,6 +919,8 @@ struct Task {
     family: &'static Family,
     findings: Vec<Finding>,
     emitted: usize,
+    /// Its time in the round.
+    ns: u64,
 }
 
 /// The tuples in the deltas of the store's tables, and the RDF triples
@@ -1026,8 +1113,8 @@ impl Base {
 }
 
 /// What the last run did, round by round: the counters experiment P0
-/// (`docs/specs/experiments.md`) reads. Kept by every run; not part of the
-/// public interface.
+/// (`docs/specs/experiments.md`) reads. Kept by every run, in flat vectors
+/// that cost a push each; [`Reasoner::profile`] gives them out by round.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Counters {
     /// The names of the families that ran (those the switches left on), in
@@ -1044,6 +1131,12 @@ pub(crate) struct Counters {
     /// one entry per family in table order (`emitted[round * families +
     /// family]`).
     pub(crate) emitted: Vec<usize>,
+    /// Each family's time, laid out as `emitted`.
+    pub(crate) family_ns: Vec<u64>,
+    /// Each round's wall time.
+    pub(crate) round_ns: Vec<u64>,
+    /// The store's steps, in order: one more than the rounds per attempt.
+    pub(crate) steps: Vec<Step>,
 }
 
 impl Counters {
@@ -1057,6 +1150,32 @@ impl Counters {
     fn clear(&mut self) {
         self.delta.clear();
         self.emitted.clear();
+        self.family_ns.clear();
+        self.round_ns.clear();
+        self.steps.clear();
+    }
+
+    /// The bytes the counters hold.
+    fn bytes(&self) -> usize {
+        profile::vec_bytes(&self.families)
+            + profile::vec_bytes(&self.delta)
+            + profile::vec_bytes(&self.emitted)
+            + profile::vec_bytes(&self.family_ns)
+            + profile::vec_bytes(&self.round_ns)
+            + profile::vec_bytes(&self.steps)
+    }
+
+    /// The counters with every time set to 0: the counts alone, which do
+    /// not change from run to run.
+    #[cfg(test)]
+    pub(crate) fn counts(&self) -> Counters {
+        let mut c = self.clone();
+        c.family_ns.fill(0);
+        c.round_ns.fill(0);
+        for s in &mut c.steps {
+            (s.ns, s.sort_ns, s.changed_ns) = (0, 0, 0);
+        }
+        c
     }
 
     /// Rounds the last run took.
@@ -1322,6 +1441,104 @@ mod tests {
         // Nothing changed: no round.
         assert_eq!(r.reason().rounds, 0);
         assert_eq!(r.counters().rounds(), 0);
+    }
+
+    /// The profile gives the counters out by round, with one step more than
+    /// rounds; each step's new tuples are the next round's delta. On one
+    /// thread a round's families and a step's sorts and changes take part
+    /// of its wall time.
+    #[test]
+    fn the_profile_gives_each_round_and_step() {
+        let mut r = toy();
+        r.set_threads(Threads::ONE);
+        load(&mut r, CHAIN);
+        r.reason();
+        let p = r.profile();
+        assert_eq!(p.families, ["transitive", "typing", "general"]);
+        let delta: Vec<usize> = p.rounds.iter().map(|r| r.delta).collect();
+        assert_eq!(delta, [4, 2, 1]);
+        let emitted: Vec<&[usize]> = p.rounds.iter().map(|r| &r.emitted[..]).collect();
+        assert_eq!(emitted, [&[4, 0, 0][..], &[2, 0, 0], &[0, 0, 0]]);
+        // The input (the base and the fact), then what each round emitted,
+        // distinct: a-c and b-d, then a-d, then nothing.
+        let funnel: Vec<(usize, usize)> = p.steps.iter().map(|s| (s.pairs, s.new)).collect();
+        assert_eq!(funnel, [(4, 4), (2, 2), (1, 1), (0, 0)]);
+        for (step, round) in p.steps.iter().zip(&p.rounds) {
+            assert_eq!(step.new, round.delta);
+        }
+        for step in &p.steps {
+            assert!(step.sort_ns + step.changed_ns <= step.ns, "{step:?}");
+        }
+        for round in &p.rounds {
+            assert_eq!(round.family_ns.len(), 3);
+            assert!(round.family_ns.iter().sum::<u64>() <= round.ns, "{round:?}");
+        }
+        #[cfg(not(target_family = "wasm"))]
+        assert!(p.steps.iter().any(|s| s.ns > 0), "the steps are timed");
+
+        // Nothing changed: no round, no step.
+        r.reason();
+        let p = r.profile();
+        assert!(p.rounds.is_empty() && p.steps.is_empty());
+    }
+
+    /// The memory breakdown: the parts add up to the total, the tables to
+    /// the closure as stored, and a larger input holds more in each part
+    /// that grows with it.
+    #[test]
+    fn the_memory_parts_add_up_and_grow() {
+        use std::fmt::Write as _;
+        let input = |n: usize| {
+            let mut text = String::from("ex:A rdfs:subClassOf ex:B . ex:p rdfs:domain ex:A .\n");
+            for i in 0..n {
+                let _ = writeln!(text, "ex:i{i} ex:p ex:i{} . ex:i{i} ex:q \"v{i}\" .", i + 1);
+            }
+            text
+        };
+        let measure = |n: usize| {
+            let mut r = Reasoner::new();
+            load(&mut r, &input(n));
+            let s = r.reason();
+            (r.profile().memory, s, r.closure.len())
+        };
+        let (small, s, stored) = measure(100);
+        let (large, _, _) = measure(10_000);
+        for (m, stored) in [(&small, stored), (&large, 0)] {
+            assert_eq!(
+                m.total(),
+                m.dictionary_text
+                    + m.dictionary_entries
+                    + m.dictionary_slots
+                    + m.base
+                    + m.store_type.bytes()
+                    + m.store_other.bytes()
+                    + m.store_rest
+                    + m.canon
+                    + m.findings
+                    + m.diagnostics
+                    + m.other
+            );
+            assert!(m.largest.len() <= 5 && !m.largest.is_empty());
+            assert!(m.largest.windows(2).all(|w| w[0].1.bytes() >= w[1].1.bytes()));
+            let largest: usize = m.largest.iter().map(|(_, p)| p.bytes()).sum();
+            assert!(largest <= m.store_type.bytes() + m.store_other.bytes());
+            if stored > 0 {
+                assert_eq!(m.store_type.tuples + m.store_other.tuples, stored);
+                // Each stored pair takes 8 bytes at least.
+                assert!(m.store_type.bytes() + m.store_other.bytes() >= 8 * stored);
+                assert!(m.base >= 12 * s.base, "{m:?}");
+            }
+        }
+        // ex:i0 ... are typed ex:A by prp-dom: rdf:type is a large table.
+        assert!(
+            large.largest.iter().any(|(p, _)| p.contains("22-rdf-syntax-ns#type")),
+            "{large:?}"
+        );
+        assert!(large.total() > small.total());
+        assert!(large.dictionary() > small.dictionary());
+        assert!(large.base > small.base);
+        assert!(large.store_type.bytes() > small.store_type.bytes());
+        assert!(large.store_other.bytes() > small.store_other.bytes());
     }
 
     const INPUT: &str = "
@@ -1604,7 +1821,7 @@ mod tests {
             (
                 r.triples().collect::<Vec<_>>(),
                 r.diagnostics().to_vec(),
-                r.counters().clone(),
+                r.counters().counts(),
             )
         };
         let mut runs = Vec::new();

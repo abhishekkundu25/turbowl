@@ -182,6 +182,13 @@ impl Dictionary {
         d
     }
 
+    /// The bytes the dictionary holds: its text (the arena), its entries
+    /// and its hash slots. Capacities, not lengths.
+    pub(crate) fn bytes(&self) -> (usize, usize, usize) {
+        use crate::profile::vec_bytes;
+        (self.text.capacity(), vec_bytes(&self.entries), vec_bytes(&self.slots))
+    }
+
     /// Makes room for `terms` more terms and `bytes` more bytes of term text.
     #[allow(dead_code)] // for a loader that knows its input's size (an experiment)
     pub(crate) fn reserve(&mut self, terms: usize, bytes: usize) {
