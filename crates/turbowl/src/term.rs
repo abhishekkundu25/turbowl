@@ -31,22 +31,12 @@
 //! appends to the arena and the entry list (amortised). Id to term is one
 //! index into the entries.
 //!
-//! A full run interns nothing, so on several threads a dictionary of
-//! [`DROP_FROM`] terms or more drops its slots when one starts
-//! ([`Dictionary::drop_slots`]; one thread keeps them, see [`DROP_FROM`]),
-//! keeping a small table of the first [`KEPT`] terms, the only ones a run
-//! looks up by their text. The first operation that needs the others
-//! rebuilds the slots to the size they had, allocating nothing else: an
-//! intern, a lookup that the small table cannot answer, a reserve or an
-//! append. A lookup never misses a term because the slots are dropped.
-//!
 //! This module builds without the `io` feature (WebAssembly).
 
 use oxrdf::{BlankNodeRef, LiteralRef, NamedNodeRef, NamedOrBlankNodeRef, TermRef};
 use rustc_hash::FxHasher;
 use std::fmt;
 use std::hash::Hasher;
-use std::sync::OnceLock;
 
 /// A term's id in the dictionary. Relations and rules work only on these.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -116,24 +106,6 @@ const START_MASK: u64 = (1 << TAG_SHIFT) - 1;
 /// An empty slot: hash `u32::MAX` beside id `u32::MAX`, which is never an id.
 const EMPTY: u64 = u64::MAX;
 
-/// The fewest terms for which a full run on several threads drops the
-/// slots ([`Dictionary::drop_slots`]; one thread keeps them: there nothing
-/// reuses the freed memory, so the peak does not fall, and a change would
-/// raise it by the rebuild). At this size the slots take 16 MiB (2^21 of
-/// 8 bytes) and their rebuild about 14 ms, a small share of the full run
-/// that went before it. An editor's dictionary (Brick and a building model,
-/// tens of thousands of terms) is far below it and never pays a rebuild;
-/// lubm-50's 2.2 million terms are above it, with 33.6 MB of slots rebuilt
-/// in about 30 ms.
-pub(crate) const DROP_FROM: usize = 1 << 20;
-
-/// The terms whose slots a dropped table keeps: the first 256. They hold
-/// the vocabulary and the literals the rules name, which
-/// `reasoner::new_dictionary` interns first and the rules look up by their
-/// text during a run (`"0"` and `"1"` of `xsd:nonNegativeInteger`).
-const KEPT: usize = 256;
-const _: () = assert!(KEPT <= DROP_FROM, "a dropped table keeps terms the dictionary holds");
-
 /// True when `terms` terms fill more than three quarters of `slots` slots.
 /// The slots then double, so after growing they are more than 3/8 full.
 #[inline]
@@ -176,21 +148,9 @@ pub(crate) struct Dictionary {
     text: String,
     entries: Vec<Entry>,
     /// Open addressing, linear probing, at most three quarters full
-    /// ([`over_full`]): `hash << 32 | id`. Unset from
-    /// [`Dictionary::drop_slots`] until rebuilt ([`Dictionary::slots`]).
-    slots: OnceLock<Vec<u64>>,
-    /// Set by [`Dictionary::drop_slots`], cleared by the next change.
-    dropped: Option<Dropped>,
+    /// ([`over_full`]): `hash << 32 | id`.
+    slots: Vec<u64>,
     documents: u32,
-}
-
-/// What a dictionary keeps of its dropped slots.
-#[derive(Clone)]
-struct Dropped {
-    /// The number of slots, which a rebuild restores.
-    size: usize,
-    /// The slots of the first [`KEPT`] terms alone, in a table of their own.
-    kept: Vec<u64>,
 }
 
 impl fmt::Debug for Dictionary {
@@ -227,8 +187,7 @@ impl Dictionary {
         let mut d = Self {
             text: String::with_capacity(vocab::IRIS.iter().map(|i| i.len()).sum()),
             entries: Vec::with_capacity(vocab::IRIS.len()),
-            slots: OnceLock::from(vec![EMPTY; slots_for(vocab::IRIS.len())]),
-            dropped: None,
+            slots: vec![EMPTY; slots_for(vocab::IRIS.len())],
             documents: 0,
         };
         for (i, iri) in vocab::IRIS.iter().enumerate() {
@@ -239,91 +198,10 @@ impl Dictionary {
     }
 
     /// The bytes the dictionary holds: its text (the arena), its entries
-    /// and its hash slots (the kept table's while they are dropped).
-    /// Capacities, not lengths.
+    /// and its hash slots. Capacities, not lengths.
     pub(crate) fn bytes(&self) -> (usize, usize, usize) {
         use crate::profile::vec_bytes;
-        (self.text.capacity(), vec_bytes(&self.entries), self.slot_bytes())
-    }
-
-    fn slot_bytes(&self) -> usize {
-        use crate::profile::vec_bytes;
-        self.slots.get().map_or(0, vec_bytes) + self.dropped.as_ref().map_or(0, |d| vec_bytes(&d.kept))
-    }
-
-    /// Drops the slots when the dictionary holds [`DROP_FROM`] terms or
-    /// more, as a full run on several threads starts: it interns nothing, and the slots are
-    /// held bytes (33.6 MB on lubm-50). A table of the first [`KEPT`]
-    /// terms stays, for the lookups the rules make. Changes no id; the next
-    /// operation that needs the slots rebuilds them ([`Dictionary::slots`]).
-    pub(crate) fn drop_slots(&mut self) {
-        if self.entries.len() < DROP_FROM {
-            return;
-        }
-        let Some(slots) = self.slots.take() else {
-            return;
-        };
-        let first = &self.entries[..KEPT];
-        let mut kept = vec![EMPTY; slots_for(first.len())];
-        index(first, &self.text, &mut kept, 0).expect("the dictionary holds each term once");
-        self.dropped = Some(Dropped {
-            size: slots.len(),
-            kept,
-        });
-    }
-
-    /// True while the slots are dropped and not yet rebuilt.
-    #[cfg(test)]
-    pub(crate) fn slots_dropped(&self) -> bool {
-        self.slots.get().is_none()
-    }
-
-    /// The slots, rebuilt first when they are dropped: every term at its
-    /// id, in as many slots as before. Through `&self`, so that a lookup
-    /// rebuilds them too; threads that ask at once wait for one rebuild.
-    #[inline]
-    fn slots(&self) -> &[u64] {
-        self.slots.get_or_init(|| self.rebuilt())
-    }
-
-    /// The slots to change, rebuilt first when they are dropped.
-    #[inline]
-    fn slots_mut(&mut self) -> &mut Vec<u64> {
-        if self.dropped.is_some() {
-            self.restore();
-        }
-        self.slots.get_mut().expect("the slots are built unless dropped")
-    }
-
-    /// Rebuilds the slots if they are dropped, and forgets that they were.
-    #[cold]
-    fn restore(&mut self) {
-        self.slots();
-        self.dropped = None;
-    }
-
-    /// The slots built again from the entries, inserted in id order: the
-    /// new slots are the only allocation (unlike [`index`], whose sort
-    /// takes two vectors as long as the input), so that the first change
-    /// after a full run does not raise the process's peak. The terms are
-    /// distinct, so nothing is compared.
-    #[cold]
-    fn rebuilt(&self) -> Vec<u64> {
-        let size = self
-            .dropped
-            .as_ref()
-            .map_or_else(|| slots_for(self.entries.len()), |d| d.size);
-        let mut slots = vec![EMPTY; size];
-        let mask = size - 1;
-        for (id, &e) in self.entries.iter().enumerate() {
-            let h = entry_hash(e, &self.text);
-            let mut i = h as usize & mask;
-            while slots[i] != EMPTY {
-                i = (i + 1) & mask;
-            }
-            slots[i] = (u64::from(h) << 32) | id as u64;
-        }
-        slots
+        (self.text.capacity(), vec_bytes(&self.entries), vec_bytes(&self.slots))
     }
 
     /// Makes room for `terms` more terms and `bytes` more bytes of term text.
@@ -332,7 +210,7 @@ impl Dictionary {
         self.text.reserve(bytes);
         self.entries.reserve(terms);
         let want = slots_for(self.entries.len() + terms);
-        if want > self.slots_mut().len() {
+        if want > self.slots.len() {
             self.rehash(want);
         }
     }
@@ -348,14 +226,15 @@ impl Dictionary {
     /// entries' and the slots' capacities (the scaling tests check its growth).
     #[cfg(test)]
     pub(crate) fn heap_bytes(&self) -> usize {
-        self.text.capacity() + self.entries.capacity() * std::mem::size_of::<Entry>() + self.slot_bytes()
+        self.text.capacity()
+            + self.entries.capacity() * std::mem::size_of::<Entry>()
+            + self.slots.capacity() * std::mem::size_of::<u64>()
     }
 
-    /// The number of terms and the number of hash slots (rebuilt first if
-    /// they are dropped).
+    /// The number of terms and the number of hash slots.
     #[cfg(test)]
     pub(crate) fn slot_fill(&self) -> (usize, usize) {
-        (self.entries.len(), self.slots().len())
+        (self.entries.len(), self.slots.len())
     }
 
     /// The bytes of term text in the arena.
@@ -572,13 +451,13 @@ impl Dictionary {
         head == text.as_bytes() && rest == tail.as_bytes()
     }
 
-    /// The id of the key in `slots`, or the empty slot where it goes.
+    /// The id of the key, or the empty slot where it goes.
     #[inline]
-    fn find(&self, slots: &[u64], h: u32, tag: u64, aux: u32, text: &str, tail: &str) -> Result<TermId, usize> {
-        let mask = slots.len() - 1;
+    fn find(&self, h: u32, tag: u64, aux: u32, text: &str, tail: &str) -> Result<TermId, usize> {
+        let mask = self.slots.len() - 1;
         let mut i = h as usize & mask;
         loop {
-            let slot = slots[i];
+            let slot = self.slots[i];
             if slot == EMPTY {
                 return Err(i);
             }
@@ -589,27 +468,15 @@ impl Dictionary {
         }
     }
 
-    /// While the slots are dropped, a term of the kept table is found
-    /// there; any other rebuilds them first.
     #[inline]
     fn get(&self, tag: u64, aux: u32, text: &str, tail: &str) -> Option<TermId> {
-        let h = hash(tag, aux, text, tail);
-        if self.slots.get().is_none()
-            && let Some(dropped) = &self.dropped
-            && let Ok(id) = self.find(&dropped.kept, h, tag, aux, text, tail)
-        {
-            return Some(id);
-        }
-        self.find(self.slots(), h, tag, aux, text, tail).ok()
+        self.find(hash(tag, aux, text, tail), tag, aux, text, tail).ok()
     }
 
     #[inline]
     fn intern(&mut self, tag: u64, aux: u32, text: &str, tail: &str) -> TermId {
         let h = hash(tag, aux, text, tail);
-        if self.dropped.is_some() {
-            self.restore();
-        }
-        match self.find(self.slots(), h, tag, aux, text, tail) {
+        match self.find(h, tag, aux, text, tail) {
             Ok(id) => id,
             Err(slot) => self.insert(h, slot, tag, aux, text, tail),
         }
@@ -629,88 +496,25 @@ impl Dictionary {
             aux,
         });
         let id = id as u32;
-        let slots = self.slots_mut();
-        slots[slot] = (u64::from(h) << 32) | u64::from(id);
-        let size = slots.len();
-        if over_full(self.entries.len(), size) {
-            self.rehash(size * 2);
+        self.slots[slot] = (u64::from(h) << 32) | u64::from(id);
+        if over_full(self.entries.len(), self.slots.len()) {
+            self.rehash(self.slots.len() * 2);
         }
         TermId(id)
     }
 
     #[cold]
     fn rehash(&mut self, size: usize) {
-        let slots = self.slots_mut();
-        let old = std::mem::replace(slots, vec![EMPTY; size]);
+        let old = std::mem::replace(&mut self.slots, vec![EMPTY; size]);
         let mask = size - 1;
         for slot in old.into_iter().filter(|&s| s != EMPTY) {
             let mut i = (slot >> 32) as usize & mask;
-            while slots[i] != EMPTY {
+            while self.slots[i] != EMPTY {
                 i = (i + 1) & mask;
             }
-            slots[i] = slot;
+            self.slots[i] = slot;
         }
     }
-}
-
-/// The hash of an entry's term, as interning computes it.
-#[inline]
-fn entry_hash(e: Entry, text: &str) -> u32 {
-    let text = &text[e.range()];
-    let (text, tail) = match e.tag() {
-        TAG_LANG => text.split_at(text.len() - e.aux as usize),
-        _ => (text, ""),
-    };
-    hash(e.tag(), e.aux, text, tail)
-}
-
-/// Indexes `entries` from id `from` on into `slots`, which must hold them
-/// at most three quarters full. Hashes them first, then inserts them in
-/// the order of their slots, so that the inserts walk the table instead of
-/// jumping about it. `Err((id, earlier))` when a term repeats an earlier one.
-fn index(entries: &[Entry], text: &str, slots: &mut [u64], from: usize) -> Result<(), (u32, u32)> {
-    let mask = slots.len() - 1;
-    let hashed: Vec<(u32, u32)> = (from..entries.len())
-        .map(|id| (entry_hash(entries[id], text), id as u32))
-        .collect();
-    // A counting sort on the top 12 bits of each home slot.
-    let bits = mask.count_ones();
-    let shift = bits.saturating_sub(12);
-    let bucket = |h: u32| (h as usize & mask) >> shift;
-    let mut starts = vec![0usize; (mask >> shift) + 2];
-    for &(h, _) in &hashed {
-        starts[bucket(h) + 1] += 1;
-    }
-    for b in 1..starts.len() {
-        starts[b] += starts[b - 1];
-    }
-    let mut sorted = vec![(0u32, 0u32); hashed.len()];
-    for &(h, id) in &hashed {
-        let at = &mut starts[bucket(h)];
-        sorted[*at] = (h, id);
-        *at += 1;
-    }
-    drop(hashed);
-    // True when ids `a` and `b` hold the same term.
-    let same = |a: u32, b: u32| {
-        let (ea, eb) = (entries[a as usize], entries[b as usize]);
-        ea.tag() == eb.tag() && ea.aux == eb.aux && text[ea.range()] == text[eb.range()]
-    };
-    for (h, id) in sorted {
-        let mut i = h as usize & mask;
-        loop {
-            let slot = slots[i];
-            if slot == EMPTY {
-                slots[i] = (u64::from(h) << 32) | u64::from(id);
-                break;
-            }
-            if (slot >> 32) as u32 == h && same(slot as u32, id) {
-                return Err((id, slot as u32));
-            }
-            i = (i + 1) & mask;
-        }
-    }
-    Ok(())
 }
 
 /// A language tag's length as the entry stores it. Longer tags than
@@ -967,12 +771,10 @@ impl Dictionary {
 
     /// Appends `term` at the next id without looking it up or indexing it.
     /// [`Dictionary::index_appended`] must follow before any other call.
-    /// Dropped slots are rebuilt first, without it.
     ///
     /// # Panics
     /// As `intern_*`.
     pub(crate) fn append(&mut self, term: Term<'_>) {
-        self.slots_mut();
         let (tag, aux, text, tail) = match term {
             Term::Iri(iri) => (TAG_IRI, 0, iri, ""),
             Term::Blank { doc, label } => (TAG_BLANK, doc.0, label, ""),
@@ -1002,16 +804,66 @@ impl Dictionary {
     }
 
     /// Indexes the terms [`Dictionary::append`] added from id `from` on, so
-    /// that interning and lookups find them, in bulk ([`index`]).
-    /// `Err((id, earlier))` when a term repeats an earlier one: the
-    /// dictionary is then not to be used.
+    /// that interning and lookups find them. Hashes them first, then inserts
+    /// them in the order of their slots, so that the inserts walk the table
+    /// instead of jumping about it. `Err((id, earlier))` when a term repeats
+    /// an earlier one: the dictionary is then not to be used.
     pub(crate) fn index_appended(&mut self, from: usize) -> Result<(), (u32, u32)> {
         let want = slots_for(self.entries.len());
-        if want > self.slots_mut().len() {
+        if want > self.slots.len() {
             self.rehash(want);
         }
-        let slots = self.slots.get_mut().expect("the slots are built");
-        index(&self.entries, &self.text, slots, from)
+        let mask = self.slots.len() - 1;
+        let hashed: Vec<(u32, u32)> = (from..self.entries.len())
+            .map(|id| {
+                let e = self.entries[id];
+                let text = &self.text[e.range()];
+                let (text, tail) = match e.tag() {
+                    TAG_LANG => text.split_at(text.len() - e.aux as usize),
+                    _ => (text, ""),
+                };
+                (hash(e.tag(), e.aux, text, tail), id as u32)
+            })
+            .collect();
+        // A counting sort on the top 12 bits of each home slot.
+        let bits = mask.count_ones();
+        let shift = bits.saturating_sub(12);
+        let bucket = |h: u32| (h as usize & mask) >> shift;
+        let mut starts = vec![0usize; (mask >> shift) + 2];
+        for &(h, _) in &hashed {
+            starts[bucket(h) + 1] += 1;
+        }
+        for b in 1..starts.len() {
+            starts[b] += starts[b - 1];
+        }
+        let mut sorted = vec![(0u32, 0u32); hashed.len()];
+        for &(h, id) in &hashed {
+            let at = &mut starts[bucket(h)];
+            sorted[*at] = (h, id);
+            *at += 1;
+        }
+        drop(hashed);
+        for (h, id) in sorted {
+            let mut i = h as usize & mask;
+            loop {
+                let slot = self.slots[i];
+                if slot == EMPTY {
+                    self.slots[i] = (u64::from(h) << 32) | u64::from(id);
+                    break;
+                }
+                if (slot >> 32) as u32 == h && self.same_entry(slot as u32, id) {
+                    return Err((id, slot as u32));
+                }
+                i = (i + 1) & mask;
+            }
+        }
+        Ok(())
+    }
+
+    /// True when ids `a` and `b` hold the same term.
+    fn same_entry(&self, a: u32, b: u32) -> bool {
+        let (ea, eb) = (self.entries[a as usize], self.entries[b as usize]);
+        ea.tag() == eb.tag() && ea.aux == eb.aux && self.text[ea.range()] == self.text[eb.range()]
     }
 }
 
@@ -1364,7 +1216,7 @@ mod tests {
     fn slots_stay_between_three_eighths_and_three_quarters_full() {
         let mut d = Dictionary::new();
         let doc = d.new_document();
-        let start = d.slots().len();
+        let start = d.slots.len();
         assert!(!over_full(d.len(), start));
         let (mut size, mut growths) = (start, 0);
         let mut ids = Vec::new();
@@ -1372,7 +1224,7 @@ mod tests {
             let id = intern_mixed(&mut d, i, doc);
             assert_eq!(id.index(), vocab::IRIS.len() + i, "a new term takes the next id");
             ids.push(id);
-            let (terms, slots) = (d.len(), d.slots().len());
+            let (terms, slots) = (d.len(), d.slots.len());
             assert!(terms * 4 <= slots * 3, "{terms} terms in {slots} slots: over 3/4 full");
             if slots != size {
                 assert_eq!(slots, size * 2, "the slots double");
@@ -1384,7 +1236,7 @@ mod tests {
             }
         }
         assert!(growths >= 8, "{growths} growths from {start} slots");
-        assert_eq!(d.slots().len(), slots_for(d.len()), "growth reaches the fewest slots");
+        assert_eq!(d.slots.len(), slots_for(d.len()), "growth reaches the fewest slots");
         for (i, &id) in ids.iter().enumerate() {
             assert_eq!(get_mixed(&d, i, doc), Some(id), "term {i}");
             assert_eq!(intern_mixed(&mut d, i, doc), id, "term {i} again");
@@ -1413,11 +1265,11 @@ mod tests {
             let mut reserved = Dictionary::new();
             assert_eq!(reserved.new_document(), doc);
             reserved.reserve(n, 0);
-            let before = reserved.slots().len();
+            let before = reserved.slots.len();
             for (i, &id) in ids.iter().enumerate() {
                 assert_eq!(intern_mixed(&mut reserved, i, doc), id);
             }
-            assert_eq!(reserved.slots().len(), before, "n = {n}: reserved enough");
+            assert_eq!(reserved.slots.len(), before, "n = {n}: reserved enough");
 
             let mut bulk = Dictionary::new();
             assert_eq!(bulk.new_document(), doc);
@@ -1440,14 +1292,10 @@ mod tests {
             }
             bulk.index_appended(base).unwrap();
 
-            let slots = one.slots().len();
-            assert_eq!(
-                slots,
-                slots_for(base + n).max(Dictionary::new().slots().len()),
-                "n = {n}"
-            );
-            assert_eq!(reserved.slots().len(), slots, "n = {n}: reserve");
-            assert_eq!(bulk.slots().len(), slots, "n = {n}: bulk index");
+            let slots = one.slots.len();
+            assert_eq!(slots, slots_for(base + n).max(Dictionary::new().slots.len()), "n = {n}");
+            assert_eq!(reserved.slots.len(), slots, "n = {n}: reserve");
+            assert_eq!(bulk.slots.len(), slots, "n = {n}: bulk index");
             assert!((base + n) * 4 <= slots * 3, "n = {n}: over 3/4 full");
             for (i, &id) in ids.iter().enumerate() {
                 assert_eq!(get_mixed(&reserved, i, doc), Some(id), "n = {n}: term {i} reserved");
@@ -1457,213 +1305,6 @@ mod tests {
         }
         assert_eq!(slots_for(edge + base), 1 << 12);
         assert_eq!(slots_for(edge + base + 1), 1 << 13);
-    }
-
-    /// The slots in use, sorted, and their number: the table, whatever
-    /// the order its terms were inserted in.
-    fn table(d: &Dictionary) -> (usize, Vec<u64>) {
-        let slots = d.slots();
-        let mut used: Vec<u64> = slots.iter().copied().filter(|&s| s != EMPTY).collect();
-        used.sort_unstable();
-        (slots.len(), used)
-    }
-
-    /// A dictionary of [`DROP_FROM`] terms drops its slots, one term fewer
-    /// does not. While they are dropped, the terms a run looks up are found
-    /// without a rebuild; any other lookup, an intern, an append or a
-    /// reserve rebuilds them, with every term at its id and the same table.
-    #[test]
-    fn a_large_dictionary_drops_its_slots_and_rebuilds_them_alike() {
-        let mut d = crate::reasoner::new_dictionary();
-        let fixed = d.len();
-        assert!(fixed <= KEPT, "the kept table holds every term a run looks up");
-        let doc = d.new_document();
-        let n = DROP_FROM - fixed;
-        let mut ids: Vec<TermId> = (0..n - 1).map(|i| intern_mixed(&mut d, i, doc)).collect();
-        // Below the threshold nothing changes.
-        let small = d.bytes();
-        d.drop_slots();
-        assert!(!d.slots_dropped(), "{} terms: under the threshold", d.len());
-        assert_eq!(d.bytes(), small);
-        ids.push(intern_mixed(&mut d, n - 1, doc));
-        assert_eq!(d.len(), DROP_FROM);
-        let before = table(&d);
-        let bytes = d.bytes();
-        let rule_literals: Vec<u32> = crate::rules::datatype::rule_literals(&d).collect();
-        assert_eq!(rule_literals.len(), 2);
-
-        d.drop_slots();
-        assert!(d.slots_dropped());
-        let (text, entries, slots) = d.bytes();
-        assert_eq!((text, entries), (bytes.0, bytes.1), "the terms stay");
-        assert!(slots <= 8 * 1024, "{slots} bytes of slots kept, of {}", bytes.2);
-        // What a run looks up: the vocabulary and the literals the rules
-        // name, found in the kept table.
-        for (i, iri) in vocab::IRIS.iter().enumerate() {
-            assert_eq!(d.get_iri(iri), Some(TermId(i as u32)), "{}", vocab::NAMES[i]);
-        }
-        assert_eq!(
-            crate::rules::datatype::rule_literals(&d).collect::<Vec<_>>(),
-            rule_literals
-        );
-        assert!(d.slots_dropped(), "a run's lookups rebuild nothing");
-        // Any other lookup rebuilds them, once, when threads ask at once.
-        std::thread::scope(|s| {
-            for k in 0..4 {
-                let (d, ids) = (&d, &ids);
-                s.spawn(move || {
-                    let i = n / 2 + k;
-                    assert_eq!(get_mixed(d, i, doc), Some(ids[i]), "term {i}");
-                });
-            }
-        });
-        assert!(!d.slots_dropped());
-        assert_eq!(table(&d), before, "rebuilt alike");
-        for (i, &id) in ids.iter().enumerate() {
-            assert_eq!(get_mixed(&d, i, doc), Some(id), "term {i}");
-        }
-        assert_eq!(get_mixed(&d, n, doc), None, "never interned");
-
-        // An intern of a known term rebuilds them, and keeps its id.
-        d.drop_slots();
-        assert!(d.slots_dropped());
-        assert_eq!(intern_mixed(&mut d, 7, doc), ids[7]);
-        assert!(!d.slots_dropped());
-        assert_eq!(table(&d), before);
-        assert_eq!(d.bytes(), bytes, "nothing of the drop is left");
-        // An intern of a new term takes the next id.
-        d.drop_slots();
-        let next = intern_mixed(&mut d, n, doc);
-        assert_eq!(next.index(), DROP_FROM);
-        assert_eq!(get_mixed(&d, n, doc), Some(next));
-        assert_eq!(get_mixed(&d, 0, doc), Some(ids[0]));
-        // An append, then the index, as a snapshot loads.
-        d.drop_slots();
-        d.append(Term::Iri("http://example.org/appended"));
-        d.index_appended(DROP_FROM + 1).unwrap();
-        assert_eq!(
-            d.get_iri("http://example.org/appended"),
-            Some(TermId(DROP_FROM as u32 + 1))
-        );
-        assert_eq!(get_mixed(&d, n - 1, doc), Some(ids[n - 1]));
-        // A reserve; and a copy of a dropped dictionary.
-        d.drop_slots();
-        let copy = d.clone();
-        d.reserve(10, 100);
-        assert!(!d.slots_dropped());
-        assert_eq!(get_mixed(&d, 1, doc), Some(ids[1]));
-        assert!(copy.slots_dropped());
-        assert_eq!(get_mixed(&copy, 2, doc), Some(ids[2]));
-        assert_eq!(
-            copy.get_iri("http://example.org/appended"),
-            d.get_iri("http://example.org/appended")
-        );
-        assert_eq!(table(&copy).0, before.0, "as many slots as before");
-    }
-
-    /// A full run of a large base on several threads drops the slots, and
-    /// the rules still find the literals they name (cls-maxc1 reads `"0"`,
-    /// cls-maxc2 `"1"`, the literal values both), every switch on. Reads and
-    /// snapshots keep them dropped; a change after the run rebuilds them,
-    /// and the closure is the one a fresh reasoner gives. On one thread the
-    /// run keeps them, and a change costs nothing more.
-    #[test]
-    fn a_large_full_run_on_several_threads_drops_the_slots() {
-        use crate::engine::Workers;
-        use crate::{Reasoner, Switches};
-        use oxrdf::vocab::{rdf, xsd};
-        use oxrdf::{Literal, NamedNode, Triple};
-        let ex = |local: &str| NamedNode::new_unchecked(format!("http://example.org/{local}"));
-        let owl = |local: &str| NamedNode::new_unchecked(format!("http://www.w3.org/2002/07/owl#{local}"));
-        let cardinality = |n: &str| Literal::new_typed_literal(n, xsd::NON_NEGATIVE_INTEGER);
-        let mut base = vec![
-            Triple::new(ex("none"), owl("onProperty"), ex("q")),
-            Triple::new(ex("none"), owl("maxCardinality"), cardinality("0")),
-            Triple::new(ex("x"), rdf::TYPE, ex("none")),
-            Triple::new(ex("x"), ex("q"), ex("y")),
-            Triple::new(ex("one"), owl("onProperty"), ex("r")),
-            Triple::new(ex("one"), owl("maxCardinality"), cardinality("1")),
-            Triple::new(ex("u"), rdf::TYPE, ex("one")),
-            Triple::new(ex("u"), ex("r"), ex("v1")),
-            Triple::new(ex("u"), ex("r"), ex("v2")),
-        ];
-        // Each triple names two new terms.
-        for i in 0..DROP_FROM / 2 {
-            let subject = ex(&format!("i{i}"));
-            base.push(match i % 8 {
-                0 => Triple::new(subject, rdf::TYPE, ex(&format!("c{i}"))),
-                _ => Triple::new(subject, ex("p"), Literal::new_simple_literal(format!("v{i}"))),
-            });
-        }
-        let sorted = |r: &Reasoner| {
-            let mut triples: Vec<String> = r.triples().map(|t| t.to_string()).collect();
-            triples.sort_unstable();
-            triples
-        };
-        // Without the `parallel` feature both are one thread.
-        for threads in [1, 4] {
-            let workers = Workers::exactly(threads);
-            let several = workers.threads() > 1;
-            let mut r = Reasoner::with_switches(Switches::complete());
-            r.set_workers(workers.clone());
-            r.insert(base.iter().map(Triple::as_ref));
-            assert!(r.terms().len() >= DROP_FROM);
-            let summary = r.reason();
-            assert_eq!(
-                r.terms().slots_dropped(),
-                several,
-                "{threads} threads: a large full run drops the slots on several"
-            );
-            let codes: Vec<&str> = r.diagnostics().iter().map(|d| d.code).collect();
-            assert_eq!(codes, ["cls-maxc1"], "{threads} threads");
-            let same = Triple::new(ex("v1"), owl("sameAs"), ex("v2"));
-            let closure = sorted(&r);
-            assert!(closure.contains(&same.to_string()), "{threads} threads: cls-maxc2");
-            let mut snapshot = Vec::new();
-            r.write_snapshot(&mut snapshot).unwrap();
-            assert_eq!(
-                r.terms().slots_dropped(),
-                several,
-                "{threads} threads: reads and snapshots need no slots"
-            );
-            let restored = Reasoner::from_snapshot_bytes(&snapshot).unwrap();
-            assert!(!restored.terms().slots_dropped());
-            assert_eq!(sorted(&restored), closure, "{threads} threads: the snapshot");
-
-            // A change after the run rebuilds dropped slots; on one thread it
-            // finds them as they were. An incremental run keeps them.
-            let bytes = r.terms().bytes();
-            let added = Triple::new(ex("i1"), rdf::TYPE, ex("c0"));
-            r.insert([added.as_ref()]);
-            assert!(
-                !r.terms().slots_dropped(),
-                "{threads} threads: an insert rebuilds the slots"
-            );
-            if !several {
-                assert_eq!(r.terms().bytes(), bytes, "one thread: the insert allocates no slots");
-            }
-            let incremental = r.reason();
-            assert!(
-                !r.terms().slots_dropped(),
-                "{threads} threads: an incremental run keeps them"
-            );
-            assert_eq!(incremental.base, summary.base + 1);
-            // A removal: a full run, which drops them again on several threads.
-            r.remove([base[3].as_ref()]);
-            r.reason();
-            assert_eq!(r.terms().slots_dropped(), several, "{threads} threads");
-            assert!(r.diagnostics().is_empty(), "{threads} threads: x no longer has a q");
-            let mut fresh = Reasoner::with_switches(Switches::complete());
-            fresh.set_workers(workers);
-            fresh.insert(
-                base.iter()
-                    .filter(|t| **t != base[3])
-                    .chain([&added])
-                    .map(Triple::as_ref),
-            );
-            fresh.reason();
-            assert_eq!(sorted(&r), sorted(&fresh), "{threads} threads: as a fresh reasoner");
-        }
     }
 
     #[test]

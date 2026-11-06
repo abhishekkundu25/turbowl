@@ -98,9 +98,7 @@ pub struct Memory {
     /// The dictionary's entries: one per term, where its text is and what
     /// kind of term it is.
     pub dictionary_entries: usize,
-    /// The dictionary's hash slots, from text to term. A full run on
-    /// several threads and a large dictionary drops all but a small table
-    /// of them, until the next change rebuilds them.
+    /// The dictionary's hash slots, from text to term.
     pub dictionary_slots: usize,
     /// The base: the loaded and inserted triples, as sorted pairs by
     /// predicate, and those added since its last merge.
