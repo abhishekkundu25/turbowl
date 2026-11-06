@@ -129,7 +129,10 @@ pub(crate) fn parse_file(
 }
 
 /// Parses a document held in memory: one document. `path` only labels errors.
-/// A large N-Triples or Turtle document is parsed on every core.
+/// A large N-Triples or Turtle document is parsed on every core. For the
+/// tests: the reasoner parses on its own workers ([`parse_on`]), so that
+/// its [`Threads`](crate::Threads) setting reaches parsing too.
+#[cfg(test)]
 pub(crate) fn parse(
     dict: &mut Dictionary,
     text: &[u8],

@@ -304,9 +304,17 @@ impl Reasoner {
             return Ok(());
         }
         let mut triples = Vec::new();
-        crate::io::parse(&mut self.terms, text, format, base_iri, path, |[s, p, o]| {
-            triples.push([s.0, p.0, o.0]);
-        })?;
+        crate::io::parse_on(
+            &self.workers,
+            &mut self.terms,
+            text,
+            format,
+            base_iri,
+            path,
+            |[s, p, o]| {
+                triples.push([s.0, p.0, o.0]);
+            },
+        )?;
         self.add(triples);
         self.loaded.insert(key);
         Ok(())
