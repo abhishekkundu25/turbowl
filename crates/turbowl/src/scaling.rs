@@ -306,7 +306,7 @@ fn sizes(least: usize) -> [usize; 5] {
 
 mod dictionary {
     use super::*;
-    use crate::term::{Dictionary, DocId, vocab};
+    use crate::term::{Dictionary, DocId, Term, vocab};
 
     #[derive(Debug, Clone, Copy)]
     enum Kind {
@@ -404,7 +404,7 @@ mod dictionary {
 
     /// Exact, not timed: the heap bytes per term stay under what the layout
     /// allows (the arena and the entries at most double their length, the
-    /// slots stay at most 4 per term), from 1,024 to 1,048,576 terms.
+    /// slots stay under 8/3 per term), from 1,024 to 1,048,576 terms.
     #[test]
     fn scaling_dictionary_bytes_per_term() {
         let _lock = lock();
@@ -414,9 +414,10 @@ mod dictionary {
             let n = 1usize << shift;
             let (d, _, _) = filled(&terms(n));
             let (bytes, text, len) = (d.heap_bytes(), d.text_bytes(), d.len());
-            // Entries are 16 bytes and at most doubled; slots are 8 bytes, at
-            // most 4 per term once past the initial table (`empty` covers it).
-            let bound = 2 * text + 2 * 16 * len + 4 * 8 * len + empty;
+            // Entries are 16 bytes and at most doubled; slots are 8 bytes,
+            // under 8/3 per term once past the initial table (`empty` covers
+            // it), since they double only when over three quarters full.
+            let bound = 2 * text + 2 * 16 * len + 8 * 8 * len / 3 + empty;
             table.push_str(&format!(
                 "  {n:>9} terms: {bytes:>10} bytes, {:.1} per term ({:.1} of text), bound {bound}\n",
                 bytes as f64 / len as f64,
@@ -425,6 +426,90 @@ mod dictionary {
             assert!(bytes <= bound, "n = {n}: {bytes} bytes over {bound}\n{table}");
         }
         println!("scaling_dictionary_bytes_per_term:\n{table}");
+    }
+
+    /// Times the dictionary on `DICTIONARY_TIMING_TERMS` terms (lubm-50 has
+    /// about 2.2 million), fastest of `DICTIONARY_TIMING_RUNS` runs (default
+    /// 5): interning them into a new dictionary, interning them again (every
+    /// probe a hit), looking up as many absent IRIs (every probe a miss), and
+    /// appending and indexing them at once (as a snapshot loads). Does
+    /// nothing without the variable. For measuring the slots' fill.
+    #[test]
+    fn timing_dictionary_lookups() {
+        let Some(n) = std::env::var("DICTIONARY_TIMING_TERMS")
+            .ok()
+            .and_then(|n| n.parse().ok())
+        else {
+            return;
+        };
+        let runs: usize = std::env::var("DICTIONARY_TIMING_RUNS")
+            .ok()
+            .and_then(|r| r.parse().ok())
+            .unwrap_or(5);
+        let _lock = lock();
+        let terms = terms(n);
+        let absent: Vec<String> = (0..n).map(|i| format!("http://example.org/absent/{i:08}")).collect();
+        let fastest = |op: &mut dyn FnMut() -> Duration| (0..runs).map(|_| op()).min().unwrap();
+        let fresh = fastest(&mut || {
+            let start = Instant::now();
+            let filled = black_box(filled(&terms));
+            let time = start.elapsed();
+            drop(filled);
+            time
+        });
+        let (mut d, doc, sum) = filled(&terms);
+        let hits = fastest(&mut || {
+            let start = Instant::now();
+            assert_eq!(black_box(intern_all(&mut d, doc, &terms)), sum);
+            start.elapsed()
+        });
+        let misses = fastest(&mut || {
+            let start = Instant::now();
+            for iri in &absent {
+                assert!(black_box(d.get_iri(iri)).is_none());
+            }
+            start.elapsed()
+        });
+        let (_, slots) = d.slot_fill();
+        let bulk = fastest(&mut || {
+            let mut b = Dictionary::new();
+            let from = b.len();
+            let start = Instant::now();
+            for (kind, text) in &terms {
+                b.append(match kind {
+                    Kind::Iri => Term::Iri(text),
+                    Kind::Blank => Term::Blank { doc, label: text },
+                    Kind::Lang => Term::Literal {
+                        lexical: text,
+                        datatype: vocab::RDF_LANG_STRING,
+                        language: Some("en"),
+                    },
+                    Kind::Typed => Term::Literal {
+                        lexical: text,
+                        datatype: vocab::XSD_INTEGER,
+                        language: None,
+                    },
+                });
+            }
+            b.index_appended(from).unwrap();
+            let time = start.elapsed();
+            drop(black_box(b));
+            time
+        });
+        let per = |t: Duration| t.as_secs_f64() * 1e9 / n as f64;
+        println!(
+            "timing_dictionary_lookups: {} terms in {slots} slots ({:.1}% full), fastest of {runs}:\n  \
+             intern new   {fresh:>10.1?} ({:.1} ns per term)\n  \
+             intern again {hits:>10.1?} ({:.1} ns per term)\n  \
+             absent IRIs  {misses:>10.1?} ({:.1} ns per term)\n  \
+             bulk index   {bulk:>10.1?} ({:.1} ns per term)",
+            d.len(),
+            100.0 * d.len() as f64 / slots as f64,
+            per(fresh),
+            per(hits),
+            per(misses),
+            per(bulk),
+        );
     }
 }
 

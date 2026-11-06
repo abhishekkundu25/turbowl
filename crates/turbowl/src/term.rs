@@ -24,11 +24,12 @@
 //! Layout, for speed: all term text lives in one arena `String`; an entry
 //! per term holds its range, its kind and one 32-bit field (the document of a
 //! blank node, the datatype id of a literal, or the length of a language
-//! tag). The term-to-id map is an open-addressed table of `u64` slots, each
-//! the term's 32-bit FxHash beside its id, so a probe compares hashes inside
-//! the table and reads the arena only on a hash match. Interning a term seen
-//! before allocates nothing; a new term appends to the arena and the entry
-//! list (amortised). Id to term is one index into the entries.
+//! tag). The term-to-id map is an open-addressed table of `u64` slots, at
+//! most three quarters full, each the term's 32-bit FxHash beside its id, so
+//! a probe compares hashes inside the table and reads the arena only on a
+//! hash match. Interning a term seen before allocates nothing; a new term
+//! appends to the arena and the entry list (amortised). Id to term is one
+//! index into the entries.
 //!
 //! This module builds without the `io` feature (WebAssembly).
 
@@ -105,6 +106,19 @@ const START_MASK: u64 = (1 << TAG_SHIFT) - 1;
 /// An empty slot: hash `u32::MAX` beside id `u32::MAX`, which is never an id.
 const EMPTY: u64 = u64::MAX;
 
+/// True when `terms` terms fill more than three quarters of `slots` slots.
+/// The slots then double, so after growing they are more than 3/8 full.
+#[inline]
+fn over_full(terms: usize, slots: usize) -> bool {
+    terms * 4 > slots * 3
+}
+
+/// The fewest slots, a power of two, that hold `terms` terms at most three
+/// quarters full: the size that doubling at [`over_full`] reaches.
+fn slots_for(terms: usize) -> usize {
+    (terms * 4).div_ceil(3).next_power_of_two()
+}
+
 /// One term: `start` is its offset in the arena with the tag in the top two
 /// bits; `aux` is the blank node's document, the typed literal's datatype id,
 /// or the language tag's length (the tag follows the lexical form).
@@ -133,7 +147,8 @@ impl Entry {
 pub(crate) struct Dictionary {
     text: String,
     entries: Vec<Entry>,
-    /// Open addressing, linear probing, at most half full: `hash << 32 | id`.
+    /// Open addressing, linear probing, at most three quarters full
+    /// ([`over_full`]): `hash << 32 | id`.
     slots: Vec<u64>,
     documents: u32,
 }
@@ -172,7 +187,7 @@ impl Dictionary {
         let mut d = Self {
             text: String::with_capacity(vocab::IRIS.iter().map(|i| i.len()).sum()),
             entries: Vec::with_capacity(vocab::IRIS.len()),
-            slots: vec![EMPTY; (vocab::IRIS.len() * 4).next_power_of_two()],
+            slots: vec![EMPTY; slots_for(vocab::IRIS.len())],
             documents: 0,
         };
         for (i, iri) in vocab::IRIS.iter().enumerate() {
@@ -194,7 +209,7 @@ impl Dictionary {
     pub(crate) fn reserve(&mut self, terms: usize, bytes: usize) {
         self.text.reserve(bytes);
         self.entries.reserve(terms);
-        let want = ((self.entries.len() + terms) * 2 + 1).next_power_of_two();
+        let want = slots_for(self.entries.len() + terms);
         if want > self.slots.len() {
             self.rehash(want);
         }
@@ -214,6 +229,12 @@ impl Dictionary {
         self.text.capacity()
             + self.entries.capacity() * std::mem::size_of::<Entry>()
             + self.slots.capacity() * std::mem::size_of::<u64>()
+    }
+
+    /// The number of terms and the number of hash slots.
+    #[cfg(test)]
+    pub(crate) fn slot_fill(&self) -> (usize, usize) {
+        (self.entries.len(), self.slots.len())
     }
 
     /// The bytes of term text in the arena.
@@ -476,7 +497,7 @@ impl Dictionary {
         });
         let id = id as u32;
         self.slots[slot] = (u64::from(h) << 32) | u64::from(id);
-        if self.entries.len() * 2 > self.slots.len() {
+        if over_full(self.entries.len(), self.slots.len()) {
             self.rehash(self.slots.len() * 2);
         }
         TermId(id)
@@ -788,7 +809,7 @@ impl Dictionary {
     /// instead of jumping about it. `Err((id, earlier))` when a term repeats
     /// an earlier one: the dictionary is then not to be used.
     pub(crate) fn index_appended(&mut self, from: usize) -> Result<(), (u32, u32)> {
-        let want = (self.entries.len() * 2 + 1).next_power_of_two();
+        let want = slots_for(self.entries.len());
         if want > self.slots.len() {
             self.rehash(want);
         }
@@ -1164,6 +1185,126 @@ mod tests {
             TermId(vocab::IRIS.len() as u32)
         );
         assert_eq!(reserved.get_iri(vocab::XSD_STRING_IRI), Some(vocab::XSD_STRING));
+    }
+
+    /// Term `i` of a mixed sequence: IRIs, blank nodes, language-tagged and
+    /// typed literals in turn.
+    fn mixed(i: usize, doc: DocId) -> (u64, u32, String, &'static str) {
+        let text = format!("http://example.org/t{i}");
+        match i % 4 {
+            0 => (TAG_IRI, 0, text, ""),
+            1 => (TAG_BLANK, doc.0, text, ""),
+            2 => (TAG_LANG, lang_len("en"), text, "en"),
+            _ => (TAG_TYPED, vocab::XSD_INTEGER.0, text, ""),
+        }
+    }
+
+    fn intern_mixed(d: &mut Dictionary, i: usize, doc: DocId) -> TermId {
+        let (tag, aux, text, tail) = mixed(i, doc);
+        d.intern(tag, aux, &text, tail)
+    }
+
+    fn get_mixed(d: &Dictionary, i: usize, doc: DocId) -> Option<TermId> {
+        let (tag, aux, text, tail) = mixed(i, doc);
+        d.get(tag, aux, &text, tail)
+    }
+
+    /// The bound: the slots are never more than 3/4 full, and a growth (a
+    /// doubling) leaves them more than 3/8 full. Every term is still found
+    /// at its id, and a term never interned is not.
+    #[test]
+    fn slots_stay_between_three_eighths_and_three_quarters_full() {
+        let mut d = Dictionary::new();
+        let doc = d.new_document();
+        let start = d.slots.len();
+        assert!(!over_full(d.len(), start));
+        let (mut size, mut growths) = (start, 0);
+        let mut ids = Vec::new();
+        for i in 0..200_000 {
+            let id = intern_mixed(&mut d, i, doc);
+            assert_eq!(id.index(), vocab::IRIS.len() + i, "a new term takes the next id");
+            ids.push(id);
+            let (terms, slots) = (d.len(), d.slots.len());
+            assert!(terms * 4 <= slots * 3, "{terms} terms in {slots} slots: over 3/4 full");
+            if slots != size {
+                assert_eq!(slots, size * 2, "the slots double");
+                assert!(
+                    terms * 8 > slots * 3,
+                    "{terms} terms in {slots} slots: 3/8 full or less"
+                );
+                (size, growths) = (slots, growths + 1);
+            }
+        }
+        assert!(growths >= 8, "{growths} growths from {start} slots");
+        assert_eq!(d.slots.len(), slots_for(d.len()), "growth reaches the fewest slots");
+        for (i, &id) in ids.iter().enumerate() {
+            assert_eq!(get_mixed(&d, i, doc), Some(id), "term {i}");
+            assert_eq!(intern_mixed(&mut d, i, doc), id, "term {i} again");
+        }
+        for (i, iri) in vocab::IRIS.iter().enumerate() {
+            assert_eq!(d.get_iri(iri), Some(TermId(i as u32)));
+        }
+        for i in 200_000..210_000 {
+            assert_eq!(get_mixed(&d, i, doc), None, "term {i} was never interned");
+        }
+        assert_eq!(d.len(), vocab::IRIS.len() + 200_000, "lookups add nothing");
+    }
+
+    /// Interning one at a time, reserving first, and appending then indexing
+    /// at once (as a snapshot loads) all end at the same number of slots,
+    /// with every term at the same id; sizes on both sides of a growth.
+    #[test]
+    fn every_way_of_filling_sizes_the_slots_alike() {
+        let base = vocab::IRIS.len();
+        let edge = 3 * (1 << 12) / 4 - base; // the most terms 4,096 slots hold
+        for n in [0, 1, 100, edge - 1, edge, edge + 1, 10_000] {
+            let mut one = Dictionary::new();
+            let doc = one.new_document();
+            let ids: Vec<TermId> = (0..n).map(|i| intern_mixed(&mut one, i, doc)).collect();
+
+            let mut reserved = Dictionary::new();
+            assert_eq!(reserved.new_document(), doc);
+            reserved.reserve(n, 0);
+            let before = reserved.slots.len();
+            for (i, &id) in ids.iter().enumerate() {
+                assert_eq!(intern_mixed(&mut reserved, i, doc), id);
+            }
+            assert_eq!(reserved.slots.len(), before, "n = {n}: reserved enough");
+
+            let mut bulk = Dictionary::new();
+            assert_eq!(bulk.new_document(), doc);
+            for i in 0..n {
+                let (tag, aux, text, tail) = mixed(i, doc);
+                bulk.append(match tag {
+                    TAG_IRI => Term::Iri(&text),
+                    TAG_BLANK => Term::Blank { doc, label: &text },
+                    TAG_LANG => Term::Literal {
+                        lexical: &text,
+                        datatype: vocab::RDF_LANG_STRING,
+                        language: Some(tail),
+                    },
+                    _ => Term::Literal {
+                        lexical: &text,
+                        datatype: TermId(aux),
+                        language: None,
+                    },
+                });
+            }
+            bulk.index_appended(base).unwrap();
+
+            let slots = one.slots.len();
+            assert_eq!(slots, slots_for(base + n).max(Dictionary::new().slots.len()), "n = {n}");
+            assert_eq!(reserved.slots.len(), slots, "n = {n}: reserve");
+            assert_eq!(bulk.slots.len(), slots, "n = {n}: bulk index");
+            assert!((base + n) * 4 <= slots * 3, "n = {n}: over 3/4 full");
+            for (i, &id) in ids.iter().enumerate() {
+                assert_eq!(get_mixed(&reserved, i, doc), Some(id), "n = {n}: term {i} reserved");
+                assert_eq!(get_mixed(&bulk, i, doc), Some(id), "n = {n}: term {i} bulk");
+            }
+            assert_eq!(get_mixed(&bulk, n, doc), None, "n = {n}: one past the end");
+        }
+        assert_eq!(slots_for(edge + base), 1 << 12);
+        assert_eq!(slots_for(edge + base + 1), 1 << 13);
     }
 
     #[test]
