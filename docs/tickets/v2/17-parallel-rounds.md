@@ -1,13 +1,14 @@
 # 17: All cores: parallel rounds
 
-Status: todo. Blocked by: 15.
+Status: done on 2026-11-06 (`9fec6d3`); the speed budget is measured at the
+phase close-out. Blocked by: 15 (done).
 
 A native-only cargo feature, on by default, runs rounds in parallel. At least two designs are sketched before one is built (per-family output buffers against partitioning by table). Each family of a round writes to its own buffer, each table's step runs independently, and a large recent part splits into chunks. Below a measured delta size, rounds stay sequential. The WebAssembly build has no threads.
 
 ## Acceptance
-- [ ] Chaos runs each iteration at 1 thread and at all cores and finds the same closure and diagnostics.
-- [ ] `scaling_*` tests of a round at 1 and at 12 threads; reasoning on lubm-50 is at least 5 times as fast on 8 or more cores at the close-out, and no slower on 1.
-- [ ] `scripts/check-wasm.sh` passes without the feature.
+- [x] Chaos runs each iteration at 1 thread and at all cores and finds the same closure and diagnostics: the summary, the closure in read order and the diagnostics in order, after every `reason()`.
+- [ ] `scaling_*` tests of a round at 1 and at 12 threads; reasoning on lubm-50 is at least 5 times as fast on 8 or more cores at the close-out, and no slower on 1. The scaling tests pass (exponents 1.05 to 1.10 at one thread, 0.62 to 0.64 at twelve); the speed waits for the close-out. At load 2 to 4: one thread 423 to 438 ms against 739 to 803 ms before, all cores 103 to 114 ms.
+- [x] `scripts/check-wasm.sh` passes without the feature.
 
 ## Design
 

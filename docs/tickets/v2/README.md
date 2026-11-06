@@ -25,7 +25,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 26 | [OWL-RL's datatype and identity faults](26-owlrl-faults.md) | done | 08 | `crates/oracle/src/differences.rs`, `crates/oracle/src/cases/datatypes.rs` |
 | 15 | [Close-out: phase 1](15-close-out-phase-1.md) | done | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
 | 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
-| 17 | [All cores: parallel rounds](17-parallel-rounds.md) | todo | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
+| 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | todo | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
 | 19 | [Snapshots](19-snapshots.md) | todo | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
 | 20 | [The improvement loop](20-improvement-loop.md) | todo | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
@@ -419,3 +419,26 @@ Departures from the plan, as they happen.
     0.5 s of it is outside `io`, in `reasoner.rs`: `document_key` hashes
     the whole document twice (FxHash and SipHash), and the base is sorted
     and deduplicated. A follow-up for after 17.
+- **17, landed (`9fec6d3`).** Per-family tasks and buffers, joined in a
+  fixed order, with each round's output kept by predicate so that each
+  table sorts and advances as its own job (the ticket's "Design" section
+  compares this with partitioning by table). Departures:
+  - It also edits the hot loops of `rules/class.rs`, `class/lists.rs`,
+    `class/restrictions.rs`, `datatype.rs` and `property.rs`, which now
+    read in chunks: files the table did not list for 17, and no other
+    ticket's.
+  - One thread got faster too, since no step sorts a whole round any more:
+    lubm-50 reasoning 739 to 803 ms before, 423 to 438 ms after, and 103 to
+    114 ms on all cores, at load 2 to 4. All cores against one thread is
+    3.7 to 4.3 times: the 5-times budget is decided at the close-out, and
+    the spec says against what.
+  - `PARALLEL_FROM` (65,536 tuples) was measured on a loaded machine
+    (`scaling::parallel::timing_parallel_round_threshold`); rerun it on a
+    quiet one.
+  - On all cores, large merges and deduplications allocate new vectors, so
+    a big table's peak can briefly double: a risk for the memory budget,
+    not yet measured.
+  - Open: whether `Threads::exactly(n)` should be public, and whether the
+    CLI, the bench or Python get a threads option (`RAYON_NUM_THREADS`
+    works today). `cargo test -p turbowl --no-default-features` does not
+    compile (the rule tests use `io`), which predates 17.
