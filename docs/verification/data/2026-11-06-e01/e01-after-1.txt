@@ -1,0 +1,84 @@
+load average before: 3.21 3.21 2.85
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+brick-small1 turbowl run 1/5 ... 2.5 ms
+brick-small1 turbowl run 2/5 ... 2.4 ms
+brick-small1 turbowl run 3/5 ... 2.4 ms
+brick-small1 turbowl run 4/5 ... 2.4 ms
+brick-small1 turbowl run 5/5 ... 2.3 ms
+brick-soda-hall turbowl run 1/5 ... 4.7 ms
+brick-soda-hall turbowl run 2/5 ... 4.7 ms
+brick-soda-hall turbowl run 3/5 ... 4.7 ms
+brick-soda-hall turbowl run 4/5 ... 4.7 ms
+brick-soda-hall turbowl run 5/5 ... 4.7 ms
+brick-buildings turbowl run 1/5 ... 44.4 ms
+brick-buildings turbowl run 2/5 ... 44.3 ms
+brick-buildings turbowl run 3/5 ... 44.7 ms
+brick-buildings turbowl run 4/5 ... 44.8 ms
+brick-buildings turbowl run 5/5 ... 42.8 ms
+lubm-1 turbowl run 1/5 ... 6.3 ms
+lubm-1 turbowl run 2/5 ... 6.3 ms
+lubm-1 turbowl run 3/5 ... 6.1 ms
+lubm-1 turbowl run 4/5 ... 6.1 ms
+lubm-1 turbowl run 5/5 ... 6.2 ms
+lubm-10 turbowl run 1/5 ... 24.5 ms
+lubm-10 turbowl run 2/5 ... 24.6 ms
+lubm-10 turbowl run 3/5 ... 24.5 ms
+lubm-10 turbowl run 4/5 ... 24.8 ms
+lubm-10 turbowl run 5/5 ... 24.8 ms
+lubm-50 turbowl run 1/5 ... 101.9 ms
+lubm-50 turbowl run 2/5 ... 106.7 ms
+lubm-50 turbowl run 3/5 ... 103.8 ms
+lubm-50 turbowl run 4/5 ... 103.7 ms
+lubm-50 turbowl run 5/5 ... 104.7 ms
+incremental-add turbowl run 1/5 ... 0.2 ms
+incremental-add turbowl run 2/5 ... 0.2 ms
+incremental-add turbowl run 3/5 ... 0.2 ms
+incremental-add turbowl run 4/5 ... 0.2 ms
+incremental-add turbowl run 5/5 ... 0.2 ms
+incremental-remove turbowl run 1/5 ... 2.0 ms
+incremental-remove turbowl run 2/5 ... 2.0 ms
+incremental-remove turbowl run 3/5 ... 2.0 ms
+incremental-remove turbowl run 4/5 ... 2.0 ms
+incremental-remove turbowl run 5/5 ... 1.9 ms
+load average after: 2.93 3.15 2.83
+warning: load average over 1 after the runs
+
+TurbOWL bench: default configuration, 5 runs each; load average 3.21 3.21 2.85 before, 2.93 3.15 2.83 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | turbowl | 5 | 8.7 | 2.4 | 2.3 | 2.5 | 11.0 | 6 | 26381 | 241 | 1.00 | 1.00 | 1.00 |
+| brick-soda-hall | turbowl | 5 | 11.0 | 4.7 | 4.7 | 4.7 | 15.8 | 8 | 57652 | 137 | 1.00 | 1.00 | 1.00 |
+| brick-buildings | turbowl | 5 | 52.3 | 44.4 | 42.8 | 44.8 | 96.7 | 83 | 1255681 | 70 | 1.00 | 1.00 | 1.00 |
+| lubm-1 | turbowl | 5 | 14.0 | 6.2 | 6.1 | 6.3 | 20.3 | 39 | 184086 | 221 | 1.00 | 1.00 | 1.00 |
+| lubm-10 | turbowl | 5 | 144.8 | 24.6 | 24.5 | 24.8 | 169.6 | 327 | 2024317 | 169 | 1.00 | 1.00 | 1.00 |
+| lubm-50 | turbowl | 5 | 778.4 | 103.8 | 101.9 | 106.7 | 882.1 | 1619 | 10345697 | 164 | 1.00 | 1.00 | 1.00 |
+| incremental-add | turbowl | 5 | 8.7 | 0.2 | 0.2 | 0.2 | 11.1 | 6 | 27261 | 248 | 1.00 | 1.00 | 1.00 |
+| incremental-remove | turbowl | 5 | 8.4 | 2.0 | 1.9 | 2.0 | 10.8 | 13 | 25620 | 544 | 1.00 | 1.00 | 1.00 |
+
+Breakdown (turbowl): bytes per closure triple, the peak and what the reasoner holds after the run
+(rest: canon, findings, diagnostics; not counted: peak - held). Times: medians of the full run's.
+
+| scenario | B/triple peak | dictionary | base | store | rest | not counted | rounds | rules ms | step ms | sort ms | changed ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | 241.0 | 25.4 | 7.5 | 30.8 | 0.1 | 177.2 | 7 | 1.5 | 0.8 | 0.6 | 0.2 |
+| brick-soda-hall | 136.7 | 13.9 | 5.7 | 28.1 | 0.0 | 89.0 | 7 | 2.5 | 2.0 | 1.5 | 0.5 |
+| brick-buildings | 69.5 | 8.5 | 2.3 | 13.0 | 0.0 | 45.6 | 7 | 25.9 | 17.8 | 27.6 | 6.7 |
+| lubm-1 | 220.8 | 20.5 | 8.6 | 18.2 | 0.0 | 173.5 | 6 | 1.7 | 4.1 | 4.5 | 0.9 |
+| lubm-10 | 169.4 | 21.2 | 7.6 | 12.2 | 0.0 | 128.4 | 6 | 8.5 | 15.1 | 22.2 | 4.2 |
+| lubm-50 | 164.1 | 19.8 | 7.6 | 12.1 | 0.0 | 124.5 | 6 | 36.2 | 64.1 | 116.6 | 19.0 |
+| incremental-add | 248.2 | 24.6 | 7.3 | 28.2 | 0.0 | 188.1 | 7 | 1.4 | 0.8 | 0.6 | 0.2 |
+| incremental-remove | 543.6 | 26.2 | 7.7 | 30.9 | 0.1 | 478.8 | 7 | 1.4 | 0.8 | 0.6 | 0.2 |
+
+Scaling: the fitted exponent of total time (load + reasoning, median) and of peak memory
+against the input triples, least squares on a log-log scale. 1 is linear.
+
+| family | engine | input triples | total ms | peak MB | time exponent | memory exponent | not fitted |
+|---|---|---|---|---|---:|---:|---|
+| lubm | turbowl | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 20, 170, 882 | 39, 327, 1619 | 0.93 | 0.92 |  |
+
+wrote <results>/e01-after-1.json
