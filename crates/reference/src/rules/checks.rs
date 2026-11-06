@@ -92,9 +92,13 @@ fn diagnose(v: &View, found: &mut Vec<Found>) {
 /// eq-diff1 (x, y); eq-diff2 and eq-diff3 (x, zi, zj).
 fn different(v: &View, found: &mut Vec<Found>) {
     let same = iri(OWL_SAME_AS);
-    for (x, y) in v.pairs(&owl("differentFrom")) {
-        if v.has(x, &same, y) {
-            found.push(("eq-diff1", vec![x.clone(), y.clone()]));
+    // dt-diff's triples (`literal_values.rs`) are owl:differentFrom triples
+    // the closure does not list.
+    for different in [owl("differentFrom"), unlisted_different_from()] {
+        for (x, y) in v.pairs(&different) {
+            if v.has(x, &same, y) {
+                found.push(("eq-diff1", vec![x.clone(), y.clone()]));
+            }
         }
     }
     for x in v.subjects(&iri(RDF_TYPE), &owl("AllDifferent")) {

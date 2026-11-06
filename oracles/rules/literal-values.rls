@@ -1,2 +1,24 @@
 % The `literal-values` switch: literals compared by value (Table 8).
-% to come: dt-eq, dt-diff
+%
+% The engines read literals as opaque IRIs (core.rls), so crates/oracle
+% reads each literal of the input, and each literal the rules name, with the
+% reference evaluator's datatype map, and writes its value to
+% literal-values.nt (Codec::literal_facts): `lt <urn:x-turbowl-oracle:value>
+% v`, where v names the value, so two literals have one v when they have one
+% value. These facts stay out of T.
+@import literalValue :- ntriples{resource="literal-values.nt"} .
+
+% dt-eq: every two literals with the same value, each with itself too.
+T(?x, owl:sameAs, ?y) :- literalValue(?x, <urn:x-turbowl-oracle:value>, ?v),
+    literalValue(?y, <urn:x-turbowl-oracle:value>, ?v) .                          % dt-eq
+
+% dt-diff: `lt1 owl:differentFrom lt2` for every two literals with
+% different values. Never listed (docs/specs/v2-1-scoreboard-and-rules.md,
+% "dt-diff is never listed"): no rule reads these triples but eq-diff1, and
+% eq-rep-s and eq-rep-o, which carry them to the terms equal to their
+% literals. So each term holds the values of the literals it is equal to
+% (valueOf; equality.rls carries it as eq-rep-s would), and eq-diff1 holds
+% for two terms made the same that hold different values: the triple dt-diff
+% gives, read where eq-diff1 reads owl:differentFrom.
+valueOf(?x, ?v) :- literalValue(?x, <urn:x-turbowl-oracle:value>, ?v) .
+eqDiff1(?x, ?y) :- T(?x, owl:sameAs, ?y), valueOf(?x, ?vx), valueOf(?y, ?vy), ?vx != ?vy .  % dt-diff

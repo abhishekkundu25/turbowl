@@ -407,6 +407,18 @@ impl<'a> Round<'a> {
         &self.store.moved
     }
 
+    /// True when the class of `id` changed in the step before this round:
+    /// `id` or a term merged into its class moved ([`Round::moved`]). A
+    /// rule constant that is not a vocabulary term (the literals the W3C
+    /// tables write, such as `"1"^^xsd:nonNegativeInteger`) can change its
+    /// representative, or its class, without a restart, so a rule that
+    /// names one joins everything again in such a round.
+    pub(crate) fn class_moved(&self, id: u32) -> bool {
+        let canon = &self.store.canon;
+        let r = canon.find(id);
+        self.store.moved.iter().any(|&m| canon.find(m) == r)
+    }
+
     /// This round's number in the store's life, from 1.
     pub(crate) fn number(&self) -> usize {
         self.store.rounds

@@ -10,7 +10,8 @@
 //!
 //! The source keeps to the part of Nemo's language that the translations
 //! read: `@prefix`, `@import` and `@export` with a `resource`, facts, and
-//! rules whose body holds atoms and `?x != constant`. The translations panic
+//! rules whose body holds atoms and `!=` (a variable against a constant or
+//! another variable). The translations panic
 //! on anything else, and the golden programs in `tests/programs/` cover the
 //! complete configuration, so a source they cannot read fails the tests.
 //!
@@ -138,21 +139,27 @@ pub fn souffle(switches: Switches) -> String {
 ///   `@source r[3]: load-rdf("f") .`; a `csv` import is `load-csv`.
 /// - Rulewerk has no comparison, so `?x != c` is `~sameTerm(?x, c)`, with a
 ///   fact `sameTerm(c, c) .` for each such constant: stratified negation
-///   over facts alone.
+///   over facts alone. `?x != ?y` is `~sameBound(?x, ?y)`, with a rule
+///   `sameBound(?x, ?x) :- A .` for each variable and `A` the first atom of
+///   its rule's body that binds it: stratified while no relation that `A`
+///   reads depends on the rule's head (the translation checks that `A` is
+///   not the head's relation).
 /// - A rule file has no exports. They close the program as comments that
 ///   hold the Rulewerk client's command for each (`@query` with
 ///   `EXPORTCSV`, the resource's name with the extension `.csv`), for the
 ///   runner to issue after `@reason .`.
 pub fn vlog(switches: Switches) -> String {
     let program = Program::parse(switches);
-    assert!(
-        !program.arities.contains_key(SAME_TERM),
-        "the rule source names `{SAME_TERM}`, which the VLog program uses for !="
-    );
+    for name in [SAME_TERM, SAME_BOUND] {
+        assert!(
+            !program.arities.contains_key(name),
+            "the rule source names `{name}`, which the VLog program uses for !="
+        );
+    }
     let mut out = header("%", switches);
     out.push('\n');
     let mut exports = Vec::new();
-    let mut distinct = Vec::new();
+    let mut distinct = Distinct::default();
     for (_, items) in &program.groups {
         for item in items {
             match item {
@@ -197,10 +204,16 @@ pub fn vlog(switches: Switches) -> String {
             }
         }
     }
-    if !distinct.is_empty() {
+    if !distinct.constants.is_empty() {
         out.push_str("\n% `?x != c` in the source: sameTerm(c, c) for each such constant.\n");
-        for c in &distinct {
+        for c in &distinct.constants {
             let _ = writeln!(out, "{SAME_TERM}({c}, {c}) .");
+        }
+    }
+    if !distinct.bound.is_empty() {
+        out.push_str("\n% `?x != ?y` in the source: sameBound(?x, ?x) for each term an atom binds ?x to.\n");
+        for rule in &distinct.bound {
+            let _ = writeln!(out, "{rule}");
         }
     }
     if !exports.is_empty() {
@@ -276,8 +289,19 @@ fn souffle_ident(name: &str) -> String {
     }
 }
 
-/// The relation the VLog program uses for `!=`.
+/// The relation the VLog program uses for `!=` against a constant.
 const SAME_TERM: &str = "sameTerm";
+
+/// The relation the VLog program uses for `!=` between two variables.
+const SAME_BOUND: &str = "sameBound";
+
+/// What the VLog program adds for `!=`: the constants compared, and the
+/// rules that bind the variables compared.
+#[derive(Default)]
+struct Distinct {
+    constants: Vec<String>,
+    bound: Vec<String>,
+}
 
 /// The text of a group's file: the core for `None`. A match, so a new
 /// switch has no program until it has a file.
@@ -380,7 +404,7 @@ fn souffle_rule(rule: &Rule, prefixes: &BTreeMap<String, String>) -> String {
     format!("{} :- {}.", head.join(", "), body.join(", "))
 }
 
-fn vlog_rule(rule: &Rule, distinct: &mut Vec<String>) -> String {
+fn vlog_rule(rule: &Rule, distinct: &mut Distinct) -> String {
     let term = |t: &Term| match t {
         Term::Var(v) => format!("?{v}"),
         Term::Const(c) => c.clone(),
@@ -393,6 +417,16 @@ fn vlog_rule(rule: &Rule, distinct: &mut Vec<String>) -> String {
     if rule.body.is_empty() {
         return format!("{} .", head.join(", "));
     }
+    // The first atom of the body that binds `v`.
+    let binding = |v: &str| {
+        rule.body
+            .iter()
+            .find_map(|l| match l {
+                Literal::Atom(a) if a.terms.iter().any(|t| matches!(t, Term::Var(x) if x == v)) => Some(a),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("?{v} is compared but no atom binds it"))
+    };
     let body: Vec<String> = rule
         .body
         .iter()
@@ -400,16 +434,27 @@ fn vlog_rule(rule: &Rule, distinct: &mut Vec<String>) -> String {
             Literal::Atom(a) => atom(a),
             Literal::NotEqual(x @ Term::Var(_), Term::Const(c))
             | Literal::NotEqual(Term::Const(c), x @ Term::Var(_)) => {
-                if !distinct.contains(c) {
-                    distinct.push(c.clone());
+                if !distinct.constants.contains(c) {
+                    distinct.constants.push(c.clone());
                 }
                 format!("~{SAME_TERM}({}, {c})", term(x))
             }
-            Literal::NotEqual(x, y) => panic!(
-                "{} != {}: Rulewerk has no comparison, and only a variable against a constant translates",
-                term(x),
-                term(y)
-            ),
+            Literal::NotEqual(Term::Var(x), Term::Var(y)) => {
+                for v in [x, y] {
+                    let a = binding(v);
+                    assert!(
+                        rule.head.iter().all(|h| h.relation != a.relation),
+                        "?{v} != ...: {} binds it and is the rule's head, which Rulewerk cannot stratify",
+                        a.relation
+                    );
+                    let bound = format!("{SAME_BOUND}(?{v}, ?{v}) :- {} .", atom(a));
+                    if !distinct.bound.contains(&bound) {
+                        distinct.bound.push(bound);
+                    }
+                }
+                format!("~{SAME_BOUND}(?{x}, ?{y})")
+            }
+            Literal::NotEqual(x, y) => panic!("{} != {}: two constants", term(x), term(y)),
         })
         .collect();
     format!("{} :- {} .", head.join(", "), body.join(", "))
@@ -853,12 +898,38 @@ mod tests {
             souffle_rule(&rule, &prefixes),
             "U(p) :- input_(p, \"<http://www.w3.org/2002/07/owl#inverseOf>\", _), p != \"<http://www.w3.org/2002/07/owl#Thing>\"."
         );
-        let mut distinct = Vec::new();
+        let mut distinct = Distinct::default();
         assert_eq!(
             vlog_rule(&rule, &mut distinct),
             "U(?p) :- input(?p, owl:inverseOf, ?q), ~sameTerm(?p, owl:Thing) ."
         );
-        assert_eq!(distinct, ["owl:Thing"]);
+        assert_eq!(distinct.constants, ["owl:Thing"]);
+    }
+
+    /// `?x != ?y` translates for each engine: as it is for Soufflé, and
+    /// through a relation the binding atoms fill for VLog.
+    #[test]
+    fn two_variables_compared() {
+        let Item::Statement(Statement::Rule(rule), _) =
+            parse("D(?x, ?y) :- T(?x, ?p, ?y), V(?x, ?a), V(?y, ?b), ?a != ?b .\n")
+                .unwrap()
+                .remove(0)
+        else {
+            panic!("a rule")
+        };
+        assert_eq!(
+            souffle_rule(&rule, &BTreeMap::new()),
+            "D(x, y) :- T(x, _, y), V(x, a), V(y, b), a != b."
+        );
+        let mut distinct = Distinct::default();
+        assert_eq!(
+            vlog_rule(&rule, &mut distinct),
+            "D(?x, ?y) :- T(?x, ?p, ?y), V(?x, ?a), V(?y, ?b), ~sameBound(?a, ?b) ."
+        );
+        assert_eq!(
+            distinct.bound,
+            ["sameBound(?a, ?a) :- V(?x, ?a) .", "sameBound(?b, ?b) :- V(?y, ?b) ."]
+        );
     }
 
     #[test]

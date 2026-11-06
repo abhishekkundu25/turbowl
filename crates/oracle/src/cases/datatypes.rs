@@ -92,4 +92,18 @@ pub(super) const CASES: &[Case] = &[
             "! dt-not-type \"300\"^^xsd:integer xsd:byte",
         ],
     },
+    // The datatypes OWL 2 RL supports (OWL 2 Profiles, Section 4.2.1):
+    // owl:real and owl:rational are outside the map, so their literals are
+    // never ill-typed; rdf:langString is not checked as a datatype; a
+    // language-tagged literal keeps its value (an rdf:PlainLiteral's), so it
+    // is not an xsd:string. OWL-RL checks no range-typed literal (F5).
+    Case {
+        group: GROUP,
+        name: "dt-not-type-owl-2-rl",
+        covers: "dt-not-type, prp-rng",
+        turtle: "ex:s ex:p \"1\"^^owl:real , \"1/3\"^^owl:rational , \"1/0\"^^owl:rational .
+                 ex:q rdfs:range xsd:string . ex:s ex:q \"chat\"@fr .
+                 ex:r rdfs:range rdf:langString . ex:s ex:r \"abc\" .",
+        expect: &["! dt-not-type \"chat\"@fr xsd:string"],
+    },
 ];

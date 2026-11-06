@@ -111,6 +111,10 @@ fn run(suite: &str, loaded: Result<Cases, Outcome>) {
     for r in &rest {
         let _ = writeln!(out, "{r}");
     }
+    let _ = writeln!(out, "\nDepartures from the W3C rule tables, by design:");
+    for (rule, what) in w3c::DEPARTURES {
+        let _ = writeln!(out, "- {rule}: {what}");
+    }
     if !cases.unrunnable.is_empty() {
         let _ = writeln!(out, "\nNot runnable here ({}):", cases.unrunnable.len());
         for (id, why) in &cases.unrunnable {

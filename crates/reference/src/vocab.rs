@@ -1,6 +1,6 @@
 //! The IRIs the rules and the generator use, written out in full.
 
-use oxrdf::{NamedNode, Term};
+use oxrdf::{Literal, NamedNode, Term};
 
 pub(crate) const RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 pub(crate) const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
@@ -52,4 +52,27 @@ pub(crate) fn iri(s: &str) -> Term {
 
 pub(crate) fn named(s: &str) -> NamedNode {
     NamedNode::new_unchecked(s)
+}
+
+/// The predicate of dt-diff's `owl:differentFrom` triples, which the
+/// closure never lists (`rules/literal_values.rs`): a literal, so that a
+/// triple with it is a generalized one, which the returned closure leaves
+/// out and which no rule that names a property reads.
+pub(crate) fn unlisted_different_from() -> Term {
+    Term::Literal(Literal::new_typed_literal(
+        "owl:differentFrom",
+        named("urn:x-turbowl-reference:unlisted"),
+    ))
+}
+
+/// The literals the W3C rules name, the cardinalities of cls-maxc1 to
+/// cls-maxqc4: literals of the rule set, which dt-type2, dt-eq and dt-diff
+/// range over with those of the closure.
+pub(crate) fn rule_literals() -> [Term; 2] {
+    ["0", "1"].map(|lexical| {
+        Term::Literal(Literal::new_typed_literal(
+            lexical,
+            named("http://www.w3.org/2001/XMLSchema#nonNegativeInteger"),
+        ))
+    })
 }

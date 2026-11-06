@@ -1,22 +1,21 @@
 //! The OWL 2 RL datatype map (OWL 2 Profiles §4.2; OWL 2 Structural
 //! Specification §4): one table, [`MAP`], that every datatype rule reads.
-//! For each datatype it gives how its lexical forms are read (the
-//! lexical-to-value mapping of its primitive, [`Lexical`]) and which values
-//! its value space holds ([`Space`]). The inclusions between value spaces
-//! follow from the values: `"5"^^xsd:int` reads as the number 5, which
-//! `xsd:integer`, `xsd:decimal`, `owl:rational` and `owl:real` all hold.
+//! It holds the 32 datatypes OWL 2 RL supports (OWL 2 Profiles, Section
+//! 4.2.1), and for each how its lexical forms are read (the lexical-to-value
+//! mapping of its primitive, [`Lexical`]) and which values its value space
+//! holds ([`Space`]). The inclusions between value spaces follow from the
+//! values: `"5"^^xsd:int` reads as the number 5, which `xsd:integer` and
+//! `xsd:decimal` both hold.
 //!
 //! # The value spaces
 //!
-//! - The numbers (`owl:real` and below): a real with a literal form is a
-//!   decimal, or a fraction no decimal equals (from `owl:rational`).
-//!   `xsd:integer` holds the decimals with no fraction, and its subtypes
-//!   those in their ranges. `owl:real` has no lexical form.
+//! - The numbers: `xsd:decimal` holds the decimals, `xsd:integer` those
+//!   with no fraction, and its subtypes those in their ranges.
 //! - `xsd:double` and `xsd:float`: IEEE values, disjoint from each other and
-//!   from the reals. -0 and +0 are two values; NaN is one value.
+//!   from the decimals. -0 and +0 are two values; NaN is one value.
 //! - The strings: `xsd:string` holds every string, its subtypes the strings
-//!   their patterns match. `rdf:langString` holds the language-tagged
-//!   strings, `rdf:PlainLiteral` both.
+//!   their patterns match. `rdf:PlainLiteral` holds the strings and the
+//!   language-tagged strings.
 //! - `xsd:boolean`, `xsd:hexBinary`, `xsd:base64Binary`, `xsd:anyURI`,
 //!   `rdf:XMLLiteral`: each its own space. `xsd:dateTime` holds the date-
 //!   times, `xsd:dateTimeStamp` those with a time zone offset.
@@ -24,11 +23,24 @@
 //!   Structural Specification §5.2), not a datatype with lexical forms, so
 //!   a literal typed `rdfs:Literal` is not read: its value is unknown here.
 //!
+//! # Outside the map
+//!
+//! Every other datatype is outside the map, and a literal of one has no
+//! known value: never ill-typed, never typed by dt-type2, never merged by
+//! dt-eq. Three of them come close:
+//!
+//! - `owl:real` and `owl:rational`, which OWL 2 RL excludes;
+//! - `rdf:langString`, which RDF 1.1 added after OWL 2. A language-tagged
+//!   literal still has its value: OWL 2 reads `"chat"@fr` as the
+//!   `rdf:PlainLiteral` `"chat@fr"`, a language-tagged string. A literal
+//!   typed `rdf:langString` without a tag (no parser makes one) has none.
+//!
 //! # For the rules
 //!
 //! - [`value_of`]: a literal's value, or whether it is ill-typed (its form is
 //!   outside its datatype's lexical space, or reads to a value outside its
-//!   value space), or unknown (not a literal of a datatype of the map).
+//!   value space), or unknown (not a literal of a datatype of the map, nor
+//!   a language-tagged one).
 //! - `==` on [`Value`] is the identity of data values, which dt-eq and
 //!   dt-diff compare: `"1"^^xsd:integer` and `"1.0"^^xsd:decimal` are one
 //!   value; `"0"^^xsd:double` and `"-0"^^xsd:double` are two; two
@@ -51,10 +63,7 @@ use std::borrow::Cow;
 pub(crate) enum Datatype {
     RdfsLiteral,
     PlainLiteral,
-    LangString,
     XmlLiteral,
-    Real,
-    Rational,
     Decimal,
     Integer,
     NonNegativeInteger,
@@ -91,18 +100,13 @@ pub(crate) enum Datatype {
 enum Lexical {
     /// Not read: the value of such a literal is unknown (`rdfs:Literal`).
     Unread,
-    /// No lexical form is in the lexical space (`owl:real`).
-    Empty,
     Integer,
     Decimal,
-    Rational,
     Double,
     Float,
     /// The form is the string.
     String,
     PlainLiteral,
-    /// The form and the literal's language tag.
-    LangString,
     XmlLiteral,
     Boolean,
     HexBinary,
@@ -116,8 +120,6 @@ enum Lexical {
 enum Space {
     /// Every value (`rdfs:Literal`).
     All,
-    /// Every real number (`owl:real`, `owl:rational`).
-    Real,
     Decimal,
     /// The integers from `min` to `max`, each bound included.
     Integer {
@@ -130,7 +132,6 @@ enum Space {
     String(fn(&str) -> bool),
     /// The strings and the language-tagged strings.
     PlainLiteral,
-    LangString,
     XmlLiteral,
     Boolean,
     HexBinary,
@@ -168,20 +169,15 @@ fn any_string(_: &str) -> bool {
     true
 }
 
-/// The OWL 2 RL datatype map, in [`Datatype`]'s order. `rdf:langString` is
-/// RDF 1.1's, which version 1 checked; OWL 2 RL names it through
-/// `rdf:PlainLiteral`.
+/// The OWL 2 RL datatype map, in [`Datatype`]'s order.
 #[rustfmt::skip]
-const MAP: [Definition; 35] = {
+const MAP: [Definition; 32] = {
     use Datatype as D;
     use Lexical as L;
     [
         def(D::RdfsLiteral, vocab::RDFS_LITERAL, L::Unread, Space::All),
         def(D::PlainLiteral, vocab::RDF_PLAIN_LITERAL, L::PlainLiteral, Space::PlainLiteral),
-        def(D::LangString, vocab::RDF_LANG_STRING, L::LangString, Space::LangString),
         def(D::XmlLiteral, vocab::RDF_XML_LITERAL, L::XmlLiteral, Space::XmlLiteral),
-        def(D::Real, vocab::OWL_REAL, L::Empty, Space::Real),
-        def(D::Rational, vocab::OWL_RATIONAL, L::Rational, Space::Real),
         def(D::Decimal, vocab::XSD_DECIMAL, L::Decimal, Space::Decimal),
         def(D::Integer, vocab::XSD_INTEGER, L::Integer, integers(None, None)),
         def(D::NonNegativeInteger, vocab::XSD_NON_NEGATIVE_INTEGER, L::Integer, integers(Some(0), None)),
@@ -226,9 +222,12 @@ const BY_ID: [Option<Datatype>; vocab::IRIS.len()] = {
 };
 
 impl Datatype {
-    /// Every datatype of the map, in its order.
-    pub(crate) const ALL: [Datatype; 35] = {
-        let mut all = [Datatype::RdfsLiteral; 35];
+    /// The datatypes OWL 2 RL supports (OWL 2 Profiles, Section 4.2.1),
+    /// every datatype of the map, in its order: dt-type1 types these
+    /// (`rules/trivial.rs`), and dt-type2, dt-not-type, dt-eq and dt-diff
+    /// range over them.
+    pub(crate) const OWL_2_RL: [Datatype; 32] = {
+        let mut all = [Datatype::RdfsLiteral; 32];
         let mut i = 0;
         while i < MAP.len() {
             // [`Datatype::definition`] reads the table at the variant's place.
@@ -237,24 +236,6 @@ impl Datatype {
             i += 1;
         }
         all
-    };
-
-    /// The datatypes OWL 2 RL supports (OWL 2 Profiles, Section 4.2.1), in
-    /// the map's order: all but `owl:real` and `owl:rational`, which OWL 2
-    /// RL excludes, and `rdf:langString`, which RDF 1.1 added after OWL 2.
-    /// dt-type1 types these (`rules/trivial.rs`).
-    pub(crate) const OWL_2_RL: [Datatype; 32] = {
-        let mut rl = [Datatype::RdfsLiteral; 32];
-        let (mut i, mut n) = (0, 0);
-        while i < Self::ALL.len() {
-            if !matches!(Self::ALL[i], Datatype::Real | Datatype::Rational | Datatype::LangString) {
-                rl[n] = Self::ALL[i];
-                n += 1;
-            }
-            i += 1;
-        }
-        assert!(n == rl.len(), "OWL 2 RL supports 32 datatypes");
-        rl
     };
 
     const fn definition(self) -> &'static Definition {
@@ -277,18 +258,16 @@ impl Datatype {
     pub(crate) fn holds(self, value: &Value<'_>) -> bool {
         match (self.definition().space, value) {
             (Space::All, _)
-            | (Space::Real, Value::Real(_))
-            | (Space::Decimal, Value::Real(Real::Decimal { .. }))
+            | (Space::Decimal, Value::Decimal(_))
             | (Space::Double, Value::Double(_))
             | (Space::Float, Value::Float(_))
             | (Space::PlainLiteral, Value::String(_) | Value::LangString { .. })
-            | (Space::LangString, Value::LangString { .. })
             | (Space::XmlLiteral, Value::XmlLiteral(_))
             | (Space::Boolean, Value::Boolean(_))
             | (Space::HexBinary, Value::HexBinary(_))
             | (Space::Base64Binary, Value::Base64Binary(_))
             | (Space::AnyUri, Value::AnyUri(_)) => true,
-            (Space::Integer { min, max }, Value::Real(Real::Decimal { negative, int, frac })) => {
+            (Space::Integer { min, max }, Value::Decimal(Decimal { negative, int, frac })) => {
                 frac.is_empty() && {
                     // A bound is at most 2^64, so a value of more digits
                     // than i128 holds is past every bound on its side.
@@ -305,23 +284,16 @@ impl Datatype {
     }
 
     /// The datatype's lexical-to-value mapping: the value of the lexical
-    /// form (and language tag) in this datatype, or `None` when the literal
-    /// is ill-typed. `Unread` for `rdfs:Literal`.
-    fn read<'a>(self, lexical: &'a str, language: Option<&'a str>) -> Reading<'a> {
+    /// form in this datatype, or `IllTyped`. `Unknown` for `rdfs:Literal`.
+    fn read(self, lexical: &str) -> Reading<'_> {
         let value = match self.definition().lexical {
             Lexical::Unread => return Reading::Unknown,
-            Lexical::Empty => None,
-            Lexical::Integer => lexical::integer(lexical).map(Value::Real),
-            Lexical::Decimal => lexical::decimal(lexical).map(Value::Real),
-            Lexical::Rational => lexical::rational(lexical).map(Value::Real),
+            Lexical::Integer => lexical::integer(lexical).map(Value::Decimal),
+            Lexical::Decimal => lexical::decimal(lexical).map(Value::Decimal),
             Lexical::Double => lexical::double(lexical).map(Value::Double),
             Lexical::Float => lexical::float(lexical).map(Value::Float),
             Lexical::String => Some(Value::String(lexical)),
             Lexical::PlainLiteral => lexical::plain_literal(lexical),
-            Lexical::LangString => language.map(|tag| Value::LangString {
-                text: lexical,
-                tag: lexical::lower_case(tag),
-            }),
             Lexical::XmlLiteral => lexical::xml(lexical).then_some(Value::XmlLiteral(lexical)),
             Lexical::Boolean => lexical::boolean(lexical).map(Value::Boolean),
             Lexical::HexBinary => lexical::hex_binary(lexical).map(Value::HexBinary),
@@ -340,7 +312,7 @@ impl Datatype {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Reading<'a> {
     /// Not a literal, or a literal whose datatype is not in the map (or is
-    /// `rdfs:Literal`): its value is unknown.
+    /// `rdfs:Literal`) and that has no language tag: its value is unknown.
     Unknown,
     /// A literal of a datatype of the map that has no value: its form is
     /// outside the datatype's lexical space, or reads to a value outside
@@ -349,7 +321,8 @@ pub(crate) enum Reading<'a> {
     Value(Value<'a>),
 }
 
-/// The value of a term, as the map reads it.
+/// The value of a term, as the map reads it. A language-tagged literal is
+/// the `rdf:PlainLiteral` of its text and tag (see the module doc).
 #[inline]
 pub(crate) fn value_of(term: Term<'_>) -> Reading<'_> {
     let Term::Literal {
@@ -360,8 +333,14 @@ pub(crate) fn value_of(term: Term<'_>) -> Reading<'_> {
     else {
         return Reading::Unknown;
     };
+    if let Some(tag) = language {
+        return Reading::Value(Value::LangString {
+            text: lexical,
+            tag: lexical::lower_case(tag),
+        });
+    }
     match Datatype::of(datatype) {
-        Some(d) => d.read(lexical, language),
+        Some(d) => d.read(lexical),
         None => Reading::Unknown,
     }
 }
@@ -370,7 +349,7 @@ pub(crate) fn value_of(term: Term<'_>) -> Reading<'_> {
 /// `==` is the identity of data values (see the module doc).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Value<'a> {
-    Real(Real<'a>),
+    Decimal(Decimal<'a>),
     /// The bits of the double; one NaN.
     Double(u64),
     /// The bits of the float; one NaN.
@@ -393,31 +372,19 @@ pub(crate) enum Value<'a> {
 
 impl Value<'_> {
     /// Every datatype whose value space holds this value, in the map's order.
-    #[cfg_attr(not(test), expect(dead_code, reason = "dt-type2 (ticket 10) reads it"))]
     pub(crate) fn datatypes(&self) -> impl Iterator<Item = Datatype> + '_ {
-        Datatype::ALL.into_iter().filter(|d| d.holds(self))
+        Datatype::OWL_2_RL.into_iter().filter(|d| d.holds(self))
     }
 }
 
-/// A real number with a literal form, in one canonical form, so `==` is
-/// numeric equality.
+/// A decimal number, in one canonical form, so `==` is numeric equality:
+/// the integer digits without leading zeros and the fraction digits without
+/// trailing zeros (each empty when zero); zero is not negative.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum Real<'a> {
-    /// A decimal: the integer digits without leading zeros and the fraction
-    /// digits without trailing zeros (each empty when zero); zero is not
-    /// negative.
-    Decimal {
-        negative: bool,
-        int: Cow<'a, str>,
-        frac: Cow<'a, str>,
-    },
-    /// A rational no decimal equals, in lowest terms: the denominator has a
-    /// prime factor other than 2 and 5.
-    Fraction {
-        negative: bool,
-        num: Box<str>,
-        den: Box<str>,
-    },
+pub(crate) struct Decimal<'a> {
+    pub(super) negative: bool,
+    pub(super) int: Cow<'a, str>,
+    pub(super) frac: Cow<'a, str>,
 }
 
 /// An `xsd:dateTime` value: its fields as written, with `24:00:00` read as

@@ -311,6 +311,18 @@ pub fn judge(case: &Case, closure: &Closure) -> Verdict {
     }
 }
 
+/// Where the closure departs from the W3C rule tables by design, as (rule,
+/// what TurbOWL, Nemo's program and the reference evaluator do instead).
+/// A case whose conclusion needs a triple a departure leaves out fails on
+/// every oracle of the rule set; the reports list these.
+pub const DEPARTURES: &[(&str, &str)] = &[(
+    "dt-diff",
+    "never listed (docs/specs/v2-1-scoreboard-and-rules.md): `lt1 owl:differentFrom lt2` for two literals \
+     with different values is in no closure, nor is anything a rule derives from it but eq-diff1, which \
+     reports two such literals (and, with the equality rules, every two terms equal to them) made \
+     owl:sameAs; the W3C rule set lists a triple for every two literals of the closure",
+)];
+
 /// Where the vocabulary of an entry of [`LIKELY_RULES`] shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Shows {

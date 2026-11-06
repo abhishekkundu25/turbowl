@@ -505,6 +505,9 @@ fn max_zero(round: &mut Round<'_>, types: &Variable<Pair>, cx: &mut Context<'_>)
     let Some(zero) = cx.terms.get_term(zero.into(), DocId(0)) else {
         return;
     };
+    // The literal is no vocabulary term: when a merge changes its class,
+    // every restriction is joined whole ([`Round::class_moved`]).
+    let moved = round.class_moved(zero.0);
     let zero = round.constant(zero.0);
     let constant = |round: &Round<'_>, iri: TermId| round.constant(iri.0);
     let Some(on_property) = round.by_subject(constant(round, vocab::OWL_ON_PROPERTY)) else {
@@ -514,7 +517,7 @@ fn max_zero(round: &mut Round<'_>, types: &Variable<Pair>, cx: &mut Context<'_>)
     let mut restrictions = Vec::new();
     let mut with_property = |x: u32, recent: bool, c: u32, c_recent: bool| {
         on_property.all().for_each_value(x, |p| {
-            let whole = recent || c_recent || on_property.recent().contains(&(x, p));
+            let whole = moved || recent || c_recent || on_property.recent().contains(&(x, p));
             restrictions.push((x, p, c, whole));
         });
     };
@@ -1150,6 +1153,32 @@ mod tests {
                  ex:u a ex:R , ex:S , ex:T , ex:U ; ex:p ex:y . ex:w a ex:R ."
             ),
             expand("cls-maxc1 ex:R ex:u ex:y")
+        );
+    }
+
+    /// A merge can make a stable restriction's cardinality the literal of
+    /// the rule: the rule then joins every restriction again (a chaos find:
+    /// dt-eq made `"0"^^xsd:nonNegativeInteger` the same as an `xsd:integer`
+    /// zero interned before it, which stayed the representative).
+    #[test]
+    fn max_cardinality_zero_after_a_merge_moves_the_literal() {
+        let input = "ex:R owl:maxCardinality \"00\"^^xsd:integer ; owl:onProperty ex:p .
+                     ex:u a ex:R ; ex:p ex:y .";
+        let found = testing::run(
+            &["checks", "equality", "literal-values"],
+            &format!("{input} ex:s ex:q \"0\"^^xsd:nonNegativeInteger ."),
+        )
+        .findings();
+        assert_eq!(found, expand("cls-maxc1 ex:R ex:u ex:y"));
+        // Made the same by prp-fp, a round later.
+        let found = testing::run(
+            &["property", "checks", "equality"],
+            &format!("{input} ex:d a owl:FunctionalProperty . ex:s ex:d \"00\"^^xsd:integer , \"0\"^^xsd:nonNegativeInteger ."),
+        )
+        .findings();
+        assert!(
+            found.contains(&expand("cls-maxc1 ex:R ex:u ex:y").pop_first().unwrap()),
+            "{found:?}"
         );
     }
 

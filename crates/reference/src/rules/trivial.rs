@@ -3,14 +3,17 @@
 //! dt-type1 and dt-type2 (OWL 2 Profiles, Tables 4, 5, 8 and 9), as the W3C
 //! tables write them. eq-ref is a rule like the others here: its triples
 //! join every rule (the core adds them only when its closure is read, and
-//! stores them where a rule could read them).
-//!
-//! To come: dt-type2, version 2's ticket 10, which reads the datatype map
+//! stores them where a rule could read them). It ranges over the terms of
+//! the closure, which dt-diff's unlisted triples are no part of
+//! (`literal_values.rs`). dt-type2 reads the datatype map
 //! (`crate::datatype`).
 
 use super::{EMPTY, Family};
+use crate::datatype::DataValue;
 use crate::evaluate::{Round, View};
 use crate::vocab::*;
+use oxrdf::Term;
+use std::collections::HashSet;
 
 const RDFS: &str = "http://www.w3.org/2000/01/rdf-schema#";
 const OWL: &str = "http://www.w3.org/2002/07/owl#";
@@ -67,7 +70,9 @@ const OWL_2_RL_DATATYPES: [&str; 32] = [
 ];
 
 pub(super) const FAMILY: Family = Family {
-    rules: &["eq-ref", "prp-ap", "dt-type1", "scm-cls", "scm-op", "scm-dp"],
+    rules: &[
+        "eq-ref", "prp-ap", "dt-type1", "dt-type2", "scm-cls", "scm-op", "scm-dp",
+    ],
     derive,
     ..EMPTY
 };
@@ -75,7 +80,8 @@ pub(super) const FAMILY: Family = Family {
 fn derive(v: &View, r: &mut Round) {
     let same = iri(OWL_SAME_AS);
     let ty = iri(RDF_TYPE);
-    for (s, p, o) in &v.all {
+    let unlisted = unlisted_different_from();
+    for (s, p, o) in v.all.iter().filter(|(_, p, _)| *p != unlisted) {
         for t in [s, p, o] {
             r.derive("eq-ref", t, &same, t);
         }
@@ -87,6 +93,25 @@ fn derive(v: &View, r: &mut Round) {
     let datatype = iri(&format!("{RDFS}Datatype"));
     for dt in OWL_2_RL_DATATYPES {
         r.derive("dt-type1", &iri(dt), &ty, &datatype);
+    }
+    // dt-type2: each literal of the closure, and each the rules name, with
+    // every datatype of the map whose value space holds its value.
+    let named = rule_literals();
+    let literals: HashSet<&Term> = v
+        .all
+        .iter()
+        .flat_map(|(s, _, o)| [s, o])
+        .chain(&named)
+        .filter(|t| t.is_literal())
+        .collect();
+    for t in literals {
+        if let Term::Literal(lt) = t
+            && let Some(value) = DataValue::of(lt)
+        {
+            for dt in value.datatypes() {
+                r.derive("dt-type2", t, &ty, &iri(&dt));
+            }
+        }
     }
     let (sco, eqc) = (iri(RDFS_SUB_CLASS_OF), iri(OWL_EQUIVALENT_CLASS));
     let (thing, nothing) = (iri(OWL_THING), iri(OWL_NOTHING));

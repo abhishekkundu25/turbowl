@@ -136,8 +136,10 @@ pub(crate) fn run_families(families: Vec<&'static Family>, turtle: &str) -> Run 
             on.off(s)
         }
     });
+    let mut dict = Dictionary::new();
+    super::datatype::intern_rule_literals(&mut dict);
     let mut run = Run {
-        dict: Dictionary::new(),
+        dict,
         store: Store::with_canon(equality::canon()),
         base: BTreeSet::new(),
         findings: Vec::new(),

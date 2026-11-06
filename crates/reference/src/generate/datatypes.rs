@@ -5,10 +5,13 @@
 //! Version 1's shape and tables ([`LITERALS`], [`DATATYPES`], drawn by
 //! version 1's shapes here and in `core.rs`) stay as they were. The shapes
 //! added since draw literals of every datatype of the OWL 2 RL map, at the
-//! edges of their lexical spaces (`crate::datatype::EDGE_CASES`), and type
-//! them with any datatype of the map: through a range (prp-rng), and through
-//! a functional data property that makes two of them the same (prp-fp), so
-//! a literal joins a class typed with a datatype.
+//! edges of their lexical spaces (`crate::datatype::EDGE_CASES`), and of
+//! datatypes outside it (`owl:real` and `owl:rational`, which OWL 2 RL
+//! leaves out, among them), and type them with any datatype of the map or
+//! now and then one outside it (`rdf:langString` too): through a range
+//! (prp-rng), and through a functional data property that makes two of
+//! them the same (prp-fp), so a literal joins a class typed with a
+//! datatype.
 
 use super::{Generator, Shape, p_str};
 use crate::datatype::{EDGE_CASES, datatype_iris};
@@ -109,11 +112,19 @@ fn functional_values(g: &mut Generator) {
     }
 }
 
+/// Datatypes outside the map, among them those OWL 2 RL leaves out.
+const OUTSIDE: &[&str] = &[
+    "http://example.org/dt",
+    "http://www.w3.org/2002/07/owl#real",
+    "http://www.w3.org/2002/07/owl#rational",
+    RDF_LANG_STRING,
+];
+
 /// A datatype of the map, or now and then one outside it.
 fn any_datatype(g: &mut Generator) -> Term {
     let all: Vec<String> = datatype_iris().collect();
     if g.rng.one_in(12) {
-        iri("http://example.org/dt")
+        iri(g.rng.pick(OUTSIDE))
     } else {
         iri(g.rng.pick(&all))
     }
@@ -121,8 +132,8 @@ fn any_datatype(g: &mut Generator) -> Term {
 
 /// A literal at an edge of a datatype of the map, or a language-tagged
 /// string, a simple literal, or a literal typed `rdfs:Literal` or with a
-/// datatype outside the map.
-fn edge_literal(g: &mut Generator) -> Term {
+/// datatype outside the map (`owl:real` and `owl:rational` among them).
+pub(super) fn edge_literal(g: &mut Generator) -> Term {
     let typed = |value: &str, datatype: &str| Term::from(Literal::new_typed_literal(value, named(datatype)));
     match g.rng.below(16) {
         0 => {
@@ -131,7 +142,15 @@ fn edge_literal(g: &mut Generator) -> Term {
         }
         1 => Term::from(Literal::new_simple_literal(*g.rng.pick(&["x", "", "5", "a b", " a"]))),
         2 => typed(g.rng.pick(&["x", "5"]), "http://www.w3.org/2000/01/rdf-schema#Literal"),
-        3 => typed("1", "http://example.org/dt"),
+        3 => {
+            let (value, datatype) = *g.rng.pick(&[
+                ("1", "http://example.org/dt"),
+                ("1", "http://www.w3.org/2002/07/owl#real"),
+                ("1/3", "http://www.w3.org/2002/07/owl#rational"),
+                ("2/2", "http://www.w3.org/2002/07/owl#rational"),
+            ]);
+            typed(value, datatype)
+        }
         _ => {
             let (datatype, cases) = *g.rng.pick(EDGE_CASES);
             let (value, _) = *g.rng.pick(cases);

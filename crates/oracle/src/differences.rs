@@ -4,7 +4,7 @@
 //! the affected triples or findings before a closure is compared with the
 //! faulty oracle's. There are no other filters (ADR 0004).
 //!
-//! All fourteen are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo,
+//! All fifteen are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo,
 //! HermiT and the W3C tests have none so far. Where OWL-RL only derives or
 //! reports more than the W3C rules (F8, F11, F13, F14, and parts of F9 and
 //! F10), containment never sees it: the fault is listed with its test and
@@ -14,6 +14,7 @@ use crate::{Closure, Finding, Input};
 use oxrdf::vocab::{rdf, rdfs, xsd};
 use oxrdf::{NamedNodeRef, NamedOrBlankNode, Term};
 use std::collections::{HashMap, HashSet};
+use turbowl::{Switch, Switches};
 
 /// A known fault of an oracle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -54,10 +55,13 @@ pub enum Fault {
     /// OWL-RL's cardinality rules compare Python values, so a double, a float
     /// or a boolean cardinality fires them.
     F14,
+    /// OWL-RL skips dt-eq and dt-diff, and its dt-type2 types a literal with
+    /// its own datatype and that datatype's supertypes only.
+    F15,
 }
 
 impl Fault {
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::F1,
         Self::F2,
         Self::F3,
@@ -72,6 +76,7 @@ impl Fault {
         Self::F12,
         Self::F13,
         Self::F14,
+        Self::F15,
     ];
 
     /// The oracle at fault, as the triangulation table names it.
@@ -197,6 +202,17 @@ impl Fault {
                  xsd:decimal are pairwise disjoint (OWL 2 Structural Specification 4.2) and xsd:boolean's \
                  holds no numbers (XML Schema 1.1 3.3.2)"
             }
+            Self::F15 => {
+                "owlrl 7.6.2 skips dt-eq and dt-diff (OWLRL.py:234-237: \"This rules are skipped on purpose \
+                 at the moment\"), and its dt-type2 types a literal of a datatype of its list with that \
+                 datatype (OWLRL.py:215-220) and the supertypes its table gives (OWLRL.py:191-198, \
+                 XsdDatatypes.py:85: xsd:int's are xsd:long, xsd:integer and xsd:decimal), a term made \
+                 owl:sameAs the literal too (OWLRL.py:248-256). OWL 2 Profiles, Table 8: dt-eq makes every \
+                 two literals with the same value owl:sameAs (\"1\"^^xsd:integer and \"1.0\"^^xsd:decimal), \
+                 dt-diff makes those with different values owl:differentFrom (so two made owl:sameAs are \
+                 inconsistent, eq-diff1), and dt-type2 types a literal with every datatype whose value \
+                 space holds its value (\"5\"^^xsd:int is an xsd:byte and an xsd:unsignedByte)"
+            }
         }
     }
 
@@ -240,6 +256,13 @@ impl Fault {
             }
             Self::F8 | Self::F11 | Self::F13 | Self::F14 => {
                 "none: OWL-RL derives or reports more than the W3C rules, which containment never sees"
+            }
+            Self::F15 => {
+                "drops from the other closure the triples and findings OWL-RL does not have that the \
+                 complete configuration without literal-values does not give either (dt-eq, dt-diff and \
+                 what follows from them, as TurbOWL computes it: `ours = Nemo` holds it to the rules), \
+                 and the typings `x rdf:type dt` OWL-RL does not have of a term `x` made owl:sameAs a \
+                 literal whose value dt's value space holds (dt-type2)"
             }
         }
     }
@@ -297,11 +320,12 @@ impl Fault {
                     && matches!(&t.object, Term::Literal(l)
                         if [xsd::DOUBLE, xsd::FLOAT, xsd::BOOLEAN].contains(&l.datatype()))
             }),
+            Self::F15 => !ValueBased::of(input, ours, theirs).is_empty(),
         }
     }
 
     /// Removes from both closures what this fault makes differ.
-    fn filter(self, ours: &mut Closure, theirs: &mut Closure) {
+    fn filter(self, input: &Input, ours: &mut Closure, theirs: &mut Closure) {
         match self {
             Self::F1 => {
                 let aliases = schema_aliases(ours);
@@ -342,7 +366,65 @@ impl Fault {
                 drop_missed(ours, theirs, holds_rewritten);
             }
             Self::F8 | Self::F11 | Self::F13 | Self::F14 => {}
+            Self::F15 => {
+                let explained = ValueBased::of(input, ours, theirs);
+                ours.triples.retain(|t| !explained.triples.contains(t));
+                ours.findings.retain(|f| !explained.findings.contains(f));
+            }
         }
+    }
+}
+
+/// What F15 explains: the triples and findings of a closure that OWL-RL's
+/// closure does not have and that the value-based rules give.
+#[derive(Debug, Default)]
+struct ValueBased {
+    triples: HashSet<oxrdf::Triple>,
+    findings: HashSet<Finding>,
+}
+
+impl ValueBased {
+    fn of(input: &Input, ours: &Closure, theirs: &Closure) -> Self {
+        let mut explained = Self::default();
+        let missing: Vec<&oxrdf::Triple> = ours.triples.iter().filter(|t| !theirs.triples.contains(*t)).collect();
+        let missing_findings: Vec<&Finding> = ours.findings.iter().filter(|f| !theirs.findings.contains(*f)).collect();
+        if missing.is_empty() && missing_findings.is_empty() {
+            return explained;
+        }
+        // dt-type2: a term made owl:sameAs a literal has the literal's typings.
+        let same_as = "http://www.w3.org/2002/07/owl#sameAs";
+        let mut typings: HashSet<(&NamedOrBlankNode, String)> = HashSet::new();
+        for t in &ours.triples {
+            if t.predicate.as_str() == same_as
+                && let Term::Literal(l) = &t.object
+                && let Some(value) = turbowl_reference::DataValue::of(l)
+            {
+                typings.extend(value.datatypes().into_iter().map(|dt| (&t.subject, dt)));
+            }
+        }
+        // dt-eq and dt-diff: what the complete configuration gives without
+        // them, a closure every other configuration's is part of.
+        let without = match crate::ours::run(input, Switches::complete().off(Switch::LiteralValues)) {
+            crate::Outcome::Ran(c) => c,
+            other => panic!("TurbOWL without literal-values: {other:?}"),
+        };
+        for t in missing {
+            let typed = t.predicate == rdf::TYPE
+                && matches!(&t.object, Term::NamedNode(dt) if typings.contains(&(&t.subject, dt.as_str().to_owned())));
+            if typed || !without.triples.contains(t) {
+                explained.triples.insert(t.clone());
+            }
+        }
+        explained.findings = missing_findings
+            .into_iter()
+            .filter(|f| !without.findings.contains(*f))
+            .cloned()
+            .collect();
+        explained
+    }
+
+    fn is_empty(&self) -> bool {
+        self.triples.is_empty() && self.findings.is_empty()
     }
 }
 
@@ -354,7 +436,7 @@ pub fn apply(oracle: &str, input: &Input, ours: &mut Closure, theirs: &mut Closu
         .filter(|f| f.oracle() == oracle && f.shows(input, ours, theirs))
         .collect();
     for f in &shown {
-        f.filter(ours, theirs);
+        f.filter(input, ours, theirs);
     }
     shown
 }
@@ -1042,6 +1124,66 @@ mod tests {
             "OWL-RL now reports every position: F6 is gone"
         );
         filter_is_needed_and_enough(Fault::F6, &input, &nemo, &owlrl);
+    }
+
+    /// dt-eq, dt-diff and dt-type2 in the complete configuration: Nemo, the
+    /// reference evaluator and TurbOWL agree on what the W3C rules give;
+    /// OWL-RL has none of it.
+    #[test]
+    fn f15_owlrl_skips_dt_eq_and_dt_diff_and_narrows_dt_type2() {
+        let input = input(
+            "f15",
+            "ex:s ex:p \"1\"^^xsd:integer . ex:t ex:p \"01\"^^xsd:integer .
+             ex:a owl:sameAs \"5\"^^xsd:int .
+             ex:d a owl:FunctionalProperty . ex:x ex:d \"3\"^^xsd:integer , \"4\"^^xsd:integer .",
+        );
+        let switches = turbowl::Switches::complete();
+        let nemo = match nemo::run_with(&input, switches) {
+            Outcome::Ran(c) => c,
+            Outcome::Skipped(why) => return println!("skipped: {why}"),
+            other => panic!("Nemo: {other:?}"),
+        };
+        let owlrl = match owlrl::run(&input) {
+            Outcome::Skipped(why) => return println!("skipped: {why}"),
+            o => ran(o),
+        };
+        let ours = match crate::ours::run(&input, switches) {
+            Outcome::Ran(c) => c,
+            other => panic!("TurbOWL: {other:?}"),
+        };
+        let base: HashSet<_> = input.triples().iter().cloned().collect();
+        let reference = turbowl_reference::evaluate_within(&base, switches, 100_000).expect("a small closure");
+        let integer = |lexical: &str| Term::from(Literal::new_typed_literal(lexical, xsd::INTEGER));
+        let eq_diff1 = Finding::new("eq-diff1", vec![integer("3"), integer("4")]);
+        for t in [
+            // dt-eq, then eq-rep-o.
+            "<http://example.org/s> <http://example.org/p> \"01\"^^<http://www.w3.org/2001/XMLSchema#integer>",
+            // dt-type2, then eq-rep-s.
+            "<http://example.org/a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2001/XMLSchema#byte>",
+        ] {
+            let t = triple(t);
+            assert!(nemo.triples.contains(&t), "the W3C rules (Nemo) derive {t}");
+            assert!(reference.closure.contains(&t), "the reference evaluator derives {t}");
+            assert!(ours.triples.contains(&t), "TurbOWL derives {t}");
+            assert!(!owlrl.triples.contains(&t), "OWL-RL now derives {t}: F15 is gone here");
+        }
+        // dt-diff with eq-diff1.
+        assert!(
+            nemo.findings.contains(&eq_diff1),
+            "the W3C rules (Nemo) report {eq_diff1}"
+        );
+        assert!(
+            reference
+                .diagnostics
+                .contains(&(eq_diff1.code.clone(), eq_diff1.terms.clone())),
+            "the reference evaluator reports {eq_diff1}"
+        );
+        assert!(ours.findings.contains(&eq_diff1), "TurbOWL reports {eq_diff1}");
+        assert!(
+            !owlrl.findings.iter().any(|f| f.code == "eq-diff1"),
+            "OWL-RL now reports eq-diff1: F15 is gone here"
+        );
+        filter_is_needed_and_enough(Fault::F15, &input, &nemo, &owlrl);
     }
 
     #[test]

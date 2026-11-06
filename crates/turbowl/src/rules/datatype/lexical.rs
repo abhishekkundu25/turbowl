@@ -2,15 +2,13 @@
 //! mappings: each function reads a lexical form, exactly as written (RDF
 //! applies no whitespace processing, so `" 3 "^^xsd:int` is ill-typed), and
 //! gives its value, or `None` when the form is outside the lexical space.
-//! The grammars are XML Schema 1.1 Part 2's, owl:rational's is OWL 2
-//! Structural Specification §4.1's, rdf:PlainLiteral's is its own
+//! The grammars are XML Schema 1.1 Part 2's; rdf:PlainLiteral's is its own
 //! specification's.
 //!
 //! A value borrows from the lexical form wherever its canonical form is a
 //! part of it, so the common literals are read without allocating.
 
-use super::map::{DateTime, Real, Value};
-use super::nat::Nat;
+use super::map::{DateTime, Decimal, Value};
 use std::borrow::Cow;
 
 /// An optional sign: whether it is `-`, and the rest.
@@ -27,10 +25,10 @@ fn digits(s: &str) -> bool {
 }
 
 /// A decimal from its sign and its integer and fraction digits.
-fn decimal_value<'a>(negative: bool, int: &'a str, frac: &'a str) -> Real<'a> {
+fn decimal_value<'a>(negative: bool, int: &'a str, frac: &'a str) -> Decimal<'a> {
     let int = int.trim_start_matches('0');
     let frac = frac.trim_end_matches('0');
-    Real::Decimal {
+    Decimal {
         negative: negative && !(int.is_empty() && frac.is_empty()),
         int: Cow::Borrowed(int),
         frac: Cow::Borrowed(frac),
@@ -38,73 +36,16 @@ fn decimal_value<'a>(negative: bool, int: &'a str, frac: &'a str) -> Real<'a> {
 }
 
 /// `xsd:integer`: `(\+|-)?[0-9]+`.
-pub(super) fn integer(s: &str) -> Option<Real<'_>> {
+pub(super) fn integer(s: &str) -> Option<Decimal<'_>> {
     let (negative, body) = sign(s);
     (!body.is_empty() && digits(body)).then(|| decimal_value(negative, body, ""))
 }
 
 /// `xsd:decimal`: `(\+|-)?([0-9]+(\.[0-9]*)?|\.[0-9]+)`.
-pub(super) fn decimal(s: &str) -> Option<Real<'_>> {
+pub(super) fn decimal(s: &str) -> Option<Decimal<'_>> {
     let (negative, body) = sign(s);
     let (int, frac) = body.split_once('.').unwrap_or((body, ""));
     (digits(int) && digits(frac) && !(int.is_empty() && frac.is_empty())).then(|| decimal_value(negative, int, frac))
-}
-
-/// `owl:rational`: `numerator '/' denominator`, the numerator an
-/// `xsd:integer`, the denominator a nonzero `xsd:integer` with no sign. The
-/// value is in lowest terms: a decimal when the denominator then has no
-/// prime factor but 2 and 5, a fraction otherwise.
-pub(super) fn rational(s: &str) -> Option<Real<'static>> {
-    let (numerator, denominator) = s.split_once('/')?;
-    let (negative, numerator) = sign(numerator);
-    if numerator.is_empty() || !digits(numerator) || denominator.is_empty() || !digits(denominator) {
-        return None;
-    }
-    let (n, mut d) = (Nat::parse(numerator), Nat::parse(denominator));
-    if d.is_zero() {
-        return None;
-    }
-    if n.is_zero() {
-        return Some(Real::Decimal {
-            negative: false,
-            int: Cow::Borrowed(""),
-            frac: Cow::Borrowed(""),
-        });
-    }
-    let g = Nat::gcd(n.clone(), d.clone());
-    let mut n = n.div(&g);
-    d = d.div(&g);
-    // d = 2^twos 5^fives r, with r = 1 for a decimal.
-    let mut rest = d.clone();
-    let (mut twos, mut fives) = (0usize, 0usize);
-    while rest.divide_out(2) {
-        twos += 1;
-    }
-    while rest.divide_out(5) {
-        fives += 1;
-    }
-    if !rest.is_one() {
-        return Some(Real::Fraction {
-            negative,
-            num: n.digits().into(),
-            den: d.digits().into(),
-        });
-    }
-    // n / d = n 2^(k - twos) 5^(k - fives) / 10^k.
-    let k = twos.max(fives);
-    for _ in twos..k {
-        n.mul_add(2, 0);
-    }
-    for _ in fives..k {
-        n.mul_add(5, 0);
-    }
-    let digits = format!("{:0>width$}", n.digits(), width = k + 1);
-    let (int, frac) = digits.split_at(digits.len() - k);
-    Some(Real::Decimal {
-        negative,
-        int: Cow::Owned(int.trim_start_matches('0').to_owned()),
-        frac: Cow::Owned(frac.trim_end_matches('0').to_owned()),
-    })
 }
 
 /// The numeral part of `xsd:double` and `xsd:float`:

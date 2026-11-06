@@ -5,7 +5,7 @@
 
 use oxrdf::{BlankNode, Literal, NamedNode, Term, Triple};
 use std::collections::BTreeSet;
-use turbowl::{Error, Format, Reasoner, Summary};
+use turbowl::{Error, Format, Reasoner, Summary, Switches};
 
 // The interface promises `Send`.
 const _: () = {
@@ -215,16 +215,17 @@ fn clear_empties_everything() {
     assert_eq!(r.reason().base, 13);
 }
 
+/// rdf:langString is RDF 1.1's, not a datatype OWL 2 RL supports (OWL 2
+/// Profiles, Section 4.2.1): a literal of it without a tag has no known
+/// value, so it is never ill-typed, typed or merged, in any configuration.
 #[test]
-fn an_untagged_lang_string_is_reported_ill_typed() {
+fn an_untagged_lang_string_is_outside_the_datatype_map() {
     let lang_string = NamedNode::new_unchecked("http://www.w3.org/1999/02/22-rdf-syntax-ns#langString");
     let untagged = Literal::new_typed_literal("x", lang_string.clone());
-    let mut r = Reasoner::new();
-    r.insert([Triple::new(ex("s"), ex("p"), untagged.clone()).as_ref()]);
-    r.reason();
-    let found: Vec<(&str, Vec<Term>)> = r.diagnostics().iter().map(|d| (d.code, d.terms.clone())).collect();
-    assert_eq!(
-        found,
-        [("dt-not-type", vec![Term::from(untagged), Term::from(lang_string)])]
-    );
+    for switches in [Switches::default(), Switches::complete()] {
+        let mut r = Reasoner::with_switches(switches);
+        r.insert([Triple::new(ex("s"), ex("p"), untagged.clone()).as_ref()]);
+        r.reason();
+        assert!(r.diagnostics().is_empty(), "{:?}", r.diagnostics());
+    }
 }

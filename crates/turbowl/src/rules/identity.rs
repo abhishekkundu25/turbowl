@@ -50,7 +50,11 @@
 //! missing skips its join that round, and the next round, where the whole
 //! index is recent, reads every tuple of it as recent (`class.rs`).
 //!
-//! Constants are read through the round's canon ([`Round::constant`]).
+//! Constants are read through the round's canon ([`Round::constant`]). The
+//! cardinality is a literal, not a vocabulary term, so a merge can change
+//! its class without a restart (dt-eq makes `"1"^^xsd:integer` the same as
+//! it, prp-fp any two literals): in the round after, every restriction is
+//! new ([`Round::class_moved`]).
 
 use super::Context;
 use crate::engine::{Pair, Round, Variable, View, gallop};
@@ -443,6 +447,8 @@ fn restrictions(round: &Round<'_>, one: u32) -> Vec<AtMostOne> {
     };
     let on_class = round.by_subject(round.constant(vocab::OWL_ON_CLASS.0));
     let thing = round.constant(vocab::OWL_THING.0);
+    // The literal's class changed: every restriction is new.
+    let moved = round.class_moved(one);
     let (mut properties, mut classes) = (Vec::new(), Vec::new());
     for (predicate, qualified) in [
         (vocab::OWL_MAX_CARDINALITY, false),
@@ -467,7 +473,7 @@ fn restrictions(round: &Round<'_>, one: u32) -> Vec<AtMostOne> {
                             p,
                             x,
                             class: (c != thing).then_some(c),
-                            new: recent || recent_p || recent_c,
+                            new: moved || recent || recent_p || recent_c,
                         });
                     }
                 }
@@ -502,6 +508,19 @@ mod tests {
         let closure = run.closure();
         let found: Vec<_> = expand(lines).into_iter().filter(|t| closure.contains(t)).collect();
         assert!(found.is_empty(), "derived {found:#?}");
+    }
+
+    /// A merge can make a stable restriction's cardinality the literal of
+    /// the rule, without a restart: the rules then join every restriction
+    /// again (as `checks.rs` does for cls-maxc1).
+    #[test]
+    fn max_cardinality_one_after_a_merge_moves_the_literal() {
+        let run = testing::run(
+            &["class", "equality", "identity", "literal-values"],
+            "ex:R owl:maxCardinality \"01\"^^xsd:integer ; owl:onProperty ex:p .
+             ex:u a ex:R ; ex:p ex:y1 , ex:y2 . ex:s ex:q \"1\"^^xsd:nonNegativeInteger .",
+        );
+        has_all(&run, "ex:y1 owl:sameAs ex:y2");
     }
 
     #[test]

@@ -48,8 +48,9 @@ Switches
         Subsumptions between schema axioms (scm-spo, scm-dom1, ...). Grows
         with the schema, not with the data.
     ``trivial`` (off)
-        Filler: ``x owl:sameAs x`` for every term, four triples per class, a
-        type per literal (eq-ref, scm-cls, ...). Grows with every term.
+        Filler: ``x owl:sameAs x`` for every term, four triples per class,
+        each literal's datatypes (eq-ref, scm-cls, dt-type2, ...). Grows with
+        every term.
     ``literal-values`` (off)
         Literals equal by value, as ``"1"`` and ``"01"`` of ``xsd:integer``
         (dt-eq, dt-diff). Reads every literal's value, and merges equal ones

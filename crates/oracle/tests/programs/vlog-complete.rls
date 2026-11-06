@@ -5,6 +5,8 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @source input[3]: load-rdf("input.nt") .
+@source literalType[3]: load-rdf("literal-types.nt") .
+@source literalValue[3]: load-rdf("literal-values.nt") .
 
 % oracles/rules/core.rls
 
@@ -144,6 +146,10 @@ T(?s, ?p, ?o2) :- T(?o, owl:sameAs, ?o2), T(?s, ?p, ?o) .  % eq-rep-o
 
 % eq-rep-p reads Tp: the subject of a sameAs triple is a used property.
 usedProp(?p) :- T(?p, owl:sameAs, ?q) .
+
+% eq-rep-s on dt-diff's unlisted triples (literal-values.rls): a term equal
+% to a literal holds its value. Empty when literal-values is off.
+valueOf(?y, ?v) :- T(?x, owl:sameAs, ?y), valueOf(?x, ?v) .  % eq-rep-s
 
 % oracles/rules/property-chains.rls
 
@@ -365,7 +371,13 @@ T(<http://www.w3.org/2001/XMLSchema#base64Binary>, rdf:type, rdfs:Datatype) .  %
 T(<http://www.w3.org/2001/XMLSchema#anyURI>, rdf:type, rdfs:Datatype) .  % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#dateTime>, rdf:type, rdfs:Datatype) .  % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#dateTimeStamp>, rdf:type, rdfs:Datatype) .  % dt-type1
-% to come: dt-type2
+
+% Table 8: dt-type2, each literal typed with every datatype OWL 2 RL
+% supports whose value space holds its value. The engines read literals as
+% opaque IRIs (core.rls), so crates/oracle reads each literal of the input,
+% and each literal the rules name, with the reference evaluator's datatype
+% map, and writes the typings to literal-types.nt (Codec::literal_facts).
+T(?lt, rdf:type, ?dt) :- literalType(?lt, rdf:type, ?dt) .  % dt-type2
 
 % Table 9: scm-cls, scm-op, scm-dp.
 T(?c, rdfs:subClassOf, ?c) :- T(?c, rdf:type, owl:Class) .  % scm-cls
@@ -380,10 +392,34 @@ T(?p, owl:equivalentProperty, ?p) :- T(?p, rdf:type, owl:DatatypeProperty) .  % 
 % oracles/rules/literal-values.rls
 
 % The `literal-values` switch: literals compared by value (Table 8).
-% to come: dt-eq, dt-diff
+%
+% The engines read literals as opaque IRIs (core.rls), so crates/oracle
+% reads each literal of the input, and each literal the rules name, with the
+% reference evaluator's datatype map, and writes its value to
+% literal-values.nt (Codec::literal_facts): `lt <urn:x-turbowl-oracle:value>
+% v`, where v names the value, so two literals have one v when they have one
+% value. These facts stay out of T.
+
+% dt-eq: every two literals with the same value, each with itself too.
+T(?x, owl:sameAs, ?y) :- literalValue(?x, <urn:x-turbowl-oracle:value>, ?v), literalValue(?y, <urn:x-turbowl-oracle:value>, ?v) .  % dt-eq
+
+% dt-diff: `lt1 owl:differentFrom lt2` for every two literals with
+% different values. Never listed (docs/specs/v2-1-scoreboard-and-rules.md,
+% "dt-diff is never listed"): no rule reads these triples but eq-diff1, and
+% eq-rep-s and eq-rep-o, which carry them to the terms equal to their
+% literals. So each term holds the values of the literals it is equal to
+% (valueOf; equality.rls carries it as eq-rep-s would), and eq-diff1 holds
+% for two terms made the same that hold different values: the triple dt-diff
+% gives, read where eq-diff1 reads owl:differentFrom.
+valueOf(?x, ?v) :- literalValue(?x, <urn:x-turbowl-oracle:value>, ?v) .
+eqDiff1(?x, ?y) :- T(?x, owl:sameAs, ?y), valueOf(?x, ?vx), valueOf(?y, ?vy), ~sameBound(?vx, ?vy) .  % dt-diff
 
 % `?x != c` in the source: sameTerm(c, c) for each such constant.
 sameTerm(rdf:nil, rdf:nil) .
+
+% `?x != ?y` in the source: sameBound(?x, ?x) for each term an atom binds ?x to.
+sameBound(?vx, ?vx) :- valueOf(?x, ?vx) .
+sameBound(?vy, ?vy) :- valueOf(?y, ?vy) .
 
 % The exports, as Rulewerk client commands to issue after `@reason .`:
 % @query T(?x1, ?x2, ?x3) EXPORTCSV "closure.csv" .

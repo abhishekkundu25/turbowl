@@ -194,6 +194,25 @@ pub const NAMED_LITERALS: [(&str, &str, &str); 2] = [
     ),
 ];
 
+/// The predicate of the value facts ([`Codec::literal_facts`]), as the rule
+/// source (`oracles/rules/literal-values.rls`) names it.
+pub const VALUE_PREDICATE: &str = "urn:x-turbowl-oracle:value";
+
+/// The facts the value-based rules read, for engines that read every
+/// literal as an opaque term: dt-type2's typings, `lt rdf:type dt`, and
+/// each literal's value, `lt <urn:x-turbowl-oracle:value> v`, where `v`
+/// (`urn:x-turbowl-oracle:value:<n>`) names one data value, so two literals
+/// have the same `v` when they have the same value. The literals are
+/// encoded; `v` and the predicate are no term of the input, and the rules
+/// keep the value facts out of `T` (`oracles/rules/literal-values.rls`).
+#[derive(Debug, Clone, Default)]
+pub struct LiteralFacts {
+    /// For `oracles/rules/trivial.rls`'s `literal-types.nt`.
+    pub types: Vec<Triple>,
+    /// For `oracles/rules/literal-values.rls`'s `literal-values.nt`.
+    pub values: Vec<Triple>,
+}
+
 /// The fixed IRI of a literal the rules name, if `term` is one.
 fn named_literal(term: &Term) -> Option<NamedNode> {
     let Term::Literal(l) = term else { return None };
@@ -242,6 +261,49 @@ impl Codec {
             unreachable!("subjects encode to IRIs")
         };
         Triple::new(s, t.predicate.clone(), o)
+    }
+
+    /// The facts the value-based rules read ([`LiteralFacts`]) for every
+    /// literal encoded so far and the literals the rules name
+    /// ([`NAMED_LITERALS`], literals of the rule set: dt-type2, dt-eq and
+    /// dt-diff range over them too), read with the reference evaluator's
+    /// datatype map (`turbowl_reference::DataValue`), not the core's. In the
+    /// order of the encoded IRIs, so the same input gives the same facts.
+    pub fn literal_facts(&mut self) -> LiteralFacts {
+        for (lexical, datatype, _) in NAMED_LITERALS {
+            let named = oxrdf::Literal::new_typed_literal(lexical, NamedNode::new_unchecked(datatype));
+            self.encode(named.into());
+        }
+        let mut literals: Vec<(&NamedNode, &oxrdf::Literal)> = self
+            .to
+            .iter()
+            .filter_map(|(term, iri)| match term {
+                Term::Literal(l) => Some((iri, l)),
+                _ => None,
+            })
+            .collect();
+        literals.sort_unstable_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+        let (ty, has) = (
+            NamedNode::new_unchecked("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+            NamedNode::new_unchecked(VALUE_PREDICATE),
+        );
+        let mut ids: HashMap<turbowl_reference::DataValue, usize> = HashMap::new();
+        let mut facts = LiteralFacts::default();
+        for (iri, literal) in literals {
+            let Some(value) = turbowl_reference::DataValue::of(literal) else {
+                continue;
+            };
+            for dt in value.datatypes() {
+                facts
+                    .types
+                    .push(Triple::new(iri.clone(), ty.clone(), NamedNode::new_unchecked(dt)));
+            }
+            let next = ids.len();
+            let id = *ids.entry(value).or_insert(next);
+            let v = NamedNode::new_unchecked(format!("{VALUE_PREDICATE}:{id}"));
+            facts.values.push(Triple::new(iri.clone(), has.clone(), v));
+        }
+        facts
     }
 
     /// The original term of an encoded one.

@@ -12,9 +12,8 @@ turbowl.workspace = true
 oxrdf.workspace = true
 oxttl.workspace = true
 oxrdfxml.workspace = true
-
-[dev-dependencies]
-# tests/reference.rs holds the reference evaluator to Nemo.
+# The datatype map that gives Nemo the values of literals
+# (`Codec::literal_facts`); tests/reference.rs holds the evaluator to Nemo.
 turbowl-reference = { path = "../reference" }
 
 [lints]

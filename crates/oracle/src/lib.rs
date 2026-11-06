@@ -43,7 +43,7 @@ pub mod w3c;
 pub use closure::{CODES, Closure, Finding, codes, triple};
 pub use compare::{Diff, Relation, compare};
 pub use differences::{Fault, apply as apply_faults, explains_failure};
-pub use input::{CODEC_PREFIX, Codec, Document, Input, NAMED_LITERALS};
+pub use input::{CODEC_PREFIX, Codec, Document, Input, LiteralFacts, NAMED_LITERALS, VALUE_PREDICATE};
 use std::path::{Path, PathBuf};
 pub use triangulate::{Check, KNOWN, Options, Row, Status, Table, configurations, triangulate, triangulate_input};
 

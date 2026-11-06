@@ -3,6 +3,9 @@
 //! by Nemo's `nmo` (0.10.1, pinned in `scripts/fetch-tools.sh`). It is the
 //! same rule set on a different engine, so it judges the closure and the
 //! findings exactly (dt-not-type aside: literals reach Nemo as opaque IRIs).
+//! The value-based rules (dt-type2, dt-eq, dt-diff) read facts the oracle
+//! computes from the input's literals ([`crate::Codec::literal_facts`]), and
+//! Nemo judges everything they lead to.
 
 use crate::input::Codec;
 use crate::process::{run as run_process, scratch_dir, timeout};
@@ -70,8 +73,16 @@ pub fn run_with(input: &Input, switches: Switches) -> Outcome {
     let program = crate::programs::nemo(switches);
     let mut codec = Codec::new(true);
     let encoded: Vec<_> = input.triples().iter().map(|t| codec.encode_triple(t)).collect();
+    let facts = codec.literal_facts();
     let written = std::fs::write(dir.join("program.rls"), program)
-        .and_then(|()| std::fs::write(dir.join("input.nt"), crate::input::ntriples(encoded.iter())));
+        .and_then(|()| std::fs::write(dir.join("input.nt"), crate::input::ntriples(encoded.iter())))
+        .and_then(|()| std::fs::write(dir.join("literal-types.nt"), crate::input::ntriples(facts.types.iter())))
+        .and_then(|()| {
+            std::fs::write(
+                dir.join("literal-values.nt"),
+                crate::input::ntriples(facts.values.iter()),
+            )
+        });
     if let Err(e) = written {
         return Outcome::Failed(e.to_string());
     }

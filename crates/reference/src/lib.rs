@@ -15,8 +15,10 @@
 //! checks the core's rewriting (ADR 0003) from the outside. The rules run
 //! over generalized triples (a literal may be a subject inside) and the
 //! closure returned holds only RDF triples: see the `evaluate` module's
-//! conventions. The datatype map, which dt-not-type reads, is its own module
-//! (`src/datatype.rs`).
+//! conventions. The datatype map, which dt-not-type, dt-type2, dt-eq and
+//! dt-diff read, is its own module (`src/datatype.rs`); [`DataValue`] gives
+//! the oracle crate the values for Nemo, which reads literals as opaque
+//! terms.
 //!
 //! [`generate`] draws a small ontology and its data from a seed; its shapes
 //! are split by group too, under `src/generate/`.
@@ -38,6 +40,7 @@ mod generate;
 mod rules;
 mod vocab;
 
+pub use datatype::DataValue;
 pub use evaluate::{Diagnostics, Evaluation, evaluate, evaluate_counted, evaluate_within};
 pub use generate::{Rng, generate};
 pub use rules::{diagnostic_rules, rules};

@@ -81,13 +81,15 @@ pub(super) const CASES: &[Case] = &[
         ],
     },
     // The number is the term "1"^^xsd:nonNegativeInteger: 2, or 1 as an
-    // xsd:integer, fires nothing.
+    // xsd:double (no value is a double and a nonNegativeInteger), fires
+    // nothing. As an xsd:integer it fires with literal-values on
+    // (`literal_values.rs`, dt-eq-cardinality).
     Case {
         group: GROUP,
         name: "cls-maxc2-other-numbers",
         covers: "cls-maxc2",
         turtle: "ex:S owl:maxCardinality \"2\"^^xsd:nonNegativeInteger ; owl:onProperty ex:p .
-            ex:T owl:maxCardinality \"1\"^^xsd:integer ; owl:onProperty ex:p .
+            ex:T owl:maxCardinality \"1\"^^xsd:double ; owl:onProperty ex:p .
             ex:u a ex:S , ex:T ; ex:p ex:y1 , ex:y2 .",
         expect: &["- ex:y1 owl:sameAs ex:y2", "- ex:y2 owl:sameAs ex:y1"],
     },

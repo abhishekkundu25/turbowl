@@ -169,8 +169,9 @@ fn about(switch: Switch) -> &'static str {
              Grows with the schema, not with the data."
         }
         Switch::Trivial => {
-            "Filler: x owl:sameAs x for every term, four triples per class, a \
-             type per literal (eq-ref, scm-cls, ...). Grows with every term."
+            "Filler: x owl:sameAs x for every term, four triples per class, \
+             each literal's datatypes (eq-ref, scm-cls, dt-type2, ...). Grows \
+             with every term."
         }
         Switch::LiteralValues => {
             "Literals equal by value, as \"1\" and \"01\" of xsd:integer \

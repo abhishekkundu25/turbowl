@@ -1,14 +1,14 @@
 //! The OWL 2 RL datatype map (OWL 2 Profiles §4.2, OWL 2 Structural
 //! Specification §4), written from the specifications without the core's
-//! code: every datatype's lexical space, its lexical-to-value mapping, and
+//! code: the 32 datatypes OWL 2 RL supports (OWL 2 Profiles, Section
+//! 4.2.1), each with its lexical space, its lexical-to-value mapping, and
 //! its value space. The core has its own (`crates/turbowl/src/rules/datatype/`);
 //! chaos holds the two to each other.
 //!
 //! The approach is deliberately plain, and differs from the core's:
 //!
-//! - every real number is a fraction in lowest terms, computed on decimal
-//!   digit strings ([`Big`]): `"1.50"^^xsd:decimal` is 3/2, and so is
-//!   `"6/4"^^owl:rational`;
+//! - every number is a fraction in lowest terms, computed on decimal digit
+//!   strings ([`Big`]): `"1.50"^^xsd:decimal` is 3/2;
 //! - binary values are decoded to their octets; a base64 form is
 //!   well-formed when re-encoding its octets gives it back;
 //! - date-times are kept as fields, with `24:00:00` moved to the next day.
@@ -17,14 +17,17 @@
 //! value space of `dt`. A literal is checked in two ways: against its own
 //! datatype (an ill-typed literal, [`well_formed`]), and against any datatype
 //! of the map the closure types it with, by prp-rng or any other rule
-//! ([`in_value_space`]).
+//! ([`in_value_space`]). dt-type2, dt-eq and dt-diff read the values
+//! ([`read`], [`datatypes`]).
 //!
 //! Choices, as the core makes them: `rdfs:Literal` is the top data range, a
 //! space with every value but no lexical forms read (its literals have an
-//! unknown value); `owl:real` has no lexical form, so its literals are
-//! ill-typed; any string is an `xsd:string` (version 1's reading);
-//! `rdf:XMLLiteral` is checked for balanced tags only; `rdf:langString` is in
-//! the map as version 1 had it.
+//! unknown value); any string is an `xsd:string` (version 1's reading);
+//! `rdf:XMLLiteral` is checked for balanced tags only. `owl:real` and
+//! `owl:rational`, which OWL 2 RL excludes, and RDF 1.1's `rdf:langString`
+//! are outside the map, like any other datatype: their literals have an
+//! unknown value. A language-tagged literal has its value, as OWL 2 reads
+//! it: the `rdf:PlainLiteral` of its text and tag.
 
 use oxrdf::Literal;
 use std::cmp::Ordering;
@@ -32,23 +35,18 @@ use std::cmp::Ordering;
 const XSD: &str = "http://www.w3.org/2001/XMLSchema#";
 const RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 const RDFS: &str = "http://www.w3.org/2000/01/rdf-schema#";
-const OWL: &str = "http://www.w3.org/2002/07/owl#";
 
 /// The primitive a datatype reads its lexical forms with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Base {
     /// `rdfs:Literal`: no lexical form is read.
     Top,
-    /// `owl:real`: no lexical form.
-    NoForms,
     Integer,
     Decimal,
-    Rational,
     Double,
     Float,
     String,
     PlainLiteral,
-    LangString,
     Xml,
     Boolean,
     Hex,
@@ -75,10 +73,7 @@ enum Facet {
 const MAP: &[(&str, &str, Base, Facet)] = &[
     (RDFS, "Literal", Base::Top, Facet::None),
     (RDF, "PlainLiteral", Base::PlainLiteral, Facet::None),
-    (RDF, "langString", Base::LangString, Facet::None),
     (RDF, "XMLLiteral", Base::Xml, Facet::None),
-    (OWL, "real", Base::NoForms, Facet::None),
-    (OWL, "rational", Base::Rational, Facet::None),
     (XSD, "decimal", Base::Decimal, Facet::None),
     (XSD, "integer", Base::Integer, Facet::None),
     (XSD, "nonNegativeInteger", Base::Integer, Facet::Range(Some("0"), None)),
@@ -124,7 +119,7 @@ fn lookup(iri: &str) -> Option<(Base, Facet)> {
 /// A data value. `==` is the identity of data values.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Value {
-    /// A real: sign, numerator and denominator in lowest terms.
+    /// A number: sign, numerator and denominator in lowest terms.
     Real {
         negative: bool,
         num: Big,
@@ -146,7 +141,8 @@ pub(crate) enum Value {
 /// What the map says of a literal.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Reading {
-    /// Its datatype is not in the map, or is `rdfs:Literal`.
+    /// It has no language tag, and its datatype is not in the map, or is
+    /// `rdfs:Literal`.
     Unknown,
     IllTyped,
     Value(Value),
@@ -154,6 +150,9 @@ pub(crate) enum Reading {
 
 /// The value of a literal.
 pub(crate) fn read(literal: &Literal) -> Reading {
+    if let Some(tag) = literal.language() {
+        return Reading::Value(Value::LangString(literal.value().to_owned(), tag.to_ascii_lowercase()));
+    }
     let datatype = literal.datatype();
     let Some((base, facet)) = lookup(datatype.as_str()) else {
         return Reading::Unknown;
@@ -161,17 +160,12 @@ pub(crate) fn read(literal: &Literal) -> Reading {
     let s = literal.value();
     let value = match base {
         Base::Top => return Reading::Unknown,
-        Base::NoForms => None,
         Base::Integer => parse_integer(s),
         Base::Decimal => parse_decimal(s),
-        Base::Rational => parse_rational(s),
         Base::Double => parse_double(s).map(Value::Double),
         Base::Float => parse_float(s).map(Value::Float),
         Base::String => Some(Value::String(s.to_owned())),
         Base::PlainLiteral => parse_plain_literal(s),
-        Base::LangString => literal
-            .language()
-            .map(|tag| Value::LangString(s.to_owned(), tag.to_ascii_lowercase())),
         Base::Xml => xml(s).then(|| Value::Xml(s.to_owned())),
         Base::Boolean => match s {
             "true" | "1" => Some(Value::Boolean(true)),
@@ -189,6 +183,29 @@ pub(crate) fn read(literal: &Literal) -> Reading {
     }
 }
 
+/// A literal's data value, as the map reads it: for the oracles that read
+/// literals as opaque terms (Nemo), so that they can be given the facts
+/// the value-based rules read. `==` is the identity of data values.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DataValue(Value);
+
+impl DataValue {
+    /// The value of `literal`, when it has one: well-typed, of a datatype of
+    /// the map or with a language tag.
+    pub fn of(literal: &Literal) -> Option<DataValue> {
+        match read(literal) {
+            Reading::Value(v) => Some(DataValue(v)),
+            _ => None,
+        }
+    }
+
+    /// The IRIs of the datatypes of the map whose value spaces hold the
+    /// value: dt-type2's typings.
+    pub fn datatypes(&self) -> Vec<String> {
+        datatypes(&self.0)
+    }
+}
+
 /// Whether the value space of the datatype `iri` holds `value`, or `None`
 /// when the datatype is not in the map.
 pub(crate) fn holds(iri: &str, value: &Value) -> Option<bool> {
@@ -196,8 +213,7 @@ pub(crate) fn holds(iri: &str, value: &Value) -> Option<bool> {
     Some(space_holds(base, facet, value))
 }
 
-/// Every datatype of the map whose value space holds `value`.
-#[allow(dead_code)] // dt-type2 (ticket 10) reads it
+/// Every datatype of the map whose value space holds `value` (dt-type2).
 pub(crate) fn datatypes(value: &Value) -> Vec<String> {
     datatype_iris().filter(|iri| holds(iri, value) == Some(true)).collect()
 }
@@ -205,13 +221,11 @@ pub(crate) fn datatypes(value: &Value) -> Vec<String> {
 fn space_holds(base: Base, facet: Facet, value: &Value) -> bool {
     let kind = match (base, value) {
         (Base::Top, _) => true,
-        (Base::NoForms | Base::Rational, Value::Real { .. }) => true,
         (Base::Decimal, Value::Real { den, .. }) => only_twos_and_fives(den),
         (Base::Integer, Value::Real { den, .. }) => den.is_one(),
         (Base::Double, Value::Double(_)) | (Base::Float, Value::Float(_)) => true,
         (Base::String, Value::String(_)) => true,
         (Base::PlainLiteral, Value::String(_) | Value::LangString(..)) => true,
-        (Base::LangString, Value::LangString(..)) => true,
         (Base::Xml, Value::Xml(_)) | (Base::Boolean, Value::Boolean(_)) => true,
         (Base::Hex, Value::Hex(_)) | (Base::Base64, Value::Base64(_)) => true,
         (Base::AnyUri, Value::AnyUri(_)) | (Base::DateTime, Value::DateTime(_)) => true,
@@ -443,18 +457,6 @@ fn parse_decimal(s: &str) -> Option<Value> {
     }
     let den = Big::parse(&format!("1{}", "0".repeat(frac.len())));
     Some(real(negative, Big::parse(&format!("{int}{frac}")), den))
-}
-
-/// `numerator/denominator`: an integer over a nonzero unsigned integer, no
-/// whitespace.
-fn parse_rational(s: &str) -> Option<Value> {
-    let (numerator, denominator) = s.split_once('/')?;
-    let (negative, num) = split_sign(numerator);
-    if num.is_empty() || !all_digits(num) || denominator.is_empty() || !all_digits(denominator) {
-        return None;
-    }
-    let den = Big::parse(denominator);
-    (!den.is_zero()).then(|| real(negative, Big::parse(num), den))
 }
 
 /// The lexical space of `xsd:double` and `xsd:float`, as a small state
@@ -828,16 +830,11 @@ fn xml(lexical: &str) -> bool {
 /// whether each is well-typed: the table the core's map passes too
 /// (`crates/turbowl/src/rules/datatype/edge_cases.rs`). The generator draws
 /// literals from it, so chaos compares the two maps on all of it.
+///
+/// Every datatype of the map is in it but `rdfs:Literal`, whose literals
+/// are not read.
 #[rustfmt::skip]
 pub(crate) const EDGE_CASES: &[(&str, &[(&str, bool)])] = &[
-    ("http://www.w3.org/2002/07/owl#real", &[("1", false), ("1.5", false), ("1/3", false), ("", false)]),
-    ("http://www.w3.org/2002/07/owl#rational", &[
-        ("1/3", true), ("-1/3", true), ("+1/3", true), ("0/5", true), ("-0/5", true), ("4/2", true),
-        ("007/010", true), ("123456789012345678901234567890123456789012/7", true),
-        ("1/0", false), ("1/00", false), ("1/-3", false), ("1/+3", false), ("1 / 3", false), (" 1/3", false),
-        ("1/3 ", false), ("1", false), ("1.5/2", false), ("/3", false), ("1/", false), ("1//3", false),
-        ("1/3/5", false), ("", false),
-    ]),
     ("http://www.w3.org/2001/XMLSchema#decimal", &[
         ("0", true), ("-0", true), ("+0.0", true), ("1.", true), (".5", true), ("-.5", true),
         ("007.500", true), ("123456789012345678901234567890.123456789", true),
@@ -1008,7 +1005,7 @@ mod tests {
         assert!(failures.is_empty(), "{}", failures.join("\n"));
         let covered: BTreeSet<&str> = EDGE_CASES.iter().map(|(d, _)| *d).collect();
         for iri in datatype_iris() {
-            let exempt = iri.ends_with("#Literal") || iri.ends_with("#langString");
+            let exempt = iri.ends_with("#Literal");
             assert!(exempt || covered.contains(iri.as_str()), "{iri}");
         }
     }
@@ -1020,8 +1017,20 @@ mod tests {
         let tagged = Literal::new_language_tagged_literal_unchecked("x", "en");
         assert_eq!(well_formed(&tagged), Some(true));
         assert_eq!(in_value_space(&tagged, &xsd("string")), Some(false));
-        assert_eq!(in_value_space(&tagged, &format!("{RDF}langString")), Some(true));
         assert_eq!(in_value_space(&tagged, &format!("{RDF}PlainLiteral")), Some(true));
+        assert_eq!(datatypes(&value("x@EN", &format!("{RDF}PlainLiteral"))).len(), 2);
+        // Outside the map: OWL 2 RL leaves out owl:real and owl:rational, and
+        // rdf:langString is RDF 1.1's.
+        let owl = "http://www.w3.org/2002/07/owl#";
+        for (lexical, datatype) in [
+            ("1", format!("{owl}real")),
+            ("1/3", format!("{owl}rational")),
+            ("1/0", format!("{owl}rational")),
+            ("x", format!("{RDF}langString")),
+        ] {
+            assert_eq!(read(&typed(lexical, &datatype)), Reading::Unknown, "{lexical}");
+            assert_eq!(in_value_space(&tagged, &datatype), None);
+        }
         assert_eq!(in_value_space(&tagged, "http://example.org/C"), None);
         assert_eq!(
             in_value_space(&Literal::new_simple_literal("x"), &xsd("integer")),
@@ -1045,7 +1054,6 @@ mod tests {
         ] {
             assert_eq!(in_value_space(&five_int, &xsd(datatype)), Some(ok), "{datatype}");
         }
-        assert_eq!(in_value_space(&five_int, &format!("{OWL}real")), Some(true));
         assert_eq!(in_value_space(&five_int, &format!("{RDFS}Literal")), Some(true));
         assert_eq!(
             in_value_space(&typed("1.0", &xsd("decimal")), &xsd("integer")),
@@ -1055,9 +1063,6 @@ mod tests {
             in_value_space(&typed("1.5", &xsd("decimal")), &xsd("integer")),
             Some(false)
         );
-        let rational = format!("{OWL}rational");
-        assert_eq!(in_value_space(&typed("1/3", &rational), &xsd("decimal")), Some(false));
-        assert_eq!(in_value_space(&typed("1/4", &rational), &xsd("decimal")), Some(true));
         assert_eq!(
             in_value_space(&typed("abc", &xsd("integer")), &format!("{RDFS}Literal")),
             Some(false)
@@ -1068,10 +1073,10 @@ mod tests {
 
     #[test]
     fn values_are_identical_by_value() {
-        let rational = format!("{OWL}rational");
         let same = [
             (value("1", &xsd("integer")), value("1.0", &xsd("decimal"))),
-            (value("1/2", &rational), value("0.50", &xsd("decimal"))),
+            (value("+01", &xsd("byte")), value("1.000", &xsd("decimal"))),
+            (value("0.5", &xsd("decimal")), value(".50", &xsd("decimal"))),
             (value("-0", &xsd("integer")), value("0", &xsd("decimal"))),
             (value("NaN", &xsd("double")), value("NaN", &xsd("double"))),
             (value("1E400", &xsd("double")), value("INF", &xsd("double"))),
@@ -1081,6 +1086,13 @@ mod tests {
                 value("QQ==", &xsd("base64Binary")),
             ),
             (value("a", &xsd("token")), value("a@", &format!("{RDF}PlainLiteral"))),
+            (
+                match read(&Literal::new_language_tagged_literal_unchecked("a", "EN")) {
+                    Reading::Value(v) => v,
+                    other => panic!("{other:?}"),
+                },
+                value("a@en", &format!("{RDF}PlainLiteral")),
+            ),
             (
                 value("1999-12-31T24:00:00Z", &xsd("dateTime")),
                 value("2000-01-01T00:00:00+00:00", &xsd("dateTimeStamp")),

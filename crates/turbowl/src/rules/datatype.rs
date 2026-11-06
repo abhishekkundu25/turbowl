@@ -8,10 +8,12 @@
 //!
 //! # dt-not-type
 //!
-//! Every datatype of the map is checked (`crates/reference/src/datatype.rs`
-//! is the reference evaluator's map). A literal of a datatype outside the
-//! map, or typed `rdfs:Literal`, has no known value and is never reported.
-//! Two halves:
+//! Every datatype of the map is checked: the 32 OWL 2 RL supports
+//! (`crates/reference/src/datatype.rs` is the reference evaluator's map). A
+//! literal of a datatype outside the map (`owl:real`, `owl:rational` and
+//! `rdf:langString` among them), or typed `rdfs:Literal`, has no known value
+//! and is never reported; a language-tagged literal has its value, an
+//! `rdf:PlainLiteral`'s. Two halves:
 //!
 //! - **Ill-typed** (a literal not in its own datatype's value space): both
 //!   terms of every recent tuple of every predicate table, and the table's
@@ -45,17 +47,22 @@
 //!   recent typing's class, and each literal that joined a class in the
 //!   last step (the ids [`Round::moved`]) against the typings of its new
 //!   representative.
+//!
+//! # The literals of a closure
+//!
+//! dt-type2 (`rules/trivial.rs`) and dt-eq (`rules/literal_values.rs`)
+//! hold of every literal with a value, once each. [`new_literals`] gives
+//! each such literal to them in the round they first meet it.
 
 #[cfg(test)]
 mod edge_cases;
 mod lexical;
 pub(crate) mod map;
-mod nat;
 
 use super::Context;
 use crate::engine::{Pair, Round, Variable, gallop};
 use crate::term::{Dictionary, Kind, Term, TermId, vocab};
-use map::{Datatype, Reading, value_of};
+use map::{Datatype, Reading, Value, value_of};
 
 /// The datatype rules have no empty-body rule.
 pub(crate) const FACTS: &[[TermId; 3]] = &[];
@@ -112,7 +119,7 @@ fn check_own(cx: &mut Context<'_>, id: u32) {
 /// `dt`'s value space does not hold.
 fn typed_literals(round: &Round<'_>, types: &Variable<Pair>, cx: &mut Context<'_>) {
     let canon = round.canon();
-    for dt in Datatype::ALL {
+    for dt in Datatype::OWL_2_RL {
         for &(_, x) in with_key(types.recent(), round.constant(dt.id().0)) {
             for m in canon.members(x).iter() {
                 if in_value_space(cx.terms, TermId(m), dt) == Some(false) {
@@ -133,7 +140,7 @@ fn moved_literals(round: &Round<'_>, ty: u32, cx: &mut Context<'_>) {
     }
     let Some(types) = round.by_subject(ty) else { return };
     let types = types.all();
-    let datatypes = Datatype::ALL.map(|dt| (round.constant(dt.id().0), dt));
+    let datatypes = Datatype::OWL_2_RL.map(|dt| (round.constant(dt.id().0), dt));
     for &m in moved {
         if cx.terms.kind(TermId(m)) != Kind::Literal {
             continue;
@@ -161,6 +168,84 @@ fn in_value_space(terms: &Dictionary, id: TermId, datatype: Datatype) -> Option<
     }
 }
 
+/// The literals the W3C rules name: the cardinalities `"0"` and `"1"` of
+/// `xsd:nonNegativeInteger` (cls-maxc1 to cls-maxqc4). They are literals of
+/// the rule set, so the rules over every literal (dt-type2, dt-eq, dt-diff)
+/// range over them too, whether or not the closure names them: with dt-eq,
+/// `"1"^^xsd:integer` is the same as the cardinality the rules read.
+pub(crate) const RULE_LITERALS: [&str; 2] = ["0", "1"];
+
+/// Interns [`RULE_LITERALS`] (the reasoner does, with every new dictionary).
+pub(crate) fn intern_rule_literals(terms: &mut Dictionary) {
+    for lexical in RULE_LITERALS {
+        terms.intern_typed_literal(lexical, vocab::XSD_NON_NEGATIVE_INTEGER);
+    }
+}
+
+/// The ids of [`RULE_LITERALS`] the dictionary holds.
+pub(crate) fn rule_literals(terms: &Dictionary) -> impl Iterator<Item = u32> + '_ {
+    RULE_LITERALS.into_iter().filter_map(|lexical| {
+        let literal = oxrdf::LiteralRef::new_typed_literal(lexical, oxrdf::vocab::xsd::NON_NEGATIVE_INTEGER);
+        terms.get_term(literal.into(), crate::term::DocId::NONE).map(|id| id.0)
+    })
+}
+
+/// The literals with a value that a rule over every literal (dt-type2,
+/// dt-eq) has not handled yet, each once, with its value.
+///
+/// No rule makes a literal, so every literal of the closure is a base
+/// literal, and it is in a tuple, as itself, in the first round in which
+/// the store holds it: the store's first round (a full run, or a restart)
+/// or the first round of the incremental run that adds it. The literals
+/// the rules name ([`RULE_LITERALS`]) are interned with the dictionary. So:
+///
+/// - In the store's first round, every tuple is recent, and every literal
+///   with a value is new: those of the tuples, the literals the rules name,
+///   and the literal members of the classes the canon kept from before a
+///   restart, which their representatives hide.
+/// - In a later round, a new literal is one of a recent tuple's, alone in
+///   its class (a term new to an incremental run belongs to no class),
+///   that `handled` does not hold of. A rule marks each literal it handles
+///   with a triple of its own (dt-type2's `lt rdf:type rdfs:Literal`,
+///   dt-eq's `lt owl:sameAs lt`), which the store holds from the next round
+///   on and keeps on the literal's representative through every merge.
+///
+/// A later round reads each recent tuple once, as the ill-typed half of
+/// dt-not-type does; the store's first round reads the whole store once.
+pub(crate) fn new_literals<'a>(
+    round: &Round<'_>,
+    terms: &'a Dictionary,
+    handled: impl Fn(u32) -> bool,
+) -> Vec<(u32, Value<'a>)> {
+    let literal = |id: u32| terms.kind(TermId(id)) == Kind::Literal;
+    let first = round.number() == 1;
+    let mut found = Vec::new();
+    for (_, table) in round.store().tables() {
+        for &(s, o) in table.by_subject().recent().iter() {
+            for t in [s, o] {
+                if literal(t) && (first || !handled(t)) {
+                    found.push(t);
+                }
+            }
+        }
+    }
+    if first {
+        found.extend(rule_literals(terms));
+        for (_, members) in round.canon().classes() {
+            found.extend(members.iter().copied().filter(|&m| literal(m)));
+        }
+    }
+    found.sort_unstable();
+    found.dedup();
+    found
+        .into_iter()
+        .filter_map(|id| match value_of(terms.term(TermId(id))) {
+            Reading::Value(v) => Some((id, v)),
+            _ => None,
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,6 +270,8 @@ mod tests {
         run.dict.intern_iri(iri).0
     }
 
+    /// `owl:real`, `owl:rational` and `rdf:langString` are outside the map
+    /// (OWL 2 RL does not support them): their literals are never ill-typed.
     #[test]
     fn dt_not_type_names_an_ill_typed_literal_and_its_datatype() {
         assert_eq!(
@@ -200,7 +287,6 @@ mod tests {
                  dt-not-type \"2147483648\"^^xsd:int xsd:int
                  dt-not-type \"<a>t</b>\"^^rdf:XMLLiteral rdf:XMLLiteral
                  dt-not-type \"abc\"^^xsd:decimal xsd:decimal
-                 dt-not-type \"1\"^^owl:real owl:real
                  dt-not-type \"TRUE\"^^xsd:boolean xsd:boolean
                  dt-not-type \"2001-02-29T00:00:00\"^^xsd:dateTime xsd:dateTime"
             )
@@ -237,6 +323,10 @@ mod tests {
             (abc, vocab::RDF_PLAIN_LITERAL),
             (chat, vocab::RDF_PLAIN_LITERAL),
             (chat, vocab::RDFS_LITERAL),
+            // Outside the map: never checked.
+            (abc, vocab::RDF_LANG_STRING),
+            (abc, vocab::OWL_REAL),
+            (five, vocab::OWL_RATIONAL),
         ] {
             run.store.insert(s, ty, dt.0);
         }

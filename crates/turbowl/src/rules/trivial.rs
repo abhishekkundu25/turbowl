@@ -20,12 +20,25 @@
 //! - dt-type1: each datatype OWL 2 RL supports (OWL 2 Profiles, Section
 //!   4.2.1: the datatype map's but `owl:real`, `owl:rational` and
 //!   `rdf:langString`) typed `rdfs:Datatype`: [`FACTS`].
-//! - dt-type2: each literal typed with every datatype whose value space
-//!   holds its value. Version 2's ticket 10 adds it.
+//! - dt-type2: each literal with a value typed with every datatype OWL 2 RL
+//!   supports whose value space holds that value ([`dt_type2`]).
 //!
 //! scm-cls, scm-op and scm-dp read the recent part of `rdf:type` by object
 //! (built lazily: the round after the first request holds all of it as
 //! recent), so each typing is read once over a run.
+//!
+//! # dt-type2 is stored
+//!
+//! A typing `lt rdf:type dt` has a literal subject, so it is never read
+//! out (it is not RDF), and it could be left to the reads as eq-ref is.
+//! But many rules read `rdf:type` with a datatype for the class: cls-svf1
+//! (`owl:someValuesFrom xsd:integer`), cax-sco and cax-eqc (a datatype in
+//! a class hierarchy), cls-int1, cls-uni, the cardinality rules, the
+//! checks (`xsd:integer owl:disjointWith xsd:string`), a schema on
+//! `rdf:type` itself; and a literal made `owl:sameAs` an IRI gives that IRI
+//! its typings. So the family stores the typings, once for each literal
+//! of the closure (`datatype::new_literals`): at most 13 triples per
+//! literal (a small integer), in the `rdf:type` table.
 //!
 //! # eq-ref and the other rules
 //!
@@ -50,7 +63,7 @@
 //! never does this; the generator does.
 
 use super::Context;
-use super::datatype::map::Datatype;
+use super::datatype::{self, map::Datatype};
 use crate::engine::{Pair, Round, Store, gallop};
 use crate::term::{Dictionary, Kind, TermId, vocab};
 
@@ -93,7 +106,8 @@ const FACT_TABLE: [[TermId; 3]; ANNOTATION_PROPERTIES.len() + Datatype::OWL_2_RL
 pub(crate) const FACTS: &[[TermId; 3]] = &FACT_TABLE;
 
 /// One round of the trivial rules.
-pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
+pub(crate) fn rules(round: &mut Round<'_>, cx: &mut Context<'_>) {
+    dt_type2(round, cx.terms);
     let ty = round.constant(vocab::RDF_TYPE.0);
     if let Some(types) = round.by_object(ty) {
         let recent = types.recent();
@@ -123,6 +137,23 @@ pub(crate) fn rules(round: &mut Round<'_>, _cx: &mut Context<'_>) {
         }
     }
     eq_ref(round);
+}
+
+/// dt-type2: `lt rdf:type dt` for each literal `lt` met for the first time
+/// ([`datatype::new_literals`]) and each datatype `dt` of the map whose
+/// value space holds its value. Every value is an `rdfs:Literal`, so the
+/// typing `lt rdf:type rdfs:Literal` marks a literal as handled.
+fn dt_type2(round: &mut Round<'_>, terms: &Dictionary) {
+    let ty = round.constant(vocab::RDF_TYPE.0);
+    let literal = round.constant(vocab::RDFS_LITERAL.0);
+    let types = round.by_subject(ty);
+    let new = datatype::new_literals(round, terms, |r| types.is_some_and(|t| t.contains(&(r, literal))));
+    for (lt, value) in new {
+        for dt in value.datatypes() {
+            let dt = round.constant(dt.id().0);
+            round.emit(lt, ty, dt);
+        }
+    }
 }
 
 /// The pairs of a sorted slice whose first field is `key`.
@@ -243,13 +274,17 @@ mod tests {
     use crate::{Format, Reasoner, Switch, Switches};
     use std::collections::BTreeSet;
 
-    /// The run's inferred triples, eq-ref's `x owl:sameAs x` left out.
+    /// The run's inferred triples, eq-ref's `x owl:sameAs x` and dt-type2's
+    /// typings of the literals the rules name (`datatype::RULE_LITERALS`,
+    /// in every closure) left out.
     fn without_eq_ref(run: &testing::Run) -> BTreeSet<String> {
         run.inferred()
             .into_iter()
             .filter(|t| {
                 let terms: Vec<&str> = t.split(' ').collect();
                 !(terms.len() == 3 && terms[1] == "<http://www.w3.org/2002/07/owl#sameAs>" && terms[0] == terms[2])
+                    && !t.starts_with("\"0\"^^<http://www.w3.org/2001/XMLSchema#nonNegativeInteger>")
+                    && !t.starts_with("\"1\"^^<http://www.w3.org/2001/XMLSchema#nonNegativeInteger>")
             })
             .collect()
     }
@@ -308,6 +343,101 @@ mod tests {
             assert!(!run.has(t), "{t}");
         }
         assert_eq!(FACTS.len(), 9 + 32);
+    }
+
+    /// `lt rdf:type dt` lines for each literal and its datatypes.
+    fn typings(literals: &[(&str, &[&str])]) -> BTreeSet<String> {
+        let mut lines = String::new();
+        for (lt, datatypes) in literals {
+            for dt in *datatypes {
+                lines.push_str(&format!("{lt} a {dt}\n"));
+            }
+        }
+        expand(&lines)
+    }
+
+    /// dt-type2: each literal with a value, typed with every datatype of
+    /// OWL 2 RL whose value space holds it; a literal of `owl:real`,
+    /// `owl:rational` or a datatype outside the map, or an ill-typed one,
+    /// is not typed. A language-tagged literal is an `rdf:PlainLiteral`.
+    #[test]
+    fn dt_type2_types_each_literal_with_the_datatypes_that_hold_its_value() {
+        let run = testing::run(
+            &["trivial"],
+            "ex:x ex:p \"5\"^^xsd:int , \"chat\"@fr , \"a b\" , \"1.5\"^^xsd:decimal , \"1\"^^owl:real ,
+             \"1/3\"^^owl:rational , \"x\"^^ex:dt , \"abc\"^^xsd:integer , \"1\"^^rdfs:Literal .",
+        );
+        let derived: BTreeSet<String> = without_eq_ref(&run).difference(&facts()).cloned().collect();
+        assert_eq!(
+            derived,
+            typings(&[
+                (
+                    "\"5\"^^xsd:int",
+                    &[
+                        "rdfs:Literal",
+                        "xsd:decimal",
+                        "xsd:integer",
+                        "xsd:nonNegativeInteger",
+                        "xsd:positiveInteger",
+                        "xsd:long",
+                        "xsd:int",
+                        "xsd:short",
+                        "xsd:byte",
+                        "xsd:unsignedLong",
+                        "xsd:unsignedInt",
+                        "xsd:unsignedShort",
+                        "xsd:unsignedByte",
+                    ],
+                ),
+                ("\"chat\"@fr", &["rdfs:Literal", "rdf:PlainLiteral"]),
+                (
+                    "\"a b\"",
+                    &[
+                        "rdfs:Literal",
+                        "rdf:PlainLiteral",
+                        "xsd:string",
+                        "xsd:normalizedString",
+                        "xsd:token"
+                    ],
+                ),
+                ("\"1.5\"^^xsd:decimal", &["rdfs:Literal", "xsd:decimal"]),
+            ])
+        );
+        // The literals the rules name are typed in every closure.
+        for t in [
+            "\"0\"^^xsd:nonNegativeInteger a xsd:nonPositiveInteger",
+            "\"1\"^^xsd:nonNegativeInteger a xsd:positiveInteger",
+        ] {
+            assert!(run.has(t), "{t}");
+        }
+    }
+
+    /// The rules read dt-type2's typings: a datatype as a filler, in a
+    /// hierarchy, and an IRI equal to a literal; in later runs and after a
+    /// restart (whose classes hide literals behind their representatives).
+    #[test]
+    fn dt_type2_is_read_by_the_other_rules() {
+        let mut run = testing::run(
+            &["class", "equality", "trivial"],
+            "ex:R owl:someValuesFrom xsd:integer ; owl:onProperty ex:p . ex:x ex:p \"5\"^^xsd:int .
+             xsd:short rdfs:subClassOf ex:Small . ex:a owl:sameAs \"1\"^^xsd:byte .",
+        );
+        for t in [
+            "ex:x a ex:R",
+            "\"5\"^^xsd:int a ex:Small",
+            "ex:a a xsd:unsignedByte",
+            "ex:a a ex:Small",
+        ] {
+            assert!(run.has(t), "{t}");
+        }
+        run.add("ex:y ex:p \"70000\"^^xsd:integer .");
+        assert!(run.has("ex:y a ex:R"));
+        assert!(!run.has("\"70000\"^^xsd:integer a ex:Small"));
+        let run = testing::run(
+            &["equality", "trivial"],
+            "ex:a owl:sameAs \"1\"^^xsd:integer . rdfs:seeAlso owl:sameAs rdfs:label .",
+        );
+        assert!(run.has("ex:a a xsd:positiveInteger"));
     }
 
     /// eq-ref on read: every IRI and blank node of the closure, in any

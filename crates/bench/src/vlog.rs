@@ -10,8 +10,9 @@
 //!   it), so the bench drives the client's shell through its standard
 //!   input: `@load` the program, `@reason`, then one `@query ... EXPORTCSV`
 //!   for each export the program lists in its closing comments.
-//! - The program reads `input.nt`, the converted input, by its full path:
-//!   Rulewerk does not resolve a relative path against the working
+//! - The program reads `input.nt`, the converted input, and the literal
+//!   facts beside it (`literal-types.nt`, `literal-values.nt`) by their full
+//!   paths: Rulewerk does not resolve a relative path against the working
 //!   directory.
 //! - VLog reports one time for loading and reasoning together ("Loading and
 //!   materializing inferences ... finished in"), recorded as the total; each
@@ -48,6 +49,10 @@ const JRE: Tool = Tool {
 /// names it.
 const SOURCE: &str = "load-rdf(\"input.nt\")";
 
+/// The other files a program may read, beside the input (the literal facts
+/// of `trivial.rls` and `literal-values.rls`).
+const BESIDE: [&str; 2] = ["literal-types.nt", "literal-values.nt"];
+
 /// One run of VLog on the converted input: a run result like this
 /// reasoner's (`status` `ok`, `skipped` or `timeout`), or `Err` when it
 /// failed.
@@ -82,7 +87,12 @@ fn session(program: &str, input: &Path, dir: &Path) -> Result<(String, String), 
     if program.matches(SOURCE).count() != 1 {
         return Err(format!("the VLog program does not read its input once with {SOURCE}"));
     }
-    let program = program.replace(SOURCE, &format!("load-rdf({})", quoted(input)?));
+    let mut program = program.replace(SOURCE, &format!("load-rdf({})", quoted(input)?));
+    let dir_of_input = input.parent().unwrap_or(Path::new(""));
+    for file in BESIDE {
+        let source = format!("load-rdf(\"{file}\")");
+        program = program.replace(&source, &format!("load-rdf({})", quoted(&dir_of_input.join(file))?));
+    }
     let mut commands = format!("@load {} .\n@reason .\n", quoted(&dir.join("program.rls"))?);
     for line in program.lines() {
         let Some(query) = line.strip_prefix("% @query ") else {
@@ -175,6 +185,9 @@ mod tests {
         let composed = turbowl_oracle::programs::vlog(Switches::complete());
         let (program, commands) = session(&composed, &input, &dir).unwrap();
         assert!(program.contains("load-rdf(\"/in/input.nt\")") && !program.contains(SOURCE));
+        for file in BESIDE {
+            assert!(program.contains(&format!("load-rdf(\"/in/{file}\")")), "{file}");
+        }
         let lines: Vec<&str> = commands.lines().collect();
         assert_eq!(lines[..2], ["@load \"/run/program.rls\" .", "@reason ."]);
         assert_eq!(lines[2], "@query T(?x1, ?x2, ?x3) EXPORTCSV \"/run/closure.csv\" .");

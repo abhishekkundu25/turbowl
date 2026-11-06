@@ -1,6 +1,6 @@
 //! The `trivial` group's minimal inputs: eq-ref, scm-cls, scm-op, scm-dp,
-//! prp-ap and dt-type1, and eq-diff1 to eq-diff3 where eq-ref gives their
-//! `owl:sameAs`. dt-type2 is version 2's ticket 10.
+//! prp-ap, dt-type1 and dt-type2, and eq-diff1 to eq-diff3 where eq-ref
+//! gives their `owl:sameAs`.
 //!
 //! The group is off by default, so these expectations are checked in the
 //! complete configuration only. There, the cases of other groups that state
@@ -136,6 +136,33 @@ pub(super) const CASES: &[Case] = &[
             "- owl:rational rdf:type rdfs:Datatype",
             "- rdf:langString rdf:type rdfs:Datatype",
             "- xsd:gYear rdf:type rdfs:Datatype",
+        ],
+    },
+    // dt-type2: a literal is typed with every datatype whose value space
+    // holds its value, as a term made the same as it shows (OWL-RL types a
+    // literal with its own datatype and that datatype's supertypes: F15),
+    // and as a restriction on a datatype reads.
+    Case {
+        group: GROUP,
+        name: "dt-type2",
+        covers: "dt-type2, eq-rep-s, cls-svf1",
+        turtle: "ex:a owl:sameAs \"5\"^^xsd:int . ex:b owl:sameAs \"1\"^^owl:real .
+                 ex:R owl:someValuesFrom xsd:decimal ; owl:onProperty ex:p . ex:x ex:p \"7\"^^xsd:integer .
+                 ex:y ex:p \"7\"^^xsd:double .",
+        expect: &[
+            "+V ex:a rdf:type xsd:int",
+            "+V ex:a rdf:type xsd:byte",
+            "+V ex:a rdf:type xsd:unsignedByte",
+            "+V ex:a rdf:type xsd:positiveInteger",
+            "+V ex:a rdf:type xsd:decimal",
+            "+V ex:a rdf:type rdfs:Literal",
+            "- ex:a rdf:type xsd:negativeInteger",
+            "- ex:a rdf:type xsd:double",
+            "- ex:a rdf:type owl:real",
+            "- ex:b rdf:type owl:real",
+            "- ex:b rdf:type rdfs:Literal",
+            "+V ex:x rdf:type ex:R",
+            "- ex:y rdf:type ex:R",
         ],
     },
     // With eq-ref, a term is owl:sameAs itself: differentFrom itself alone

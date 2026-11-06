@@ -13,6 +13,9 @@
 //! - `input.nt`: the triples, encoded, as N-Triples (Nemo, VLog);
 //! - `input.tsv`: the same triples, one per line, the three terms in
 //!   N-Triples form separated by tabs (Soufflé);
+//! - `literal-types.nt` and `literal-values.nt`, with their `.tsv` forms:
+//!   the facts the value-based rules read (dt-type2, dt-eq, dt-diff), as the
+//!   oracle gives them to Nemo (`Codec::literal_facts`);
 //! - `literals.bin`: a bit per number the codec gave, set where that number
 //!   is a literal, so that a closure can be read back without the codec.
 //!
@@ -32,7 +35,7 @@ use turbowl_oracle::{CODEC_PREFIX, Codec, NAMED_LITERALS};
 
 /// The conversion's version, in its cache key: a change to what it writes
 /// changes the version, so old conversions are never read.
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 /// A converted input: the directory holding `input.nt`, `input.tsv` and
 /// `literals.bin`.
@@ -181,6 +184,17 @@ fn convert(files: &[PathBuf], dir: &Path) -> Result<u64, String> {
     }
     for (name, w) in [("input.nt", nt), ("input.tsv", tsv)] {
         w.into_inner().map_err(|e| io(&dir.join(name), &e))?;
+    }
+    let facts = codec.literal_facts();
+    for (stem, triples) in [("literal-types", &facts.types), ("literal-values", &facts.values)] {
+        let (mut nt, mut tsv) = (create(&format!("{stem}.nt"))?, create(&format!("{stem}.tsv"))?);
+        for t in triples {
+            writeln!(nt, "{} {} {} .", t.subject, t.predicate, t.object).map_err(|e| io(&dir.join(stem), &e))?;
+            writeln!(tsv, "{}\t{}\t{}", t.subject, t.predicate, t.object).map_err(|e| io(&dir.join(stem), &e))?;
+        }
+        for w in [nt, tsv] {
+            w.into_inner().map_err(|e| io(&dir.join(stem), &e))?;
+        }
     }
     std::fs::write(dir.join("literals.bin"), &literals).map_err(|e| io(dir, &e))?;
     Ok(count)

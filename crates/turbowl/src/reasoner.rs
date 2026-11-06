@@ -98,7 +98,7 @@
 use crate::Error;
 use crate::engine::{Canon, Relation, Store};
 use crate::rules::equality::{self, Weights};
-use crate::rules::{Context, FAMILIES, Family, Finding, trivial};
+use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
 use crate::term::{Dictionary, DocId, Kind, TermId, vocab};
 use crate::{Diagnostic, Switch, Switches};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
@@ -220,10 +220,12 @@ impl Reasoner {
     }
 
     fn build(families: &'static [Family], switches: Switches) -> Self {
+        let mut terms = Dictionary::new();
+        datatype::intern_rule_literals(&mut terms);
         Self {
             families,
             switches,
-            terms: Dictionary::new(),
+            terms,
             base: Base::default(),
             closure: Store::new(),
             state: State::Full,

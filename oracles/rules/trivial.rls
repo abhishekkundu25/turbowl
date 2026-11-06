@@ -59,7 +59,14 @@ T(<http://www.w3.org/2001/XMLSchema#base64Binary>, rdf:type, rdfs:Datatype) .   
 T(<http://www.w3.org/2001/XMLSchema#anyURI>, rdf:type, rdfs:Datatype) .              % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#dateTime>, rdf:type, rdfs:Datatype) .            % dt-type1
 T(<http://www.w3.org/2001/XMLSchema#dateTimeStamp>, rdf:type, rdfs:Datatype) .       % dt-type1
-% to come: dt-type2
+
+% Table 8: dt-type2, each literal typed with every datatype OWL 2 RL
+% supports whose value space holds its value. The engines read literals as
+% opaque IRIs (core.rls), so crates/oracle reads each literal of the input,
+% and each literal the rules name, with the reference evaluator's datatype
+% map, and writes the typings to literal-types.nt (Codec::literal_facts).
+@import literalType :- ntriples{resource="literal-types.nt"} .
+T(?lt, rdf:type, ?dt) :- literalType(?lt, rdf:type, ?dt) .                          % dt-type2
 
 % Table 9: scm-cls, scm-op, scm-dp.
 T(?c, rdfs:subClassOf, ?c) :- T(?c, rdf:type, owl:Class) .                           % scm-cls

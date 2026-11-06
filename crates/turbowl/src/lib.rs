@@ -40,12 +40,10 @@
 //! | `checks` | on | Version 1's behaviour: contradictions and ill-typed literals are reported. |
 //! | `identity` | on | Until the close-out of phase 1 (ticket 15) measures it against the rule above. |
 //! | `schema` | on | Until the close-out of phase 1 (ticket 15) measures it against the rule above. |
-//! | `trivial` | off | Rarely implemented elsewhere, and filler: `x owl:sameAs x` for every term, four triples for every class, a type for every literal. |
+//! | `trivial` | off | Rarely implemented elsewhere, and filler: `x owl:sameAs x` for every term, four triples for every class, its datatypes for every literal. |
 //! | `literal-values` | off | Rarely implemented elsewhere, and it reads every literal's value; dt-diff only checks, and lists no `owl:differentFrom` triples. |
 //!
-//! The rules of each switch are listed on its [`Switch`] variant. While
-//! version 2 is built, a group whose rule ticket has not landed derives
-//! nothing (`docs/tickets/v2/README.md` says which have).
+//! The rules of each switch are listed on its [`Switch`] variant.
 //!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.

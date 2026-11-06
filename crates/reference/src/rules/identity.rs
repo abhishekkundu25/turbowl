@@ -17,12 +17,16 @@ use crate::vocab::*;
 use oxrdf::{Literal, Term};
 use std::collections::{HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::LazyLock;
 
 const OWL_HAS_KEY: &str = "http://www.w3.org/2002/07/owl#hasKey";
 const OWL_MAX_CARDINALITY: &str = "http://www.w3.org/2002/07/owl#maxCardinality";
 const OWL_MAX_QUALIFIED_CARDINALITY: &str = "http://www.w3.org/2002/07/owl#maxQualifiedCardinality";
 const OWL_ON_CLASS: &str = "http://www.w3.org/2002/07/owl#onClass";
 const XSD_NON_NEGATIVE_INTEGER: &str = "http://www.w3.org/2001/XMLSchema#nonNegativeInteger";
+
+/// No values.
+static NO_VALUES: LazyLock<HashSet<&'static Term>> = LazyLock::new(HashSet::new);
 
 pub(super) const FAMILY: Family = Family {
     rules: &["prp-key", "cls-maxc2", "cls-maxqc3", "cls-maxqc4"],
@@ -35,37 +39,83 @@ fn derive(v: &View, r: &mut Round) {
     let same = iri(OWL_SAME_AS);
     // prp-key: c owl:hasKey (p1 ... pn), x and y of type c, x pi zi and
     // y pi zi for every i => x owl:sameAs y.
+    let known: HashSet<(&Term, &Term)> = v.pairs(&same).iter().map(|(x, y)| (x, y)).collect();
+    let mut by_individual: HashMap<&Term, HashMap<&Term, HashSet<&Term>>> = HashMap::new();
+    let mut keys_read: HashSet<(&Term, Vec<&Term>)> = HashSet::new();
     for (c, head) in v.pairs(&iri(OWL_HAS_KEY)) {
+        let individuals = v.subjects(&ty, c);
+        // Aliases of a class (equality) have its individuals: a key's list
+        // with the same individuals derives the same, once.
+        let mut sorted: Vec<&Term> = individuals.iter().collect();
+        sorted.sort_by_cached_key(|t| t.to_string());
+        if !keys_read.insert((head, sorted)) {
+            continue;
+        }
         let properties = v.members(head);
         if properties.is_empty() {
             // No path from the head reaches rdf:nil: no key.
             continue;
         }
         let cells = v.cells(head);
-        let individuals = v.subjects(&ty, c);
-        // Each individual's values of each property of the key.
-        let values: Vec<Vec<HashSet<&Term>>> = individuals
+        // Each individual's values of each property of the key, from the
+        // individual's triples grouped by property once a round (equality
+        // makes many keys of one class, each with many aliases of its
+        // properties).
+        for x in individuals {
+            by_individual.entry(x).or_insert_with(|| {
+                let mut by: HashMap<&Term, HashSet<&Term>> = HashMap::new();
+                for (p, o) in v.about(x) {
+                    by.entry(p).or_default().insert(o);
+                }
+                by
+            });
+        }
+        let values: Vec<Vec<&HashSet<&Term>>> = individuals
             .iter()
-            .map(|x| properties.iter().map(|p| v.objects(x, p).iter().collect()).collect())
+            .map(|x| {
+                let by_property = &by_individual[x];
+                properties
+                    .iter()
+                    .map(|p| by_property.get(p).unwrap_or(&NO_VALUES))
+                    .collect()
+            })
             .collect();
-        // The pairs that share a value of some property of the key.
-        let mut sharing: HashMap<(usize, &Term), Vec<usize>> = HashMap::new();
+        // The pairs that share a value of some property of the key: for
+        // each individual, the union of the individuals of each of its
+        // values, as bits (an individual of many values shared by many,
+        // which equality makes common, would otherwise repeat each pair
+        // once per value).
+        let words = individuals.len().div_ceil(64);
+        let mut sharing: HashMap<(usize, &Term), Vec<u64>> = HashMap::new();
         for (i, xs) in values.iter().enumerate() {
             for (k, zs) in xs.iter().enumerate() {
-                for z in zs {
-                    sharing.entry((k, *z)).or_default().push(i);
+                for z in zs.iter() {
+                    sharing.entry((k, *z)).or_insert_with(|| vec![0; words])[i / 64] |= 1 << (i % 64);
                 }
             }
         }
-        let mut pairs: Vec<(usize, usize)> = sharing
-            .values()
-            .flat_map(|group| group.iter().flat_map(move |&i| group.iter().map(move |&j| (i, j))))
-            .collect();
-        pairs.sort_unstable();
-        pairs.dedup();
+        let mut pairs: Vec<(usize, usize)> = Vec::new();
+        let mut partners = vec![0u64; words];
+        for (i, xs) in values.iter().enumerate() {
+            partners.fill(0);
+            for (k, zs) in xs.iter().enumerate() {
+                for z in zs.iter() {
+                    for (w, bits) in partners.iter_mut().zip(&sharing[&(k, *z)]) {
+                        *w |= bits;
+                    }
+                }
+            }
+            for (w, &word) in partners.iter().enumerate() {
+                let mut rest = word;
+                while rest != 0 {
+                    pairs.push((i, w * 64 + rest.trailing_zeros() as usize));
+                    rest &= rest - 1;
+                }
+            }
+        }
         for (i, j) in pairs {
             let ((x, xs), (y, ys)) = ((&individuals[i], &values[i]), (&individuals[j], &values[j]));
-            if v.has(x, &same, y) {
+            if known.contains(&(x, y)) {
                 // Known: equality makes most pairs so after a round.
                 continue;
             }

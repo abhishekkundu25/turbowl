@@ -47,6 +47,7 @@
 .decl setWellFormed(a0: symbol)
 .decl svfRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl usedProp(a0: symbol)
+.decl valueOf(a0: symbol, a1: symbol)
 .decl wellFormed(a0: symbol)
 
 // oracles/rules/core.rls
@@ -191,6 +192,10 @@ T(s, p, o2) :- T(o, "<http://www.w3.org/2002/07/owl#sameAs>", o2), T(s, p, o).  
 
 // eq-rep-p reads Tp: the subject of a sameAs triple is a used property.
 usedProp(p) :- T(p, "<http://www.w3.org/2002/07/owl#sameAs>", _).
+
+// eq-rep-s on dt-diff's unlisted triples (literal-values.rls): a term equal
+// to a literal holds its value. Empty when literal-values is off.
+valueOf(y, v) :- T(x, "<http://www.w3.org/2002/07/owl#sameAs>", y), valueOf(x, v).  // eq-rep-s
 
 // oracles/rules/property-chains.rls
 

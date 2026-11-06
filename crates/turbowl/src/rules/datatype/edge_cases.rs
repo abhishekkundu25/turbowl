@@ -5,7 +5,6 @@
 //! reference evaluator's map (`crates/reference/src/datatype.rs`) passes
 //! the same table, and chaos draws literals from it.
 
-use super::lexical;
 use super::map::{Datatype, Reading, Value, value_of};
 use crate::term::{Term, TermId, vocab};
 use std::collections::BTreeSet;
@@ -28,14 +27,6 @@ fn value(lexical: &str, datatype: TermId) -> Value<'_> {
 /// Lexical forms and whether each is well-typed, per datatype.
 #[rustfmt::skip]
 const LEXICAL: &[(TermId, &[(&str, bool)])] = &[
-    (vocab::OWL_REAL, &[("1", false), ("1.5", false), ("1/3", false), ("", false)]),
-    (vocab::OWL_RATIONAL, &[
-        ("1/3", true), ("-1/3", true), ("+1/3", true), ("0/5", true), ("-0/5", true), ("4/2", true),
-        ("007/010", true), ("123456789012345678901234567890123456789012/7", true),
-        ("1/0", false), ("1/00", false), ("1/-3", false), ("1/+3", false), ("1 / 3", false), (" 1/3", false),
-        ("1/3 ", false), ("1", false), ("1.5/2", false), ("/3", false), ("1/", false), ("1//3", false),
-        ("1/3/5", false), ("", false),
-    ]),
     (vocab::XSD_DECIMAL, &[
         ("0", true), ("-0", true), ("+0.0", true), ("1.", true), (".5", true), ("-.5", true),
         ("007.500", true), ("123456789012345678901234567890.123456789", true),
@@ -187,8 +178,8 @@ fn lexical_forms_at_the_edges_of_each_datatype() {
 #[test]
 fn every_datatype_of_the_map_has_edge_cases() {
     let covered: BTreeSet<_> = LEXICAL.iter().map(|(d, _)| d.0).collect();
-    for d in Datatype::ALL {
-        let exempt = matches!(d, Datatype::RdfsLiteral | Datatype::LangString);
+    for d in Datatype::OWL_2_RL {
+        let exempt = d == Datatype::RdfsLiteral;
         assert!(exempt || covered.contains(&d.id().0), "{d:?}");
     }
 }
@@ -202,9 +193,20 @@ fn language_strings_and_literals_outside_the_map() {
             language: tag,
         })
     };
+    // A language-tagged literal is read as an rdf:PlainLiteral.
     assert!(matches!(tagged(Some("fr")), Reading::Value(Value::LangString { .. })));
-    // No parser makes one, but a caller can insert it.
-    assert_eq!(tagged(None), Reading::IllTyped);
+    // rdf:langString, owl:real and owl:rational are outside the map (OWL 2
+    // RL does not support them): no value, whatever the form. No parser
+    // makes an rdf:langString without a tag, but a caller can insert it.
+    assert_eq!(tagged(None), Reading::Unknown);
+    for (lexical, datatype) in [
+        ("1", vocab::OWL_REAL),
+        ("x", vocab::OWL_REAL),
+        ("1/3", vocab::OWL_RATIONAL),
+        ("1/0", vocab::OWL_RATIONAL),
+    ] {
+        assert_eq!(read(lexical, datatype), Reading::Unknown, "{lexical}");
+    }
     // rdfs:Literal is the top data range: its literals are not read.
     assert_eq!(read("x", vocab::RDFS_LITERAL), Reading::Unknown);
     assert_eq!(read("x", vocab::RDF_TYPE), Reading::Unknown);
@@ -215,8 +217,8 @@ fn language_strings_and_literals_outside_the_map() {
 #[test]
 fn the_value_spaces_that_hold_each_value() {
     use Datatype::*;
-    const NUMBER: &[Datatype] = &[RdfsLiteral, Real, Rational, Decimal];
-    const INTEGER: &[Datatype] = &[RdfsLiteral, Real, Rational, Decimal, Integer];
+    const NUMBER: &[Datatype] = &[RdfsLiteral, Decimal];
+    const INTEGER: &[Datatype] = &[RdfsLiteral, Decimal, Integer];
     const SIGNED: &[Datatype] = &[Long, Int, Short, Byte];
     const UNSIGNED: &[Datatype] = &[UnsignedLong, UnsignedInt, UnsignedShort, UnsignedByte];
     let all = |parts: &[&[Datatype]]| -> BTreeSet<std::string::String> {
@@ -226,7 +228,6 @@ fn the_value_spaces_that_hold_each_value() {
     let cases: Vec<(&str, TermId, BTreeSet<std::string::String>)> = vec![
         ("5", vocab::XSD_INT, all(&[INTEGER, &[NonNegativeInteger, PositiveInteger], SIGNED, UNSIGNED])),
         ("+5.000", vocab::XSD_DECIMAL, all(&[INTEGER, &[NonNegativeInteger, PositiveInteger], SIGNED, UNSIGNED])),
-        ("10/2", vocab::OWL_RATIONAL, all(&[INTEGER, &[NonNegativeInteger, PositiveInteger], SIGNED, UNSIGNED])),
         ("-5", vocab::XSD_INTEGER, all(&[INTEGER, &[NonPositiveInteger, NegativeInteger], SIGNED])),
         ("0", vocab::XSD_UNSIGNED_BYTE, all(&[INTEGER, &[NonNegativeInteger, NonPositiveInteger], SIGNED, UNSIGNED])),
         ("-0.0", vocab::XSD_DECIMAL, all(&[INTEGER, &[NonNegativeInteger, NonPositiveInteger], SIGNED, UNSIGNED])),
@@ -236,8 +237,6 @@ fn the_value_spaces_that_hold_each_value() {
         ("4294967296", vocab::XSD_INTEGER, all(&[INTEGER, &[NonNegativeInteger, PositiveInteger, Long, UnsignedLong]])),
         ("18446744073709551616", vocab::XSD_INTEGER, all(&[INTEGER, &[NonNegativeInteger, PositiveInteger]])),
         ("1.5", vocab::XSD_DECIMAL, all(&[NUMBER])),
-        ("3/2", vocab::OWL_RATIONAL, all(&[NUMBER])),
-        ("1/3", vocab::OWL_RATIONAL, all(&[&[RdfsLiteral, Real, Rational]])),
         ("1", vocab::XSD_DOUBLE, all(&[&[RdfsLiteral, Double]])),
         ("NaN", vocab::XSD_FLOAT, all(&[&[RdfsLiteral, Float]])),
         ("abc", vocab::XSD_STRING, all(&[&[RdfsLiteral, PlainLiteral, String, NormalizedString, Token, Language, Name, NcName, NmToken]])),
@@ -246,7 +245,7 @@ fn the_value_spaces_that_hold_each_value() {
         ("1a", vocab::XSD_NMTOKEN, all(&[&[RdfsLiteral, PlainLiteral, String, NormalizedString, Token, NmToken]])),
         (" a", vocab::XSD_STRING, all(&[&[RdfsLiteral, PlainLiteral, String, NormalizedString]])),
         ("a\n", vocab::XSD_STRING, all(&[&[RdfsLiteral, PlainLiteral, String]])),
-        ("chat@FR", vocab::RDF_PLAIN_LITERAL, all(&[&[RdfsLiteral, PlainLiteral, LangString]])),
+        ("chat@FR", vocab::RDF_PLAIN_LITERAL, all(&[&[RdfsLiteral, PlainLiteral]])),
         ("true", vocab::XSD_BOOLEAN, all(&[&[RdfsLiteral, Boolean]])),
         ("0F", vocab::XSD_HEX_BINARY, all(&[&[RdfsLiteral, HexBinary]])),
         ("QQ==", vocab::XSD_BASE64_BINARY, all(&[&[RdfsLiteral, Base64Binary]])),
@@ -278,22 +277,15 @@ fn values_are_identical_by_value_not_by_form() {
         v
     };
     let big = "123456789012345678901234567890123456789012345";
-    let (padded, tenfold) = (format!("000{big}.000"), format!("{big}0/10"));
+    let padded = format!("000{big}.000");
     #[rustfmt::skip]
     let groups: Vec<Vec<Value<'_>>> = vec![
         vec![value("1", XSD_INTEGER), value("1.0", XSD_DECIMAL), value("01", XSD_INT), value("+1", XSD_BYTE),
-             value("1/1", OWL_RATIONAL), value("2/2", OWL_RATIONAL), value("1.000", XSD_DECIMAL),
-             value("1", XSD_UNSIGNED_BYTE), value("1", XSD_POSITIVE_INTEGER)],
-        vec![value("0", XSD_INTEGER), value("-0", XSD_INTEGER), value("-0.0", XSD_DECIMAL), value("0/7", OWL_RATIONAL),
-             value(".0", XSD_DECIMAL)],
-        vec![value("0.5", XSD_DECIMAL), value("1/2", OWL_RATIONAL), value(".50", XSD_DECIMAL)],
-        vec![value("-0.25", XSD_DECIMAL), value("-1/4", OWL_RATIONAL), value("-3/12", OWL_RATIONAL)],
-        vec![value("0.125", XSD_DECIMAL), value("1/8", OWL_RATIONAL)],
-        vec![value("1/3", OWL_RATIONAL), value("2/6", OWL_RATIONAL)],
-        vec![value("-1/3", OWL_RATIONAL)],
-        vec![value("100000000000000000000000000000000000000001/3", OWL_RATIONAL),
-             value("200000000000000000000000000000000000000002/6", OWL_RATIONAL)],
-        vec![value(big, XSD_INTEGER), value(&padded, XSD_DECIMAL), value(&tenfold, OWL_RATIONAL)],
+             value("1.000", XSD_DECIMAL), value("1", XSD_UNSIGNED_BYTE), value("1", XSD_POSITIVE_INTEGER)],
+        vec![value("0", XSD_INTEGER), value("-0", XSD_INTEGER), value("-0.0", XSD_DECIMAL), value(".0", XSD_DECIMAL)],
+        vec![value("0.5", XSD_DECIMAL), value(".50", XSD_DECIMAL)],
+        vec![value("-0.25", XSD_DECIMAL)],
+        vec![value(big, XSD_INTEGER), value(&padded, XSD_DECIMAL)],
         vec![value("1", XSD_DOUBLE), value("1.0", XSD_DOUBLE), value("1e0", XSD_DOUBLE), value("0.1E1", XSD_DOUBLE)],
         vec![value("1", XSD_FLOAT), value("1.00000001", XSD_FLOAT)],
         vec![value("0", XSD_DOUBLE), value("0.0e5", XSD_DOUBLE)],
@@ -335,33 +327,5 @@ fn values_are_identical_by_value_not_by_form() {
         for (j, other) in groups.iter().enumerate().skip(i + 1) {
             assert_ne!(group[0], other[0], "groups {i} and {j}");
         }
-    }
-}
-
-#[test]
-fn rationals_read_in_lowest_terms() {
-    use super::map::Real;
-    let real = |s| match lexical::rational(s) {
-        Some(Real::Decimal { negative, int, frac }) => format!("{}{int}.{frac}", if negative { "-" } else { "" }),
-        Some(Real::Fraction { negative, num, den }) => format!("{}{num}/{den}", if negative { "-" } else { "" }),
-        None => "ill-typed".to_owned(),
-    };
-    for (lexical, value) in [
-        ("1/3", "1/3"),
-        ("-6/9", "-2/3"),
-        ("3/6", ".5"),
-        ("7/1", "7."),
-        ("-7/20", "-.35"),
-        ("1/1024", ".0009765625"),
-        ("10/4", "2.5"),
-        ("0/3", "."),
-        ("-0/3", "."),
-        ("1/0", "ill-typed"),
-        (
-            "12345678901234567890123456789012345678901234567890/10",
-            "1234567890123456789012345678901234567890123456789.",
-        ),
-    ] {
-        assert_eq!(real(lexical), value, "{lexical}");
     }
 }

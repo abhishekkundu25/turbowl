@@ -1676,3 +1676,70 @@ mod trivial {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// The literal-values group (v2 ticket 10)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "io")]
+mod literal_values {
+    use super::*;
+    use crate::{Format, Reasoner, Switches};
+    use std::fmt::Write as _;
+
+    /// `n` individuals, each with three literals of one value in three
+    /// forms (`"i"^^xsd:integer`, `"i.0"^^xsd:decimal`, `"0i"^^xsd:int`):
+    /// dt-eq makes `n` classes of three, and eq-rep-o gives each individual
+    /// six more triples; dt-type2 types each literal.
+    fn literals(n: usize) -> String {
+        let mut text = String::with_capacity(n * 140);
+        text.push_str(
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n",
+        );
+        // From 2: the cardinalities 0 and 1 the rules name would join.
+        for i in 2..n + 2 {
+            let _ = writeln!(
+                text,
+                "ex:x{i} ex:p \"{i}\"^^xsd:integer ; ex:q \"{i}.0\"^^xsd:decimal ; ex:r \"0{i}\"^^xsd:int ."
+            );
+        }
+        text
+    }
+
+    fn loaded(text: &str) -> Reasoner {
+        let mut r = Reasoner::with_switches(Switches::complete());
+        r.load_str(text, Format::Turtle, None).unwrap();
+        r
+    }
+
+    /// dt-eq over `n` literals, in the complete configuration: the full run
+    /// and a read of its closure are linear in the literals.
+    #[test]
+    fn scaling_literal_values_dt_eq() {
+        let _lock = lock();
+        let sizes = sizes(2_048);
+        for &n in &sizes {
+            let mut r = loaded(&literals(n));
+            let s = r.reason();
+            assert_eq!(s.base, 3 * n, "n = {n}");
+            assert_eq!(s.base + s.inferred, r.triples().count(), "n = {n}");
+            let copied = r
+                .triples()
+                .filter(|t| t.predicate.as_str() == "http://example.org/p")
+                .count();
+            assert_eq!(copied, 3 * n, "n = {n}: each individual has the three literals by ex:p");
+        }
+        let mut text = shared(literals);
+        linear(
+            "scaling_literal_values_dt_eq",
+            &sizes,
+            move |n| loaded(&text(n)),
+            |mut r: Reasoner| {
+                let summary = r.reason();
+                let read = r.triples().count();
+                (summary, read, r)
+            },
+        );
+    }
+}
