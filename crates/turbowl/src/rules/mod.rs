@@ -33,7 +33,10 @@
 //! # How a family runs
 //!
 //! Each round the reasoner calls every family that is on, in table order,
-//! with the same [`Round`] and [`Context`]:
+//! with a [`Round`] and a [`Context`]. In a round large enough to run in
+//! parallel (ticket 17), each family is a task with a round and findings of
+//! its own ([`Round::tasks`]), joined in table order afterwards, so a family
+//! sees only the store and its own output, never another family's:
 //!
 //! - The [`Round`] is the store as the last round left it, read-only, and
 //!   the buffer for derived triples ([`Round::emit`]). A family joins the
@@ -61,6 +64,13 @@
 //! A family keeps no state between calls (`fn` pointers in a `static`):
 //! everything a run knows is in the store, so an incremental run (more
 //! inserts, then run again) sees all of it.
+//!
+//! A family may read a large recent part in chunks ([`Round::split`],
+//! [`Round::split_runs`], [`Round::join`]): in a parallel round each chunk
+//! runs as a task with a round of its own. What a family emits must not
+//! depend on where the chunks are cut, and it asks for merges only in an
+//! order that does not ([`Round::merge`]): the equality family reads the
+//! `owl:sameAs` delta whole, in order.
 //!
 //! [`Family::facts`] are the heads of the rules with an empty body
 //! (cls-thing, cls-nothing1). The reasoner inserts them at the start of

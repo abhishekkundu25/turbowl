@@ -45,6 +45,26 @@
 //!
 //! The rules of each switch are listed on its [`Switch`] variant.
 //!
+//! # Threads
+//!
+//! A run uses every core by default ([`Threads::ALL`]), round by round: a
+//! round whose work passes a measured size (65,536 tuples) runs its rule
+//! families as parallel tasks, splits large deltas into chunks, and sorts
+//! and advances each predicate's table on its own thread. Smaller rounds,
+//! such as those after a small change in an editor, run on the caller's
+//! thread and never wait on a thread pool. [`Reasoner::set_threads`] takes
+//! [`Threads::ONE`] for one thread, and [`Threads::every_round`] makes every
+//! round parallel however small (for tests). The closure, the diagnostics,
+//! the [`Summary`] and the order of every read are the same at any thread
+//! count. The threads are rayon's global pool, whose size the
+//! `RAYON_NUM_THREADS` variable sets: `RAYON_NUM_THREADS=1` runs every
+//! round on the caller's thread, as [`Threads::ONE`] does. [`Threads`] is
+//! in the interface for the chaos tests (`crates/reference`), which run
+//! each input at one thread and at all cores and compare the two.
+//!
+//! The `parallel` cargo feature, on by default, brings the threads. Without
+//! it, and always on WebAssembly, every round runs on the caller's thread.
+//!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.
 
@@ -59,8 +79,10 @@ mod rules;
 mod scaling;
 mod switch;
 mod term;
+mod threads;
 
 pub use diagnostics::{Diagnostic, Severity};
 pub use error::Error;
 pub use reasoner::{Format, Reasoner, Summary};
 pub use switch::{Switch, Switches};
+pub use threads::Threads;

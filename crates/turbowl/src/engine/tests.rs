@@ -510,3 +510,155 @@ fn timing_engine_transitive_chain() {
     );
     assert!(started.elapsed().as_secs() < 30, "far over budget");
 }
+
+/// Transitive closure of `p` as [`store_transitive`], through
+/// [`Round::join`], and a copy of `q` into `r` read in runs
+/// ([`Round::split_runs`]): both families as tasks ([`Round::tasks`]).
+fn store_parallel_rules(round: &mut Round<'_>, p: u32, q: u32, r: u32) {
+    let mut families = [0, 1];
+    round.tasks(&mut families, |round, &mut family| {
+        if family == 0 {
+            let (Some(so), Some(os)) = (round.by_subject(p), round.by_object(p)) else {
+                return;
+            };
+            round.join(os, so, |round, _y, x, z| round.emit(x, p, z));
+        } else if let Some(table) = round.by_subject(q) {
+            round.split_runs(table.recent(), |round, chunk, _: &mut ()| {
+                let mut last = None;
+                for &(x, y) in chunk {
+                    // One triple per subject run, as prp-dom writes.
+                    if last != Some(x) {
+                        round.emit(x, r, y);
+                        last = Some(x);
+                    }
+                }
+            });
+        }
+    });
+}
+
+/// A store on one thread and on four, with every round parallel and chunks
+/// of a few tuples, give the same triples in the same order, in the same
+/// rounds, run after run.
+#[test]
+fn parallel_rounds_match_one_thread() {
+    const P: u32 = 7;
+    const Q: u32 = 8;
+    const R: u32 = 9;
+    for seed in 0..SEEDS {
+        let mut rng = Rng::new(seed);
+        let domain = rng.below(25) + 2;
+        let mut one = Store::new();
+        let mut four = Store::new();
+        four.set_workers(Workers::exactly(4).every_round());
+        for _ in 0..rng.below(4) + 1 {
+            let edges = rng.some_pairs(40, domain);
+            let extra = rng.some_pairs(20, domain);
+            for store in [&mut one, &mut four] {
+                store.extend(edges.iter().map(|&(s, o)| (s, P, o)));
+                store.extend(extra.iter().map(|&(s, o)| (s, Q, o)));
+            }
+            let rounds = one.run(|round| store_parallel_rules(round, P, Q, R));
+            assert_eq!(
+                four.run(|round| store_parallel_rules(round, P, Q, R)),
+                rounds,
+                "seed {seed}"
+            );
+            assert_eq!(
+                four.triples().collect::<Vec<_>>(),
+                one.triples().collect::<Vec<_>>(),
+                "seed {seed}"
+            );
+        }
+        assert_eq!(one.engaged(), 0, "one thread never engages");
+        assert!(four.rounds() == 0 || four.engaged() > 0, "seed {seed}");
+    }
+}
+
+/// A forced split cuts a slice into several chunks, never inside a run of
+/// one key ([`Round::split_runs`]); the chunks cover the slice in order.
+#[test]
+fn split_runs_keeps_each_key_whole() {
+    let mut rng = Rng::new(3);
+    let mut pairs = rng.pairs(500, 20);
+    pairs.sort_unstable();
+    pairs.dedup();
+    let mut store = Store::new();
+    store.set_workers(Workers::exactly(3).every_round());
+    store.insert(0, 1, 2);
+    let mut chunks: Vec<Vec<(u32, u32)>> = Vec::new();
+    store.run(|round| {
+        if round.number() == 1 {
+            chunks = round.split_runs(&pairs, |_, chunk, seen: &mut Vec<(u32, u32)>| {
+                seen.extend_from_slice(chunk)
+            });
+        }
+    });
+    assert!(chunks.len() > 1, "{} chunks", chunks.len());
+    assert_eq!(chunks.concat(), pairs);
+    for w in chunks.windows(2) {
+        assert_ne!(w[0].last().map(|t| t.0), w[1].first().map(|t| t.0));
+    }
+}
+
+/// On every core, a round runs in parallel only when its delta passes
+/// [`PARALLEL_FROM`]; a small one never does (and so never waits on a
+/// thread pool).
+#[test]
+fn small_rounds_stay_on_one_thread() {
+    const P: u32 = 7;
+    let mut store = Store::new();
+    store.set_workers(Workers::all());
+    store.extend((0..100).map(|i| (i, P, i + 1)));
+    let mut parallel = Vec::new();
+    store.run(|round| parallel.push(round.is_parallel()));
+    assert!(parallel.iter().all(|p| !p), "{parallel:?}");
+    assert_eq!(store.engaged(), 0);
+    let big = PARALLEL_FROM as u32;
+    store.extend((1_000..1_000 + big).map(|i| (i, P, i + 1)));
+    parallel.clear();
+    store.run(|round| parallel.push(round.is_parallel()));
+    if Workers::all().threads() > 1 {
+        assert_eq!(parallel, [true], "the one round has a delta of {big}");
+    } else {
+        assert_eq!(parallel, [false]);
+    }
+}
+
+/// The parallel helpers give what one thread gives: sorting batches,
+/// merging, and filtering out what is known, on inputs large enough to be
+/// cut.
+#[test]
+fn parallel_helpers_match_one_thread() {
+    let (one, four) = (Workers::one(), Workers::exactly(4));
+    for seed in 0..4 {
+        let mut rng = Rng::new(seed);
+        let n = 20_000 + rng.below(60_000) as usize;
+        let batches: Vec<Vec<(u32, u32)>> = (0..rng.below(6) + 1).map(|_| rng.pairs(n / 3, 5_000)).collect();
+        let sorted = one.sort_dedup_batches(batches.clone());
+        assert_eq!(four.sort_dedup_batches(batches), sorted, "seed {seed}");
+        assert!(sorted.windows(2).all(|w| w[0] < w[1]));
+        let mut other = rng.pairs(n, 5_000);
+        other.sort_unstable();
+        other.dedup();
+        let union = one.merge(sorted.clone(), other.clone());
+        assert_eq!(four.merge(sorted.clone(), other.clone()), union, "seed {seed}");
+        assert_eq!(
+            union,
+            set(sorted.iter().chain(&other).copied())
+                .into_iter()
+                .collect::<Vec<_>>()
+        );
+        let absent = one.absent(sorted.clone(), &other);
+        assert_eq!(four.absent(sorted.clone(), &other), absent, "seed {seed}");
+        let known = set(other.iter().copied());
+        assert_eq!(
+            absent,
+            sorted
+                .iter()
+                .copied()
+                .filter(|t| !known.contains(t))
+                .collect::<Vec<_>>()
+        );
+    }
+}

@@ -21,14 +21,14 @@
 //!
 //! A family is a `RuleFn` (`rules/mod.rs`): `fn(&mut Round<'_>, &mut
 //! Context<'_>)`. [`Store::run`] takes any closure over a [`Round`]; each
-//! round the reasoner (ticket 10) calls every family's function with the
-//! same [`Round`]: the store as the last round left it, read-only, and a
-//! buffer for derived triples ([`Round::emit`]). A family reads predicate tables
-//! ([`Round::by_subject`], [`Round::by_object`]), joins their recent parts
-//! with the rest ([`join`], [`leapjoin`]) and emits what it derives. When all
-//! families have run, [`Store::run`] sorts the buffer by predicate, queues
-//! each group in its table, and ends the round; a round with nothing new is
-//! the fixpoint.
+//! round the reasoner (ticket 10) calls every family's function with a
+//! [`Round`]: the store as the last round left it, read-only, and a buffer
+//! for derived triples, kept by predicate ([`Round::emit`]). A family reads
+//! predicate tables ([`Round::by_subject`], [`Round::by_object`]), joins
+//! their recent parts with the rest ([`join()`], [`leapjoin()`]) and emits what
+//! it derives. When all families have run, [`Store::run`] sorts each
+//! table's new pairs, queues them in the table, and ends the round; a round
+//! with nothing new is the fixpoint.
 //!
 //! Why a plain `fn` pointer: families are stateless code in a `static`
 //! table, which `fn` pointers allow and trait objects with lifetimes make
@@ -51,6 +51,17 @@
 //! are sorted. Rules read the constants they name through the canon
 //! ([`Round::constant`]). A merge that changes a constant stops the run
 //! ([`Store::restarted`]); see `store.rs`.
+//!
+//! # Parallel rounds (ticket 17)
+//!
+//! A [`Round`] reads the store and writes only its own buffer, so the
+//! families of a round can run as tasks ([`Round::tasks`]), and a family
+//! can split a large recent part into chunks ([`Round::split`]), each task
+//! with a buffer of its own. The step then advances each table on its own.
+//! Where the work runs is [`Workers`] (`parallel.rs`): one thread, or rayon's
+//! threads behind the `parallel` feature, for rounds past
+//! [`PARALLEL_FROM`] tuples. The buffers join in a fixed order, so a round
+//! gives the same store on any number of threads.
 
 // The engine offers more than version 1's rules use: leapjoin, antijoin and
 // `join_static` for the experiments. Its tests use all of it.
@@ -60,6 +71,7 @@ mod canon;
 mod closure;
 mod join;
 mod leapjoin;
+mod parallel;
 mod relation;
 mod store;
 mod variable;
@@ -77,6 +89,7 @@ pub(crate) use leapjoin::{
     ExtendAnti, ExtendWith, FilterAnti, FilterWith, Leaper, Leapers, ValueFilter, extend_anti, extend_with,
     filter_anti, filter_with, leapjoin, value_filter,
 };
+pub(crate) use parallel::{PARALLEL_FROM, Workers};
 pub(crate) use relation::{Relation, gallop};
 pub(crate) use store::{Pair, Round, Store, Table};
 pub(crate) use variable::{Variable, View};

@@ -22,8 +22,24 @@
 //! class, has never joined what was stable. The step then stops the run
 //! ([`Store::restarted`]), and the caller runs again from its base with
 //! this canon ([`Store::into_canon`], [`Store::with_canon`]).
+//!
+//! # Parallel rounds (ticket 17)
+//!
+//! A round's output is kept by predicate ([`Pending`]): each predicate's
+//! derived pairs in batches, never one buffer of `(p, s, o)` triples. The
+//! step sorts each table's own pairs and advances each table on its own,
+//! the tables in parallel when the round's output passes
+//! [`PARALLEL_FROM`](super::parallel::PARALLEL_FROM). The rules of a round
+//! run as tasks ([`Round::tasks`]) and split a large recent part into
+//! chunks ([`Round::split`]), each with a buffer of its own; the buffers
+//! join this round's in task order, then chunk order. Each table's pairs
+//! are sorted, and the merges and the requested indexes keep the order one
+//! thread gives them, so the store evolves as it does on one thread,
+//! whatever the thread count ([`Store::set_workers`]) or the schedule.
 
 use super::canon::{Canon, Merged};
+use super::join::join_slices;
+use super::parallel::Workers;
 use super::relation::Relation;
 use super::variable::Variable;
 use rustc_hash::FxHashMap;
@@ -59,13 +75,130 @@ impl Table {
 /// What the rules of one round produced, applied by the next `step`.
 #[derive(Debug, Default)]
 pub(crate) struct Pending {
-    /// Derived (and inserted) triples, as `(predicate, subject, object)` so
-    /// that sorting groups them by table.
-    triples: Vec<(u32, u32, u32)>,
+    /// Derived (and inserted) pairs by predicate: a slot per predicate, in
+    /// the order the predicates first came.
+    slots: Vec<Slot>,
+    /// Predicate to slot.
+    index: FxHashMap<u32, usize>,
+    /// The slot of the last push, where the next push most often goes.
+    last: usize,
+    /// Pairs pushed, duplicates included.
+    pushed: usize,
     /// Predicates to index by object.
     by_object: Vec<u32>,
-    /// Pairs of ids to make equal.
+    /// Pairs of ids to make equal, in the order the rules asked.
     merges: Vec<(u32, u32)>,
+}
+
+/// One predicate's pairs in a [`Pending`].
+#[derive(Debug)]
+struct Slot {
+    p: u32,
+    /// Where pushes go.
+    pairs: Vec<Pair>,
+    /// Batches joined from other buffers ([`Pending::absorb`]), moved, not
+    /// copied.
+    more: Vec<Vec<Pair>>,
+}
+
+impl Pending {
+    /// Queues `(s, o)` for predicate `p`.
+    #[inline]
+    fn push(&mut self, p: u32, pair: Pair) {
+        self.pushed += 1;
+        match self.slots.get_mut(self.last) {
+            Some(slot) if slot.p == p => slot.pairs.push(pair),
+            _ => {
+                let i = self.slot(p);
+                self.last = i;
+                self.slots[i].pairs.push(pair);
+            }
+        }
+    }
+
+    /// The slot of `p`, made when it has none.
+    fn slot(&mut self, p: u32) -> usize {
+        let slots = &mut self.slots;
+        *self.index.entry(p).or_insert_with(|| {
+            slots.push(Slot {
+                p,
+                pairs: Vec::new(),
+                more: Vec::new(),
+            });
+            slots.len() - 1
+        })
+    }
+
+    /// Takes in another buffer's output after this one's: its pairs (moved
+    /// in batches), its merges and its requested indexes.
+    fn absorb(&mut self, other: Pending) {
+        for slot in other.slots {
+            let i = self.slot(slot.p);
+            let mine = &mut self.slots[i];
+            mine.more
+                .extend(std::iter::once(slot.pairs).chain(slot.more).filter(|b| !b.is_empty()));
+        }
+        self.pushed += other.pushed;
+        self.by_object.extend(other.by_object);
+        self.merges.extend(other.merges);
+    }
+
+    /// Sorts and deduplicates each predicate's pairs, in the task that made
+    /// them, so that the step has fewer to sort, and runs to merge.
+    fn compact(&mut self) {
+        for slot in &mut self.slots {
+            slot.pairs.sort_unstable();
+            slot.pairs.dedup();
+        }
+    }
+
+    /// Pairs held, duplicates included.
+    fn len(&self) -> usize {
+        self.slots
+            .iter()
+            .map(|s| s.pairs.len() + s.more.iter().map(Vec::len).sum::<usize>())
+            .sum()
+    }
+
+    /// True when no pair and no merge is held.
+    fn is_empty(&self) -> bool {
+        self.len() == 0 && self.merges.is_empty()
+    }
+
+    /// Every predicate's batches, ascending by predicate, leaving no slot.
+    fn take(&mut self) -> Vec<(u32, Vec<Vec<Pair>>)> {
+        self.index.clear();
+        self.last = 0;
+        self.pushed = 0;
+        let mut groups: Vec<(u32, Vec<Vec<Pair>>)> = self
+            .slots
+            .drain(..)
+            .map(|slot| {
+                let batches: Vec<Vec<Pair>> = std::iter::once(slot.pairs)
+                    .chain(slot.more)
+                    .filter(|b| !b.is_empty())
+                    .collect();
+                (slot.p, batches)
+            })
+            .filter(|(_, batches)| !batches.is_empty())
+            .collect();
+        groups.sort_unstable_by_key(|g| g.0);
+        groups
+    }
+
+    /// Drops every pair and merge (a restart).
+    fn clear(&mut self) {
+        self.take();
+        self.merges.clear();
+    }
+
+    /// The pairs the buffer has room for.
+    fn capacity(&self) -> usize {
+        self.slots
+            .iter()
+            .map(|s| s.pairs.capacity() + s.more.iter().map(Vec::capacity).sum::<usize>())
+            .sum()
+    }
 }
 
 /// Predicate tables, semi-naively evaluated.
@@ -88,6 +221,14 @@ pub(crate) struct Store {
     moved: Vec<u32>,
     /// A merge changed a rule constant: the last run stopped there.
     restarted: bool,
+    /// Where a round's parallel work runs.
+    workers: Workers,
+    /// The tuples in the recent parts (both indexes) after the last step:
+    /// the next round's delta.
+    delta: usize,
+    /// Rounds and steps that ran in parallel.
+    #[cfg(test)]
+    engaged: usize,
 }
 
 impl Store {
@@ -122,16 +263,42 @@ impl Store {
         self.restarted
     }
 
+    /// Runs the rounds' parallel work on `workers` (one thread unless set).
+    pub(crate) fn set_workers(&mut self, workers: Workers) {
+        self.workers = workers;
+    }
+
     /// Queues a triple; the next run sees it as new.
     pub(crate) fn insert(&mut self, s: u32, p: u32, o: u32) {
-        self.pending.triples.push((p, s, o));
+        self.pending.push(p, (s, o));
     }
 
     /// Queues `(subject, predicate, object)` triples.
     pub(crate) fn extend(&mut self, triples: impl IntoIterator<Item = (u32, u32, u32)>) {
-        self.pending
-            .triples
-            .extend(triples.into_iter().map(|(s, p, o)| (p, s, o)));
+        for (s, p, o) in triples {
+            self.pending.push(p, (s, o));
+        }
+    }
+
+    /// Queues `[s, p, o]` triples: in chunks on the workers when there are
+    /// many (a full run's base).
+    pub(crate) fn extend_from_slice(&mut self, triples: &[[u32; 3]]) {
+        if !self.workers.engage(triples.len()) {
+            for &[s, p, o] in triples {
+                self.pending.push(p, (s, o));
+            }
+            return;
+        }
+        let outs = self.workers.chunks(triples, |chunk| {
+            let mut out = Pending::default();
+            for &[s, p, o] in chunk {
+                out.push(p, (s, o));
+            }
+            out
+        });
+        for out in outs {
+            self.pending.absorb(out);
+        }
     }
 
     /// Indexes predicate `p` by object from the next round on.
@@ -149,16 +316,21 @@ impl Store {
         while self.step(&mut pending) {
             rounds += 1;
             self.rounds += 1;
+            let parallel = self.workers.engage(self.delta);
+            #[cfg(test)]
+            {
+                self.engaged += usize::from(parallel);
+            }
             rules(&mut Round {
                 store: self,
                 pending: &mut pending,
+                parallel,
             });
         }
-        // Empty now, with room for the largest round's derivations: given
-        // back, so that a stored closure does not keep it.
-        debug_assert!(pending.triples.is_empty() && pending.merges.is_empty());
-        pending.triples = Vec::new();
-        self.pending = pending;
+        // The step took every batch; what is left (the slot table) is
+        // given back, so that a stored closure does not keep it.
+        debug_assert!(pending.is_empty());
+        self.pending = Pending::default();
         rounds
     }
 
@@ -173,8 +345,10 @@ impl Store {
             let t = self.table_index(p);
             let table = &mut self.tables[t];
             if table.os.is_none() {
+                let flipped: Vec<Pair> = table.so.all().iter().map(|(s, o)| (o, s)).collect();
+                let workers = self.workers.engage(flipped.len()).then_some(&self.workers);
                 let mut os = Variable::new();
-                os.insert(Relation::from_vec(table.so.all().iter().map(|(s, o)| (o, s)).collect()));
+                os.insert(sorted(flipped, workers));
                 table.os = Some(os);
                 self.activate(t);
             }
@@ -187,52 +361,71 @@ impl Store {
         }
         if constant {
             self.restarted = true;
-            pending.triples.clear();
+            pending.clear();
             return false;
         }
         if !self.moved.is_empty() {
             self.rewrite(pending);
         }
-        if !self.canon.is_empty() {
-            let canon = &self.canon;
-            for t in &mut pending.triples {
-                *t = (canon.find(t.0), canon.find(t.1), canon.find(t.2));
-            }
-        }
 
-        let triples = &mut pending.triples;
-        triples.sort_unstable();
-        triples.dedup();
-        let mut rest = &triples[..];
-        while let Some(&(p, _, _)) = rest.first() {
-            let n = rest.partition_point(|t| t.0 == p);
-            let (group, tail) = rest.split_at(n);
-            rest = tail;
-            let t = self.table_index(p);
-            let table = &mut self.tables[t];
-            table
-                .so
-                .insert(Relation::from_sorted(group.iter().map(|&(_, s, o)| (s, o)).collect()));
-            if let Some(os) = &mut table.os {
-                os.insert(Relation::from_vec(group.iter().map(|&(_, s, o)| (o, s)).collect()));
-            }
-            self.activate(t);
+        let parallel = self.workers.engage(pending.len());
+        #[cfg(test)]
+        {
+            self.engaged += usize::from(parallel);
         }
-        triples.clear();
+        let mut groups = pending.take();
+        if !self.canon.is_empty() {
+            canonical(&self.canon, &mut groups);
+        }
+        // Tables are made in ascending predicate order, as the step of one
+        // thread makes them.
+        let mut work: Vec<(usize, Vec<Vec<Pair>>)> = Vec::with_capacity(groups.len());
+        for (p, batches) in groups {
+            let t = self.table_index(p);
+            self.activate(t);
+            work.push((t, batches));
+        }
+        work.sort_unstable_by_key(|w| w.0);
+
+        // Each active table, with the pairs the round gave it, advances on
+        // its own.
+        let mut active = std::mem::take(&mut self.active);
+        active.sort_unstable();
+        let mut work = work.into_iter().peekable();
+        let mut jobs: Vec<Job<'_>> = Vec::with_capacity(active.len());
+        let mut rest: &mut [Table] = &mut self.tables;
+        let mut offset = 0;
+        for &t in &active {
+            let (_, tail) = std::mem::take(&mut rest).split_at_mut(t - offset);
+            let (table, tail) = tail.split_first_mut().expect("an active table exists");
+            rest = tail;
+            offset = t + 1;
+            let batches = work.next_if(|w| w.0 == t).map(|w| w.1);
+            jobs.push(Job {
+                t,
+                table,
+                batches,
+                new: false,
+                recent: 0,
+            });
+        }
+        debug_assert!(work.next().is_none(), "every table with new pairs is active");
+        let workers = &self.workers;
+        if parallel {
+            workers.for_each(&mut jobs, |job| job.advance(Some(workers)));
+        } else {
+            jobs.iter_mut().for_each(|job| job.advance(None));
+        }
 
         let mut changed = false;
-        let active = std::mem::take(&mut self.active);
-        for &t in &active {
-            let table = &mut self.tables[t];
-            let mut new = table.so.changed();
-            if let Some(os) = &mut table.os {
-                new |= os.changed();
-            }
-            changed |= new;
-            if new {
-                self.active.push(t);
+        self.delta = 0;
+        for job in jobs {
+            changed |= job.new;
+            self.delta += job.recent;
+            if job.new {
+                self.active.push(job.t);
             } else {
-                self.is_active[t] = false;
+                self.is_active[job.t] = false;
             }
         }
         debug_assert!(
@@ -262,10 +455,9 @@ impl Store {
                 // object index goes with the table (the representative's
                 // table builds its own when a rule asks).
                 let moved = std::mem::take(table);
-                pending.triples.extend(moved.so.all().iter().map(|(s, o)| {
-                    let (s, o) = pair((s, o));
-                    (to, s, o)
-                }));
+                for (s, o) in moved.so.all().iter() {
+                    pending.push(to, pair((s, o)));
+                }
                 continue;
             }
             let mut moved = table.so.remap(pair);
@@ -333,7 +525,13 @@ impl Store {
     /// runs, queued triples or not.
     #[cfg(test)]
     pub(crate) fn buffered(&self) -> usize {
-        self.pending.triples.capacity()
+        self.pending.capacity()
+    }
+
+    /// The rounds and steps that ran in parallel since the store was made.
+    #[cfg(test)]
+    pub(crate) fn engaged(&self) -> usize {
+        self.engaged
     }
 
     /// Rounds run since the store was made.
@@ -342,12 +540,82 @@ impl Store {
     }
 }
 
+/// Rewrites a round's output into representatives: each pair, and each
+/// predicate (whose batches then join its representative's).
+fn canonical(canon: &Canon, groups: &mut Vec<(u32, Vec<Vec<Pair>>)>) {
+    for (p, batches) in groups.iter_mut() {
+        *p = canon.find(*p);
+        for pair in batches.iter_mut().flatten() {
+            *pair = (canon.find(pair.0), canon.find(pair.1));
+        }
+    }
+    groups.sort_by_key(|g| g.0);
+    let mut merged: Vec<(u32, Vec<Vec<Pair>>)> = Vec::with_capacity(groups.len());
+    for (p, batches) in groups.drain(..) {
+        match merged.last_mut() {
+            Some(last) if last.0 == p => last.1.extend(batches),
+            _ => merged.push((p, batches)),
+        }
+    }
+    *groups = merged;
+}
+
+/// One table's part of a step.
+struct Job<'a> {
+    t: usize,
+    table: &'a mut Table,
+    /// The pairs the round gave the table, in batches.
+    batches: Option<Vec<Vec<Pair>>>,
+    /// The table has a non-empty recent part after the step.
+    new: bool,
+    /// The tuples in its recent parts after the step.
+    recent: usize,
+}
+
+impl Job<'_> {
+    /// Queues the round's pairs in the table, sorted, and ends the round for
+    /// it ([`Variable::changed`]). With `workers`, its large sorts, merges
+    /// and filters run in parallel.
+    fn advance(&mut self, workers: Option<&Workers>) {
+        let table = &mut *self.table;
+        if let Some(batches) = self.batches.take() {
+            table.so.insert(sorted_batches(batches, workers));
+        }
+        let Table { so, os } = table;
+        let new_so = so.changed_on(workers);
+        // The object index gets what is new by subject, flipped: the same
+        // tuples, so it sorts no pair that is not new.
+        let new_os = os.as_mut().is_some_and(|os| {
+            if !so.recent().is_empty() {
+                let flipped: Vec<Pair> = so.recent().iter().map(|&(s, o)| (o, s)).collect();
+                os.insert(sorted(flipped, workers));
+            }
+            os.changed_on(workers)
+        });
+        self.new = new_so || new_os;
+        self.recent = so.recent().len() + os.as_ref().map_or(0, |os| os.recent().len());
+    }
+}
+
+/// `pairs` sorted and deduplicated, on `workers` when given.
+fn sorted(pairs: Vec<Pair>, workers: Option<&Workers>) -> Relation<Pair> {
+    sorted_batches(vec![pairs], workers)
+}
+
+/// The pairs of `batches`, sorted and deduplicated, on `workers` when given.
+fn sorted_batches(batches: Vec<Vec<Pair>>, workers: Option<&Workers>) -> Relation<Pair> {
+    let one = Workers::one();
+    Relation::from_sorted(workers.unwrap_or(&one).sort_dedup_batches(batches))
+}
+
 /// What a rule function sees in one round: the store as the last round left
 /// it (read-only), and where to put what it derives.
 #[derive(Debug)]
 pub(crate) struct Round<'a> {
     store: &'a Store,
     pending: &'a mut Pending,
+    /// This round's work runs on the store's workers.
+    parallel: bool,
 }
 
 impl<'a> Round<'a> {
@@ -380,8 +648,156 @@ impl<'a> Round<'a> {
 
     /// Derives `(s, p, o)`. Duplicates and known triples are dropped at the
     /// end of the round.
+    #[inline]
     pub(crate) fn emit(&mut self, s: u32, p: u32, o: u32) {
-        self.pending.triples.push((p, s, o));
+        self.pending.push(p, (s, o));
+    }
+
+    /// True when this round's work runs in parallel: its delta passed
+    /// [`PARALLEL_FROM`](super::parallel::PARALLEL_FROM) and the store has
+    /// threads to run it on.
+    pub(crate) fn is_parallel(&self) -> bool {
+        self.parallel
+    }
+
+    /// Runs `f` once for each of `states`, in order. In a parallel round
+    /// each call is a task with a round of its own, whose output joins this
+    /// round's in the order of `states`: the round's output is the one the
+    /// calls give in order on one thread. (The reasoner runs each family as
+    /// one task.)
+    pub(crate) fn tasks<S: Send>(&mut self, states: &mut [S], f: impl Fn(&mut Round<'_>, &mut S) + Sync + Send) {
+        if !self.parallel || states.len() < 2 {
+            for state in states {
+                f(self, state);
+            }
+            return;
+        }
+        let store = self.store;
+        let mut jobs: Vec<(&mut S, Pending)> = states.iter_mut().map(|s| (s, Pending::default())).collect();
+        store.workers.for_each(&mut jobs, |(state, out)| {
+            f(
+                &mut Round {
+                    store,
+                    pending: out,
+                    parallel: true,
+                },
+                state,
+            );
+        });
+        for (_, out) in jobs {
+            self.pending.absorb(out);
+        }
+    }
+
+    /// The semi-naive join of [`join`](super::join()): `f(round, key, a_value,
+    /// b_value)` for every pair where at least one side is recent, each pair
+    /// once over a run. In a parallel round each recent side is read in
+    /// chunks ([`Round::split`]); `f` emits, and never merges, since the
+    /// pairs then come in another order.
+    pub(crate) fn join<K, A, B>(
+        &mut self,
+        a: &Variable<(K, A)>,
+        b: &Variable<(K, B)>,
+        f: impl Fn(&mut Round<'_>, K, A, B) + Sync + Send,
+    ) where
+        K: Ord + Copy + Sync,
+        A: Ord + Copy + Sync,
+        B: Ord + Copy + Sync,
+    {
+        let (ra, rb) = (a.recent(), b.recent());
+        if !ra.is_empty() {
+            self.split(ra, |round, chunk, _: &mut ()| {
+                for sb in b.stable() {
+                    join_slices(chunk, sb, &mut |k, x, y| f(round, k, x, y));
+                }
+            });
+        }
+        if !rb.is_empty() {
+            self.split(rb, |round, chunk, _: &mut ()| {
+                for sa in a.stable() {
+                    join_slices(sa, chunk, &mut |k, x, y| f(round, k, x, y));
+                }
+                join_slices(ra, chunk, &mut |k, x, y| f(round, k, x, y));
+            });
+        }
+    }
+
+    /// Calls `f` on consecutive chunks of `items`, each with a state of its
+    /// own, and returns the states in order. In a parallel round, a large
+    /// `items` (a recent part) splits into chunks that run as tasks, each
+    /// with a round of its own whose output joins this round's in chunk
+    /// order; otherwise `f` runs once, on all of `items`, with this round.
+    ///
+    /// The step sorts each table's pairs, so the order of the emits does
+    /// not matter, but what is emitted must not depend on the split: `f`'s
+    /// work on an item must not depend on the items before it in its
+    /// chunk ([`Round::split_runs`] keeps runs of a key whole). The merges
+    /// keep their order, which the canon's representatives depend on: `f`
+    /// asks for them one item at a time, in item order, or not at all.
+    pub(crate) fn split<T: Sync, S: Send + Default>(
+        &mut self,
+        items: &[T],
+        f: impl Fn(&mut Round<'_>, &[T], &mut S) + Sync + Send,
+    ) -> Vec<S> {
+        self.split_by(items, |_, _| false, f)
+    }
+
+    /// [`Round::split`] over pairs sorted by key, with no key's run cut
+    /// across two chunks: for work on a run as a whole.
+    pub(crate) fn split_runs<K: Eq + Sync, V: Sync, S: Send + Default>(
+        &mut self,
+        items: &[(K, V)],
+        f: impl Fn(&mut Round<'_>, &[(K, V)], &mut S) + Sync + Send,
+    ) -> Vec<S> {
+        self.split_by(items, |a, b| a.0 == b.0, f)
+    }
+
+    /// Sorts and deduplicates `items`, on the workers in a parallel round.
+    pub(crate) fn sort_dedup<T: Ord + Copy + Send + Sync + Default>(&self, items: Vec<T>) -> Vec<T> {
+        if self.parallel {
+            self.store.workers.sort_dedup(items)
+        } else {
+            let mut items = items;
+            items.sort_unstable();
+            items.dedup();
+            items
+        }
+    }
+
+    fn split_by<T: Sync, S: Send + Default>(
+        &mut self,
+        items: &[T],
+        same: impl Fn(&T, &T) -> bool,
+        f: impl Fn(&mut Round<'_>, &[T], &mut S) + Sync + Send,
+    ) -> Vec<S> {
+        let workers = &self.store.workers;
+        if !self.parallel || workers.chunk(items.len()) >= items.len() {
+            let mut state = S::default();
+            f(self, items, &mut state);
+            return vec![state];
+        }
+        let store = self.store;
+        let outs = workers.chunks_by(items, same, |chunk| {
+            let mut out = Pending::default();
+            let mut state = S::default();
+            f(
+                &mut Round {
+                    store,
+                    pending: &mut out,
+                    parallel: true,
+                },
+                chunk,
+                &mut state,
+            );
+            out.compact();
+            (out, state)
+        });
+        outs.into_iter()
+            .map(|(out, state)| {
+                self.pending.absorb(out);
+                state
+            })
+            .collect()
     }
 
     /// The representative of `id`: how a rule reads a constant it names,
@@ -397,7 +813,10 @@ impl<'a> Round<'a> {
     }
 
     /// Makes `a` and `b` equal from the next round on: the next step merges
-    /// their classes and rewrites the store.
+    /// their classes and rewrites the store. The merges apply in the order
+    /// they are asked for, and the canon's representatives depend on it, so
+    /// a rule asks for them in an order no split changes (see
+    /// [`Round::split`]).
     pub(crate) fn merge(&mut self, a: u32, b: u32) {
         self.pending.merges.push((a, b));
     }
@@ -427,6 +846,6 @@ impl<'a> Round<'a> {
     /// Triples emitted so far this round, duplicates included (a counter:
     /// read before and after a family's call, it says what the family emitted).
     pub(crate) fn emitted(&self) -> usize {
-        self.pending.triples.len()
+        self.pending.pushed
     }
 }

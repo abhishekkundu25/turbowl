@@ -3,6 +3,7 @@
 //! what this round derived (`to_add`). `View`: a read-only union of sorted
 //! parts, which joins and leapers take.
 
+use super::parallel::Workers;
 use super::relation::{Relation, gallop};
 
 /// A relation evaluated semi-naively.
@@ -55,11 +56,42 @@ impl<T: Ord + Copy> Variable<T> {
     /// is already known, becomes the new `recent`. True when it is non-empty,
     /// so a loop over every variable stops when all return false.
     pub(crate) fn changed(&mut self) -> bool {
+        self.end_round(Relation::merge, Relation::from_vec, |mut fresh, known| {
+            retain_absent(&mut fresh, known);
+            fresh
+        })
+    }
+
+    /// [`Variable::changed`], with its large merges, sorts and filters on
+    /// `workers` when given.
+    pub(crate) fn changed_on(&mut self, workers: Option<&Workers>) -> bool
+    where
+        T: Send + Sync + Default,
+    {
+        let Some(w) = workers else {
+            return self.changed();
+        };
+        self.end_round(
+            |a, b| Relation::from_sorted(w.merge(a.into_vec(), b.into_vec())),
+            |all| Relation::from_sorted(w.sort_dedup(all)),
+            |fresh, known| w.absent(fresh, known),
+        )
+    }
+
+    /// [`Variable::changed`] with its three operations given: the union of
+    /// two relations, a relation from unsorted tuples, and the tuples of a
+    /// sorted vector that a sorted slice does not hold.
+    fn end_round(
+        &mut self,
+        union: impl Fn(Relation<T>, Relation<T>) -> Relation<T>,
+        from_vec: impl FnOnce(Vec<T>) -> Relation<T>,
+        mut absent: impl FnMut(Vec<T>, &[T]) -> Vec<T>,
+    ) -> bool {
         if !self.recent.is_empty() {
             let mut batch = std::mem::take(&mut self.recent);
             while self.stable.last().is_some_and(|last| last.len() <= 2 * batch.len()) {
                 let last = self.stable.pop().expect("checked by the loop condition");
-                batch = last.merge(batch);
+                batch = union(last, batch);
             }
             self.stable.push(batch);
         }
@@ -70,7 +102,7 @@ impl<T: Ord + Copy> Variable<T> {
             2 => {
                 let b = self.to_add.pop().expect("two batches");
                 let a = self.to_add.pop().expect("two batches");
-                a.merge(b)
+                union(a, b)
             }
             _ => {
                 // Many batches: one sort beats a chain of merges.
@@ -83,13 +115,13 @@ impl<T: Ord + Copy> Variable<T> {
                 for batch in self.to_add.drain(..) {
                     all.extend_from_slice(&batch);
                 }
-                Relation::from_vec(all)
+                from_vec(all)
             }
         }
         .into_vec();
 
         for batch in &self.stable {
-            let mut known: &[T] = batch;
+            let known: &[T] = batch;
             // A tier wholly below or above the fresh tuples holds none of
             // them: skip it in O(1). Tuples that grow round by round (a
             // chain's next node) then cost O(tiers) a round, not O(log² n).
@@ -99,19 +131,7 @@ impl<T: Ord + Copy> Variable<T> {
             if known.last().is_some_and(|k| k < first) || known.first().is_some_and(|k| k > last) {
                 continue;
             }
-            if known.len() > 4 * fresh.len() {
-                fresh.retain(|x| {
-                    known = gallop(known, |y| y < x);
-                    known.first() != Some(x)
-                });
-            } else {
-                fresh.retain(|x| {
-                    while known.first().is_some_and(|y| y < x) {
-                        known = &known[1..];
-                    }
-                    known.first() != Some(x)
-                });
-            }
+            fresh = absent(fresh, known);
             if fresh.is_empty() {
                 break;
             }
@@ -226,6 +246,24 @@ impl<T: Ord + Copy> Variable<T> {
             result = batch.merge(result);
         }
         result
+    }
+}
+
+/// Keeps the items of sorted `fresh` that sorted `known` does not hold, in
+/// place: galloping when `known` is much longer, stepping otherwise.
+fn retain_absent<T: Ord + Copy>(fresh: &mut Vec<T>, mut known: &[T]) {
+    if known.len() > 4 * fresh.len() {
+        fresh.retain(|x| {
+            known = gallop(known, |y| y < x);
+            known.first() != Some(x)
+        });
+    } else {
+        fresh.retain(|x| {
+            while known.first().is_some_and(|y| y < x) {
+                known = &known[1..];
+            }
+            known.first() != Some(x)
+        });
     }
 }
 

@@ -128,24 +128,26 @@ fn cls_int1(round: &mut Round<'_>, ty: u32, lists: &Lists, instances: &Variable<
             pivot_instances(&mut candidates, &|y| members.iter().any(|&k| recent.contains(&(k, y))));
         }
     }
-    candidates.sort_unstable();
-    candidates.dedup();
-    let mut scratch = Scratch::default();
-    let mut classes: Vec<u32> = Vec::new();
-    let mut rest = &candidates[..];
-    while let Some(&(y, _)) = rest.first() {
-        let n = rest.iter().take_while(|t| t.0 == y).count();
-        classes.clear();
-        types.for_each_value(y, |c| classes.push(c));
-        classes.sort_unstable();
-        for &(_, e) in &rest[..n] {
-            let entry = &lists.entries[e as usize];
-            if lists.every_member(entry, |k| classes.binary_search(&k).is_ok(), &mut scratch) {
-                round.emit(y, ty, entry.class);
+    let candidates = round.sort_dedup(candidates);
+    // The candidates of each `y` are checked on their own, so a long list
+    // of them is checked in chunks ([`Round::split_runs`]).
+    round.split_runs(&candidates, |round, candidates, scratch: &mut (Scratch, Vec<u32>)| {
+        let (scratch, classes) = scratch;
+        let mut rest = candidates;
+        while let Some(&(y, _)) = rest.first() {
+            let n = rest.iter().take_while(|t| t.0 == y).count();
+            classes.clear();
+            types.for_each_value(y, |c| classes.push(c));
+            classes.sort_unstable();
+            for &(_, e) in &rest[..n] {
+                let entry = &lists.entries[e as usize];
+                if lists.every_member(entry, |k| classes.binary_search(&k).is_ok(), scratch) {
+                    round.emit(y, ty, entry.class);
+                }
             }
+            rest = &rest[n..];
         }
-        rest = &rest[n..];
-    }
+    });
 }
 
 /// cls-int2: `c owl:intersectionOf (c1 ... cn)`, `y rdf:type c` →

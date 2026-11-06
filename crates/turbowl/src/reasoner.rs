@@ -69,9 +69,21 @@
 //! full one, so the closure is always the one a fresh reasoner with those
 //! switches would give.
 //!
-//! Each round calls every family that is on, in table order, with one
-//! [`Context`], as `rules/testing.rs` does, and [`Counters`] records the
-//! round's delta and what each family emitted.
+//! Each round calls every family that is on, in table order, as
+//! `rules/testing.rs` does, and [`Counters`] records the round's delta and
+//! what each family emitted.
+//!
+//! # Threads (ticket 17)
+//!
+//! The reasoner holds a [`Threads`] setting, [`Threads::ALL`] unless the
+//! caller sets another, and hands the store its [`Workers`]. In a round
+//! whose delta passes the threshold (`engine/parallel.rs`), each family is
+//! a task with its own buffer and findings ([`Round::tasks`]), and the
+//! count of the round's delta splits each large recent part into chunks.
+//! The buffers, the findings and the counters join in family order, so a
+//! run gives the same store, findings, rounds and counters on any number
+//! of threads. A change of setting takes effect at the next run, and never
+//! makes it a full one.
 //!
 //! Between a change and the next `reason()`, the reads ([`Reasoner::triples`],
 //! [`Reasoner::inferred`], [`Reasoner::diagnostics`], [`Reasoner::write`])
@@ -96,11 +108,11 @@
 
 #[cfg(feature = "io")]
 use crate::Error;
-use crate::engine::{Canon, Relation, Store};
+use crate::engine::{Canon, Relation, Round, Store, Workers};
 use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
 use crate::term::{Dictionary, DocId, Kind, TermId, vocab};
-use crate::{Diagnostic, Switch, Switches};
+use crate::{Diagnostic, Switch, Switches, Threads};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
 use rustc_hash::FxHashSet;
 
@@ -151,6 +163,9 @@ pub struct Reasoner {
     families: &'static [Family],
     /// Which of the table's families run.
     switches: Switches,
+    /// The threads a run may use, and where they are.
+    threads: Threads,
+    workers: Workers,
     terms: Dictionary,
     base: Base,
     /// The closure of the last run, plus the base triples added since,
@@ -222,12 +237,18 @@ impl Reasoner {
     fn build(families: &'static [Family], switches: Switches) -> Self {
         let mut terms = Dictionary::new();
         datatype::intern_rule_literals(&mut terms);
+        let threads = Threads::default();
+        let workers = threads.workers();
+        let mut closure = Store::new();
+        closure.set_workers(workers.clone());
         Self {
             families,
             switches,
+            threads,
+            workers,
             terms,
             base: Base::default(),
-            closure: Store::new(),
+            closure,
             state: State::Full,
             rdf: 0,
             same_as_itself: Vec::new(),
@@ -341,10 +362,38 @@ impl Reasoner {
         }
     }
 
+    /// The threads the runs may use.
+    pub fn threads(&self) -> Threads {
+        self.threads
+    }
+
+    /// Sets the threads the next runs may use ([`Threads`]). The closure,
+    /// the diagnostics and the order of every read do not depend on it, so
+    /// a change never makes the next run a full one.
+    pub fn set_threads(&mut self, threads: Threads) {
+        if threads != self.threads {
+            self.threads = threads;
+            self.workers = threads.workers();
+            self.closure.set_workers(self.workers.clone());
+        }
+    }
+
+    /// Runs on `workers`, which [`Threads`] cannot all describe (a test
+    /// that measures the threshold).
+    #[cfg(test)]
+    pub(crate) fn set_workers(&mut self, workers: Workers) {
+        self.closure.set_workers(workers.clone());
+        self.workers = workers;
+    }
+
     /// Empties the base, the closure and the diagnostics (and the
-    /// dictionary): as new, with the same switches.
+    /// dictionary): as new, with the same switches and threads.
     pub fn clear(&mut self) {
+        let (threads, workers) = (self.threads, self.workers.clone());
         *self = Self::build(self.families, self.switches);
+        self.threads = threads;
+        self.closure.set_workers(workers.clone());
+        self.workers = workers;
     }
 
     /// Runs to the fixpoint: in full, or over what changed since the last run.
@@ -547,18 +596,19 @@ impl Reasoner {
     fn start(&mut self, families: &[&Family], canon: Canon) {
         // The old closure is dropped before the new one fills.
         self.closure = Store::with_canon(canon);
+        self.closure.set_workers(self.workers.clone());
         self.rdf = 0;
         for family in families {
             self.closure
                 .extend(family.facts.iter().map(|&[s, p, o]| (s.0, p.0, o.0)));
         }
-        self.closure.extend(self.base.iter().map(|[s, p, o]| (s, p, o)));
+        self.closure.extend_from_slice(self.base.flush());
     }
 
     /// Runs `families` (those that are on) on the store to its fixpoint (or
     /// to a restart), pushing the findings to `found` and the counters.
     /// Returns the rounds.
-    fn rounds(&mut self, families: &[&Family], found: &mut Vec<Finding>) -> usize {
+    fn rounds(&mut self, families: &[&'static Family], found: &mut Vec<Finding>) -> usize {
         let Self {
             terms,
             switches,
@@ -571,19 +621,32 @@ impl Reasoner {
         // What a stored triple stands for, as the run starts: when a merge
         // changes it, the run counts the store again at its end.
         let weights = Weights::new(closure.canon(), terms);
-        let mut cx = Context {
-            terms,
-            switches: *switches,
-            findings: found,
-        };
+        let switches = *switches;
+        let mut tasks: Vec<Task> = families
+            .iter()
+            .map(|&family| Task {
+                family,
+                findings: Vec::new(),
+                emitted: 0,
+            })
+            .collect();
         closure.run(|round| {
-            let (tuples, triples) = delta(round.store(), terms, &weights);
+            let (tuples, triples) = delta(round, terms, &weights);
             counters.delta.push(tuples);
             *rdf += triples;
-            for family in families {
+            round.tasks(&mut tasks, |round, task| {
+                let mut cx = Context {
+                    terms,
+                    switches,
+                    findings: &mut task.findings,
+                };
                 let before = round.emitted();
-                (family.rules)(round, &mut cx);
-                counters.emitted.push(round.emitted() - before);
+                (task.family.rules)(round, &mut cx);
+                task.emitted = round.emitted() - before;
+            });
+            for task in &mut tasks {
+                counters.emitted.push(task.emitted);
+                found.append(&mut task.findings);
             }
         })
     }
@@ -609,39 +672,58 @@ impl Reasoner {
     }
 }
 
+/// One family's task in a round ([`Round::tasks`]): what it found and
+/// emitted.
+#[derive(Debug)]
+struct Task {
+    family: &'static Family,
+    findings: Vec<Finding>,
+    emitted: usize,
+}
+
 /// The tuples in the deltas of the store's tables, and the RDF triples
 /// they stand for once expanded: called once a round, it counts each stored
-/// triple once over a run in which no class changes.
-fn delta(store: &Store, terms: &Dictionary, weights: &Weights) -> (usize, usize) {
+/// triple once over a run in which no class changes. A large delta is
+/// counted in chunks ([`Round::split`]).
+fn delta(round: &mut Round<'_>, terms: &Dictionary, weights: &Weights) -> (usize, usize) {
     let (mut tuples, mut rdf) = (0, 0);
-    for (p, table) in store.tables() {
+    for (p, table) in round.store().tables() {
         let recent = table.by_subject().recent();
         if recent.is_empty() {
             continue;
         }
         tuples += recent.len();
-        if !weights.is_trivial() {
-            rdf += recent.iter().map(|&(s, o)| weights.of(terms, s, p, o)).sum::<usize>();
+        if weights.is_trivial() && terms.kind(TermId(p)) != Kind::Iri {
             continue;
         }
-        if terms.kind(TermId(p)) != Kind::Iri {
-            continue;
-        }
-        // Sorted by subject: one lookup per subject.
-        let mut last: Option<(u32, bool)> = None;
-        for &(s, _) in recent.iter() {
-            let literal = match last {
-                Some((l, literal)) if l == s => literal,
-                _ => {
-                    let literal = terms.kind(TermId(s)) == Kind::Literal;
-                    last = Some((s, literal));
-                    literal
-                }
-            };
-            rdf += usize::from(!literal);
-        }
+        let counts = round.split(recent, |_, chunk, count: &mut usize| {
+            *count = rdf_triples(chunk, p, terms, weights);
+        });
+        rdf += counts.iter().sum::<usize>();
     }
     (tuples, rdf)
+}
+
+/// The RDF triples that `p`'s `pairs` stand for once expanded.
+fn rdf_triples(pairs: &[(u32, u32)], p: u32, terms: &Dictionary, weights: &Weights) -> usize {
+    if !weights.is_trivial() {
+        return pairs.iter().map(|&(s, o)| weights.of(terms, s, p, o)).sum();
+    }
+    // Sorted by subject: one lookup per subject.
+    let mut rdf = 0;
+    let mut last: Option<(u32, bool)> = None;
+    for &(s, _) in pairs {
+        let literal = match last {
+            Some((l, literal)) if l == s => literal,
+            _ => {
+                let literal = terms.kind(TermId(s)) == Kind::Literal;
+                last = Some((s, literal));
+                literal
+            }
+        };
+        rdf += usize::from(!literal);
+    }
+    rdf
 }
 
 /// The triples in `new` and not in `old` (both sorted and deduplicated),
@@ -700,6 +782,7 @@ impl Base {
         self.sorted.binary_search(t).is_ok() || self.recent.contains(t)
     }
 
+    #[cfg(test)]
     fn iter(&self) -> impl Iterator<Item = [u32; 3]> + '_ {
         self.sorted.iter().chain(self.recent.iter()).copied()
     }
@@ -1332,5 +1415,75 @@ mod tests {
         assert_eq!(added(&[a, b], &[a, b]), Some(vec![]));
         assert_eq!(added(&[a, b], &[a, c]), None);
         assert_eq!(added(&[c], &[a, b]), None);
+    }
+
+    /// A run gives the same closure (in the order the reads give it), the
+    /// same diagnostics, summary and counters on one thread as on all cores
+    /// with every round in parallel, through merges, a restart and
+    /// findings, in full and incremental runs.
+    #[test]
+    fn the_thread_count_changes_nothing() {
+        let text = "ex:A rdfs:subClassOf ex:B . ex:B rdfs:subClassOf ex:C .
+            ex:A owl:disjointWith ex:D .
+            ex:p rdfs:domain ex:A ; rdfs:range ex:B .
+            ex:x ex:p ex:y . ex:y ex:p ex:z . ex:x a ex:D .
+            ex:x owl:sameAs ex:x2 . ex:x2 owl:sameAs ex:x3 .
+            ex:q owl:sameAs ex:p .
+            ex:z ex:age \"twelve\"^^<http://www.w3.org/2001/XMLSchema#integer> .";
+        // A merge of a vocabulary term restarts the run.
+        let more = "ex:w ex:p ex:x . ex:z owl:sameAs ex:w . ex:C owl:sameAs ex:E .
+            ex:sub owl:sameAs rdfs:subClassOf . ex:E ex:sub ex:F .";
+        let state = |r: &Reasoner| {
+            (
+                r.triples().collect::<Vec<_>>(),
+                r.diagnostics().to_vec(),
+                r.counters().clone(),
+            )
+        };
+        let mut runs = Vec::new();
+        for threads in [
+            Threads::ONE,
+            Threads::ALL.every_round(),
+            Threads::exactly(3).every_round(),
+            Threads::ALL,
+        ] {
+            let mut r = Reasoner::with_switches(Switches::complete());
+            r.set_threads(threads);
+            assert_eq!(r.threads(), threads);
+            load(&mut r, text);
+            let full = r.reason();
+            let after_full = state(&r);
+            load(&mut r, more);
+            let incremental = r.reason();
+            runs.push((full, after_full, incremental, state(&r)));
+        }
+        assert!(runs[0].1.1.len() > 1, "the input has findings: {:?}", runs[0].1.1);
+        for run in &runs[1..] {
+            assert_eq!(run, &runs[0]);
+        }
+    }
+
+    /// On every core (the default), a full run on a large base runs its
+    /// large rounds in parallel, and a one-triple change then runs every
+    /// round on the caller's thread.
+    #[test]
+    fn a_small_change_waits_on_no_thread_pool() {
+        use std::fmt::Write as _;
+        let mut text = String::from("ex:A rdfs:subClassOf ex:B . ex:p rdfs:domain ex:A .\n");
+        for i in 0..crate::engine::PARALLEL_FROM {
+            let _ = writeln!(text, "ex:i{i} ex:p ex:i{} .", i + 1);
+        }
+        let mut r = Reasoner::new();
+        assert_eq!(r.threads(), Threads::ALL);
+        load(&mut r, &text);
+        r.reason();
+        let engaged = r.store().engaged();
+        if Workers::all().threads() > 1 {
+            assert!(engaged > 0, "the full run's first round is large");
+        }
+        load(&mut r, "ex:new ex:p ex:i0 .");
+        let s = r.reason();
+        assert!(s.rounds > 1);
+        assert_eq!(r.store().engaged(), engaged, "no round of the change ran in parallel");
     }
 }

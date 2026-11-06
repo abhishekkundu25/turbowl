@@ -101,7 +101,6 @@ fn cls_svf1(
         return;
     };
     let (mut old, mut new) = (Vec::new(), Vec::new());
-    let mut matched: Vec<u32> = Vec::new();
     for (p, group) in by_property(restrictions) {
         let Some(edges) = round.by_object(p) else {
             continue;
@@ -109,14 +108,17 @@ fn cls_svf1(
         fillers(group, false, |_| true, &mut old);
         fillers(group, true, |_| true, &mut new);
         if !old.is_empty() {
-            runs(edges.recent(), |v, run| {
-                matched.clear();
-                types.for_each_value(v, |c| matched.extend(range(&old, c).iter().map(|&(_, x)| x)));
-                for &x in &matched {
-                    for &(_, u) in run {
-                        round.emit(u, ty, x);
+            let fillers = &old;
+            round.split_runs(edges.recent(), |round, chunk, matched: &mut Vec<u32>| {
+                runs(chunk, |v, run| {
+                    matched.clear();
+                    types.for_each_value(v, |c| matched.extend(range(fillers, c).iter().map(|&(_, x)| x)));
+                    for &x in matched.iter() {
+                        for &(_, u) in run {
+                            round.emit(u, ty, x);
+                        }
                     }
-                }
+                });
             });
             for &(y, x) in &old {
                 for &(_, v) in range(instances.recent(), y) {
@@ -184,7 +186,6 @@ fn cls_avf(
     types: Option<&View<'_, Pair>>,
 ) {
     let (mut old, mut new) = (Vec::new(), Vec::new());
-    let mut matched: Vec<u32> = Vec::new();
     for (p, group) in by_property(restrictions) {
         let Some(edges) = round.by_subject(p) else {
             continue;
@@ -222,14 +223,17 @@ fn cls_avf(
         if let Some(types) = types
             && !old.is_empty()
         {
-            runs(edges.recent(), |u, run| {
-                matched.clear();
-                types.for_each_value(u, |c| matched.extend(range(&old, c).iter().map(|&(_, y)| y)));
-                for &y in &matched {
-                    for &(_, v) in run {
-                        round.emit(v, ty, y);
+            let targets = &old;
+            round.split_runs(edges.recent(), |round, chunk, matched: &mut Vec<u32>| {
+                runs(chunk, |u, run| {
+                    matched.clear();
+                    types.for_each_value(u, |c| matched.extend(range(targets, c).iter().map(|&(_, y)| y)));
+                    for &y in matched.iter() {
+                        for &(_, v) in run {
+                            round.emit(v, ty, y);
+                        }
                     }
-                }
+                });
             });
         }
     }

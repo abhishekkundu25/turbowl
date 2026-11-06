@@ -14,6 +14,13 @@
 //! it back and runs again, and each state must equal a full evaluation of
 //! its base.
 //!
+//! Every iteration runs the core twice, side by side: at one thread
+//! (`Threads::ONE`) and at all cores with every round in parallel however
+//! small (`Threads::ALL.every_round()`, so that these small inputs reach
+//! the parallel rounds). After each `reason()` the two must agree exactly:
+//! the summary, the closure and the diagnostics, in the order the reads
+//! give them. The one-thread run is the one compared with the reference.
+//!
 //! Deterministic: CHAOS_SEED and CHAOS_ITERS override the seed and the
 //! count; CHAOS_ONLY=<i> runs iteration i alone; CHAOS_SWITCHES runs every
 //! iteration in one configuration (`default`, `complete`, `none`, or the
@@ -37,7 +44,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use turbowl::{Reasoner, Switch, Switches};
+use turbowl::{Reasoner, Summary, Switch, Switches, Threads};
 use turbowl_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
 
 /// The largest reference closure an iteration is compared on.
@@ -162,7 +169,7 @@ fn reference(base: &HashSet<Triple>, switches: Switches) -> Option<(HashSet<Trip
 
 /// Runs the reasoner, and checks that its summary counts what its reads
 /// give (with `owl:sameAs`, the expanded closure: ADR 0003).
-fn reason(reasoner: &mut Reasoner) -> Result<(), String> {
+fn reason(reasoner: &mut Reasoner) -> Result<Summary, String> {
     let s = reasoner.reason();
     let (triples, inferred) = (reasoner.triples().count(), reasoner.inferred().count());
     if (s.base + s.inferred, s.inferred, s.diagnostics) != (triples, inferred, reasoner.diagnostics().len()) {
@@ -171,7 +178,66 @@ fn reason(reasoner: &mut Reasoner) -> Result<(), String> {
             reasoner.diagnostics().len()
         ));
     }
-    Ok(())
+    Ok(s)
+}
+
+/// The core at one thread and at all cores, every round in parallel,
+/// driven alike.
+struct Twins {
+    one: Reasoner,
+    all: Reasoner,
+}
+
+impl Twins {
+    fn new(switches: Switches) -> Twins {
+        let mut one = Reasoner::with_switches(switches);
+        one.set_threads(Threads::ONE);
+        let mut all = Reasoner::with_switches(switches);
+        all.set_threads(Threads::ALL.every_round());
+        Twins { one, all }
+    }
+
+    fn insert(&mut self, triples: &[&Triple]) {
+        for r in [&mut self.one, &mut self.all] {
+            r.insert(triples.iter().map(|t| t.as_ref()));
+        }
+    }
+
+    fn remove(&mut self, triples: &[&Triple]) {
+        for r in [&mut self.one, &mut self.all] {
+            r.remove(triples.iter().map(|t| t.as_ref()));
+        }
+    }
+
+    /// Runs both, and checks that they agree exactly: the summary, then the
+    /// closure and the diagnostics in the order the reads give them.
+    fn reason(&mut self) -> Result<(), String> {
+        let (one, all) = (reason(&mut self.one)?, reason(&mut self.all)?);
+        if one != all {
+            return Err(format!("one thread gives {one:?}, all cores {all:?}"));
+        }
+        let (a, b): (Vec<Triple>, Vec<Triple>) = (self.one.triples().collect(), self.all.triples().collect());
+        if a != b {
+            let at = a
+                .iter()
+                .zip(&b)
+                .position(|(x, y)| x != y)
+                .unwrap_or(a.len().min(b.len()));
+            return Err(format!(
+                "the closure differs between one thread and all cores from triple {at}: {:?} against {:?}",
+                a.get(at).map(ToString::to_string),
+                b.get(at).map(ToString::to_string)
+            ));
+        }
+        if self.one.diagnostics() != self.all.diagnostics() {
+            return Err(format!(
+                "the diagnostics differ between one thread and all cores: {:?} against {:?}",
+                self.one.diagnostics(),
+                self.all.diagnostics()
+            ));
+        }
+        Ok(())
+    }
 }
 
 fn core_state(reasoner: &Reasoner) -> (HashSet<Triple>, Diagnostics) {
@@ -376,10 +442,10 @@ fn full(input: &[Triple], switches: Switches, _rng: &mut Rng) -> Result<Done, St
     let Some(expected) = reference(&base, switches) else {
         return Ok(Done::TooLarge);
     };
-    let mut reasoner = Reasoner::with_switches(switches);
-    reasoner.insert(input.iter().map(Triple::as_ref));
-    reason(&mut reasoner)?;
-    if let Some(diff) = difference(&expected, &core_state(&reasoner)) {
+    let mut twins = Twins::new(switches);
+    twins.insert(&input.iter().collect::<Vec<_>>());
+    twins.reason()?;
+    if let Some(diff) = difference(&expected, &core_state(&twins.one)) {
         return Err(format!("one full run:\n{diff}"));
     }
     Ok(Done::Compared)
@@ -400,24 +466,24 @@ fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng) -> Result<Do
     let (Some(whole), Some(after_removal)) = (reference(&base, switches), reference(&kept, switches)) else {
         return Ok(Done::TooLarge);
     };
-    let mut reasoner = Reasoner::with_switches(switches);
+    let mut twins = Twins::new(switches);
     for batch in &split {
-        reasoner.insert(batch.iter().map(|t| t.as_ref()));
-        reason(&mut reasoner)?;
+        twins.insert(batch);
+        twins.reason()?;
     }
-    if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
+    if let Some(diff) = difference(&whole, &core_state(&twins.one)) {
         let sizes: Vec<usize> = split.iter().map(Vec::len).collect();
         return Err(format!("inserted in batches of {sizes:?}:\n{diff}"));
     }
-    reasoner.remove(removed.iter().map(|t| t.as_ref()));
-    reason(&mut reasoner)?;
-    if let Some(diff) = difference(&after_removal, &core_state(&reasoner)) {
+    twins.remove(&removed);
+    twins.reason()?;
+    if let Some(diff) = difference(&after_removal, &core_state(&twins.one)) {
         let lines: Vec<String> = removed.iter().map(|t| format!("    {t} .")).collect();
         return Err(format!("after removing:\n{}\n{diff}", lines.join("\n")));
     }
-    reasoner.insert(removed.iter().map(|t| t.as_ref()));
-    reason(&mut reasoner)?;
-    if let Some(diff) = difference(&whole, &core_state(&reasoner)) {
+    twins.insert(&removed);
+    twins.reason()?;
+    if let Some(diff) = difference(&whole, &core_state(&twins.one)) {
         return Err(format!("after putting the removed triples back:\n{diff}"));
     }
     Ok(Done::Compared)

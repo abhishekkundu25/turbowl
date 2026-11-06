@@ -41,7 +41,7 @@ mod restrictions;
 mod tests;
 
 use super::Context;
-use crate::engine::{Pair, Round, Variable, gallop, join};
+use crate::engine::{Pair, Round, Variable, gallop};
 use crate::term::{TermId, vocab};
 
 /// The heads of cls-thing and cls-nothing1.
@@ -84,7 +84,7 @@ fn cax_sco(round: &mut Round<'_>, v: Vocab, instances: Option<&Variable<Pair>>) 
     let (Some(sco), Some(instances)) = (round.by_subject(v.sub_class_of), instances) else {
         return;
     };
-    join(sco, instances, |_, c2, x| round.emit(x, v.ty, c2));
+    round.join(sco, instances, |round, _, c2, x| round.emit(x, v.ty, c2));
 }
 
 /// cax-eqc1: `c1 owl:equivalentClass c2`, `x rdf:type c1` → `x rdf:type c2`.
@@ -93,7 +93,7 @@ fn cax_eqc1(round: &mut Round<'_>, v: Vocab, instances: Option<&Variable<Pair>>)
     let (Some(eqc), Some(instances)) = (round.by_subject(v.equivalent_class), instances) else {
         return;
     };
-    join(eqc, instances, |_, c2, x| round.emit(x, v.ty, c2));
+    round.join(eqc, instances, |round, _, c2, x| round.emit(x, v.ty, c2));
 }
 
 /// cax-eqc2: `c1 owl:equivalentClass c2`, `x rdf:type c2` → `x rdf:type c1`.
@@ -103,7 +103,7 @@ fn cax_eqc2(round: &mut Round<'_>, v: Vocab, instances: Option<&Variable<Pair>>)
     let Some(eqc) = round.by_object(v.equivalent_class) else {
         return;
     };
-    join(eqc, instances, |_, c1, x| round.emit(x, v.ty, c1));
+    round.join(eqc, instances, |round, _, c1, x| round.emit(x, v.ty, c1));
 }
 
 /// scm-sco: `c1 rdfs:subClassOf c2`, `c2 rdfs:subClassOf c3` →
@@ -116,7 +116,9 @@ fn scm_sco(round: &mut Round<'_>, v: Vocab) {
     let Some(sco_by_object) = round.by_object(v.sub_class_of) else {
         return;
     };
-    join(sco_by_object, sco, |_, c1, c3| round.emit(c1, v.sub_class_of, c3));
+    round.join(sco_by_object, sco, |round, _, c1, c3| {
+        round.emit(c1, v.sub_class_of, c3)
+    });
 }
 
 /// scm-eqc1: `c1 owl:equivalentClass c2` → `c1 rdfs:subClassOf c2` and

@@ -79,8 +79,26 @@ fn tagged(v: &Variable<Pair>) -> impl Iterator<Item = (&[Pair], bool)> {
 /// The pairs of `table` a rule joins this round: all of them when the
 /// schema tuple that names the table is `recent`, else its recent part.
 fn pairs_for(table: &Variable<Pair>, recent: bool) -> impl Iterator<Item = &Pair> {
+    parts_for(table, recent).flatten()
+}
+
+/// The sorted parts of [`pairs_for`].
+fn parts_for(table: &Variable<Pair>, recent: bool) -> impl Iterator<Item = &[Pair]> {
     let stable: &[_] = if recent { table.stable() } else { &[] };
-    stable.iter().flat_map(|b| b.iter()).chain(table.recent().iter())
+    stable.iter().map(|b| &b[..]).chain(Some(&table.recent()[..]))
+}
+
+/// Emits `f(pair)` for each pair of [`pairs_for`]: a copy of the table,
+/// read in chunks when it is large ([`Round::split`]).
+fn copy_each(round: &mut Round<'_>, a: &Axiom<'_>, f: impl Fn(Pair) -> (u32, u32, u32) + Sync + Send) {
+    for part in parts_for(a.table, a.recent) {
+        round.split(part, |round, chunk, _: &mut ()| {
+            for &pair in chunk {
+                let (s, p, o) = f(pair);
+                round.emit(s, p, o);
+            }
+        });
+    }
 }
 
 /// A schema tuple that names a property: the property's subject index
@@ -141,19 +159,23 @@ fn copies(round: &mut Round<'_>) {
     // prp-dom: p rdfs:domain c, x p y => x rdf:type c. Pairs are sorted by
     // subject within a part, so a subject's run gives one triple.
     each_axiom(round, round.constant(vocab::RDFS_DOMAIN.0), false, |round, a| {
-        let mut last = None;
-        for &(x, _) in pairs_for(a.table, a.recent) {
-            if last != Some(x) {
-                round.emit(x, ty, a.other);
-                last = Some(x);
-            }
+        let c = a.other;
+        for part in parts_for(a.table, a.recent) {
+            round.split_runs(part, |round, chunk, _: &mut ()| {
+                let mut last = None;
+                for &(x, _) in chunk {
+                    if last != Some(x) {
+                        round.emit(x, ty, c);
+                        last = Some(x);
+                    }
+                }
+            });
         }
     });
     // prp-rng: p rdfs:range c, x p y => y rdf:type c.
     each_axiom(round, round.constant(vocab::RDFS_RANGE.0), false, |round, a| {
-        for &(_, y) in pairs_for(a.table, a.recent) {
-            round.emit(y, ty, a.other);
-        }
+        let c = a.other;
+        copy_each(round, &a, |(_, y)| (y, ty, c));
     });
     // prp-spo1: p1 rdfs:subPropertyOf p2, x p1 y => x p2 y.
     each_axiom(
@@ -178,13 +200,9 @@ fn copies(round: &mut Round<'_>) {
 fn copy(round: &mut Round<'_>, a: &Axiom<'_>, reversed: bool) {
     let to = a.other;
     if reversed {
-        for &(x, y) in pairs_for(a.table, a.recent) {
-            round.emit(y, to, x);
-        }
+        copy_each(round, a, |(x, y)| (y, to, x));
     } else if a.key != to {
-        for &(x, y) in pairs_for(a.table, a.recent) {
-            round.emit(x, to, y);
-        }
+        copy_each(round, a, |(x, y)| (x, to, y));
     }
 }
 

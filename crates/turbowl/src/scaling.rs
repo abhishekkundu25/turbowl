@@ -1888,3 +1888,171 @@ mod literal_values {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Parallel rounds (v2 ticket 17)
+// ---------------------------------------------------------------------------
+
+mod parallel {
+    use super::*;
+    use crate::engine::{PARALLEL_FROM, Workers};
+    use crate::{Reasoner, Threads};
+    use oxrdf::vocab::{rdf, rdfs};
+    use oxrdf::{NamedNode, Triple};
+
+    fn ex(local: String) -> NamedNode {
+        NamedNode::new_unchecked(format!("http://example.org/{local}"))
+    }
+
+    /// LUBM's shape at about `n` triples: a class hierarchy, properties
+    /// with domains, ranges and a super-property, and students, each of a
+    /// leaf class, taking a course and advised by a professor. The rules
+    /// give each student and course a fixed number of types, and each link
+    /// a copy, so every round's delta grows with `n`.
+    fn university(n: usize) -> Vec<Triple> {
+        let iri = |s: &str| ex(s.to_owned());
+        let mut triples = Vec::with_capacity(n + 16);
+        let schema = [
+            ("Graduate", rdfs::SUB_CLASS_OF, "Student"),
+            ("Undergraduate", rdfs::SUB_CLASS_OF, "Student"),
+            ("Student", rdfs::SUB_CLASS_OF, "Person"),
+            ("Professor", rdfs::SUB_CLASS_OF, "Faculty"),
+            ("Faculty", rdfs::SUB_CLASS_OF, "Person"),
+            ("takes", rdfs::DOMAIN, "Student"),
+            ("takes", rdfs::RANGE, "Course"),
+            ("advisor", rdfs::DOMAIN, "Person"),
+            ("advisor", rdfs::RANGE, "Professor"),
+            ("advisor", rdfs::SUB_PROPERTY_OF, "knows"),
+        ];
+        for (s, p, o) in schema {
+            triples.push(Triple::new(iri(s), p, iri(o)));
+        }
+        let students = n / 3;
+        let (courses, professors) = (students / 20 + 1, students / 50 + 1);
+        for i in 0..students {
+            let student = ex(format!("student{i}"));
+            let class = if i % 4 == 0 { "Graduate" } else { "Undergraduate" };
+            triples.push(Triple::new(student.clone(), rdf::TYPE, iri(class)));
+            triples.push(Triple::new(
+                student.clone(),
+                iri("takes"),
+                ex(format!("course{}", i % courses)),
+            ));
+            triples.push(Triple::new(
+                student,
+                iri("advisor"),
+                ex(format!("professor{}", i % professors)),
+            ));
+        }
+        triples
+    }
+
+    /// A reasoned base of about `n` triples, on `threads`.
+    fn reasoned(n: usize, threads: Threads) -> (Reasoner, Triple) {
+        on(n, threads.workers())
+    }
+
+    /// A reasoned base of about `n` triples, on `workers`.
+    fn on(n: usize, workers: Workers) -> (Reasoner, Triple) {
+        let triples = university(n);
+        let mut r = Reasoner::new();
+        r.set_workers(workers);
+        r.insert(triples.iter().map(Triple::as_ref));
+        r.reason();
+        let last = triples.last().cloned().expect("triples");
+        (r, last)
+    }
+
+    /// A full run of the same base: a triple removed and put back, then
+    /// `reason()`.
+    fn full_run((r, last): &mut (Reasoner, Triple)) -> usize {
+        r.remove([last.as_ref()]);
+        r.insert([last.as_ref()]);
+        r.reason().inferred
+    }
+
+    /// The rounds of a full run, every one with a delta past the parallel
+    /// threshold at the largest sizes: linear on one thread.
+    #[test]
+    fn scaling_parallel_rounds_one_thread() {
+        let _lock = lock();
+        let sizes = sizes(PARALLEL_FROM);
+        check(
+            "scaling_parallel_rounds_one_thread",
+            Growth::Linear,
+            &sizes,
+            per_call(|n| reasoned(n, Threads::ONE), full_run),
+        );
+    }
+
+    /// The same rounds on twelve threads: linear too, and the closure the
+    /// one thread gives.
+    #[test]
+    fn scaling_parallel_rounds_twelve_threads() {
+        let _lock = lock();
+        let sizes = sizes(PARALLEL_FROM);
+        let n = sizes[0];
+        let (mut one, mut twelve) = (reasoned(n, Threads::ONE), reasoned(n, Threads::exactly(12)));
+        assert_eq!(full_run(&mut one), full_run(&mut twelve));
+        assert!(one.0.triples().eq(twelve.0.triples()));
+        let threads = cfg!(all(feature = "parallel", not(target_family = "wasm")));
+        assert_eq!(twelve.0.store().engaged() > 0, threads && n >= PARALLEL_FROM);
+        check(
+            "scaling_parallel_rounds_twelve_threads",
+            Growth::Linear,
+            &sizes,
+            per_call(|n| reasoned(n, Threads::exactly(12)), full_run),
+        );
+    }
+
+    /// Measures where parallel rounds start to pay: a full run on one
+    /// thread against all cores with no threshold (every round parallel,
+    /// chunks as large as usual), at bases from
+    /// 256 to 262,144 triples, the fastest of `RUNS` measurements each. It
+    /// prints the table and the smallest size from which every size is
+    /// faster on all cores; [`PARALLEL_FROM`] is set from it. It fails only
+    /// if, on four or more threads, the largest size is not faster on all
+    /// cores.
+    ///
+    /// Measured 2026-11-06 on the 12-core Apple machine the tests run on
+    /// (cores of three speeds: 2, 4 and 6), shared with other jobs (load
+    /// about 2), twice, with the same result: all cores were slower up to
+    /// 32,768 triples (0.10 times as fast at 256, 0.55 at 16,384, 0.75 at
+    /// 32,768) and faster from 65,536 (1.19 to 1.23 times), 1.9 times at
+    /// 131,072 and 2.6 to 2.8 times at 262,144. So [`PARALLEL_FROM`] is
+    /// 65,536.
+    #[test]
+    fn timing_parallel_round_threshold() {
+        let _lock = lock();
+        let sizes = [256, 1_024, 4_096, 16_384, 32_768, 65_536, 131_072, 262_144];
+        let mut one = per_call(|n| reasoned(n, Threads::ONE), full_run);
+        let mut all = per_call(|n| on(n, Workers::all().from(0)), full_run);
+        let mut rows: Vec<(usize, f64, f64)> = sizes.iter().map(|&n| (n, f64::INFINITY, f64::INFINITY)).collect();
+        for _ in 0..RUNS {
+            for row in &mut rows {
+                row.1 = row.1.min(one(row.0));
+                row.2 = row.2.min(all(row.0));
+            }
+        }
+        let threads = Workers::all().threads();
+        let mut table = format!(
+            "timing_parallel_round_threshold ({threads} threads):\n  {:>8}  {:>10}  {:>10}  {:>6}\n",
+            "triples", "one", "all", "gain"
+        );
+        for &(n, a, b) in &rows {
+            let _ = std::fmt::Write::write_fmt(
+                &mut table,
+                format_args!("  {n:>8}  {:>10}  {:>10}  {:>6.2}\n", duration(a), duration(b), a / b),
+            );
+        }
+        let from = rows
+            .iter()
+            .rposition(|&(_, a, b)| b >= a)
+            .map_or(Some(rows[0].0), |i| rows.get(i + 1).map(|r| r.0));
+        println!("{table}  all cores win from: {from:?}; PARALLEL_FROM = {PARALLEL_FROM}");
+        let &(_, a, b) = rows.last().expect("sizes");
+        if threads >= 4 {
+            assert!(b < a, "all cores are not faster on the largest base\n{table}");
+        }
+    }
+}

@@ -59,7 +59,7 @@ mod edge_cases;
 mod lexical;
 pub(crate) mod map;
 
-use super::Context;
+use super::{Context, Finding};
 use crate::engine::{Pair, Round, Variable, gallop};
 use crate::term::{Dictionary, Kind, Term, TermId, vocab};
 use map::{Datatype, Reading, Value, value_of};
@@ -85,32 +85,42 @@ fn with_key(pairs: &[Pair], key: u32) -> &[Pair] {
 }
 
 /// dt-not-type, the ill-typed half (see the module doc): both terms of each
-/// recent tuple, and each predicate with a recent tuple.
-fn ill_typed(round: &Round<'_>, cx: &mut Context<'_>) {
+/// recent tuple, and each predicate with a recent tuple. A large recent
+/// part is read in chunks ([`Round::split`]), whose findings join in order.
+fn ill_typed(round: &mut Round<'_>, cx: &mut Context<'_>) {
+    let terms = cx.terms;
     for (p, table) in round.store().tables() {
         let recent = table.by_subject().recent();
         if recent.is_empty() {
             continue;
         }
-        check_own(cx, p);
-        for &(s, o) in recent.iter() {
-            check_own(cx, s);
-            check_own(cx, o);
+        check_own(terms, p, cx.findings);
+        let found = round.split(recent, |_, chunk, found: &mut Vec<Finding>| {
+            for &(s, o) in chunk {
+                check_own(terms, s, found);
+                check_own(terms, o, found);
+            }
+        });
+        for mut chunk in found {
+            cx.findings.append(&mut chunk);
         }
     }
 }
 
-/// Reports `id` when it is an ill-typed literal.
+/// Reports `id` to `found` when it is an ill-typed literal.
 #[inline]
-fn check_own(cx: &mut Context<'_>, id: u32) {
-    if cx.terms.kind(TermId(id)) != Kind::Literal {
+fn check_own(terms: &Dictionary, id: u32, found: &mut Vec<Finding>) {
+    if terms.kind(TermId(id)) != Kind::Literal {
         return;
     }
-    let term = cx.terms.term(TermId(id));
+    let term = terms.term(TermId(id));
     if let Term::Literal { datatype, .. } = term
         && matches!(value_of(term), Reading::IllTyped)
     {
-        cx.report("dt-not-type", &[id, datatype.0]);
+        found.push(Finding {
+            code: "dt-not-type",
+            terms: vec![id, datatype.0],
+        });
     }
 }
 
