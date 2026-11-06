@@ -388,6 +388,7 @@ dependencies = [
 name = "turbowl"
 version = "0.1.0"
 dependencies = [
+ "oxiri",
  "oxrdf",
  "oxrdfxml",
  "oxttl",

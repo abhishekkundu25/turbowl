@@ -129,6 +129,7 @@ impl Entry {
 }
 
 /// The two-way map between terms and term ids. Interning is idempotent.
+#[derive(Clone)]
 pub(crate) struct Dictionary {
     text: String,
     entries: Vec<Entry>,

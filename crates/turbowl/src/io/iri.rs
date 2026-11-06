@@ -1,22 +1,14 @@
 //! IRI validation and resolution for the Turtle and N-Triples parsers.
 //!
-//! Copyright (c) 2018 Oxigraph developers; used under the MIT license (see
-//! `THIRD-PARTY-NOTICES.md` at the repository root).
-//!
-//! This follows the parser of oxiri 0.2.11 (MIT/Apache-2.0) in its checked
-//! mode, because oxiri is not a direct dependency of this crate. oxttl
-//! validates and resolves IRIs with oxiri, so parity with oxiri is the
-//! contract: the same strings accepted, the same resolutions, the same error
-//! messages.
-//!
-//! [`validate`] first tries a scan over bytes for the common shape (ASCII, a
-//! scheme, an optional plain host and port, a path, a query, a fragment). The
-//! scan only accepts; anything it does not accept goes through the ported
-//! parser, which decides and gives oxiri's message.
+//! oxttl validates and resolves IRIs with oxiri 0.2.11, so parity with oxiri
+//! is the contract: the same strings accepted, the same resolutions, the same
+//! error messages. This module calls oxiri itself ([`oxiri::Iri::parse`] and
+//! [`oxiri::Iri::resolve_into`]), with a scan over bytes in front for the
+//! common shape (ASCII, a scheme, an optional plain host and port, a path, a
+//! query, a fragment). The scan only accepts; anything it does not accept goes
+//! to oxiri, which decides and gives the message.
 
-use std::fmt;
-use std::net::{AddrParseError, Ipv6Addr};
-use std::str::{Chars, FromStr};
+use oxiri::Iri;
 
 /// Validates an absolute IRI exactly as `oxiri::Iri::parse` 0.2.11 does.
 /// Err holds the message of oxiri's `IriParseError` (its Display).
@@ -24,73 +16,52 @@ pub(crate) fn validate(iri: &str) -> Result<(), String> {
     if is_plain_absolute(iri.as_bytes()) {
         return Ok(());
     }
-    parse_absolute(iri).map(|_| ()).map_err(|e| e.to_string())
+    parse(iri)
 }
 
-/// True when the path of `iri`, a valid absolute IRI, is empty, as
-/// `oxiri::Iri::parse_unchecked(iri).path().is_empty()` (oxttl uses it to
-/// decide whether a prefixed name must be validated again). The answer for an
-/// invalid IRI is unspecified.
+/// oxiri's verdict, out of the scan's hot path.
+#[cold]
+#[inline(never)]
+fn parse(iri: &str) -> Result<(), String> {
+    Iri::parse(iri).map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// True when the path of `iri`, a valid absolute IRI, is empty, as oxttl
+/// decides whether a prefixed name must be validated again.
 pub(crate) fn has_empty_path(iri: &str) -> bool {
-    // In a valid absolute IRI the scheme ends at the first ':', and an
-    // authority holds no '/', '?' or '#' (an IP literal included), so the path
-    // is empty exactly when what follows the scheme and the authority is
-    // empty or starts a query or a fragment.
-    let bytes = iri.as_bytes();
-    let Some(colon) = bytes.iter().position(|&b| b == b':') else {
-        return false;
-    };
-    let mut rest = &bytes[colon + 1..];
-    if let Some(authority) = rest.strip_prefix(b"//") {
-        let end = authority
-            .iter()
-            .position(|&b| matches!(b, b'/' | b'?' | b'#'))
-            .unwrap_or(authority.len());
-        rest = &authority[end..];
-    }
-    rest.first().is_none_or(|&b| matches!(b, b'?' | b'#'))
+    Iri::parse_unchecked(iri).path().is_empty()
 }
 
-/// A base IRI: an absolute, valid IRI, with what resolution needs (the ends of
-/// its scheme, authority, path and query), parsed once.
+/// A base IRI: an absolute, valid IRI, parsed once.
 #[derive(Debug, Clone)]
-pub(crate) struct Base {
-    iri: String,
-    positions: Positions,
-}
+pub(crate) struct Base(Iri<String>);
 
 impl Base {
     /// As `oxiri::Iri::parse`: Err holds oxiri's message.
     pub(crate) fn new(iri: &str) -> Result<Base, String> {
-        let positions = parse_absolute(iri).map_err(|e| e.to_string())?;
-        Ok(Base {
-            iri: iri.to_owned(),
-            positions,
-        })
+        Iri::parse(iri.to_owned()).map(Base).map_err(|e| e.to_string())
     }
 
-    /// Appends `reference` resolved against this base to `out`, exactly as
-    /// `oxiri::Iri::resolve` 0.2.11 (checked mode) does: the same output for
-    /// every reference it accepts, and an error (oxiri's message) for every
-    /// reference it rejects. On Err, `out` may hold a partial result; the
-    /// caller truncates it.
-    pub(crate) fn resolve_into(&self, reference: &str, out: &mut String) -> Result<(), String> {
+    pub(crate) fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
+    /// Appends `reference` resolved against this base to `out`, as
+    /// `oxiri::Iri::resolve` 0.2.11 does; Err holds oxiri's message. oxiri
+    /// writes into `scratch` (it clears its buffer first), which is then
+    /// appended; on Err, `out` is unchanged.
+    pub(crate) fn resolve_into(&self, reference: &str, out: &mut String, scratch: &mut String) -> Result<(), String> {
         // A reference with a scheme never reads the base, and oxiri copies it
-        // unchanged (no dot segments are removed), so it only needs validating.
-        if scheme_end(reference.as_bytes()).is_some() {
-            validate(reference)?;
+        // unchanged (no dot segments are removed): the scan's accepting it is
+        // enough.
+        if is_plain_absolute(reference.as_bytes()) {
             out.push_str(reference);
             return Ok(());
         }
-        let base = BaseRef {
-            iri: &self.iri,
-            positions: self.positions,
-        };
-        let start = out.len();
-        let mut output = Appended { buf: out, start };
-        Parser::parse(reference, Some(base), &mut output)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        scratch.clear();
+        self.0.resolve_into(reference, scratch).map_err(|e| e.to_string())?;
+        out.push_str(scratch);
+        Ok(())
     }
 }
 
@@ -239,638 +210,6 @@ fn skip_plain(bytes: &[u8], mut i: usize) -> usize {
     i
 }
 
-// The parser, ported from oxiri 0.2.11's `IriParser` in checked mode.
-
-/// Parses `iri` as `oxiri::Iri::parse` does: an IRI reference, then a check
-/// that it has a scheme.
-fn parse_absolute(iri: &str) -> Result<Positions, IriError> {
-    let positions = Parser::parse(iri, None, &mut Void::default())?;
-    if positions.scheme_end == 0 {
-        return Err(IriError::NoScheme);
-    }
-    Ok(positions)
-}
-
-/// The ends of the parts of a parsed IRI, as byte offsets into its output.
-#[derive(Debug, Clone, Copy, Default)]
-struct Positions {
-    scheme_end: usize,
-    authority_end: usize,
-    path_end: usize,
-    query_end: usize,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct BaseRef<'a> {
-    iri: &'a str,
-    positions: Positions,
-}
-
-/// oxiri's `IriParseErrorKind`; Display gives its messages.
-#[derive(Debug)]
-enum IriError {
-    NoScheme,
-    InvalidHostCharacter(char),
-    InvalidHostIp(AddrParseError),
-    InvalidPortCharacter(char),
-    InvalidIriCodePoint(char),
-    InvalidPercentEncoding([Option<char>; 3]),
-    PathStartingWithTwoSlashes,
-}
-
-impl fmt::Display for IriError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IriError::NoScheme => write!(f, "No scheme found in an absolute IRI"),
-            IriError::InvalidHostCharacter(c) => write!(f, "Invalid character '{c}' in host"),
-            IriError::InvalidHostIp(e) => write!(f, "Invalid host IP ({e})"),
-            IriError::InvalidPortCharacter(c) => write!(f, "Invalid character '{c}'"),
-            IriError::InvalidIriCodePoint(c) => write!(f, "Invalid IRI code point '{c}'"),
-            IriError::InvalidPercentEncoding(cs) => {
-                let cs: String = cs.iter().flatten().collect();
-                write!(f, "Invalid IRI percent encoding '{cs}'")
-            }
-            IriError::PathStartingWithTwoSlashes => {
-                write!(f, "An IRI path is not allowed to start with //")
-            }
-        }
-    }
-}
-
-/// Where the parser writes. Lengths and truncations are relative to the start
-/// of this IRI's output.
-trait Output {
-    fn push(&mut self, c: char);
-    fn push_str(&mut self, s: &str);
-    fn clear(&mut self);
-    fn truncate(&mut self, new_len: usize);
-    fn len(&self) -> usize;
-    fn as_str(&self) -> &str;
-}
-
-/// Counts the output without keeping it: validation without a base never
-/// reads the output back.
-#[derive(Debug, Default)]
-struct Void {
-    len: usize,
-}
-
-impl Output for Void {
-    fn push(&mut self, c: char) {
-        self.len += c.len_utf8();
-    }
-    fn push_str(&mut self, s: &str) {
-        self.len += s.len();
-    }
-    fn clear(&mut self) {
-        self.len = 0;
-    }
-    fn truncate(&mut self, new_len: usize) {
-        self.len = new_len;
-    }
-    fn len(&self) -> usize {
-        self.len
-    }
-    fn as_str(&self) -> &str {
-        ""
-    }
-}
-
-/// Appends to a caller's buffer after its first `start` bytes.
-#[derive(Debug)]
-struct Appended<'a> {
-    buf: &'a mut String,
-    start: usize,
-}
-
-impl Output for Appended<'_> {
-    fn push(&mut self, c: char) {
-        self.buf.push(c);
-    }
-    fn push_str(&mut self, s: &str) {
-        self.buf.push_str(s);
-    }
-    fn clear(&mut self) {
-        self.buf.truncate(self.start);
-    }
-    fn truncate(&mut self, new_len: usize) {
-        self.buf.truncate(self.start + new_len);
-    }
-    fn len(&self) -> usize {
-        self.buf.len() - self.start
-    }
-    fn as_str(&self) -> &str {
-        &self.buf[self.start..]
-    }
-}
-
-#[derive(Debug)]
-struct Input<'a> {
-    value: Chars<'a>,
-    position: usize,
-}
-
-impl<'a> Input<'a> {
-    fn at(iri: &'a str, position: usize) -> Self {
-        Input {
-            value: iri[position..].chars(),
-            position,
-        }
-    }
-
-    fn next(&mut self) -> Option<char> {
-        let c = self.value.next()?;
-        self.position += c.len_utf8();
-        Some(c)
-    }
-
-    fn front(&self) -> Option<char> {
-        self.value.clone().next()
-    }
-
-    fn starts_with(&self, c: char) -> bool {
-        self.value.as_str().starts_with(c)
-    }
-}
-
-#[derive(Debug)]
-struct Parser<'a, O: Output> {
-    iri: &'a str,
-    base: Option<BaseRef<'a>>,
-    input: Input<'a>,
-    output: &'a mut O,
-    positions: Positions,
-    input_scheme_end: usize,
-}
-
-impl<'a, O: Output> Parser<'a, O> {
-    fn parse(iri: &'a str, base: Option<BaseRef<'a>>, output: &'a mut O) -> Result<Positions, IriError> {
-        let mut parser = Parser {
-            iri,
-            base,
-            input: Input::at(iri, 0),
-            output,
-            positions: Positions::default(),
-            input_scheme_end: 0,
-        };
-        parser.parse_scheme_start()?;
-        Ok(parser.positions)
-    }
-
-    fn parse_scheme_start(&mut self) -> Result<(), IriError> {
-        match self.input.front() {
-            Some(':') => Err(IriError::NoScheme),
-            Some(c) if c.is_ascii_alphabetic() => self.parse_scheme(),
-            _ => self.parse_relative(),
-        }
-    }
-
-    fn parse_scheme(&mut self) -> Result<(), IriError> {
-        loop {
-            match self.input.next() {
-                Some(c) if c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.') => self.output.push(c),
-                Some(':') => {
-                    self.output.push(':');
-                    self.positions.scheme_end = self.output.len();
-                    self.input_scheme_end = self.input.position;
-                    return if self.input.starts_with('/') {
-                        self.input.next();
-                        self.output.push('/');
-                        self.parse_path_or_authority()
-                    } else {
-                        self.positions.authority_end = self.output.len();
-                        self.parse_path::<false>()
-                    };
-                }
-                _ => {
-                    // Not a scheme after all: start again as a relative reference.
-                    self.input = Input::at(self.iri, 0);
-                    self.output.clear();
-                    return self.parse_relative();
-                }
-            }
-        }
-    }
-
-    fn parse_path_or_authority(&mut self) -> Result<(), IriError> {
-        if self.input.starts_with('/') {
-            self.input.next();
-            self.output.push('/');
-            self.parse_authority()
-        } else {
-            self.positions.authority_end = self.output.len() - 1;
-            self.parse_path::<false>()
-        }
-    }
-
-    fn parse_relative(&mut self) -> Result<(), IriError> {
-        let Some(base) = self.base else {
-            self.positions.scheme_end = 0;
-            self.input_scheme_end = 0;
-            return if self.input.starts_with('/') {
-                self.input.next();
-                self.output.push('/');
-                self.parse_path_or_authority()
-            } else {
-                self.positions.authority_end = 0;
-                self.parse_relative_path::<false>()
-            };
-        };
-        let bp = base.positions;
-        match self.input.front() {
-            None => {
-                self.output.push_str(&base.iri[..bp.query_end]);
-                self.positions = bp;
-                Ok(())
-            }
-            Some('/') => {
-                self.input.next();
-                self.parse_relative_slash(base)
-            }
-            Some('?') => {
-                self.input.next();
-                self.output.push_str(&base.iri[..bp.path_end]);
-                self.output.push('?');
-                self.positions.scheme_end = bp.scheme_end;
-                self.positions.authority_end = bp.authority_end;
-                self.positions.path_end = bp.path_end;
-                self.parse_query()
-            }
-            Some('#') => {
-                self.input.next();
-                self.output.push_str(&base.iri[..bp.query_end]);
-                self.positions = bp;
-                self.output.push('#');
-                self.parse_fragment()
-            }
-            _ => {
-                self.output.push_str(&base.iri[..bp.path_end]);
-                self.positions.scheme_end = bp.scheme_end;
-                self.positions.authority_end = bp.authority_end;
-                self.positions.path_end = bp.path_end;
-                self.remove_last_segment();
-                self.parse_relative_path::<true>()
-            }
-        }
-    }
-
-    fn parse_relative_path<const REMOVE_DOT_SEGMENTS: bool>(&mut self) -> Result<(), IriError> {
-        while let Some(c) = self.input.front() {
-            if matches!(c, '/' | '?' | '#') {
-                break;
-            }
-            self.input.next();
-            self.read_url_codepoint_or_echar(c, |c| is_iunreserved_or_sub_delims(c) || c == '@')?;
-        }
-        self.parse_path::<REMOVE_DOT_SEGMENTS>()
-    }
-
-    fn parse_relative_slash(&mut self, base: BaseRef<'_>) -> Result<(), IriError> {
-        let bp = base.positions;
-        if self.input.starts_with('/') {
-            self.input.next();
-            self.output.push_str(&base.iri[..bp.scheme_end]);
-            self.positions.scheme_end = bp.scheme_end;
-            self.output.push('/');
-            self.output.push('/');
-            self.parse_authority()
-        } else {
-            self.output.push_str(&base.iri[..bp.authority_end]);
-            self.output.push('/');
-            self.positions.scheme_end = bp.scheme_end;
-            self.positions.authority_end = bp.authority_end;
-            self.parse_path::<true>()
-        }
-    }
-
-    fn parse_authority(&mut self) -> Result<(), IriError> {
-        // '@' is not allowed in an IRI host, so a first '@' ends the userinfo.
-        loop {
-            match self.input.next() {
-                Some('@') => {
-                    self.output.push('@');
-                    return self.parse_host();
-                }
-                None | Some('[' | '/' | '?' | '#') => {
-                    // No userinfo: read the authority again as a host.
-                    self.input = Input::at(self.iri, self.input_scheme_end + 2);
-                    self.output.truncate(self.positions.scheme_end + 2);
-                    return self.parse_host();
-                }
-                Some(c) => {
-                    self.read_url_codepoint_or_echar(c, |c| is_iunreserved_or_sub_delims(c) || c == ':')?;
-                }
-            }
-        }
-    }
-
-    fn parse_host(&mut self) -> Result<(), IriError> {
-        if self.input.starts_with('[') {
-            // An IP literal.
-            let start_position = self.input.position;
-            while let Some(c) = self.input.next() {
-                self.output.push(c);
-                if c == ']' {
-                    let ip = &self.iri[start_position + 1..self.input.position - 1];
-                    if ip.starts_with(['v', 'V']) {
-                        validate_ip_v_future(ip)?;
-                    } else if let Err(error) = Ipv6Addr::from_str(ip) {
-                        return Err(IriError::InvalidHostIp(error));
-                    }
-                    let c = self.input.next();
-                    return match c {
-                        Some(':') => {
-                            self.output.push(':');
-                            self.parse_port()
-                        }
-                        None | Some('/' | '?' | '#') => {
-                            self.positions.authority_end = self.output.len();
-                            self.parse_path_start(c)
-                        }
-                        Some(c) => Err(IriError::InvalidHostCharacter(c)),
-                    };
-                }
-            }
-            Err(IriError::InvalidHostCharacter('['))
-        } else {
-            loop {
-                let c = self.input.next();
-                match c {
-                    Some(':') => {
-                        self.output.push(':');
-                        return self.parse_port();
-                    }
-                    None | Some('/' | '?' | '#') => {
-                        self.positions.authority_end = self.output.len();
-                        return self.parse_path_start(c);
-                    }
-                    Some(c) => self.read_url_codepoint_or_echar(c, is_iunreserved_or_sub_delims)?,
-                }
-            }
-        }
-    }
-
-    fn parse_port(&mut self) -> Result<(), IriError> {
-        loop {
-            let c = self.input.next();
-            match c {
-                None | Some('/' | '?' | '#') => {
-                    self.positions.authority_end = self.output.len();
-                    return self.parse_path_start(c);
-                }
-                Some(c) if c.is_ascii_digit() => self.output.push(c),
-                Some(c) => return Err(IriError::InvalidPortCharacter(c)),
-            }
-        }
-    }
-
-    fn parse_path_start(&mut self, c: Option<char>) -> Result<(), IriError> {
-        match c {
-            None => {
-                self.positions.path_end = self.output.len();
-                self.positions.query_end = self.output.len();
-                Ok(())
-            }
-            Some('?') => {
-                self.positions.path_end = self.output.len();
-                self.output.push('?');
-                self.parse_query()
-            }
-            Some('#') => {
-                self.positions.path_end = self.output.len();
-                self.positions.query_end = self.output.len();
-                self.output.push('#');
-                self.parse_fragment()
-            }
-            Some('/') => {
-                self.output.push('/');
-                self.parse_path::<false>()
-            }
-            Some(c) => {
-                self.read_url_codepoint_or_echar(c, |c| is_iunreserved_or_sub_delims(c) || matches!(c, ':' | '@'))?;
-                self.parse_path::<false>()
-            }
-        }
-    }
-
-    fn parse_path<const REMOVE_DOT_SEGMENTS: bool>(&mut self) -> Result<(), IriError> {
-        loop {
-            let c = self.input.next();
-            match c {
-                None | Some('/' | '?' | '#') => {
-                    if REMOVE_DOT_SEGMENTS {
-                        let path = &self.output.as_str()[self.positions.authority_end..];
-                        if path.ends_with("/..") {
-                            self.output.truncate(self.output.len() - 3);
-                            self.remove_last_segment();
-                        } else if path.ends_with("/.") || path == "." {
-                            self.output.truncate(self.output.len() - 1);
-                        } else if path == ".." {
-                            self.output.truncate(self.output.len() - 2);
-                        } else if c == Some('/') {
-                            self.output.push('/');
-                            continue;
-                        }
-                        // Removing dot segments can leave a path starting with
-                        // "//", which would read as an authority.
-                        if self.output.as_str()[self.positions.authority_end..].starts_with("//")
-                            && self.positions.authority_end == self.positions.scheme_end
-                        {
-                            return Err(IriError::PathStartingWithTwoSlashes);
-                        }
-                    } else if c == Some('/') {
-                        self.output.push('/');
-                        continue;
-                    }
-
-                    match c {
-                        Some('?') => {
-                            self.positions.path_end = self.output.len();
-                            self.output.push('?');
-                            return self.parse_query();
-                        }
-                        Some('#') => {
-                            self.positions.path_end = self.output.len();
-                            self.positions.query_end = self.output.len();
-                            self.output.push('#');
-                            return self.parse_fragment();
-                        }
-                        None => {
-                            self.positions.path_end = self.output.len();
-                            self.positions.query_end = self.output.len();
-                            return Ok(());
-                        }
-                        // A '/' after a dot segment was dropped: the segment
-                        // already ends with one.
-                        Some(_) => {}
-                    }
-                }
-                Some(c) => {
-                    self.read_url_codepoint_or_echar(c, |c| is_iunreserved_or_sub_delims(c) || matches!(c, ':' | '@'))?
-                }
-            }
-        }
-    }
-
-    fn parse_query(&mut self) -> Result<(), IriError> {
-        while let Some(c) = self.input.next() {
-            if c == '#' {
-                self.positions.query_end = self.output.len();
-                self.output.push('#');
-                return self.parse_fragment();
-            }
-            self.read_url_codepoint_or_echar(c, |c| {
-                is_iunreserved_or_sub_delims(c)
-                    || matches!(c, ':' | '@' | '/' | '?' | '\u{E000}'..='\u{F8FF}' | '\u{F0000}'..='\u{FFFFD}' | '\u{100000}'..='\u{10FFFD}')
-            })?;
-        }
-        self.positions.query_end = self.output.len();
-        Ok(())
-    }
-
-    fn parse_fragment(&mut self) -> Result<(), IriError> {
-        while let Some(c) = self.input.next() {
-            self.read_url_codepoint_or_echar(c, |c| {
-                is_iunreserved_or_sub_delims(c) || matches!(c, ':' | '@' | '/' | '?')
-            })?;
-        }
-        Ok(())
-    }
-
-    fn remove_last_segment(&mut self) {
-        let authority_end = self.positions.authority_end;
-        if let Some(last_slash) = self.output.as_str()[authority_end..].rfind('/') {
-            self.output.truncate(authority_end + last_slash);
-            self.output.push('/');
-        } else {
-            self.output.truncate(authority_end);
-            if authority_end > self.positions.scheme_end {
-                self.output.push('/');
-            }
-        }
-    }
-
-    fn read_url_codepoint_or_echar(&mut self, c: char, valid: impl Fn(char) -> bool) -> Result<(), IriError> {
-        if valid(c) {
-            self.output.push(c);
-            Ok(())
-        } else if c == '%' {
-            self.read_echar()
-        } else {
-            Err(IriError::InvalidIriCodePoint(c))
-        }
-    }
-
-    fn read_echar(&mut self) -> Result<(), IriError> {
-        let c1 = self.input.next();
-        let c2 = self.input.next();
-        match (c1, c2) {
-            (Some(c1), Some(c2)) if c1.is_ascii_hexdigit() && c2.is_ascii_hexdigit() => {
-                self.output.push('%');
-                self.output.push(c1);
-                self.output.push(c2);
-                Ok(())
-            }
-            _ => Err(IriError::InvalidPercentEncoding([Some('%'), c1, c2])),
-        }
-    }
-}
-
-/// `IPvFuture = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )`, with
-/// oxiri's choice of the offending character.
-fn validate_ip_v_future(ip: &str) -> Result<(), IriError> {
-    let mut chars = ip.chars();
-    let c = chars.next().ok_or(IriError::InvalidHostCharacter(']'))?;
-    if !matches!(c, 'v' | 'V') {
-        return Err(IriError::InvalidHostCharacter(c));
-    }
-    let mut with_a_version = false;
-    for c in &mut chars {
-        if c == '.' {
-            break;
-        } else if c.is_ascii_hexdigit() {
-            with_a_version = true;
-        } else {
-            return Err(IriError::InvalidHostCharacter(c));
-        }
-    }
-    if !with_a_version {
-        return Err(IriError::InvalidHostCharacter(chars.next().unwrap_or(']')));
-    }
-    if chars.as_str().is_empty() {
-        return Err(IriError::InvalidHostCharacter(']'));
-    }
-    for c in chars {
-        if !is_unreserved_or_sub_delims(c) && c != ':' {
-            return Err(IriError::InvalidHostCharacter(c));
-        }
-    }
-    Ok(())
-}
-
-fn is_iunreserved_or_sub_delims(c: char) -> bool {
-    matches!(c,
-        'a'..='z'
-        | 'A'..='Z'
-        | '0'..='9'
-        | '!'
-        | '$'
-        | '&'
-        | '\''
-        | '('
-        | ')'
-        | '*'
-        | '+'
-        | ','
-        | '-'
-        | '.'
-        | ';'
-        | '='
-        | '_'
-        | '~'
-        | '\u{A0}'..='\u{D7FF}'
-        | '\u{F900}'..='\u{FDCF}'
-        | '\u{FDF0}'..='\u{FFEF}'
-        | '\u{10000}'..='\u{1FFFD}'
-        | '\u{20000}'..='\u{2FFFD}'
-        | '\u{30000}'..='\u{3FFFD}'
-        | '\u{40000}'..='\u{4FFFD}'
-        | '\u{50000}'..='\u{5FFFD}'
-        | '\u{60000}'..='\u{6FFFD}'
-        | '\u{70000}'..='\u{7FFFD}'
-        | '\u{80000}'..='\u{8FFFD}'
-        | '\u{90000}'..='\u{9FFFD}'
-        | '\u{A0000}'..='\u{AFFFD}'
-        | '\u{B0000}'..='\u{BFFFD}'
-        | '\u{C0000}'..='\u{CFFFD}'
-        | '\u{D0000}'..='\u{DFFFD}'
-        | '\u{E1000}'..='\u{EFFFD}'
-    )
-}
-
-fn is_unreserved_or_sub_delims(c: char) -> bool {
-    matches!(c,
-        'a'..='z'
-        | 'A'..='Z'
-        | '0'..='9'
-        | '!'
-        | '$'
-        | '&'
-        | '\''
-        | '('
-        | ')'
-        | '*'
-        | '+'
-        | ','
-        | '-'
-        | '.'
-        | ';'
-        | '='
-        | '_'
-        | '~'
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -880,7 +219,10 @@ mod tests {
 
     fn resolve(base: &str, reference: &str) -> Result<String, String> {
         let mut out = String::new();
-        Base::new(base).unwrap().resolve_into(reference, &mut out).map(|()| out)
+        Base::new(base)
+            .unwrap()
+            .resolve_into(reference, &mut out, &mut String::new())
+            .map(|()| out)
     }
 
     /// The skip over plain bytes stops exactly where the byte classes say.
@@ -900,89 +242,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn rfc3986_normal_examples() {
-        let base = "http://a/b/c/d;p?q";
-        for (reference, expected) in [
-            ("g:h", "g:h"),
-            ("g", "http://a/b/c/g"),
-            ("./g", "http://a/b/c/g"),
-            ("g/", "http://a/b/c/g/"),
-            ("/g", "http://a/g"),
-            ("//g", "http://g"),
-            ("?y", "http://a/b/c/d;p?y"),
-            ("g?y", "http://a/b/c/g?y"),
-            ("#s", "http://a/b/c/d;p?q#s"),
-            ("g#s", "http://a/b/c/g#s"),
-            ("g?y#s", "http://a/b/c/g?y#s"),
-            (";x", "http://a/b/c/;x"),
-            ("g;x", "http://a/b/c/g;x"),
-            ("g;x?y#s", "http://a/b/c/g;x?y#s"),
-            ("", "http://a/b/c/d;p?q"),
-            (".", "http://a/b/c/"),
-            ("./", "http://a/b/c/"),
-            ("..", "http://a/b/"),
-            ("../", "http://a/b/"),
-            ("../g", "http://a/b/g"),
-            ("../..", "http://a/"),
-            ("../../", "http://a/"),
-            ("../../g", "http://a/g"),
-        ] {
-            assert_eq!(resolve(base, reference).as_deref(), Ok(expected), "{reference}");
-        }
-    }
-
-    #[test]
-    fn rfc3986_abnormal_examples() {
-        let base = "http://a/b/c/d;p?q";
-        for (reference, expected) in [
-            ("../../../g", "http://a/g"),
-            ("../../../../g", "http://a/g"),
-            ("/./g", "http://a/g"),
-            ("/../g", "http://a/g"),
-            ("g.", "http://a/b/c/g."),
-            (".g", "http://a/b/c/.g"),
-            ("g..", "http://a/b/c/g.."),
-            ("..g", "http://a/b/c/..g"),
-            ("./../g", "http://a/b/g"),
-            ("./g/.", "http://a/b/c/g/"),
-            ("g/./h", "http://a/b/c/g/h"),
-            ("g/../h", "http://a/b/c/h"),
-            ("g;x=1/./y", "http://a/b/c/g;x=1/y"),
-            ("g;x=1/../y", "http://a/b/c/y"),
-            ("g?y/./x", "http://a/b/c/g?y/./x"),
-            ("g?y/../x", "http://a/b/c/g?y/../x"),
-            ("g#s/./x", "http://a/b/c/g#s/./x"),
-            ("g#s/../x", "http://a/b/c/g#s/../x"),
-            ("http:g", "http:g"),
-        ] {
-            assert_eq!(resolve(base, reference).as_deref(), Ok(expected), "{reference}");
-        }
-    }
-
-    #[test]
-    fn query_fragment_and_empty_references() {
-        assert_eq!(
-            resolve("http://example.org/a?q#f", "").unwrap(),
-            "http://example.org/a?q"
-        );
-        assert_eq!(
-            resolve("http://example.org/a?q#f", "#").unwrap(),
-            "http://example.org/a?q#"
-        );
-        assert_eq!(
-            resolve("http://example.org/a?q#f", "?").unwrap(),
-            "http://example.org/a?"
-        );
-        assert_eq!(resolve("http://example.org", "#x").unwrap(), "http://example.org#x");
-        assert_eq!(resolve("http://example.org", "x").unwrap(), "http://example.org/x");
-        assert_eq!(resolve("urn:a:b", "c").unwrap(), "urn:c");
-        assert_eq!(
-            resolve("http://example.org/a", "#a#b").unwrap_err(),
-            "Invalid IRI code point '#'"
-        );
-    }
-
+    /// The scan's shortcut for references with a scheme: copied as they are.
     #[test]
     fn absolute_references_keep_dot_segments() {
         let base = "http://example.org/a/b";
@@ -996,81 +256,34 @@ mod tests {
         assert_eq!(resolve("a:/x/./y", "z").unwrap(), "a:/x/./z");
     }
 
+    /// The scan rejects what it must leave to oxiri, which gives the message.
     #[test]
-    fn network_path_references() {
-        let base = "http://example.org/a/b";
-        assert_eq!(resolve(base, "//example.com").unwrap(), "http://example.com");
-        assert_eq!(resolve(base, "//u@h:8/p/../q").unwrap(), "http://u@h:8/p/../q");
-        assert_eq!(resolve(base, "//[::1]/x").unwrap(), "http://[::1]/x");
-        assert_eq!(resolve(base, "//a b").unwrap_err(), "Invalid IRI code point ' '");
-    }
-
-    #[test]
-    fn path_starting_with_two_slashes() {
-        // Removing "/." in a base without an authority leaves "//g".
-        assert_eq!(
-            resolve("a:b", "/.//g").unwrap_err(),
-            "An IRI path is not allowed to start with //"
-        );
-        // With an authority the same path is fine.
-        assert_eq!(
-            resolve("http://example.org/b", "/.//g").unwrap(),
-            "http://example.org//g"
-        );
-        // Parsing alone never reports it.
-        assert_eq!(validate("a:.//g"), Ok(()));
-    }
-
-    #[test]
-    fn hosts_and_ports() {
+    fn hosts_ports_and_percent_encodings() {
         for iri in [
             "http://[::1]",
             "http://[::1]:80/p",
-            "http://[2001:db8::7]/",
             "http://[v1.x]/",
-            "http://[V7.a:b]/",
             "http://u:p@example.org:8080/",
             "http://example.org:/",
             "http://%41.example.org/",
             "http:///p",
             "a://",
+            "http://example.org/%2Fa%c3%A9",
+            "http://example.org/é?\u{E000}#ü",
         ] {
             assert_eq!(validate(iri), Ok(()), "{iri}");
         }
         for (iri, message) in [
             ("http://[::1", "Invalid character '[' in host"),
-            ("http://[::1]x", "Invalid character 'x' in host"),
             ("http://[:::1]/", "Invalid host IP (invalid IPv6 address syntax)"),
-            ("http://[v.x]/", "Invalid character 'x' in host"),
-            ("http://[v1]/", "Invalid character ']' in host"),
-            ("http://[v1.]/", "Invalid character ']' in host"),
-            ("http://[vg.x]/", "Invalid character 'g' in host"),
-            ("http://[v1.x/]/", "Invalid character '/' in host"),
             ("http://example.org:8a/", "Invalid character 'a'"),
             ("http://a@b@c/", "Invalid IRI code point '@'"),
             ("http://exa mple.org/", "Invalid IRI code point ' '"),
-        ] {
-            assert_eq!(validate(iri).unwrap_err(), message, "{iri}");
-        }
-    }
-
-    #[test]
-    fn percent_encodings_and_code_points() {
-        assert_eq!(validate("http://example.org/%2Fa%c3%A9"), Ok(()));
-        assert_eq!(validate("http://example.org/é?\u{E000}#ü"), Ok(()));
-        for (iri, message) in [
             ("http://example.org/%zz", "Invalid IRI percent encoding '%zz'"),
             ("http://example.org/%2", "Invalid IRI percent encoding '%2'"),
-            ("http://example.org/%", "Invalid IRI percent encoding '%'"),
-            ("http://example.org/a b", "Invalid IRI code point ' '"),
-            ("http://example.org/\u{E000}", "Invalid IRI code point '\u{E000}'"),
             ("http://example.org/a#b#c", "Invalid IRI code point '#'"),
-            ("http://example.org/a#\u{E000}", "Invalid IRI code point '\u{E000}'"),
             ("http://example.org/<", "Invalid IRI code point '<'"),
             ("example", "No scheme found in an absolute IRI"),
-            ("", "No scheme found in an absolute IRI"),
-            (":x", "No scheme found in an absolute IRI"),
-            ("/a b", "Invalid IRI code point ' '"),
             ("1a:b", "Invalid IRI code point ':'"),
         ] {
             assert_eq!(validate(iri).unwrap_err(), message, "{iri}");
@@ -1080,32 +293,22 @@ mod tests {
     #[test]
     fn base_errors_and_appending() {
         assert_eq!(Base::new("example").unwrap_err(), "No scheme found in an absolute IRI");
-        assert_eq!(Base::new("http://example.org/a").unwrap().iri, "http://example.org/a");
         let base = Base::new("http://example.org/a/b").unwrap();
+        let mut scratch = String::from("left over");
         let mut out = String::from("<");
-        base.resolve_into("../c?d", &mut out).unwrap();
+        base.resolve_into("../c?d", &mut out, &mut scratch).unwrap();
         assert_eq!(out, "<http://example.org/c?d");
         // A reference that is not a scheme after all is relative.
         let mut out = String::from("x");
-        base.resolve_into("c+d/e:f", &mut out).unwrap();
+        base.resolve_into("c+d/e:f", &mut out, &mut scratch).unwrap();
         assert_eq!(out, "xhttp://example.org/a/c+d/e:f");
         assert_eq!(
-            base.resolve_into("c d:e", &mut out).unwrap_err(),
+            base.resolve_into("c d:e", &mut out, &mut scratch).unwrap_err(),
             "Invalid IRI code point ' '"
         );
-    }
-
-    #[test]
-    fn empty_paths() {
-        assert!(has_empty_path("http://example.org"));
-        assert!(!has_empty_path("http://example.org/"));
-        assert!(!has_empty_path("urn:x"));
+        assert_eq!(out, "xhttp://example.org/a/c+d/e:f", "unchanged on an error");
         assert!(has_empty_path("http://example.org?q"));
-        assert!(has_empty_path("http://example.org#f"));
-        assert!(has_empty_path("urn:"));
-        assert!(has_empty_path("urn:?q"));
-        assert!(!has_empty_path("a:/"));
-        assert!(has_empty_path("http://[::1]:80"));
+        assert!(!has_empty_path("http://example.org/"));
     }
 
     /// A deterministic xorshift generator.
@@ -1162,16 +365,7 @@ mod tests {
             let ours = validate(&iri);
             let theirs = NamedNodeRef::new(&iri).map(|_| ()).map_err(|e| e.to_string());
             assert_eq!(ours, theirs, "{iri:?}");
-            if ours.is_ok() {
-                accepted += 1;
-                // The parsed positions are oxiri's: the scan must agree.
-                let positions = parse_absolute(&iri).unwrap();
-                assert_eq!(
-                    has_empty_path(&iri),
-                    positions.authority_end == positions.path_end,
-                    "{iri:?}"
-                );
-            }
+            accepted += usize::from(ours.is_ok());
         }
         assert!(accepted > 50_000, "only {accepted} accepted");
     }
@@ -1229,12 +423,14 @@ mod tests {
         let bases: Vec<Base> = BASES.iter().map(|b| Base::new(b).unwrap()).collect();
         let mut rng = Rng(0x2545_F491_4F6C_DD1D);
         let mut accepted = 0;
-        let mut out = String::new();
+        let (mut out, mut scratch) = (String::new(), String::new());
         for _ in 0..250_000 {
             let i = rng.below(BASES.len());
             let reference = generate(&mut rng, REF_STARTS, REF_PIECES, 6);
             out.clear();
-            let ours = bases[i].resolve_into(&reference, &mut out).map(|()| out.clone());
+            let ours = bases[i]
+                .resolve_into(&reference, &mut out, &mut scratch)
+                .map(|()| out.clone());
             let theirs = oxttl_resolve(BASES[i], &reference);
             assert_eq!(ours, theirs, "base {:?}, reference {reference:?}", BASES[i]);
             accepted += usize::from(ours.is_ok());

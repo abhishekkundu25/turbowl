@@ -14,49 +14,124 @@
 //! The terms of a statement are [`Node`]s until a triple goes out
 //! ([`super::terms`]); the statement's nodes and arena are dropped when it
 //! ends.
+//!
+//! A parse reads from where its lexer stands, with the prefixes and base it
+//! is given, to the end of the document or, given an `until` short of it, to
+//! the first line start at or after `until` that is between statements
+//! ([`Stop::At`]): so [`super::parallel`] can parse a document in pieces.
+//! [`Prefixes`] records which prefixes a parse looked up without declaring
+//! them, and the lexer whether it read the base: what the result depends on.
 
 use super::iri::{self, Base};
-use super::lexer::{Event, Failure, Lexer, Mode, Text, Token, resolve_local_name};
-use super::terms::{Datatype, Node, NodeId, Nodes, Out};
-use crate::Error;
+use super::lexer::{Event, Failure, Lexer, Text, Token, resolve_local_name};
+use super::terms::{Datatype, Fail, Node, NodeId, Nodes, Out, Stop};
 use crate::term::{TermId, vocab};
 use rustc_hash::FxHashMap;
 
 const RDF_LANG_STRING: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString";
 
-/// Parses a Turtle document into `out`. `base` resolves relative IRIs.
+/// Parses Turtle into `out`, from where `lexer` stands (a line start between
+/// statements, with its base) and with `prefixes`, to the end of the document,
+/// or to the first line start at or after `until`, when that is short of the
+/// end, where the grammar is between statements. `prefixes` ends as the parse
+/// left them.
 pub(super) fn parse<'a, S: FnMut([TermId; 3])>(
-    text: &'a [u8],
-    base: Option<Base>,
+    lexer: &mut Lexer<'a>,
+    until: usize,
+    prefixes: &mut Prefixes<'a>,
     out: &mut Out<'a, '_, '_, S>,
-) -> Result<(), Error> {
-    let mut lexer = Lexer::new(text, Mode::Turtle, base);
-    let mut arena = String::new();
-    let mut turtle = Turtle::default();
-    loop {
-        let token = match lexer.next(&mut arena) {
-            Ok(Event::Token(token)) => token,
-            Ok(Event::LineJump) => continue,
-            Ok(Event::End) => {
-                return match turtle.end() {
-                    Some(message) => Err(out.failure(text, Failure::at(lexer.token_start(), message))),
-                    None => Ok(()),
-                };
+) -> Result<Stop, Fail> {
+    let mut turtle = Turtle {
+        prefixes: std::mem::take(prefixes),
+        ..Turtle::default()
+    };
+    let result = turtle.parse(lexer, until, out);
+    *prefixes = turtle.prefixes;
+    result
+}
+
+/// The prefixes of a parse, and which of them it read without declaring.
+#[derive(Debug, Clone, Default)]
+pub(super) struct Prefixes<'a> {
+    map: FxHashMap<&'a str, Prefix>,
+    /// The prefixes looked up before this parse declared them (or that were
+    /// not declared at all), each once.
+    pub(super) read: Vec<&'a str>,
+    /// True when the parse read a `@base` (its lexer's base is then its own).
+    pub(super) base_set: bool,
+}
+
+#[derive(Debug, Clone)]
+struct Prefix {
+    namespace: String,
+    /// Whether the namespace's path is empty.
+    empty_path: bool,
+    /// Declared by this parse.
+    declared: bool,
+    /// In [`Prefixes::read`].
+    read: bool,
+}
+
+impl<'a> Prefixes<'a> {
+    /// The namespace of a prefix and whether its path is empty; records the
+    /// lookup when this parse has not declared it.
+    #[inline]
+    fn get(&mut self, name: &'a str) -> Option<(&str, bool)> {
+        match self.map.get_mut(name) {
+            Some(prefix) => {
+                if !prefix.declared && !prefix.read {
+                    prefix.read = true;
+                    self.read.push(name);
+                }
+                Some((&prefix.namespace, prefix.empty_path))
             }
-            Err(failure) => return Err(out.failure(text, failure)),
+            None => {
+                self.read.push(name);
+                None
+            }
+        }
+    }
+
+    fn declare(&mut self, name: &'a str, namespace: &str) {
+        let prefix = Prefix {
+            namespace: namespace.to_owned(),
+            empty_path: iri::has_empty_path(namespace),
+            declared: true,
+            read: false,
         };
-        turtle.step(token, &mut arena, &mut lexer.base);
-        if let Some(message) = turtle.error.take() {
-            let message = message.replace("TOKEN", &lexer.token_source());
-            return Err(out.failure(text, Failure::at(lexer.token_start(), message)));
+        self.map.insert(name, prefix);
+    }
+
+    /// The namespace of a prefix, as a parse from here would see it.
+    pub(super) fn namespace(&self, name: &str) -> Option<&str> {
+        self.map.get(name).map(|p| p.namespace.as_str())
+    }
+
+    /// These prefixes as the start of another parse: nothing declared or
+    /// read yet.
+    pub(super) fn start(&self) -> Prefixes<'a> {
+        let mut map = self.map.clone();
+        for prefix in map.values_mut() {
+            prefix.declared = false;
+            prefix.read = false;
         }
-        // As oxttl, the triples of one token go out last first.
-        while let Some(triple) = turtle.results.pop() {
-            out.deliver_held(&mut turtle.nodes, triple, &arena)?;
+        Prefixes {
+            map,
+            read: Vec::new(),
+            base_set: false,
         }
-        if turtle.between_statements() {
-            turtle.nodes.clear();
-            arena.clear();
+    }
+
+    /// Adds the declarations of `later`, a parse that read on from where
+    /// these prefixes stand.
+    pub(super) fn follow(&mut self, later: &Prefixes<'a>) {
+        for (&name, prefix) in &later.map {
+            if prefix.declared {
+                let mut prefix = prefix.clone();
+                prefix.declared = false;
+                prefix.read = false;
+                self.map.insert(name, prefix);
+            }
         }
     }
 }
@@ -98,8 +173,7 @@ struct Turtle<'a> {
     predicates: Vec<NodeId>,
     objects: Vec<NodeId>,
     nodes: Nodes<'a>,
-    /// Each prefix's namespace, and whether the namespace's path is empty.
-    prefixes: FxHashMap<&'a str, (String, bool)>,
+    prefixes: Prefixes<'a>,
     /// The triples of the current token.
     results: Vec<[NodeId; 3]>,
     /// The error of the current token: the last one recorded, as oxttl reports it.
@@ -114,7 +188,7 @@ impl Default for Turtle<'_> {
             predicates: Vec::new(),
             objects: Vec::new(),
             nodes: Nodes::default(),
-            prefixes: FxHashMap::default(),
+            prefixes: Prefixes::default(),
             results: Vec::new(),
             error: None,
         }
@@ -122,9 +196,52 @@ impl Default for Turtle<'_> {
 }
 
 impl<'a> Turtle<'a> {
+    fn parse<S: FnMut([TermId; 3])>(
+        &mut self,
+        lexer: &mut Lexer<'a>,
+        until: usize,
+        out: &mut Out<'a, '_, '_, S>,
+    ) -> Result<Stop, Fail> {
+        let mut arena = String::new();
+        let end = lexer.text_len();
+        loop {
+            let token = match lexer.next(&mut arena)? {
+                Event::Token(token) => token,
+                Event::LineJump => {
+                    if lexer.pos() >= until && until < end && self.between_statements() {
+                        return Ok(Stop::At(lexer.pos()));
+                    }
+                    continue;
+                }
+                Event::End => {
+                    return match self.end() {
+                        Some(message) => Err(Failure::at(lexer.token_start(), message).into()),
+                        None => Ok(Stop::End),
+                    };
+                }
+            };
+            self.step(token, &mut arena, &mut lexer.base);
+            if let Some(message) = self.error.take() {
+                let message = message.replace("TOKEN", &lexer.token_source());
+                return Err(Failure::at(lexer.token_start(), message).into());
+            }
+            // As oxttl, the triples of one token go out last first.
+            while let Some(triple) = self.results.pop() {
+                out.deliver_held(&mut self.nodes, triple, &arena)?;
+            }
+            if self.between_statements() {
+                self.nodes.clear();
+                arena.clear();
+            }
+        }
+    }
+
     /// True between two statements: nothing refers to a node or the arena.
     fn between_statements(&self) -> bool {
-        self.stack.len() == 1 && self.subjects.is_empty() && self.predicates.is_empty() && self.objects.is_empty()
+        matches!(self.stack.as_slice(), [State::TurtleDoc])
+            && self.subjects.is_empty()
+            && self.predicates.is_empty()
+            && self.objects.is_empty()
     }
 
     /// An error that ends the statement (oxttl clears its stacks).
@@ -148,8 +265,8 @@ impl<'a> Turtle<'a> {
 
     /// The IRI of a prefixed name, in the arena.
     fn prefixed(
-        &self,
-        prefix: &str,
+        &mut self,
+        prefix: &'a str,
         local: Text<'a>,
         might_be_invalid_iri: bool,
         arena: &mut String,
@@ -216,7 +333,10 @@ impl<'a> Turtle<'a> {
                     if let Token::IriRef(iri) = token {
                         // Valid already: the lexer validated (or resolved) it.
                         match Base::new(iri.get(arena)) {
-                            Ok(new) => *base = Some(new),
+                            Ok(new) => {
+                                *base = Some(new);
+                                self.prefixes.base_set = true;
+                            }
                             Err(e) => self.fail(e),
                         }
                     } else {
@@ -235,8 +355,7 @@ impl<'a> Turtle<'a> {
                 }
                 State::PrefixExpectIri { name } => {
                     if let Token::IriRef(iri) = token {
-                        let iri = iri.get(arena);
-                        self.prefixes.insert(name, (iri.to_owned(), iri::has_empty_path(iri)));
+                        self.prefixes.declare(name, iri.get(arena));
                     } else {
                         self.fail("The PREFIX declaration should be followed by a prefix and its value as an IRI");
                     }

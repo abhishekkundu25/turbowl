@@ -8,35 +8,48 @@
 //! tokens ([`super::lexer`]): a triple per line, line jumps significant. A
 //! triple goes out at the token after its object, as in oxttl, so a triple
 //! whose line then fails never reaches the sink.
+//!
+//! A parse reads from where its lexer stands, a line start, to the end of the
+//! document or, given an `until` short of it, to the first line start at or
+//! after `until` ([`Stop::At`]): every line start is between triples here, so
+//! [`super::parallel`] can parse a document's lines in pieces.
 
-use super::lexer::{Event, Failure, Lexer, Mode, Text, Token};
-use super::terms::{Datatype, Node, Out};
-use crate::Error;
+use super::lexer::{Event, Failure, Lexer, Text, Token};
+use super::terms::{Datatype, Fail, Node, Out, Stop};
 use crate::term::TermId;
 
 const RDF_LANG_STRING: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString";
 
-/// Parses an N-Triples document into `out`.
-pub(super) fn parse<'a, S: FnMut([TermId; 3])>(text: &'a [u8], out: &mut Out<'a, '_, '_, S>) -> Result<(), Error> {
-    let mut lexer = Lexer::new(text, Mode::NTriples, None);
+/// Parses N-Triples into `out`, from where `lexer` stands (a line start) to
+/// the end of the document, or to the first line start at or after `until`
+/// when that is short of the end.
+pub(super) fn parse<'a, S: FnMut([TermId; 3])>(
+    lexer: &mut Lexer<'a>,
+    until: usize,
+    out: &mut Out<'a, '_, '_, S>,
+) -> Result<Stop, Fail> {
     let mut arena = String::new();
     let mut line = Line::default();
+    let end = lexer.text_len();
     loop {
-        let event = lexer.next(&mut arena).map_err(|failure| out.failure(text, failure))?;
+        let event = lexer.next(&mut arena)?;
         if let Event::End = event {
             return match line.end() {
-                Some(message) => Err(out.failure(text, Failure::at(lexer.token_start(), message))),
-                None => Ok(()),
+                Some(message) => Err(Failure::at(lexer.token_start(), message).into()),
+                None => Ok(Stop::End),
             };
         }
         line.step(event, &mut arena);
         if let Some(message) = line.error.take() {
             let message = message.replace("TOKEN", &lexer.token_source());
-            return Err(out.failure(text, Failure::at(lexer.token_start(), message)));
+            return Err(Failure::at(lexer.token_start(), message).into());
         }
         if let Some(triple) = line.result.take() {
             out.deliver(triple, &arena)?;
             arena.clear();
+        }
+        if lexer.pos() >= until && until < end && line.between_lines() {
+            return Ok(Stop::At(lexer.pos()));
         }
     }
 }
@@ -204,6 +217,17 @@ impl<'a> Line<'a> {
                 },
             }
         }
+    }
+
+    /// True at the start of a line, as the parse starts: after a line jump
+    /// that ended a triple or an empty line.
+    fn between_lines(&self) -> bool {
+        matches!(self.state, None | Some(State::ExpectSubject))
+            && self.subject.is_none()
+            && self.predicate.is_none()
+            && self.object.is_none()
+            && self.result.is_none()
+            && self.error.is_none()
     }
 
     fn emit(&mut self) {

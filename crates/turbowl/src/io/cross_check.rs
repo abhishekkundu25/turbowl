@@ -8,6 +8,11 @@
 //!   blank nodes (`[]`, list cells) have random labels in both;
 //! - the same error: line, column and message.
 //!
+//! And the parse in pieces (`io/parallel.rs`) must give exactly what the parse
+//! on one thread gives: each document is also parsed cut in about 32 pieces
+//! (every line a piece, for the small ones), on four threads or on one, and
+//! compared with the same three rules.
+//!
 //! The documents: every `.ttl` and `.nt` file of the repository and of the
 //! fetched data (`data/`, `target/bench-data/`, up to [`MAX_FILE`] bytes, or
 //! as many as `IO_CROSS_CHECK_MAX_BYTES` says),
@@ -33,9 +38,14 @@ struct Parsed {
 }
 
 fn ours(text: &[u8], format: Format, base: Option<&str>) -> Parsed {
+    on(&Workers::one(), text, format, base)
+}
+
+/// The parse on `workers`.
+fn on(workers: &Workers, text: &[u8], format: Format, base: Option<&str>) -> Parsed {
     let mut dict = Dictionary::new();
     let mut triples = Vec::new();
-    let result = parse(&mut dict, text, format, base, None, |t| triples.push(t));
+    let result = parse_on(workers, &mut dict, text, format, base, None, |t| triples.push(t));
     let error = match result {
         Ok(loaded) => {
             assert_eq!(loaded.triples, triples.len());
@@ -108,20 +118,36 @@ fn anonymous(label: &str) -> bool {
 /// Compares the two parses of one document; the error says how they differ.
 fn compare(text: &[u8], format: Format, base: Option<&str>) -> Result<(), String> {
     let a = ours(text, format, base);
-    let b = oxigraph(text, format, base);
+    same(&a, &oxigraph(text, format, base), "oxttl")?;
+    let pieces = if text.len().is_multiple_of(2) {
+        threads()
+    } else {
+        Workers::one().every_round()
+    };
+    same(&on(&pieces, text, format, base), &a, "one thread")
+}
+
+/// Four threads, every document cut in pieces.
+fn threads() -> Workers {
+    static WORKERS: std::sync::OnceLock<Workers> = std::sync::OnceLock::new();
+    WORKERS.get_or_init(|| Workers::exactly(4).every_round()).clone()
+}
+
+/// Compares two parses of one document, `a` ours, `b` the `other` parse.
+fn same(a: &Parsed, b: &Parsed, other: &str) -> Result<(), String> {
     if a.error != b.error {
-        return Err(format!("error: ours {:?}, oxttl {:?}", a.error, b.error));
+        return Err(format!("error: ours {:?}, {other} {:?}", a.error, b.error));
     }
     if a.triples != b.triples {
         let at = a.triples.iter().zip(&b.triples).position(|(x, y)| x != y);
         return Err(format!(
-            "triples: ours {}, oxttl {}, first difference at {at:?}",
+            "triples: ours {}, {other} {}, first difference at {at:?}",
             a.triples.len(),
             b.triples.len()
         ));
     }
     if a.dict.len() != b.dict.len() {
-        return Err(format!("terms: ours {}, oxttl {}", a.dict.len(), b.dict.len()));
+        return Err(format!("terms: ours {}, {other} {}", a.dict.len(), b.dict.len()));
     }
     for id in (0..a.dict.len()).map(|i| TermId(i as u32)) {
         let (x, y) = (a.dict.term(id), b.dict.term(id));
@@ -132,7 +158,7 @@ fn compare(text: &[u8], format: Format, base: Option<&str>) -> Result<(), String
             _ => x == y,
         };
         if !same {
-            return Err(format!("term {}: ours {x:?}, oxttl {y:?}", id.0));
+            return Err(format!("term {}: ours {x:?}, {other} {y:?}", id.0));
         }
     }
     Ok(())

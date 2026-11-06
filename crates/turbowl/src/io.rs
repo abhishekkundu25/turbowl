@@ -27,10 +27,18 @@
 //! parse(dict: &mut Dictionary, text: &[u8], format: Format,
 //!       base_iri: Option<&str>, path: Option<&Path>, sink: impl FnMut([TermId; 3]))
 //!     -> Result<Loaded, Error>
+//! parse_on(workers: &Workers, dict, text, format, base_iri, path, sink)
+//!     -> Result<Loaded, Error>
 //! write(dict: &Dictionary, triples: impl IntoIterator<Item = [TermId; 3]>,
 //!       out: impl Write, format: Format) -> Result<usize, Error>
 //! ```
 //!
+//! - N-Triples and Turtle of 384 KiB or more are parsed on every core
+//!   ([`parallel`]): `parse` uses rayon's global pool, `parse_on` the given
+//!   workers (one thread with [`Workers::one`]; every document cut in pieces
+//!   when every round is to be parallel). The result is the same whatever
+//!   the workers: the same terms at the same ids, the same triples in the
+//!   same order, the same error. The sink runs on the caller's thread.
 //! - Each `parse` or `parse_file` call is one document: it starts a new
 //!   [`DocId`] ([`Loaded::document`]), so its blank nodes are its own.
 //! - The sink sees every triple in document order, duplicates included. It
@@ -63,12 +71,14 @@
 mod iri;
 mod lexer;
 mod ntriples;
+mod parallel;
 mod terms;
 mod turtle;
 
 #[cfg(test)]
 mod cross_check;
 
+use crate::engine::Workers;
 use crate::term::{Dictionary, DocId, MAX_TERM_BYTES, MAX_TERMS, Term, TermId, vocab};
 use crate::{Error, Format};
 use oxrdf::{BlankNodeRef, GraphName, NamedNodeRef, NamedOrBlankNodeRef, TermRef, TripleRef};
@@ -119,6 +129,7 @@ pub(crate) fn parse_file(
 }
 
 /// Parses a document held in memory: one document. `path` only labels errors.
+/// A large N-Triples or Turtle document is parsed on every core.
 pub(crate) fn parse(
     dict: &mut Dictionary,
     text: &[u8],
@@ -127,19 +138,71 @@ pub(crate) fn parse(
     path: Option<&Path>,
     sink: impl FnMut([TermId; 3]),
 ) -> Result<Loaded, Error> {
+    parse_on(&Workers::all(), dict, text, format, base_iri, path, sink)
+}
+
+/// [`parse`] on `workers`: N-Triples and Turtle of [`parallel::PARALLEL_FROM`]
+/// bytes or more are parsed in parallel when there is more than one thread,
+/// and every document when every round is to be parallel (the tests).
+pub(crate) fn parse_on(
+    workers: &Workers,
+    dict: &mut Dictionary,
+    text: &[u8],
+    format: Format,
+    base_iri: Option<&str>,
+    path: Option<&Path>,
+    sink: impl FnMut([TermId; 3]),
+) -> Result<Loaded, Error> {
+    read(
+        workers,
+        parallel::PARALLEL_FROM,
+        dict,
+        text,
+        format,
+        base_iri,
+        path,
+        sink,
+    )
+}
+
+/// [`parse_on`] with another threshold than [`parallel::PARALLEL_FROM`]: for
+/// the test that measures it.
+#[cfg(test)]
+pub(crate) fn parse_from(
+    from: usize,
+    workers: &Workers,
+    dict: &mut Dictionary,
+    text: &[u8],
+    format: Format,
+    sink: impl FnMut([TermId; 3]),
+) -> Result<Loaded, Error> {
+    read(workers, from, dict, text, format, None, None, sink)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn read(
+    workers: &Workers,
+    from: usize,
+    dict: &mut Dictionary,
+    text: &[u8],
+    format: Format,
+    base_iri: Option<&str>,
+    path: Option<&Path>,
+    mut sink: impl FnMut([TermId; 3]),
+) -> Result<Loaded, Error> {
     let document = dict.new_document();
     let bad_base = |e: &dyn Display| error_at(path, 0, 0, format_args!("invalid base IRI: {e}"));
     let (triples, skipped) = match format {
-        Format::NTriples => {
-            let mut out = terms::Out::new(dict, document, sink, path);
-            ntriples::parse(text, &mut out)?;
-            (out.triples, 0)
-        }
-        Format::Turtle => {
-            let base = base_iri.map(iri::Base::new).transpose().map_err(|e| bad_base(&e))?;
-            let mut out = terms::Out::new(dict, document, sink, path);
-            turtle::parse(text, base, &mut out)?;
-            (out.triples, 0)
+        Format::NTriples | Format::Turtle => {
+            let base = match format {
+                Format::Turtle => base_iri.map(iri::Base::new).transpose().map_err(|e| bad_base(&e))?,
+                _ => None,
+            };
+            let triples = match parallel::piece_size(workers, text.len(), from) {
+                Some(size) => parallel::parse(dict, text, format, base, document, path, workers, size, &mut sink)?,
+                None => parallel::whole(dict, text, format, base, document, path, &mut sink)?,
+            };
+            (triples, 0)
         }
         Format::N3 | Format::RdfXml => {
             let mut load = Load {
@@ -624,6 +687,51 @@ mod tests {
         assert_eq!(line_column(text, 1000), (3, 3));
     }
 
+    /// Times `parse` on the file `IO_TIMING_FILE` (as `IO_TIMING_FORMAT`,
+    /// `nt` or `ttl`, else by its extension) on one thread and on every core,
+    /// median of `IO_TIMING_RUNS` runs (default 3); does nothing without the
+    /// variable. For measuring the loading budget.
+    #[test]
+    fn timing_parse_file() {
+        let Some(path) = std::env::var_os("IO_TIMING_FILE") else {
+            return;
+        };
+        let path = PathBuf::from(path);
+        let format = match std::env::var("IO_TIMING_FORMAT").ok().as_deref() {
+            Some("nt") => Format::NTriples,
+            Some("ttl") => Format::Turtle,
+            _ => format_of(&path).unwrap(),
+        };
+        let runs: usize = std::env::var("IO_TIMING_RUNS")
+            .ok()
+            .and_then(|r| r.parse().ok())
+            .unwrap_or(3);
+        let text = std::fs::read(&path).unwrap();
+        for (name, workers) in [("one thread", Workers::one()), ("every core", Workers::all())] {
+            let mut times = Vec::new();
+            let mut summary = (0, 0);
+            for _ in 0..runs {
+                let mut dict = Dictionary::new();
+                let mut triples = Vec::new();
+                let start = std::time::Instant::now();
+                parse_on(&workers, &mut dict, &text, format, None, None, |t| triples.push(t)).unwrap();
+                times.push(start.elapsed().as_secs_f64());
+                summary = (triples.len(), dict.len());
+            }
+            times.sort_by(f64::total_cmp);
+            println!(
+                "timing_parse_file: {} as {format:?} on {name} ({} threads), {:.1} MB, {} triples, {} terms: \
+                 median {:.3} s of {runs} ({times:.3?})",
+                path.display(),
+                workers.threads(),
+                text.len() as f64 / 1e6,
+                summary.0,
+                summary.1,
+                times[runs / 2],
+            );
+        }
+    }
+
     /// Loads a generated 1,000,000-triple N-Triples document into the
     /// dictionary and prints triples per second, beside the parser alone.
     #[test]
@@ -663,9 +771,15 @@ mod tests {
         let start = std::time::Instant::now();
         let mut dict = Dictionary::new();
         let mut triples = Vec::with_capacity(TRIPLES);
-        let loaded = parse(&mut dict, text.as_bytes(), Format::NTriples, None, None, |t| {
-            triples.push(t)
-        })
+        let loaded = parse_on(
+            &Workers::one(),
+            &mut dict,
+            text.as_bytes(),
+            Format::NTriples,
+            None,
+            None,
+            |t| triples.push(t),
+        )
         .unwrap();
         let full = start.elapsed();
         assert_eq!(loaded.triples, TRIPLES);

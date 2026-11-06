@@ -4,17 +4,15 @@ Parts of TurbOWL are ported from other projects. Those parts keep their
 authors' copyright and license; this file carries the notices their
 licenses require.
 
-## Oxigraph: oxttl 0.2.5 and oxiri 0.2.11
+## Oxigraph: oxttl 0.2.5
 
-- Source: <https://github.com/oxigraph/oxigraph> (`lib/oxttl`) and
-  <https://github.com/oxigraph/oxiri>.
+- Source: <https://github.com/oxigraph/oxigraph> (`lib/oxttl`).
 - License: MIT OR Apache-2.0. TurbOWL uses the ported code under the MIT
   license, whose text follows.
 - Ported into:
   - `crates/turbowl/src/io/lexer.rs`: oxttl's N-Triples and Turtle lexer.
   - `crates/turbowl/src/io/turtle.rs`: oxttl's Turtle recognizer.
   - `crates/turbowl/src/io/ntriples.rs`: oxttl's N-Triples recognizer.
-  - `crates/turbowl/src/io/iri.rs`: oxiri's IRI parser and resolver.
 
 ```text
 Copyright (c) 2018 Oxigraph developers

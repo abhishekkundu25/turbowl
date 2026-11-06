@@ -436,7 +436,8 @@ mod dictionary {
 mod io {
     use super::*;
     use crate::Format;
-    use crate::io::{parse, write};
+    use crate::engine::Workers;
+    use crate::io::{parse, parse_from, parse_on, write};
     use crate::term::{Dictionary, TermId};
     use std::fmt::Write as _;
 
@@ -490,21 +491,152 @@ mod io {
     type Loaded = (Dictionary, Vec<[TermId; 3]>);
 
     fn load(text: &str, format: Format) -> Loaded {
+        load_on(&Workers::one(), text, format)
+    }
+
+    fn load_on(workers: &Workers, text: &str, format: Format) -> Loaded {
         let mut d = Dictionary::new();
         let mut triples = Vec::new();
-        parse(&mut d, text.as_bytes(), format, None, None, |t| triples.push(t)).unwrap();
+        parse_on(workers, &mut d, text.as_bytes(), format, None, None, |t| {
+            triples.push(t)
+        })
+        .unwrap();
         (d, triples)
     }
 
+    /// The parse on one thread, whatever the document's size.
     fn parse_counting(text: &str, format: Format) -> (Dictionary, usize) {
+        parse_counting_on(&Workers::one(), text, format)
+    }
+
+    fn parse_counting_on(workers: &Workers, text: &str, format: Format) -> (Dictionary, usize) {
         let mut d = Dictionary::new();
         let mut count = 0;
-        parse(&mut d, text.as_bytes(), format, None, None, |t| {
+        parse_on(workers, &mut d, text.as_bytes(), format, None, None, |t| {
             black_box(t);
             count += 1;
         })
         .unwrap();
         (d, count)
+    }
+
+    /// A document's name, its text of `n` triples, and its format.
+    type Document = (&'static str, fn(usize) -> String, Format);
+
+    /// The documents of the parallel parse's tests: N-Triples, the same
+    /// lines read as Turtle (the shape of the bench's lubm data), and Turtle
+    /// with prefixes and `;` lists.
+    fn documents() -> [Document; 3] {
+        [
+            ("ntriples", ntriples, Format::NTriples),
+            ("ntriples as turtle", ntriples, Format::Turtle),
+            ("turtle", turtle, Format::Turtle),
+        ]
+    }
+
+    /// Parses `text` on `workers` and checks that it gives what the parse on
+    /// one thread gives: the same triples, and the same term at every id.
+    fn same_as_one_thread(workers: &Workers, text: &str, format: Format) {
+        let (d1, t1) = load(text, format);
+        let (d2, t2) = load_on(workers, text, format);
+        assert_eq!(t1, t2);
+        assert_eq!(d1.len(), d2.len());
+        assert!((0..d1.len() as u32).all(|i| d1.term(TermId(i)) == d2.term(TermId(i))));
+    }
+
+    /// The parse in pieces on one thread (every document cut in about 32
+    /// pieces) grows linearly: the merge of the pieces costs no more than
+    /// their parse.
+    #[test]
+    fn scaling_parse_in_pieces_one_thread() {
+        let _lock = lock();
+        let workers = Workers::one().every_round();
+        for (name, make, format) in documents() {
+            let sizes = sizes(2_048);
+            for &n in &sizes {
+                same_as_one_thread(&workers, &make(n), format);
+            }
+            linear(
+                &format!("scaling_parse_in_pieces_one_thread ({name})"),
+                &sizes,
+                shared(make),
+                |text: Rc<String>| parse_counting_on(&workers, &text, format),
+            );
+        }
+    }
+
+    /// The parse on twelve threads, of documents from 1.5 to 24 MB (all past
+    /// the threshold), grows linearly.
+    #[test]
+    fn scaling_parse_in_pieces_twelve_threads() {
+        let _lock = lock();
+        let workers = Workers::exactly(12);
+        for (name, make, format) in documents() {
+            let sizes = sizes(16_384);
+            for &n in &sizes {
+                same_as_one_thread(&workers, &make(n), format);
+            }
+            linear(
+                &format!("scaling_parse_in_pieces_twelve_threads ({name})"),
+                &sizes,
+                shared(make),
+                |text: Rc<String>| parse_counting_on(&workers, &text, format),
+            );
+        }
+    }
+
+    /// Measures where the parallel parse starts to pay: the parse on one
+    /// thread against all cores with no threshold, on N-Triples and on the
+    /// same lines read as Turtle, from 64 KB to 8 MB, the fastest of `RUNS`
+    /// measurements each. It prints the table and, per format, the smallest
+    /// size from which every size is faster on all cores;
+    /// `io::parallel::PARALLEL_FROM` is set from it. It fails only if, on
+    /// four or more threads, the largest size is not faster on all cores.
+    #[test]
+    fn timing_parallel_parse_threshold() {
+        let _lock = lock();
+        let threads = Workers::all().threads();
+        let mut table = format!(
+            "timing_parallel_parse_threshold ({threads} threads):\n  {:>18}  {:>9}  {:>10}  {:>10}  {:>6}\n",
+            "document", "bytes", "one", "all", "gain"
+        );
+        for (name, make, format) in &documents()[..2] {
+            let mut rows = Vec::new();
+            for triples in [640, 1_280, 2_560, 5_120, 10_240, 20_480, 40_960, 81_920] {
+                let text = make(triples);
+                let time = |workers: &Workers| {
+                    let mut best = f64::INFINITY;
+                    for _ in 0..RUNS {
+                        let start = Instant::now();
+                        let mut d = Dictionary::new();
+                        parse_from(0, workers, &mut d, text.as_bytes(), *format, |t| {
+                            black_box(t);
+                        })
+                        .unwrap();
+                        best = best.min(start.elapsed().as_secs_f64());
+                    }
+                    best
+                };
+                let (one, all) = (time(&Workers::one()), time(&Workers::all()));
+                let _ = writeln!(
+                    table,
+                    "  {name:>18}  {:>9}  {:>10}  {:>10}  {:>6.2}",
+                    text.len(),
+                    duration(one),
+                    duration(all),
+                    one / all
+                );
+                rows.push((text.len(), one / all));
+            }
+            let from = (0..rows.len())
+                .find(|&i| rows[i..].iter().all(|r| r.1 > 1.0))
+                .map(|i| rows[i].0);
+            let _ = writeln!(table, "  {name}: all cores faster from {from:?} bytes");
+            if threads >= 4 {
+                assert!(rows.last().unwrap().1 > 1.0, "{table}");
+            }
+        }
+        println!("{table}");
     }
 
     #[test]

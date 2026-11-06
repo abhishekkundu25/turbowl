@@ -10,7 +10,7 @@ repository.workspace = true
 [features]
 default = ["io", "parallel"]
 # Parsing and writing documents (Turtle, N-Triples, N3, RDF/XML).
-io = ["dep:oxttl", "dep:oxrdfxml"]
+io = ["dep:oxttl", "dep:oxrdfxml", "dep:oxiri"]
 # Rounds on every core (ticket 17), on a rayon thread pool. Native only:
 # on WebAssembly the dependency is left out and rounds run on one thread.
 parallel = ["dep:rayon"]
@@ -19,6 +19,8 @@ parallel = ["dep:rayon"]
 oxrdf.workspace = true
 oxttl = { workspace = true, optional = true }
 oxrdfxml = { workspace = true, optional = true }
+# The IRI parser oxttl uses, called by `io/iri.rs` for parity with it.
+oxiri = { version = "0.2.11", optional = true }
 rustc-hash.workspace = true
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

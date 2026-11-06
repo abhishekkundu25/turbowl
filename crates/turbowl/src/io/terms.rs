@@ -12,6 +12,10 @@
 //! [`Nodes`] numbers the nodes of one statement, so a term held in several
 //! places (an anonymous node, a subject with several predicates) is interned
 //! once and its id reused.
+//!
+//! A grammar's parse ends in a [`Stop`] or a [`Fail`]; [`Out::error`] gives a
+//! failure its line and column, which only the caller needs (a parallel
+//! parse throws most of its failures away).
 
 use super::error_at;
 use super::lexer::{Failure, Text};
@@ -68,6 +72,33 @@ impl<'a> Node<'a> {
             lexical,
             datatype: Datatype::Lang(tag),
         }
+    }
+}
+
+/// Where a grammar's parse of a span stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Stop {
+    /// At the end of the document, which ends where a statement may end.
+    End,
+    /// At this line start, the first at or after the span's end where the
+    /// grammar is between statements (between lines for N-Triples): a parse
+    /// from here with the same prefixes and base reads on exactly as this one
+    /// would have.
+    At(usize),
+}
+
+/// Why a parse failed.
+#[derive(Debug)]
+pub(super) enum Fail {
+    /// A syntax error at a position.
+    Syntax(Failure),
+    /// A limit of the dictionary, at no position.
+    Limit(String),
+}
+
+impl From<Failure> for Fail {
+    fn from(failure: Failure) -> Self {
+        Fail::Syntax(failure)
     }
 }
 
@@ -130,13 +161,12 @@ impl<'a, 'd, 'p, S: FnMut([TermId; 3])> Out<'a, 'd, 'p, S> {
     }
 
     /// The error a parse failure is, with its line and column.
-    pub(super) fn failure(&self, text: &[u8], failure: Failure) -> Error {
-        let (line, column) = failure.position(text);
-        error_at(self.path, line + 1, column + 1, failure.message)
+    pub(super) fn error(&self, text: &[u8], fail: Fail) -> Error {
+        error(self.path, text, fail)
     }
 
     /// Hands a triple of three nodes over (N-Triples: nothing is shared).
-    pub(super) fn deliver(&mut self, triple: [Node<'a>; 3], arena: &str) -> Result<(), Error> {
+    pub(super) fn deliver(&mut self, triple: [Node<'a>; 3], arena: &str) -> Result<(), Fail> {
         self.check(&triple, arena)?;
         let [s, p, o] = triple;
         let ids = [
@@ -150,12 +180,7 @@ impl<'a, 'd, 'p, S: FnMut([TermId; 3])> Out<'a, 'd, 'p, S> {
     }
 
     /// Hands a triple of a statement's nodes over, interning each node once.
-    pub(super) fn deliver_held(
-        &mut self,
-        nodes: &mut Nodes<'a>,
-        triple: [NodeId; 3],
-        arena: &str,
-    ) -> Result<(), Error> {
+    pub(super) fn deliver_held(&mut self, nodes: &mut Nodes<'a>, triple: [NodeId; 3], arena: &str) -> Result<(), Fail> {
         let held = triple.map(|n| nodes.nodes[n as usize]);
         self.check(&held, arena)?;
         let mut ids = [TermId(0); 3];
@@ -175,23 +200,13 @@ impl<'a, 'd, 'p, S: FnMut([TermId; 3])> Out<'a, 'd, 'p, S> {
     }
 
     /// The limits the parse through Oxigraph checked before each triple.
-    fn check(&self, triple: &[Node<'a>; 3], arena: &str) -> Result<(), Error> {
+    fn check(&self, triple: &[Node<'a>; 3], arena: &str) -> Result<(), Fail> {
         if self.dict.len() > MAX_TERMS - 3 {
-            return Err(error_at(
-                self.path,
-                0,
-                0,
-                format_args!("the dictionary is full ({MAX_TERMS} terms)"),
-            ));
+            return Err(Fail::Limit(format!("the dictionary is full ({MAX_TERMS} terms)")));
         }
         // A term can be longer than its document (prefixes, a base IRI).
         if triple.iter().any(|n| length(n, arena) > MAX_TERM_BYTES) {
-            return Err(error_at(
-                self.path,
-                0,
-                0,
-                format_args!("a term is longer than {MAX_TERM_BYTES} bytes"),
-            ));
+            return Err(Fail::Limit(format!("a term is longer than {MAX_TERM_BYTES} bytes")));
         }
         Ok(())
     }
@@ -234,6 +249,17 @@ impl<'a, 'd, 'p, S: FnMut([TermId; 3])> Out<'a, 'd, 'p, S> {
                 }
             }
         }
+    }
+}
+
+/// The error a parse failure of `text` is, with its line and column.
+pub(super) fn error(path: Option<&Path>, text: &[u8], fail: Fail) -> Error {
+    match fail {
+        Fail::Syntax(failure) => {
+            let (line, column) = failure.position(text);
+            error_at(path, line + 1, column + 1, failure.message)
+        }
+        Fail::Limit(message) => error_at(path, 0, 0, message),
     }
 }
 

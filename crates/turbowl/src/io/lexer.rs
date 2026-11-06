@@ -219,26 +219,37 @@ pub(super) struct Lexer<'a> {
     mode: Mode,
     /// The base IRI relative IRIs resolve against (Turtle's `@base` sets it).
     pub(super) base: Option<Base>,
-    /// The document as text, when all of it is UTF-8 (a token's text is then
-    /// sliced from it, not checked again).
-    utf8: Option<&'a str>,
+    /// Where the lexer starts, and the document as text from there, when that
+    /// part is UTF-8 (a token's text is then sliced from it, not checked
+    /// again).
+    utf8: (usize, Option<&'a str>),
+    /// True once an IRI has been validated or resolved: its result depended
+    /// on the base (or on there being none).
+    pub(super) base_read: bool,
     /// Language tags already validated.
     tags: FxHashSet<String>,
     /// Bytes of an IRI with escapes, decoded before validation.
     scratch: Vec<u8>,
+    /// An IRI resolved against the base, before it goes into the arena.
+    resolved: String,
 }
 
 impl<'a> Lexer<'a> {
-    pub(super) fn new(text: &'a [u8], mode: Mode, base: Option<Base>) -> Self {
+    /// A lexer from `start`, a line start of `text`, as if it had read the
+    /// document up to there. `utf8` is the text from `start` (or a prefix of
+    /// it), when it is UTF-8: an optimisation only.
+    pub(super) fn at(text: &'a [u8], start: usize, utf8: Option<&'a str>, mode: Mode, base: Option<Base>) -> Self {
         Lexer {
             text,
-            pos: 0,
-            token_start: 0,
+            pos: start,
+            token_start: start,
             mode,
             base,
-            utf8: std::str::from_utf8(text).ok(),
+            utf8: (start, utf8),
+            base_read: false,
             tags: FxHashSet::default(),
             scratch: Vec::new(),
+            resolved: String::new(),
         }
     }
 
@@ -246,6 +257,18 @@ impl<'a> Lexer<'a> {
     #[inline]
     pub(super) fn token_start(&self) -> usize {
         self.token_start
+    }
+
+    /// Where the last event ends: after a line jump, the start of a line.
+    #[inline]
+    pub(super) fn pos(&self) -> usize {
+        self.pos
+    }
+
+    /// The length of the whole document.
+    #[inline]
+    pub(super) fn text_len(&self) -> usize {
+        self.text.len()
     }
 
     /// The last token's source text, as oxttl puts it into messages for `TOKEN`.
@@ -420,7 +443,8 @@ impl<'a> Lexer<'a> {
         if data[end] == b'>' {
             // No escape: the text is the document's.
             let consumed = end + 1;
-            let iri = match self.utf8.and_then(|text| text.get(self.pos + 1..self.pos + end)) {
+            let (from, utf8) = self.utf8;
+            let iri = match utf8.and_then(|text| text.get(self.pos + 1 - from..self.pos + end - from)) {
                 Some(iri) => Ok(iri),
                 None => {
                     std::str::from_utf8(&data[1..end]).map_err(|e| (e.valid_up_to(), format!("Invalid UTF-8: {e}")))
@@ -445,10 +469,13 @@ impl<'a> Lexer<'a> {
     /// oxttl's `parse_iri`: the IRI resolved against the base when there is
     /// one, else validated as absolute. `doc` is the IRI when the document
     /// holds it as is (no escape).
-    fn iri_token(&self, iri: &str, doc: Option<&'a str>, arena: &mut String) -> Result<Token<'a>, TokenError> {
+    fn iri_token(&mut self, iri: &str, doc: Option<&'a str>, arena: &mut String) -> Result<Token<'a>, TokenError> {
         let start = arena.len();
+        self.base_read = true;
         match &self.base {
-            Some(base) => base.resolve_into(iri, arena).map_err(|message| (0, message))?,
+            Some(base) => base
+                .resolve_into(iri, arena, &mut self.resolved)
+                .map_err(|message| (0, message))?,
             None => {
                 iri::validate(iri).map_err(|message| (0, message))?;
                 match doc {
@@ -1120,7 +1147,7 @@ pub(super) fn resolve_local_name<'a>(
     prefix: &str,
     local: Text<'a>,
     might_be_invalid_iri: bool,
-    namespace: Option<&(String, bool)>,
+    namespace: Option<(&str, bool)>,
     arena: &mut String,
 ) -> Result<Text<'a>, String> {
     let Some((namespace, empty_path)) = namespace else {
@@ -1132,7 +1159,7 @@ pub(super) fn resolve_local_name<'a>(
         Text::Doc(local) => arena.push_str(local),
         Text::Arena(a, b) => arena.extend_from_within(a..b),
     }
-    if (might_be_invalid_iri || *empty_path)
+    if (might_be_invalid_iri || empty_path)
         && let Err(e) = iri::validate(&arena[start..])
     {
         return Err(format!(
@@ -1149,7 +1176,7 @@ mod tests {
     use super::*;
 
     fn tokens(text: &str, mode: Mode) -> Result<Vec<String>, (u64, u64, String)> {
-        let mut lexer = Lexer::new(text.as_bytes(), mode, None);
+        let mut lexer = Lexer::at(text.as_bytes(), 0, Some(text), mode, None);
         let mut arena = String::new();
         let mut out = Vec::new();
         loop {
