@@ -43,7 +43,8 @@ fn pct(old: f64, new: f64) -> String {
 /// `NAME differs (OLD vs NEW)`.
 fn differences(om: &Value, nm: &Value) -> Vec<String> {
     // A file from before schema 6 ran the default rules and read the peak
-    // resident size; one from before schema 7 ran on one thread.
+    // resident size; one from before schema 7 ran on one thread. (From
+    // schema 9, `threads` is the thread mode, 0 for all cores.)
     let or = |v: &Value, old: Value| if v.is_null() { old } else { v.clone() };
     let mut out = Vec::new();
     for (field, before) in [
@@ -184,9 +185,10 @@ mod tests {
     use super::{differences, verdict};
     use serde_json::json;
 
-    /// Every schema from 1 to 8 reads, and compares with any other: what an
+    /// Every schema from 1 to 9 reads, and compares with any other: what an
     /// older file leaves out reads as what it ran (the default
-    /// configuration, the peak resident size, one thread).
+    /// configuration, the peak resident size, one thread). A file run on
+    /// all cores (schema 9, `threads` 0) differs from one on one thread.
     #[test]
     fn compares_across_schemas() {
         let dir = std::env::temp_dir().join(format!("bench-compare-{}", std::process::id()));
@@ -194,12 +196,14 @@ mod tests {
         let meta = |schema: u64| match schema {
             1..=5 => json!({ "cpu": "M", "date": "d" }),
             6 => json!({ "cpu": "M", "configuration": "default", "peak_memory": "lifetime peak physical footprint" }),
-            _ => json!({ "cpu": "M", "configuration": "default, equality off", "switches": ["checks"],
+            7 | 8 => json!({ "cpu": "M", "configuration": "default, equality off", "switches": ["checks"],
                          "threads": 1, "peak_memory": "lifetime peak physical footprint" }),
+            _ => json!({ "cpu": "M", "configuration": "default, equality off", "switches": ["checks"],
+                         "threads": 0, "peak_memory": "lifetime peak physical footprint" }),
         };
         let engine = |schema: u64| if schema < 4 { "turtle-reasoner" } else { "turbowl" };
         let mut read = Vec::new();
-        for schema in 1..=9 {
+        for schema in 1..=10 {
             let path = dir.join(format!("v{schema}.json"));
             let row = json!({ "scenario": "lubm-1", "engine": engine(schema), "status": "ok",
                               "summary": { "median_ms": 1.0, "min_ms": 1.0, "max_ms": 1.0 } });
@@ -210,17 +214,17 @@ mod tests {
             .unwrap();
             match crate::read_results(&path) {
                 Ok((v, skipped)) => {
-                    assert!(schema <= 8, "schema {schema} read");
+                    assert!(schema <= 9, "schema {schema} read");
                     assert!(skipped.is_empty());
                     assert_eq!(v["results"][0]["engine"], "turbowl", "schema {schema}");
                     read.push(v);
                 }
-                Err(e) => assert_eq!(schema, 9, "{e}"),
+                Err(e) => assert_eq!(schema, 10, "{e}"),
             }
         }
-        assert_eq!(read.len(), 8);
-        for old in 1..=8 {
-            for new in 1..=8 {
+        assert_eq!(read.len(), 9);
+        for old in 1..=9 {
+            for new in 1..=9 {
                 assert_eq!(
                     super::run(&dir.join(format!("v{old}.json")), &dir.join(format!("v{new}.json"))),
                     std::process::ExitCode::SUCCESS
@@ -238,6 +242,8 @@ mod tests {
             ["configuration differs (\"default\" vs \"default, equality off\")"]
         );
         assert!(fields(7, 8).is_empty());
+        assert_eq!(fields(8, 9), ["threads differs (1 vs 0)"]);
+        assert_eq!(fields(1, 9).last().unwrap(), "threads differs (1 vs 0)");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

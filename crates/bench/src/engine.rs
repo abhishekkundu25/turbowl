@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
-use turbowl::{Reasoner, Switches};
+use turbowl::{Reasoner, Switches, Threads};
 
 /// The engines a scenario can run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -204,6 +204,56 @@ impl Mode {
     }
 }
 
+/// The threads this reasoner's runs use (`--threads`). The competitors run
+/// as they always do, whatever the mode (README).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ThreadMode {
+    /// [`Threads::ONE`]: every round on the run's own thread.
+    One,
+    /// [`Threads::ALL`]: every core, for the rounds large enough.
+    All,
+}
+
+impl ThreadMode {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            ThreadMode::One => "one",
+            ThreadMode::All => "all",
+        }
+    }
+
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        [ThreadMode::One, ThreadMode::All]
+            .into_iter()
+            .find(|t| t.name() == name)
+    }
+
+    /// The setting this reasoner's runs take.
+    pub(crate) fn threads(self) -> Threads {
+        match self {
+            ThreadMode::One => Threads::ONE,
+            ThreadMode::All => Threads::ALL,
+        }
+    }
+
+    /// As the results file records it (`meta.threads`, a run's `threads`):
+    /// 1 for one thread, 0 for all cores.
+    pub(crate) fn count(self) -> u64 {
+        match self {
+            ThreadMode::One => 1,
+            ThreadMode::All => 0,
+        }
+    }
+
+    /// As the text report and the scoreboard say it.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            ThreadMode::One => "one thread",
+            ThreadMode::All => "all cores",
+        }
+    }
+}
+
 fn ms(start: Instant) -> f64 {
     start.elapsed().as_secs_f64() * 1000.0
 }
@@ -267,7 +317,8 @@ fn changes(mode: Mode, files: &[PathBuf], count: usize) -> Result<Vec<Triple>, S
 }
 
 /// One measured run, as the child process does it, in the configuration
-/// `switches`. The result is one JSON object: `status` is `ok`,
+/// `switches`; this reasoner runs on `threads`, a competitor as it always
+/// does. The result is one JSON object: `status` is `ok`,
 /// `unsupported`, `skipped` (a competitor is not fetched), `timeout` (a
 /// competitor ran over `timeout`) or `error` (a failed load or run, or a
 /// panic in this reasoner).
@@ -275,6 +326,7 @@ pub(crate) fn run_one(
     engine: EngineId,
     mode: Mode,
     switches: Switches,
+    threads: ThreadMode,
     files: &[PathBuf],
     count: usize,
     timeout: Duration,
@@ -296,7 +348,9 @@ pub(crate) fn run_one(
     }
     // A panic is reported as an error result, not a backtrace.
     std::panic::set_hook(Box::new(|_| {}));
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| measure(mode, switches, files, count)));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        measure(mode, switches, threads, files, count)
+    }));
     match result {
         Ok(Ok(v)) => v,
         Ok(Err(message)) => json!({ "status": "error", "message": message }),
@@ -311,10 +365,18 @@ pub(crate) fn run_one(
     }
 }
 
-/// One run of this reasoner, in process.
-fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> Result<Value, String> {
+/// One run of this reasoner, in process. The threads are set before
+/// loading, which parses on them too.
+fn measure(
+    mode: Mode,
+    switches: Switches,
+    threads: ThreadMode,
+    files: &[PathBuf],
+    count: usize,
+) -> Result<Value, String> {
     let stream = changes(mode, files, count)?;
     let mut r = Reasoner::with_switches(switches);
+    r.set_threads(threads.threads());
 
     let start = Instant::now();
     for f in files {
@@ -346,6 +408,11 @@ fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> R
     let profile = crate::profile::to_json(full.as_ref().unwrap_or(&held), &held.memory);
     let reported = summary.base + summary.inferred;
     let counted = distinct_triples(r.triples(), reported);
+    // The setting the reasoner held at the end, as `meta.threads` counts it.
+    let held_threads = [ThreadMode::One, ThreadMode::All]
+        .into_iter()
+        .find(|t| t.threads() == r.threads())
+        .map(ThreadMode::count);
     Ok(json!({
         "status": "ok",
         "load_ms": load_ms,
@@ -355,5 +422,47 @@ fn measure(mode: Mode, switches: Switches, files: &[PathBuf], count: usize) -> R
         "closure": reported,
         "closure_counted": counted,
         "profile": profile,
+        "threads": held_threads,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A run of this reasoner holds the thread mode it was given, and the
+    /// closure is the same in both.
+    #[test]
+    fn runs_this_reasoner_on_the_thread_mode() {
+        let dir = std::env::temp_dir().join(format!("bench-threads-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("input.ttl");
+        std::fs::write(
+            &input,
+            "@prefix ex: <http://example.org/> .\n\
+             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n\
+             ex:A rdfs:subClassOf ex:B .\n\
+             ex:x a ex:A .\n",
+        )
+        .unwrap();
+        let files = [input];
+        let mut closures = Vec::new();
+        for (mode, count) in [(ThreadMode::One, 1), (ThreadMode::All, 0)] {
+            assert_eq!(ThreadMode::from_name(mode.name()), Some(mode));
+            assert_eq!(mode.count(), count);
+            for run_mode in [Mode::Full, Mode::Add] {
+                // `measure`, not `run_one`, which silences every panic message.
+                let run = measure(run_mode, Switches::default(), mode, &files, 2).unwrap();
+                assert_eq!(run["status"], "ok", "{run}");
+                assert_eq!(run["threads"], count, "{} {}", mode.name(), run_mode.name());
+                if run_mode == Mode::Full {
+                    closures.push(run["closure"].clone());
+                }
+            }
+        }
+        assert_eq!(closures[0], closures[1]);
+        assert!(closures[0].as_u64().is_some_and(|c| c > 3), "{closures:?}");
+        assert_eq!(ThreadMode::from_name("2"), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

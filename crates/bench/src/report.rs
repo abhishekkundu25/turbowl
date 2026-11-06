@@ -184,7 +184,8 @@ fn groups(files: &[(String, Value)]) -> Vec<((String, u64), Group)> {
     for (name, v) in files {
         let meta = &v["meta"];
         // Before schema 7 every file ran the default or the complete
-        // configuration, both with equality on, on one thread.
+        // configuration, both with equality on, on one thread; before
+        // schema 9 `meta.threads` is 1 (README).
         let configuration = meta["configuration"].as_str().unwrap_or("default").to_string();
         let threads = match meta["threads"].as_u64().unwrap_or(1) {
             1 => 1,
@@ -245,11 +246,16 @@ fn scoreboard(files: &[(String, Value)]) -> String {
         let m = &v["meta"];
         let _ = writeln!(
             o,
-            "- {name}: schema {}, {} at {}, configuration {}, load average {} before",
+            "- {name}: schema {}, {} at {}, configuration {}, {}, load average {} before",
             v["schema"],
             m["date"].as_str().unwrap_or("?"),
             m["commit"].as_str().map_or("?", |c| &c[..c.len().min(10)]),
             m["configuration"].as_str().unwrap_or("default"),
+            if m["threads"].as_u64().unwrap_or(1) == 1 {
+                "one thread"
+            } else {
+                "all cores"
+            },
             m["load_before"][0].as_f64().map_or("?".into(), |l| format!("{l:.2}")),
         );
         if m["load_before"][0].as_f64().is_some_and(|l| l > 1.0) {
@@ -277,7 +283,7 @@ fn scoreboard(files: &[(String, Value)]) -> String {
                 if *threads == 1 {
                     "No results file ran it."
                 } else {
-                    "No results: no engine here runs on more than one core yet (README)."
+                    "No results file ran it (`--threads all`)."
                 }
             );
             continue;
@@ -593,11 +599,55 @@ mod tests {
             "{text}"
         );
         // The thread modes and configurations no file ran.
-        assert!(text.contains(
-            "## default configuration, all cores\n\nNo results: no engine here runs on more than one core yet"
-        ));
+        assert!(text.contains("## default configuration, all cores\n\nNo results file ran it (`--threads all`)."));
         assert!(text.contains("## complete configuration, one thread\n\nNo results file ran it."));
         assert!(text.contains("No estimate: no published result meets every condition."));
+    }
+
+    /// A file run with `--threads all` (`meta.threads` 0) fills the
+    /// all-cores section; one with 1, or without the field, the one-thread
+    /// section.
+    #[test]
+    fn groups_by_thread_mode() {
+        let ok = |median: f64| {
+            row(
+                "lubm-1",
+                "turbowl",
+                "ok",
+                json!([{ "load_ms": 1.0, "reason_ms": median, "peak_rss_bytes": 1048576.0 }]),
+                json!({ "measure": "reason_ms" }),
+            )
+        };
+        let mut all = file("default", None, vec![ok(4.0)], json!([]));
+        all["schema"] = json!(9);
+        all["meta"]["threads"] = json!(0);
+        let mut old = file("default", None, vec![ok(9.0)], json!([]));
+        old["meta"].as_object_mut().unwrap().remove("threads");
+        let one = file("default", None, vec![ok(8.0)], json!([]));
+        let text = scoreboard(&[
+            ("all.json".into(), all),
+            ("old.json".into(), old),
+            ("one.json".into(), one),
+        ]);
+        assert!(
+            text.contains("- all.json: schema 9, d at c, configuration default, all cores,"),
+            "{text}"
+        );
+        assert!(
+            text.contains("- old.json: schema 7, d at c, configuration default, one thread,"),
+            "{text}"
+        );
+        let section = |heading: &str| {
+            let start = text.find(heading).unwrap_or_else(|| panic!("{heading}: {text}"));
+            let rest = &text[start + heading.len()..];
+            rest[..rest.find("\n## ").unwrap_or(rest.len())].to_string()
+        };
+        let one_thread = section("## default configuration, one thread\n");
+        assert!(one_thread.contains("From old.json, one.json."), "{one_thread}");
+        assert!(one_thread.contains("| lubm-1 | reasoning | 8.0 ms |"), "{one_thread}");
+        let all_cores = section("## default configuration, all cores\n");
+        assert!(all_cores.contains("From all.json."), "{all_cores}");
+        assert!(all_cores.contains("| lubm-1 | reasoning | 4.0 ms |"), "{all_cores}");
     }
 
     #[test]

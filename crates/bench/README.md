@@ -12,20 +12,21 @@ include the public datasets the RDFox papers measured
 prints each engine's value and the leader per scenario and axis, and the
 estimates RDFox's published results allow ([The scoreboard](#the-scoreboard)).
 
-| Engine | Version | What runs | How | Threads here |
+| Engine | Version | What runs | How | Threads (`--threads one` / `all`) |
 |---|---|---|---|---|
-| `turbowl` | this build | this repository's `Reasoner`, with the configuration's switches | in process | one |
-| `nemo` | `nmo` 0.10.1 | the configuration's program, composed from `oracles/rules/` (`turbowl_oracle::programs::nemo`) | a subprocess: `nmo -I <input dir> -D <out dir> --report short` | one: its CPU time matches its wall clock (a smoke run on `uobm-010-l`) |
-| `souffle` | Soufflé 2.5, Homebrew's bottle for macOS 27 on arm64 | the same program emitted for Soufflé (`programs::souffle`), compiled to a binary | a subprocess: the compiled binary, `-F <input dir> -D <out dir>` | one: the bottle is built without OpenMP (upstream turns it off on Apple silicon, issue #2476), so it refuses `-j` above 1 |
-| `vlog` | VLog 1.3.7, inside Rulewerk 0.9.0's command-line client | the same program emitted in Rulewerk's syntax (`programs::vlog`) | a subprocess: `java -jar rulewerk-client-0.9.0.jar shell` on the fetched JRE, driven through its standard input | one: Rulewerk exposes none of VLog's thread options |
+| `turbowl` | this build | this repository's `Reasoner`, with the configuration's switches | in process | one (`Threads::ONE`) / every core (`Threads::ALL`) |
+| `nemo` | `nmo` 0.10.1 | the configuration's program, composed from `oracles/rules/` (`turbowl_oracle::programs::nemo`) | a subprocess: `nmo -I <input dir> -D <out dir> --report short` | as it runs by default in both modes, which is one thread: `nmo` has no thread option (its `--help` lists none), and its CPU time matches its wall clock (a smoke run on `uobm-010-l`) |
+| `souffle` | Soufflé 2.5, Homebrew's bottle for macOS 27 on arm64 | the same program emitted for Soufflé (`programs::souffle`), compiled to a binary | a subprocess: the compiled binary, `-F <input dir> -D <out dir>` | one in both modes: the bottle is built without OpenMP (upstream turns it off on Apple silicon, issue #2476), so it refuses `-j` above 1 |
+| `vlog` | VLog 1.3.7, inside Rulewerk 0.9.0's command-line client | the same program emitted in Rulewerk's syntax (`programs::vlog`) | a subprocess: `java -jar rulewerk-client-0.9.0.jar shell` on the fetched JRE, driven through its standard input | as Rulewerk runs it by default in both modes: Rulewerk exposes none of VLog's thread options (its Java interface to VLog takes no thread count). How many cores VLog then uses is not checked. |
 
 Each competitor is fetched into `tools/` by `scripts/fetch-tools.sh`, pinned
 by version and SHA-256, with no system install; `--list` shows each engine,
 its pinned version and whether it is fetched. One that is not fetched (or is
 at another version) is reported `skipped`. The competitors run full runs
 only: the incremental scenarios are `unsupported` (a Datalog engine runs a
-program once over its input; it has no change stream). None of them runs on
-more than one core on this machine, so no engine has an all-cores row yet.
+program once over its input; it has no change stream). `--threads` sets
+this reasoner's threads only; each competitor runs as it does by default
+in both modes ([Threads](#threads)).
 
 **Smoke runs, not measurements** (2026-11-06, one run each, `--memory-cap
 8`, 1-minute load average 12 to 52): every competitor's closure count
@@ -53,6 +54,7 @@ cargo run --release -p turbowl-bench -- --json results.json
 cargo run --release -p turbowl-bench -- --only lubm-1,lubm-10 --engines nemo --runs 3
 cargo run --release -p turbowl-bench -- --compare old.json new.json
 cargo run --release -p turbowl-bench -- --only lubm-uba-10-l --switch equality=off --json off.json
+cargo run --release -p turbowl-bench -- --threads all --json all-cores.json
 cargo run --release -p turbowl-bench -- --scoreboard default.json complete.json off.json
 ```
 
@@ -63,6 +65,7 @@ cargo run --release -p turbowl-bench -- --scoreboard default.json complete.json 
 | `--engines A,B` | Run only these engines: `turbowl`, `nemo`, `souffle`, `vlog`. |
 | `--complete` | Start from the complete configuration (every switch on: the complete W3C rule set) instead of the default switches, in every engine. |
 | `--switch NAME=on\|off` | Turn one switch on or off, in every engine, after `--complete` wherever it comes; repeatable, and a later one for the same name wins (as the CLI's). A paper's program without `owl:sameAs` rules (Oxford's LUBM ones) is matched with `--switch equality=off` ([Published results](#published-results-and-estimates)). |
+| `--threads one\|all` | This reasoner's threads: `one` (the default) or every core (`all`). The competitors run as they do by default in both modes ([Threads](#threads)). |
 | `--runs N` | Runs per scenario and engine (default 5; the improvement loop needs 5 or more). |
 | `--changes N` | Changes in the incremental scenarios (default 100). |
 | `--timeout SECS` | Stop a run after this long and record `timeout` (default 600). A competitor is stopped by the child at this time; the child itself gets 30 s more. |
@@ -146,6 +149,9 @@ nothing.
   capacities, what the process holds. The counts cost an integer add per
   family and round; the clock is read a few times per round and step; the
   bytes are walked after the timings. On WebAssembly every time is 0.
+- **Threads** ([Threads](#threads)): this reasoner's runs set
+  `Reasoner::set_threads` before loading, so parsing and reasoning both
+  run on the mode's threads.
 - A panic in this reasoner is caught by the child and recorded as an
   `error` with its message: a problem.
 - Every engine's closure is the full one on every scenario, `owl:sameAs`
@@ -159,6 +165,39 @@ nothing.
   stored. On `sameas-clique` the peak (read before the checks) follows the
   10,003 stored triples, not the 11 M expanded ones, so its `B/triple`
   is under 1.
+
+### Threads
+
+`--threads one` (the default) runs this reasoner on one thread
+(`Threads::ONE`): every round and every parse on the run's own thread.
+`--threads all` runs it on every core (`Threads::ALL`, the `Reasoner`'s own
+default): a round or a document large enough is split over rayon's global
+pool, whose size is the machine's core count (`meta.cores`) unless
+`RAYON_NUM_THREADS` sets it. The mode reaches each child as an argument of
+`--one`, the results file records it in `meta.threads` (1 for one thread,
+0 for all cores), each of this reasoner's runs records the setting the
+reasoner held (`threads`, the same numbers), and the text report's header
+names it.
+
+"All cores" changes only this reasoner. Each competitor runs as it does by
+default, in both modes:
+
+- **Nemo**: `nmo` 0.10.1 has no thread option, and by default it runs on
+  one thread (its CPU time matched its wall clock on `uobm-010-l`).
+- **Soufflé**: one thread. The bottle has no OpenMP, so the compiled
+  program refuses `-j` above 1.
+- **VLog**: as Rulewerk 0.9.0 runs it. Rulewerk exposes none of VLog's
+  thread options, and its Java interface to VLog takes no thread count.
+  How many cores VLog uses under it is not checked.
+
+So an all-cores section of the scoreboard runs each competitor exactly as a
+one-thread section does; only this reasoner's runs differ.
+
+Results files written before this option (schema 8, and schema 7 from v2
+ticket 17, commit `9fec6d3`, on) record `meta.threads` 1, but their
+TurbOWL runs used every core: the bench did not set the threads, and a
+`Reasoner` uses every core by default since ticket 17. `--compare` and
+`--scoreboard` read every file before schema 9 as one thread.
 
 ### What each engine's time includes
 
@@ -374,12 +413,15 @@ sizes are listed with their status.
 
 ## The scoreboard
 
-`--scoreboard FILE...` reads results files (schemas 1 to 8) and prints, in
+`--scoreboard FILE...` reads results files (schemas 1 to 9) and prints, in
 Markdown, one section per configuration and thread mode: `default` and
 `complete`, each with one thread and with all cores, then any other
-configuration a file ran (`default, equality off`). A mode no file ran says
-so; the all-cores sections say that no engine here runs on more than one
-core yet. When two files hold the same scenario and engine in the same
+configuration a file ran (`default, equality off`). A file's
+`meta.threads` sets its mode: 1 (and every file before schema 9) one
+thread, 0 all cores (`--threads all`). Only this reasoner's threads
+differ between the two: the competitors run as they do by default in both
+([Threads](#threads)). A mode no file
+ran says so. When two files hold the same scenario and engine in the same
 section, the later file's row is used.
 
 Each section has a row per scenario and axis (reasoning, total, and peak
@@ -476,7 +518,14 @@ estimate is made today, and three more conditions fail besides the counts:
 
 ## The results file (`--json`)
 
-Schema version 8. Times are in milliseconds, memory in bytes.
+Schema version 9. Times are in milliseconds, memory in bytes.
+
+Version 9 records the thread mode (`--threads`): `meta.threads` is 1 for
+one thread and 0 for all cores, and each of this reasoner's runs has
+`threads`, the setting the reasoner held, in the same numbers (a
+competitor's runs have none). Nothing else changes. A file before version
+9 has `meta.threads` 1 (or none), read as one thread, though from v2
+ticket 17 on its TurbOWL runs used every core ([Threads](#threads)).
 
 Version 8 adds this reasoner's counters and memory breakdown: a `profile`
 in each of its runs, and a `profile` in its summary (both described in the
@@ -507,7 +556,7 @@ file's `turtle-reasoner` engine as `turbowl`. Version 3 adds the top-level
 Version 2 changed from 1: the engines were renamed; a result's `status` can
 be `unsupported`; each result has `x_turtle_reasoner`; the summary has
 `export_median_ms` and `wall_median_ms`; Nemo's runs have `export_ms` and
-`wall_ms`; and `meta.versions` has `nemo`. `--compare` and `--scoreboard` read versions 1 to 8.
+`wall_ms`; and `meta.versions` has `nemo`. `--compare` and `--scoreboard` read versions 1 to 9.
 
 Files written before version 2 of this project also hold the rows and the
 `meta.versions` entry of an engine the bench no longer runs (ADR 0006).
@@ -516,7 +565,7 @@ skipped from which file, and compares the rest.
 
 ```jsonc
 {
-  "schema": 8,
+  "schema": 9,
   "meta": {
     "date": "2026-11-05T10:00:00Z",          // UTC, when the file was written
     "commit": "fcca1da…", "dirty": false,     // the repository's HEAD; tracked files changed?
@@ -529,7 +578,7 @@ skipped from which file, and compares the rest.
     "memory_cap_bytes": 17179869184,          // --memory-cap
     "configuration": "default",               // or "complete" (--complete), or "default, equality off" (--switch)
     "switches": ["equality", "property-chains", "checks", "identity", "schema"], // the switches on
-    "threads": 1,                             // the threads each engine ran on
+    "threads": 1,                             // turbowl's thread mode (--threads): 1 one thread, 0 all cores
     "peak_memory": "lifetime peak physical footprint", // on Linux: "peak resident size"
     "data_dir": "/…/data",
     "versions": { "bench": "0.1.0", "turbowl": "0.1.0",
@@ -585,6 +634,7 @@ skipped from which file, and compares the rest.
           // "total_ms": 300.0,               // Souffle's and VLog's runs: load_ms and reason_ms are null
           "closure": 204521,                  // what the engine reports
           "closure_counted": 204521,          // distinct triples counted
+          "threads": 1,                       // turbowl only (schema 9): the setting it held, as meta.threads
           "profile": {                        // turbowl only (schema 8): Reasoner::profile()
             "families": ["class", "property"],  // the rule families that ran, in order
             "rounds": {                       // the full run's, one entry per round

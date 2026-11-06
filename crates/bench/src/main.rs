@@ -1,9 +1,9 @@
 //! The benchmark: runs each scenario for this repository's reasoner and for
 //! its competitors Nemo, Soufflé and VLog (pinned tools, each a subprocess,
 //! on the scenario's inputs converted once), in one configuration of the
-//! rules, and reports median, spread, peak memory, closure size and each
-//! engine's ratio to this reasoner; each competitor's closure must equal
-//! this reasoner's. `--scoreboard` reads results files and prints each
+//! rules and one thread mode for this reasoner (`--threads`), and reports
+//! median, spread, peak memory, closure size and each engine's ratio to
+//! this reasoner; each competitor's closure must equal this reasoner's. `--scoreboard` reads results files and prints each
 //! engine's value and the leader per scenario and axis, with RDFox's
 //! published results scaled through a bridge where they allow it
 //! (`published.rs`, `report.rs`). See `README.md`.
@@ -27,9 +27,10 @@ mod scenario;
 mod souffle;
 mod vlog;
 
-use engine::{EngineId, Mode};
+use engine::{EngineId, Mode, ThreadMode};
 use scenario::Scenario;
 use serde_json::{Value, json};
+use std::ffi::OsString;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitCode, Stdio};
@@ -37,7 +38,7 @@ use std::time::{Duration, Instant};
 use turbowl::{Switch, Switches};
 
 /// The results file's format version.
-const SCHEMA: u64 = 8;
+const SCHEMA: u64 = 9;
 /// The versions `--compare` reads: 2 only adds to 1 (and renames engines),
 /// 3 only adds the `scaling` table to 2, 4 only renames this reasoner
 /// (`turtle-reasoner` became `turbowl`; [`read_results`] reads the old name
@@ -49,8 +50,10 @@ const SCHEMA: u64 = 8;
 /// `meta.switches`, `meta.threads` and `published_counts`, and
 /// `meta.configuration` can name switches turned from the default, 8 only
 /// adds this reasoner's counters and memory breakdown (`profile` in its runs
-/// and summaries).
-const READS: [u64; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+/// and summaries), 9 records the thread mode (`--threads`) in `meta.threads`
+/// (0 for all cores) and in each of this reasoner's runs (`threads`).
+/// Before 9, `meta.threads` is 1, and it is read as one thread.
+const READS: [u64; 9] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 /// This reasoner's engine name in results files before version 4.
 const OLD_NAME: &str = "turtle-reasoner";
 
@@ -74,6 +77,8 @@ usage: turbowl-bench [options]
                       (default: the default switches)
   --switch NAME=on|off  turn one switch on or off, after --complete;
                       repeatable, a later one for the same name wins
+  --threads one|all   this reasoner's threads: one, or every core (default
+                      one); the competitors run as they always do
   --runs N            runs per scenario and engine (default 5)
   --changes N         changes in the incremental scenarios (default 100)
   --timeout SECS      stop a run after this long (default 600)
@@ -94,6 +99,8 @@ struct Args {
     /// The configuration: the default switches, or every switch on
     /// (`--complete`), then each `--switch` in order.
     switches: Switches,
+    /// This reasoner's threads (`--threads`).
+    threads: ThreadMode,
     runs: usize,
     changes: usize,
     timeout: Duration,
@@ -111,6 +118,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         only: None,
         engines: EngineId::ALL.to_vec(),
         switches: Switches::default(),
+        threads: ThreadMode::One,
         runs: 5,
         changes: 100,
         timeout: Duration::from_secs(600),
@@ -141,6 +149,10 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
             }
             "--complete" => complete = true,
             "--switch" => settings.push(switch_setting(&value()?)?),
+            "--threads" => {
+                let v = value()?;
+                a.threads = ThreadMode::from_name(&v).ok_or(format!("{arg} takes one or all, not {v}"))?;
+            }
             "--runs" => a.runs = number(value()?)?,
             "--changes" => a.changes = number(value()?)?,
             "--timeout" => a.timeout = Duration::from_secs(number(value()?)? as u64),
@@ -252,22 +264,71 @@ fn main() -> ExitCode {
     run(&args)
 }
 
-/// The hidden `--one ENGINE MODE SWITCHES CHANGES TIMEOUT_S FILE...` mode:
-/// one measured run, one JSON line on stdout. SWITCHES names the switches
-/// that are on, separated by commas (`none` for none).
+/// The hidden `--one` mode's arguments, after `--one`.
+const CHILD_USAGE: &str = "--one ENGINE MODE SWITCHES THREADS CHANGES TIMEOUT_S FILE...";
+
+/// One run, as the parent hands it to a child.
+#[derive(Debug, PartialEq)]
+struct OneRun {
+    engine: EngineId,
+    mode: Mode,
+    switches: Switches,
+    threads: ThreadMode,
+    changes: usize,
+    timeout: Duration,
+    files: Vec<PathBuf>,
+}
+
+impl OneRun {
+    /// The child's arguments, `--one` first: SWITCHES names the switches
+    /// that are on, separated by commas (`none` for none); THREADS is `one`
+    /// or `all` (`--threads`).
+    fn to_args(&self) -> Vec<OsString> {
+        let switches = match switch_names(self.switches).join(",") {
+            names if names.is_empty() => "none".into(),
+            names => names,
+        };
+        let mut out: Vec<OsString> = [
+            "--one",
+            self.engine.name(),
+            self.mode.name(),
+            &switches,
+            self.threads.name(),
+            &self.changes.to_string(),
+            &self.timeout.as_secs().to_string(),
+        ]
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+        out.extend(self.files.iter().map(|f| f.clone().into_os_string()));
+        out
+    }
+
+    /// The arguments after `--one`, as [`OneRun::to_args`] writes them.
+    fn from_args(argv: &[String]) -> Option<OneRun> {
+        Some(OneRun {
+            engine: EngineId::from_name(argv.first()?)?,
+            mode: Mode::from_name(argv.get(1)?)?,
+            switches: switches_from_names(argv.get(2)?)?,
+            threads: ThreadMode::from_name(argv.get(3)?)?,
+            changes: argv.get(4)?.parse().ok()?,
+            timeout: Duration::from_secs(argv.get(5)?.parse().ok()?),
+            files: argv[6..].iter().map(PathBuf::from).collect(),
+        })
+    }
+}
+
+/// The hidden `--one` mode ([`CHILD_USAGE`]): one measured run, one JSON
+/// line on stdout.
 fn child(argv: &[String]) -> ExitCode {
-    let (Some(engine), Some(mode), Some(switches), Some(changes), Some(timeout)) = (
-        argv.first().and_then(|e| EngineId::from_name(e)),
-        argv.get(1).and_then(|m| Mode::from_name(m)),
-        argv.get(2).and_then(|s| switches_from_names(s)),
-        argv.get(3).and_then(|c| c.parse().ok()),
-        argv.get(4).and_then(|t| t.parse().ok()).map(Duration::from_secs),
-    ) else {
-        eprintln!("--one ENGINE MODE SWITCHES CHANGES TIMEOUT_S FILE...");
+    let Some(r) = OneRun::from_args(argv) else {
+        eprintln!("{CHILD_USAGE}");
         return ExitCode::from(64);
     };
-    let files: Vec<PathBuf> = argv[5..].iter().map(PathBuf::from).collect();
-    println!("{}", engine::run_one(engine, mode, switches, &files, changes, timeout));
+    println!(
+        "{}",
+        engine::run_one(r.engine, r.mode, r.switches, r.threads, &r.files, r.changes, r.timeout)
+    );
     ExitCode::SUCCESS
 }
 
@@ -324,17 +385,17 @@ fn spawn_run(engine: EngineId, mode: Mode, args: &Args, files: &[PathBuf]) -> Va
         Ok(e) => e,
         Err(e) => return json!({ "status": "error", "message": format!("current_exe: {e}") }),
     };
+    let one = OneRun {
+        engine,
+        mode,
+        switches: args.switches,
+        threads: args.threads,
+        changes: args.changes,
+        timeout,
+        files: files.to_vec(),
+    };
     let mut child = match Command::new(exe)
-        .arg("--one")
-        .arg(engine.name())
-        .arg(mode.name())
-        .arg(match switch_names(args.switches).join(",") {
-            names if names.is_empty() => "none".into(),
-            names => names,
-        })
-        .arg(args.changes.to_string())
-        .arg(timeout.as_secs().to_string())
-        .args(files)
+        .args(one.to_args())
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
@@ -658,14 +719,9 @@ fn run(args: &Args) -> ExitCode {
         meta["date"] = json!(machine::utc_now());
         meta["load_before"] = json!(load_before);
         meta["load_after"] = json!(load_after);
-        meta["runs"] = json!(args.runs);
-        meta["changes"] = json!(args.changes);
-        meta["timeout_s"] = json!(args.timeout.as_secs());
-        meta["memory_cap_bytes"] = json!(args.memory_cap);
-        meta["configuration"] = json!(configuration(args.switches));
-        meta["switches"] = json!(switch_names(args.switches));
-        // Every engine here runs on one thread (README).
-        meta["threads"] = json!(1);
+        for (key, value) in settings_meta(args) {
+            meta[key] = value;
+        }
         meta["peak_memory"] = json!(if cfg!(target_os = "macos") {
             "lifetime peak physical footprint"
         } else {
@@ -717,6 +773,22 @@ fn run(args: &Args) -> ExitCode {
     } else {
         ExitCode::FAILURE
     }
+}
+
+/// The `meta` fields the arguments set.
+fn settings_meta(args: &Args) -> [(&'static str, Value); 7] {
+    [
+        ("runs", json!(args.runs)),
+        ("changes", json!(args.changes)),
+        ("timeout_s", json!(args.timeout.as_secs())),
+        ("memory_cap_bytes", json!(args.memory_cap)),
+        ("configuration", json!(configuration(args.switches))),
+        ("switches", json!(switch_names(args.switches))),
+        // This reasoner's thread mode: 1 for one thread, 0 for all cores, as
+        // the scoreboard groups them. The competitors run as they always do
+        // (README).
+        ("threads", json!(args.threads.count())),
+    ]
 }
 
 /// Failed runs, closures that differ from what the engine reports,
@@ -791,8 +863,9 @@ fn ratios(rows: &[Row], r: &Row) -> Value {
 fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Option<[f64; 3]>) {
     println!();
     println!(
-        "TurbOWL bench: {} configuration, {} runs each; load average {} before, {} after",
+        "TurbOWL bench: {} configuration, turbowl on {}, {} runs each; load average {} before, {} after",
         configuration(args.switches),
+        args.threads.label(),
         args.runs,
         load_text(before),
         load_text(after)
@@ -940,6 +1013,62 @@ mod tests {
         for bad in ["0", "-1", "x", "inf"] {
             assert!(args(&["--memory-cap", bad]).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn reads_the_thread_mode() {
+        let args = |a: &[&str]| parse_args(&a.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        let threads = |a: &Args| settings_meta(a).into_iter().find(|(k, _)| *k == "threads").unwrap().1;
+        let default = args(&[]).unwrap();
+        assert_eq!(default.threads, ThreadMode::One);
+        assert_eq!(threads(&default), 1);
+        let one = args(&["--threads", "one"]).unwrap();
+        assert_eq!(one.threads, ThreadMode::One);
+        assert_eq!(threads(&one), 1);
+        let all = args(&["--threads", "all"]).unwrap();
+        assert_eq!(all.threads, ThreadMode::All);
+        assert_eq!(threads(&all), 0);
+        assert_eq!(
+            args(&["--threads", "all", "--threads", "one"]).unwrap().threads,
+            ThreadMode::One
+        );
+        for bad in ["", "1", "0", "ALL", "two", "every"] {
+            let e = args(&["--threads", bad]).unwrap_err();
+            assert!(e.contains("--threads takes one or all"), "{bad}: {e}");
+        }
+        assert_eq!(args(&["--threads"]).unwrap_err(), "--threads needs a value");
+    }
+
+    /// The parent's arguments for a run read back as the same run in the
+    /// child, in both thread modes; a child without THREADS is refused.
+    #[test]
+    fn hands_the_run_to_the_child() {
+        for (threads, switches) in [
+            (ThreadMode::One, Switches::default()),
+            (ThreadMode::All, Switches::complete()),
+            (
+                ThreadMode::All,
+                Switch::ALL.into_iter().fold(Switches::complete(), Switches::off),
+            ),
+        ] {
+            let run = OneRun {
+                engine: EngineId::Turbowl,
+                mode: Mode::Add,
+                switches,
+                threads,
+                changes: 7,
+                timeout: Duration::from_secs(42),
+                files: vec!["a.ttl".into(), "dir/b.nt".into()],
+            };
+            let args: Vec<String> = run.to_args().into_iter().map(|a| a.into_string().unwrap()).collect();
+            assert_eq!(args[0], "--one");
+            assert_eq!(args[4], threads.name());
+            assert_eq!(OneRun::from_args(&args[1..]), Some(run));
+        }
+        let old = ["turbowl", "full", "none", "100", "600", "a.ttl"].map(String::from);
+        assert_eq!(OneRun::from_args(&old), None);
+        let bad = ["turbowl", "full", "none", "two", "100", "600"].map(String::from);
+        assert_eq!(OneRun::from_args(&bad), None);
     }
 
     #[test]
