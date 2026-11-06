@@ -300,12 +300,15 @@ fn the_refusals_say_why() {
         "not a TurbOWL snapshot"
     );
 
-    let mut other = saved.clone();
-    other[8..12].copy_from_slice(&2u32.to_le_bytes());
-    assert_eq!(
-        refusal(&other),
-        "the snapshot has format version 2; this TurbOWL reads version 1"
-    );
+    // A snapshot of version 1 (the base as triples), and of a later one.
+    for version in [1u32, 3] {
+        let mut other = saved.clone();
+        other[8..12].copy_from_slice(&version.to_le_bytes());
+        assert_eq!(
+            refusal(&other),
+            format!("the snapshot has format version {version}; this TurbOWL reads version 2")
+        );
+    }
 
     let mut damaged = saved.clone();
     let middle = damaged.len() / 2;
@@ -502,24 +505,88 @@ fn a_large_snapshot_decodes_in_chunks() {
     assert_eq!(shown(&loaded), shown(&r));
 
     let saved = bytes(&r);
-    let base = find_section(&saved, Section::Base) + 8;
+    // One predicate: its id and its count of pairs, then the pairs.
+    let at = find_section(&saved, Section::Base);
+    assert_eq!(saved[at..at + 8], 1u64.to_le_bytes());
+    assert_eq!(saved[at + 12..at + 20], (n as u64).to_le_bytes());
+    let base = at + 20;
     let swapped = |a: usize| {
         let mut crafted = saved.clone();
-        let (x, y) = (base + 12 * a, base + 12 * (a + 1));
+        let (x, y) = (base + 8 * a, base + 8 * (a + 1));
         let first: Vec<u8> = crafted[x..y].to_vec();
-        crafted.copy_within(y..y + 12, x);
-        crafted[y..y + 12].copy_from_slice(&first);
+        crafted.copy_within(y..y + 8, x);
+        crafted[y..y + 8].copy_from_slice(&first);
         fix_checksum(&mut crafted);
         refusal(&crafted)
     };
-    // Chunks are 4,096 triples or more: 4,095 and 4,096 are in two.
+    // Chunks are 4,096 pairs or more: 4,095 and 4,096 are in two.
     for a in [10, 4_095, n - 2] {
         let m = swapped(a);
-        assert!(m.contains(&format!("triple {} is not after", a + 1)), "{a}: {m}");
+        assert!(m.contains(&format!("pair {} is not after", a + 1)), "{a}: {m}");
+        assert!(m.contains("BASE") && m.contains("(predicate "), "{a}: {m}");
     }
     let mut crafted = saved.clone();
-    let far = base + 12 * (n - 100);
+    let far = base + 8 * (n - 100);
     crafted[far..far + 4].copy_from_slice(&u32::MAX.to_le_bytes());
     fix_checksum(&mut crafted);
     assert!(refusal(&crafted).contains("an id 4294967295"));
+}
+
+/// The base round-trips by predicate: merged, with triples still in its
+/// hash set, and after a removal empties a predicate; the loaded base is
+/// the saved one, and the changes then do on both what they do on one.
+#[test]
+fn a_round_trip_keeps_the_base() {
+    let mut r = rich();
+    // A few triples in the hash set, of a known predicate and a new one.
+    r.insert(parse("ex:g ex:p ex:h . ex:g ex:new ex:h .").iter().map(Triple::as_ref));
+    let (saved, held) = r.base_by_predicate();
+    assert!(held >= 2 && saved.len() > 3, "{held} triples in the hash set");
+    let loaded = reload(&r);
+    assert_eq!(loaded.base_by_predicate(), (saved, 0), "written merged");
+    same_from_here(r, loaded);
+
+    let mut r = rich();
+    r.remove(parse("ex:z rdfs:label \"zed\"@en-GB .").iter().map(Triple::as_ref));
+    let label = r
+        .terms()
+        .get_iri("http://www.w3.org/2000/01/rdf-schema#label")
+        .unwrap()
+        .0;
+    let (saved, _) = r.base_by_predicate();
+    assert!(saved.iter().all(|(p, _)| p != label), "the predicate is gone");
+    let loaded = reload(&r);
+    assert_eq!(loaded.base_by_predicate(), (saved, 0));
+    same_from_here(r, loaded);
+}
+
+/// The base's checks, each on a snapshot crafted to break it, name the
+/// section and what is wrong.
+#[test]
+fn a_malformed_base_is_named() {
+    let saved = small();
+    let at = find_section(&saved, Section::Base);
+    let predicates = u64::from_le_bytes(saved[at..at + 8].try_into().unwrap());
+    assert!(predicates >= 2, "the small snapshot's base has predicates");
+    let crafted = |at: usize, bytes: &[u8]| {
+        let mut crafted = saved.clone();
+        crafted[at..at + bytes.len()].copy_from_slice(bytes);
+        fix_checksum(&mut crafted);
+        refusal(&crafted)
+    };
+    let first = at + 8;
+    let count = u64::from_le_bytes(saved[first + 4..first + 12].try_into().unwrap()) as usize;
+    let second = first + 12 + 8 * count;
+    // The second predicate made the first's.
+    let m = crafted(second, &saved[first..first + 4]);
+    assert!(
+        m.contains("BASE") && m.contains("is not after the one before it"),
+        "{m}"
+    );
+    // The first predicate's count made 0.
+    let m = crafted(first + 4, &0u64.to_le_bytes());
+    assert!(m.contains("BASE") && m.contains("has no pairs"), "{m}");
+    // An object past the dictionary.
+    let m = crafted(first + 12 + 4, &u32::MAX.to_le_bytes());
+    assert!(m.contains("BASE") && m.contains("an id 4294967295"), "{m}");
 }

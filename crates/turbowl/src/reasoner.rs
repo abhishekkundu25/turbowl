@@ -6,13 +6,15 @@
 //! - **The dictionary**: every term seen, as a term id. Terms are never
 //!   removed, so a long session of edits keeps the terms it no longer uses
 //!   ([`Reasoner::clear`] starts a new one).
-//! - **The base**: the triples loaded or inserted, deduplicated, as
-//!   `[s, p, o]` term ids ([`Base`]): a sorted vector, plus a hash set of
-//!   the triples added since its last merge, merged in once it passes an
-//!   eighth of the vector. One addition costs a binary search and a hash
-//!   insert, not a copy of the base. 12 bytes a triple (15 with the
-//!   vector's slack at most), plus the hash set: at most an eighth as many
-//!   entries, about 15 to 30 bytes each.
+//! - **The base**: the triples loaded or inserted, deduplicated, by
+//!   predicate ([`Base`]): each predicate's sorted `(s, o)` term ids, as the
+//!   store's tables hold them, plus a hash set of the `[s, p, o]` triples
+//!   added since the last merge, merged in once it passes an eighth of the
+//!   pairs. One addition costs two binary searches and a hash insert, not a
+//!   copy of the base. 8 bytes a triple (10 with its vector's spare room at
+//!   most), plus the hash set: at most an eighth as many entries, about 15
+//!   to 30 bytes each. A full run copies each predicate's pairs into its
+//!   table.
 //! - **The closure**: an engine [`Store`] holding the base, the families'
 //!   facts and every derived triple, generalized triples included (a
 //!   literal subject, a predicate that is not an IRI; `docs/specs/v1.md`,
@@ -117,7 +119,7 @@
 //! and what loading checks are in `snapshot.rs`.
 
 use crate::Error;
-use crate::engine::{Canon, Relation, Round, Store, Workers};
+use crate::engine::{Canon, Round, Store, Workers};
 use crate::profile::{self, Clock, Memory, Parts, Profile, Step};
 use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
@@ -387,9 +389,8 @@ impl Reasoner {
     /// An unchanged base costs nothing: the next run takes no rounds; a base
     /// that only grew runs incrementally.
     pub fn set_base<'a>(&mut self, triples: impl IntoIterator<Item = TripleRef<'a>>) -> bool {
-        let mut new: Vec<[u32; 3]> = triples.into_iter().map(|t| self.intern(t)).collect();
-        new.sort_unstable();
-        new.dedup();
+        let new: Vec<[u32; 3]> = triples.into_iter().map(|t| self.intern(t)).collect();
+        let new = ByPredicate::from_triples(new);
         let old = self.base.flush();
         if new == *old {
             return false;
@@ -520,7 +521,7 @@ impl Reasoner {
     /// since the last run), so that [`Reasoner::from_snapshot_bytes`] gives
     /// it back without parsing or reasoning. Only the threads are not
     /// saved. The format is versioned and checksummed (`snapshot.rs`
-    /// documents it); its size is about 8 bytes a stored pair, 12 a base
+    /// documents it); its size is about 8 bytes a stored pair or a base
     /// triple, plus the terms' text.
     ///
     /// For WebAssembly, which has no files, and the oracle crate's round
@@ -609,10 +610,7 @@ impl Reasoner {
         let mut out = Self::build(FAMILIES, r.switches);
         out.diagnostics = diagnostics(&r.findings, r.closure.canon(), &r.terms);
         out.terms = r.terms;
-        out.base = Base {
-            sorted: r.base,
-            recent: FxHashSet::default(),
-        };
+        out.base = Base::restored(r.base);
         out.closure = r.closure;
         out.closure.set_workers(out.workers.clone());
         out.state = r.state;
@@ -646,6 +644,12 @@ impl Reasoner {
     #[cfg(test)]
     pub(crate) fn store(&self) -> &Store {
         &self.closure
+    }
+
+    /// The base, merged, by predicate, and the triples its hash set holds.
+    #[cfg(test)]
+    pub(crate) fn base_by_predicate(&self) -> (ByPredicate, usize) {
+        (self.base.sorted_all().into_owned(), self.base.recent.len())
     }
 
     /// The dictionary.
@@ -687,7 +691,6 @@ impl Reasoner {
 
     /// The bytes the reasoner holds, by part ([`Memory`]).
     fn memory(&self) -> Memory {
-        use std::mem::size_of;
         let (dictionary_text, dictionary_entries, dictionary_slots) = self.terms.bytes();
         let canon = self.closure.canon();
         let rdf_type = canon.find(vocab::RDF_TYPE.0);
@@ -722,8 +725,7 @@ impl Reasoner {
             dictionary_text,
             dictionary_entries,
             dictionary_slots,
-            base: profile::vec_bytes(&self.base.sorted)
-                + profile::hash_bytes(self.base.recent.capacity(), size_of::<[u32; 3]>()),
+            base: self.base.bytes(),
             store_type,
             store_other,
             store_rest: self.closure.own_bytes(),
@@ -846,18 +848,18 @@ impl Reasoner {
         self.rdf = 0;
         let facts = families.iter().flat_map(|f| f.facts).map(|&[s, p, o]| [s.0, p.0, o.0]);
         if self.closure.canon().is_empty() {
-            // Every id is its own representative, so the base's order is
-            // each table's: the tables get their tuples as sorted batches of
-            // exact size, which the first step neither copies nor sorts.
-            let mut facts: Vec<[u32; 3]> = facts.collect();
-            facts.sort_unstable();
-            facts.dedup();
-            self.closure.fill(self.base.flush(), &facts);
+            // Every id is its own representative, so the base's pairs are
+            // each table's: the tables get them as sorted batches of exact
+            // size, which the first step neither copies nor sorts.
+            let facts: Vec<[u32; 3]> = facts.collect();
+            let base: Vec<(u32, &[[u32; 2]])> = self.base.flush().iter().collect();
+            self.closure.fill(&base, &facts);
         } else {
-            // After a restart: the canon rewrites the triples, and the step
+            // After a restart: the canon rewrites the pairs, and the step
             // sorts them.
             self.closure.extend(facts.map(|[s, p, o]| (s, p, o)));
-            self.closure.extend_from_slice(self.base.flush());
+            let base: Vec<(u32, &[[u32; 2]])> = self.base.flush().iter().collect();
+            self.closure.extend_by_predicate(&base);
         }
     }
 
@@ -1021,14 +1023,24 @@ fn rdf_triples(pairs: &[(u32, u32)], p: u32, terms: &Dictionary, weights: &Weigh
     rdf
 }
 
-/// The triples in `new` and not in `old` (both sorted and deduplicated),
-/// when `old` is a subset of `new`; `None` when it is not.
-fn added(old: &[[u32; 3]], new: &[[u32; 3]]) -> Option<Vec<[u32; 3]>> {
-    let mut more = Vec::with_capacity(new.len().saturating_sub(old.len()));
+/// The triples in `new` and not in `old`, sorted by predicate, when `old`
+/// is a subset of `new`; `None` when it is not.
+fn added(old: &ByPredicate, new: &ByPredicate) -> Option<Vec<[u32; 3]>> {
+    let mut more = Vec::new();
     let mut old = old.iter().peekable();
-    for t in new {
-        if old.next_if_eq(&t).is_none() {
-            more.push(*t);
+    for (p, pairs) in new.iter() {
+        if old.peek().is_some_and(|&(q, _)| q < p) {
+            return None;
+        }
+        let mine: &[[u32; 2]] = old.next_if(|&(q, _)| q == p).map_or(&[], |(_, mine)| mine);
+        let mut mine = mine.iter().peekable();
+        for pair in pairs {
+            if mine.next_if_eq(&pair).is_none() {
+                more.push([pair[0], p, pair[1]]);
+            }
+        }
+        if mine.peek().is_some() {
+            return None;
         }
     }
     old.peek().is_none().then_some(more)
@@ -1198,49 +1210,249 @@ impl Documents {
 }
 
 /// The fewest triples the base's hash set holds before it is merged into
-/// the sorted vector.
+/// the pairs.
 const MERGE_AT_LEAST: usize = 4096;
 
-/// The base triples, deduplicated: a sorted vector, and the triples added
-/// since its last merge in a hash set (none of them in the vector). The set
-/// is merged in when it passes [`MERGE_AT_LEAST`] or an eighth of the
-/// vector, so an addition costs O(log n) plus O(1) amortized, and the
-/// memory stays at 12 bytes a triple plus at most an eighth more.
+/// Triples as sorted `(s, o)` pairs by predicate, in one vector: the
+/// predicates ascending, each with the place of its first pair, and every
+/// pair as two ids, predicate after predicate, each predicate's strictly
+/// ascending and none without pairs. 8 bytes a triple.
+///
+/// One vector, not one a predicate, so that the triples of a load become
+/// the pairs in their own allocation ([`ByPredicate::from_sorted`]): a
+/// load's buffer freed beside new vectors is memory the allocator keeps
+/// (on lubm-50, a base of one vector a predicate raised the all-cores
+/// footprint by about 70 MB).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct ByPredicate {
+    /// Each predicate, and the index of its first pair.
+    starts: Vec<(u32, usize)>,
+    /// The pairs, `s` then `o`.
+    ids: Vec<u32>,
+}
+
+impl ByPredicate {
+    /// The triples of `triples`, deduplicated.
+    fn from_triples(mut triples: Vec<[u32; 3]>) -> Self {
+        triples.sort_unstable_by_key(by_predicate);
+        triples.dedup();
+        Self::from_sorted(triples)
+    }
+
+    /// The triples of `triples` (sorted by predicate, [`by_predicate`],
+    /// deduplicated), made pairs in place: in the triples' own allocation,
+    /// which then gives back the room it no longer needs.
+    fn from_sorted(triples: Vec<[u32; 3]>) -> Self {
+        let n = triples.len();
+        let mut starts: Vec<(u32, usize)> = Vec::new();
+        for (i, t) in triples.iter().enumerate() {
+            if starts.last().is_none_or(|&(p, _)| p != t[1]) {
+                starts.push((t[1], i));
+            }
+        }
+        let mut ids = triples.into_flattened();
+        // Pair i's ids go to 2i and 2i + 1, read from 3i and 3i + 2: never
+        // from where an earlier pair was written.
+        for i in 0..n {
+            ids[2 * i] = ids[3 * i];
+            ids[2 * i + 1] = ids[3 * i + 2];
+        }
+        ids.truncate(2 * n);
+        trim(&mut ids);
+        Self { starts, ids }
+    }
+
+    /// The pairs.
+    pub(crate) fn len(&self) -> usize {
+        self.ids.len() / 2
+    }
+
+    /// Every pair, predicate after predicate.
+    fn pairs(&self) -> &[[u32; 2]] {
+        self.ids.as_chunks::<2>().0
+    }
+
+    /// Each predicate, ascending, and its pairs.
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (u32, &[[u32; 2]])> + '_ {
+        let pairs = self.pairs();
+        self.starts.iter().enumerate().map(move |(i, &(p, start))| {
+            let end = self.starts.get(i + 1).map_or(pairs.len(), |next| next.1);
+            (p, &pairs[start..end])
+        })
+    }
+
+    /// Appends predicate `p` and its pairs (sorted, deduplicated, not
+    /// empty), `p` after every predicate held: a loaded snapshot.
+    pub(crate) fn push(&mut self, p: u32, pairs: &[[u32; 2]]) {
+        debug_assert!(self.starts.last().is_none_or(|&(q, _)| q < p) && !pairs.is_empty());
+        self.starts.push((p, self.len()));
+        self.ids.extend_from_slice(pairs.as_flattened());
+    }
+
+    fn contains(&self, &[s, p, o]: &[u32; 3]) -> bool {
+        let Ok(i) = self.starts.binary_search_by_key(&p, |&(q, _)| q) else {
+            return false;
+        };
+        let pairs = self.pairs();
+        let end = self.starts.get(i + 1).map_or(pairs.len(), |next| next.1);
+        pairs[self.starts[i].1..end].binary_search(&[s, o]).is_ok()
+    }
+
+    /// Each predicate, the range of its pairs.
+    fn ranges(&self) -> Vec<(u32, usize, usize)> {
+        let len = self.len();
+        self.starts
+            .iter()
+            .enumerate()
+            .map(|(i, &(p, start))| (p, start, self.starts.get(i + 1).map_or(len, |next| next.1)))
+            .collect()
+    }
+
+    /// Merges triples that are not held, sorted by predicate, into the
+    /// pairs: in place, from the back, the vector growing by exactly what
+    /// they need (with no pairs yet, in the triples' allocation).
+    fn merge(&mut self, more: Vec<[u32; 3]>) {
+        if more.is_empty() {
+            return;
+        }
+        if self.ids.is_empty() {
+            *self = Self::from_sorted(more);
+            return;
+        }
+        // Each predicate of either, ascending, with its range of pairs held
+        // and its run of `more`.
+        let mut old = self.ranges().into_iter().peekable();
+        let mut entries: Vec<(u32, usize, usize, &[[u32; 3]])> = Vec::with_capacity(self.starts.len());
+        for run in more.chunk_by(|a, b| a[1] == b[1]) {
+            let p = run[0][1];
+            entries.extend(std::iter::from_fn(|| old.next_if(|r| r.0 < p)).map(|(q, lo, hi)| (q, lo, hi, &[][..])));
+            let (lo, hi) = old.next_if(|r| r.0 == p).map_or((0, 0), |(_, lo, hi)| (lo, hi));
+            entries.push((p, lo, hi, run));
+        }
+        entries.extend(old.map(|(q, lo, hi)| (q, lo, hi, &[][..])));
+
+        let total = self.len() + more.len();
+        self.ids.reserve_exact(2 * more.len());
+        self.ids.resize(2 * total, 0);
+        let ids = &mut self.ids;
+        // Written at k, read at i - 1 < k, or copied onto itself when
+        // every pair of `more` before it is placed.
+        let mut k = total;
+        let mut starts = Vec::with_capacity(entries.len());
+        for &(p, lo, hi, run) in entries.iter().rev() {
+            let (mut i, mut j) = (hi, run.len());
+            while i > lo || j > 0 {
+                k -= 1;
+                let held = i > lo && (j == 0 || [ids[2 * i - 2], ids[2 * i - 1]] > [run[j - 1][0], run[j - 1][2]]);
+                let [s, o] = if held {
+                    i -= 1;
+                    [ids[2 * i], ids[2 * i + 1]]
+                } else {
+                    j -= 1;
+                    [run[j][0], run[j][2]]
+                };
+                ids[2 * k] = s;
+                ids[2 * k + 1] = o;
+            }
+            starts.push((p, k));
+        }
+        debug_assert_eq!(k, 0, "every pair placed");
+        starts.reverse();
+        self.starts = starts;
+    }
+
+    /// Removes the triples of `gone` (held, sorted by predicate,
+    /// deduplicated): in place, the predicates left with no pair dropped.
+    fn remove(&mut self, gone: &[[u32; 3]]) {
+        let mut gone = gone.iter().map(by_predicate).peekable();
+        let ranges = self.ranges();
+        let ids = &mut self.ids;
+        let mut starts = Vec::with_capacity(ranges.len());
+        let mut w = 0;
+        for (p, lo, hi) in ranges {
+            let begin = w;
+            for r in lo..hi {
+                let (s, o) = (ids[2 * r], ids[2 * r + 1]);
+                if gone.next_if_eq(&(p, s, o)).is_some() {
+                    continue;
+                }
+                ids[2 * w] = s;
+                ids[2 * w + 1] = o;
+                w += 1;
+            }
+            if w > begin {
+                starts.push((p, begin));
+            }
+        }
+        debug_assert!(gone.next().is_none(), "every triple removed was held");
+        ids.truncate(2 * w);
+        trim(ids);
+        self.starts = starts;
+    }
+
+    /// The bytes held.
+    fn bytes(&self) -> usize {
+        profile::vec_bytes(&self.starts) + profile::vec_bytes(&self.ids)
+    }
+}
+
+/// The base triples, deduplicated: sorted pairs by predicate
+/// ([`ByPredicate`]), as the store's tables hold them, and the triples
+/// added since the last merge in a hash set (none of them among the pairs).
+/// The set is merged in when it passes [`MERGE_AT_LEAST`] or an eighth of
+/// the pairs, so an addition costs O(log n) plus O(1) amortized, and the
+/// memory stays at 8 bytes a triple (10 with the vector's slack at most),
+/// plus the hash set: at most an eighth as many entries.
 #[derive(Debug, Default)]
 struct Base {
-    sorted: Vec<[u32; 3]>,
+    merged: ByPredicate,
     recent: FxHashSet<[u32; 3]>,
 }
 
 impl Base {
+    /// The base of these pairs, with no triple in the hash set.
+    fn restored(merged: ByPredicate) -> Self {
+        Base {
+            merged,
+            recent: FxHashSet::default(),
+        }
+    }
+
     fn len(&self) -> usize {
-        self.sorted.len() + self.recent.len()
+        self.merged.len() + self.recent.len()
     }
 
     fn contains(&self, t: &[u32; 3]) -> bool {
-        self.sorted.binary_search(t).is_ok() || self.recent.contains(t)
+        self.merged.contains(t) || self.recent.contains(t)
     }
 
-    /// Every base triple, sorted: the vector itself when the hash set is
-    /// empty, else a merged copy.
-    fn sorted_all(&self) -> Cow<'_, [[u32; 3]]> {
+    /// Every base triple, by predicate: the pairs themselves when the hash
+    /// set is empty, else a merged copy.
+    fn sorted_all(&self) -> Cow<'_, ByPredicate> {
         if self.recent.is_empty() {
-            return Cow::Borrowed(&self.sorted);
+            return Cow::Borrowed(&self.merged);
         }
         let mut more: Vec<[u32; 3]> = self.recent.iter().copied().collect();
-        more.sort_unstable();
-        let all = Relation::from_sorted(self.sorted.clone()).merge(Relation::from_sorted(more));
-        Cow::Owned(all.into_vec())
+        more.sort_unstable_by_key(by_predicate);
+        let mut all = self.merged.clone();
+        all.merge(more);
+        Cow::Owned(all)
     }
 
+    /// The base triples, in no order.
     #[cfg(test)]
     fn iter(&self) -> impl Iterator<Item = [u32; 3]> + '_ {
-        self.sorted.iter().chain(self.recent.iter()).copied()
+        self.merged
+            .iter()
+            .flat_map(|(p, pairs)| pairs.iter().map(move |&[s, o]| [s, p, o]))
+            .chain(self.recent.iter().copied())
     }
 
-    /// The triples of `batch` that are not in the base: sorted, deduplicated.
+    /// The triples of `batch` that are not in the base: sorted by
+    /// predicate, then subject, then object ([`by_predicate`]),
+    /// deduplicated.
     fn fresh(&self, mut batch: Vec<[u32; 3]>) -> Vec<[u32; 3]> {
-        batch.sort_unstable();
+        batch.sort_unstable_by_key(by_predicate);
         batch.dedup();
         batch.retain(|t| !self.contains(t));
         batch
@@ -1251,62 +1463,63 @@ impl Base {
         if new.is_empty() {
             return;
         }
-        if self.recent.len() + new.len() <= MERGE_AT_LEAST.max(self.sorted.len() / 8) {
+        if self.recent.len() + new.len() <= MERGE_AT_LEAST.max(self.merged.len() / 8) {
             self.recent.extend(new);
             return;
         }
         let mut more = new;
         more.extend(self.recent.drain());
-        more.sort_unstable();
-        self.merge(more);
+        more.sort_unstable_by_key(by_predicate);
+        self.merged.merge(more);
     }
 
-    /// Merges the hash set into the vector and returns the whole base, sorted.
-    fn flush(&mut self) -> &[[u32; 3]] {
+    /// Merges the hash set into the pairs and returns the whole base.
+    fn flush(&mut self) -> &ByPredicate {
         if !self.recent.is_empty() {
             let mut more: Vec<[u32; 3]> = self.recent.drain().collect();
-            more.sort_unstable();
-            self.merge(more);
+            more.sort_unstable_by_key(by_predicate);
+            self.merged.merge(more);
         }
-        &self.sorted
+        &self.merged
     }
 
-    /// Merges sorted triples that are not in `sorted` into it. The vector
-    /// keeps at most a quarter of slack (a merge, like a parse buffer, can
-    /// leave it twice as long as its triples).
-    fn merge(&mut self, more: Vec<[u32; 3]>) {
-        let sorted = std::mem::take(&mut self.sorted);
-        self.sorted = Relation::from_sorted(sorted)
-            .merge(Relation::from_sorted(more))
-            .into_vec();
-        if self.sorted.capacity() > self.sorted.len() + self.sorted.len() / 4 {
-            self.sorted.shrink_to_fit();
-        }
+    /// Makes the base exactly these pairs.
+    fn replace(&mut self, merged: ByPredicate) {
+        *self = Base::restored(merged);
     }
 
-    /// Makes the base exactly `sorted` (sorted and deduplicated).
-    fn replace(&mut self, sorted: Vec<[u32; 3]>) {
-        self.recent.clear();
-        self.sorted = sorted;
-    }
-
-    /// Removes the base triples among `gone`; returns how many.
+    /// Removes the base triples among `gone`; returns how many. The vector
+    /// gives back its room when more than a quarter of it is spare.
     fn remove(&mut self, mut gone: Vec<[u32; 3]>) -> usize {
         gone.retain(|t| self.contains(t));
         if gone.is_empty() {
             return 0;
         }
-        gone.sort_unstable();
+        gone.sort_unstable_by_key(by_predicate);
         gone.dedup();
         self.flush();
-        let before = self.sorted.len();
-        let mut next = gone.iter().peekable();
-        self.sorted.retain(|t| {
-            while next.next_if(|g| *g < t).is_some() {}
-            next.next_if_eq(&t).is_none()
-        });
-        before - self.sorted.len()
+        self.merged.remove(&gone);
+        gone.len()
     }
+
+    /// The bytes the base holds: the pairs and the hash set.
+    fn bytes(&self) -> usize {
+        self.merged.bytes() + profile::hash_bytes(self.recent.capacity(), size_of::<[u32; 3]>())
+    }
+}
+
+/// Gives back the spare room of the base's vector when it is more than a
+/// quarter of its length (a load's buffer, made pairs, is a third larger at
+/// least; a merge leaves none; a removal can leave any).
+fn trim(ids: &mut Vec<u32>) {
+    if ids.capacity() > ids.len() + ids.len() / 4 {
+        ids.shrink_to_fit();
+    }
+}
+
+/// The order of the base: by predicate, then subject, then object.
+fn by_predicate(&[s, p, o]: &[u32; 3]) -> (u32, u32, u32) {
+    (p, s, o)
 }
 
 /// What the last run did, round by round: the counters experiment P0
@@ -1820,7 +2033,8 @@ mod tests {
                 assert_eq!(m.store_type.tuples + m.store_other.tuples, stored);
                 // Each stored pair takes 8 bytes at least.
                 assert!(m.store_type.bytes() + m.store_other.bytes() >= 8 * stored);
-                assert!(m.base >= 12 * s.base, "{m:?}");
+                // 8 bytes a base triple, merged.
+                assert!(m.base >= 8 * s.base, "{m:?}");
             }
         }
         // ex:i0 ... are typed ex:A by prp-dom: rdf:type is a large table.
@@ -2062,6 +2276,41 @@ mod tests {
         assert!(r.counters().families.is_empty());
     }
 
+    /// A seeded xorshift generator: reproducible, no dependency.
+    struct Rng(u64);
+
+    impl Rng {
+        fn new(seed: u64) -> Self {
+            Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1)
+        }
+
+        fn below(&mut self, n: usize) -> usize {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            (self.0 % n as u64) as usize
+        }
+    }
+
+    /// The base's pairs keep their shape: the predicates strictly
+    /// ascending, each with sorted pairs, none empty; and the vector holds
+    /// at most a quarter of spare room.
+    fn well_formed(pairs: &ByPredicate) {
+        assert!(pairs.starts.windows(2).all(|w| w[0].0 < w[1].0 && w[0].1 < w[1].1));
+        assert!(pairs.starts.first().is_none_or(|&(_, start)| start == 0));
+        for (p, run) in pairs.iter() {
+            assert!(!run.is_empty(), "predicate {p} has no pairs");
+            assert!(run.windows(2).all(|w| w[0] < w[1]), "predicate {p}");
+        }
+        assert_eq!(pairs.ids.len() % 2, 0);
+        let len = pairs.ids.len();
+        assert!(
+            pairs.ids.capacity() <= len + len / 4,
+            "{} of {len}",
+            pairs.ids.capacity()
+        );
+    }
+
     #[test]
     fn the_base_merges_its_recent_triples() {
         let mut base = Base::default();
@@ -2072,10 +2321,11 @@ mod tests {
             assert_eq!(new.len(), 1);
             base.extend(new);
         }
-        assert_eq!((base.sorted.len(), base.recent.len()), (0, MERGE_AT_LEAST));
+        assert_eq!((base.merged.len(), base.recent.len()), (0, MERGE_AT_LEAST));
         base.extend(base.fresh(vec![t(MERGE_AT_LEAST as u32)]));
-        assert_eq!((base.sorted.len(), base.recent.len()), (MERGE_AT_LEAST + 1, 0));
-        assert!(base.sorted.windows(2).all(|w| w[0] < w[1]));
+        assert_eq!((base.merged.len(), base.recent.len()), (MERGE_AT_LEAST + 1, 0));
+        assert_eq!(base.merged.starts.len(), 7);
+        well_formed(&base.merged);
         assert!(base.fresh((0..=MERGE_AT_LEAST as u32).map(t).collect()).is_empty());
         // Removal finds triples in either part.
         base.extend(base.fresh(vec![t(10_000)]));
@@ -2083,16 +2333,201 @@ mod tests {
         assert_eq!(base.len(), MERGE_AT_LEAST);
         assert!(!base.contains(&t(3)) && !base.contains(&t(10_000)) && base.contains(&t(4)));
         assert_eq!(base.iter().count(), base.len());
+        well_formed(&base.merged);
+        // A predicate whose last pair goes is gone; one before every other
+        // and one after are merged in at their places.
+        base.extend(base.fresh(vec![[1, 100, 1], [2, 0, 2], [0, 0, 9]]));
+        base.flush();
+        well_formed(&base.merged);
+        assert_eq!(base.merged.starts.len(), 8);
+        assert_eq!(base.remove(vec![[1, 100, 1]]), 1);
+        assert_eq!(base.merged.starts.len(), 7);
+        assert!(base.contains(&[2, 0, 2]) && base.contains(&[0, 0, 9]));
+        well_formed(&base.merged);
+    }
+
+    /// A load's triples become the pairs, with the room of a parse
+    /// buffer given back (here half of it is spare), and the same pairs as
+    /// an addition to a base gives.
+    #[test]
+    fn a_load_becomes_pairs() {
+        let mut triples: Vec<[u32; 3]> = Vec::with_capacity(40_000);
+        triples.extend((0..20_000u32).map(|i| [i % 1_000, i % 3, i / 3]));
+        let pairs = ByPredicate::from_triples(triples);
+        assert_eq!(pairs.len(), 20_000);
+        assert_eq!(pairs.iter().map(|(p, _)| p).collect::<Vec<_>>(), [0, 1, 2]);
+        well_formed(&pairs);
+        let mut base = Base::default();
+        base.extend(base.fresh((0..20_000u32).map(|i| [i % 1_000, i % 3, i / 3]).collect()));
+        assert_eq!(base.merged, pairs);
+    }
+
+    /// The base answers as a sorted set of triples (the base before it was
+    /// kept by predicate) does, on random additions and removals, small
+    /// and large (a load into an empty base, and into one with pairs), and
+    /// holds 8 bytes a merged triple and at most a quarter more.
+    #[test]
+    fn the_base_answers_as_a_set_of_triples() {
+        for seed in 0..12u64 {
+            let mut rng = Rng::new(seed);
+            let triple = |rng: &mut Rng, predicates: usize| {
+                [rng.below(500), 20 + rng.below(predicates), rng.below(500)].map(|id| id as u32)
+            };
+            let mut base = Base::default();
+            let mut model: BTreeSet<[u32; 3]> = BTreeSet::new();
+            for step in 0..40 {
+                // Some steps add many triples (a load), most add or remove a
+                // few.
+                let large = step % 13 == 0;
+                let (count, predicates) = if large { (30_000, 6) } else { (rng.below(300), 12) };
+                if large || rng.below(3) > 0 {
+                    let batch: Vec<[u32; 3]> = (0..count).map(|_| triple(&mut rng, predicates)).collect();
+                    let fresh = base.fresh(batch.clone());
+                    let expected: BTreeSet<[u32; 3]> = batch.iter().copied().filter(|t| !model.contains(t)).collect();
+                    let mut sorted: Vec<[u32; 3]> = expected.iter().copied().collect();
+                    sorted.sort_unstable_by_key(by_predicate);
+                    assert_eq!(fresh, sorted, "seed {seed}, step {step}");
+                    model.extend(expected);
+                    base.extend(fresh);
+                } else {
+                    let mut gone: Vec<[u32; 3]> = (0..count).map(|_| triple(&mut rng, predicates)).collect();
+                    gone.extend(model.iter().filter(|_| rng.below(4) == 0).copied());
+                    let removed = gone
+                        .iter()
+                        .filter(|t| model.contains(*t))
+                        .collect::<BTreeSet<_>>()
+                        .len();
+                    assert_eq!(base.remove(gone.clone()), removed, "seed {seed}, step {step}");
+                    for t in &gone {
+                        model.remove(t);
+                    }
+                }
+                assert_eq!(base.len(), model.len(), "seed {seed}, step {step}");
+                let mut all: Vec<[u32; 3]> = base.iter().collect();
+                all.sort_unstable();
+                assert_eq!(
+                    all,
+                    model.iter().copied().collect::<Vec<_>>(),
+                    "seed {seed}, step {step}"
+                );
+                for _ in 0..50 {
+                    let t = triple(&mut rng, 14);
+                    assert_eq!(base.contains(&t), model.contains(&t), "seed {seed}, step {step}");
+                }
+                // A copy merged, then the base itself: the same pairs.
+                let copy = base.sorted_all().into_owned();
+                well_formed(&base.merged);
+                if step % 5 == 0 {
+                    assert_eq!(base.flush(), &copy, "seed {seed}, step {step}");
+                    assert!(base.recent.is_empty());
+                    well_formed(&base.merged);
+                }
+                let flat: Vec<[u32; 3]> = copy
+                    .iter()
+                    .flat_map(|(p, pairs)| pairs.iter().map(move |&[s, o]| [s, p, o]))
+                    .collect();
+                let mut expected: Vec<[u32; 3]> = model.iter().copied().collect();
+                expected.sort_unstable_by_key(by_predicate);
+                assert_eq!(flat, expected, "seed {seed}, step {step}");
+            }
+        }
     }
 
     #[test]
     fn added_is_the_difference_of_a_superset() {
-        let (a, b, c) = ([1, 1, 1], [2, 2, 2], [3, 3, 3]);
-        assert_eq!(added(&[a, c], &[a, b, c]), Some(vec![b]));
-        assert_eq!(added(&[], &[a]), Some(vec![a]));
-        assert_eq!(added(&[a, b], &[a, b]), Some(vec![]));
-        assert_eq!(added(&[a, b], &[a, c]), None);
-        assert_eq!(added(&[c], &[a, b]), None);
+        let base = |triples: &[[u32; 3]]| ByPredicate::from_triples(triples.to_vec());
+        let (a, b, c, d) = ([1, 1, 1], [2, 1, 2], [3, 3, 3], [0, 2, 0]);
+        assert_eq!(added(&base(&[a, c]), &base(&[a, b, c])), Some(vec![b]));
+        assert_eq!(added(&base(&[]), &base(&[a])), Some(vec![a]));
+        assert_eq!(added(&base(&[a, b]), &base(&[a, b])), Some(vec![]));
+        assert_eq!(added(&base(&[a, b]), &base(&[a, c])), None);
+        assert_eq!(added(&base(&[c]), &base(&[a, b])), None);
+        // By predicate: a new predicate before, between and after.
+        assert_eq!(added(&base(&[d]), &base(&[a, d, c])), Some(vec![a, c]));
+        assert_eq!(added(&base(&[a, c]), &base(&[a, d, c])), Some(vec![d]));
+        assert_eq!(added(&base(&[a, d]), &base(&[a, b, c])), None);
+        assert_eq!(added(&base(&[a, d]), &base(&[d])), None);
+    }
+
+    /// Random insertions, removals and new bases give, run by run, the
+    /// summary, the closure (in the order the reads give it), the inferred
+    /// triples and the diagnostics of a fresh reasoner given the same base
+    /// at once; on one thread and on four with every round parallel.
+    #[test]
+    fn edits_give_the_closure_of_their_base() {
+        let names = ["anc", "value", "valueOf", "predOf", "q"];
+        let classes = ["C1", "C2", "C3", "Bad"];
+        for threads in [Threads::ONE, Threads::exactly(4).every_round()] {
+            for seed in 0..6u64 {
+                let mut rng = Rng::new(seed);
+                let triple = |rng: &mut Rng| {
+                    if rng.below(4) == 0 {
+                        if rng.below(2) == 0 {
+                            let (c, d) = (classes[rng.below(4)], classes[rng.below(4)]);
+                            format!("ex:{c} rdfs:subClassOf ex:{d} .")
+                        } else {
+                            let (i, c) = (rng.below(8), classes[rng.below(4)]);
+                            format!("ex:i{i} a ex:{c} .")
+                        }
+                    } else {
+                        let (i, p, j) = (rng.below(8), names[rng.below(names.len())], rng.below(8));
+                        format!("ex:i{i} ex:{p} ex:i{j} .")
+                    }
+                };
+                let mut r = toy();
+                r.set_threads(threads);
+                let mut model: BTreeSet<String> = BTreeSet::new();
+                for step in 0..30 {
+                    let edit: Vec<String> = (0..1 + rng.below(6)).map(|_| triple(&mut rng)).collect();
+                    let triples = parse(&edit.join("\n"));
+                    match rng.below(5) {
+                        0 | 1 => {
+                            r.insert(triples.iter().map(Triple::as_ref));
+                            model.extend(edit);
+                        }
+                        2 => {
+                            // Known triples as well as new ones.
+                            let known: Vec<String> = model.iter().filter(|_| rng.below(3) == 0).cloned().collect();
+                            r.remove(parse(&known.join("\n")).iter().map(Triple::as_ref));
+                            r.remove(triples.iter().map(Triple::as_ref));
+                            for t in known.iter().chain(&edit) {
+                                model.remove(t);
+                            }
+                        }
+                        3 => {
+                            r.insert(triples.iter().map(Triple::as_ref));
+                            model.extend(edit);
+                            let kept: Vec<String> = model.iter().filter(|_| rng.below(8) > 0).cloned().collect();
+                            r.set_base(parse(&kept.join("\n")).iter().map(Triple::as_ref));
+                            model = kept.into_iter().collect();
+                        }
+                        _ => {
+                            let all: Vec<String> = model.iter().cloned().chain(edit.clone()).collect();
+                            r.set_base(parse(&all.join("\n")).iter().map(Triple::as_ref));
+                            model.extend(edit);
+                        }
+                    }
+                    let got = r.reason();
+                    let mut fresh = toy();
+                    fresh.insert(
+                        parse(&model.iter().cloned().collect::<Vec<_>>().join("\n"))
+                            .iter()
+                            .map(Triple::as_ref),
+                    );
+                    let expected = fresh.reason();
+                    let context = format!("{threads:?}, seed {seed}, step {step}");
+                    assert_eq!(
+                        (got.base, got.inferred, got.diagnostics),
+                        (expected.base, expected.inferred, expected.diagnostics),
+                        "{context}"
+                    );
+                    assert_eq!(lines(r.triples()), lines(fresh.triples()), "{context}");
+                    assert_eq!(lines(r.inferred()), lines(fresh.inferred()), "{context}");
+                    assert_eq!(findings(&r), findings(&fresh), "{context}");
+                    assert_eq!(r.base.len(), model.len(), "{context}");
+                }
+            }
+        }
     }
 
     /// A run gives the same closure (in the order the reads give it), the

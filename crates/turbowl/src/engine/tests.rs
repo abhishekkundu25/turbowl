@@ -575,13 +575,31 @@ fn parallel_rounds_match_one_thread() {
     }
 }
 
-/// A store filled with sorted triples ([`Store::fill`]) starts its first
-/// round with each table holding exactly its triples, in one sorted part
-/// with no spare room, the tables made in ascending predicate order. It then
-/// runs as a store given the same triples through the round buffer: the
-/// same triples in the same order, the same rounds and the same counts in
-/// every step. On one thread, and on four with every round parallel (the
-/// triples cut into chunks).
+/// Sorted, deduplicated triples by predicate, as the base holds them: each
+/// predicate's `[s, o]` pairs, the predicates ascending.
+fn by_predicate(triples: &[[u32; 3]]) -> Vec<(u32, Vec<[u32; 2]>)> {
+    let mut sorted: Vec<(u32, [u32; 2])> = triples.iter().map(|&[s, p, o]| (p, [s, o])).collect();
+    sorted.sort_unstable();
+    sorted.dedup();
+    sorted
+        .chunk_by(|a, b| a.0 == b.0)
+        .map(|run| (run[0].0, run.iter().map(|&(_, pair)| pair).collect()))
+        .collect()
+}
+
+/// The base as [`Store::fill`] takes it.
+fn borrowed(base: &[(u32, Vec<[u32; 2]>)]) -> Vec<(u32, &[[u32; 2]])> {
+    base.iter().map(|(p, pairs)| (*p, &pairs[..])).collect()
+}
+
+/// A store filled with a base by predicate and facts ([`Store::fill`])
+/// starts its first round with each table holding exactly its triples, in
+/// one sorted part with no spare room, the tables made in ascending
+/// predicate order. It then runs as a store given the same triples through
+/// the round buffer (the facts as triples, the base as a batch a predicate,
+/// as after a restart): the same triples in the same order, the same rounds
+/// and the same counts in every step. On one thread, and on four with every
+/// round parallel (each table copied in chunks).
 #[test]
 fn a_filled_store_starts_with_exact_tables() {
     const P: u32 = 7;
@@ -609,12 +627,14 @@ fn a_filled_store_starts_with_exact_tables() {
         for workers in [Workers::one(), Workers::exactly(4).every_round()] {
             let mut filled = Store::new();
             filled.set_workers(workers.clone());
-            filled.fill(&triples, &more);
+            let owned = by_predicate(&triples);
+            let base = borrowed(&owned);
+            filled.fill(&base, &more);
             assert_eq!(filled.buffered(), 0, "nothing goes through the round buffer");
             let mut queued = Store::new();
             queued.set_workers(workers);
             queued.extend(more.iter().map(|&[s, p, o]| (s, p, o)));
-            queued.extend_from_slice(&triples);
+            queued.extend_by_predicate(&base);
 
             let mut checked = false;
             let rounds = filled.run(|round| {
@@ -661,33 +681,39 @@ fn a_filled_store_starts_with_exact_tables() {
     }
 }
 
-/// Past [`PARALLEL_FROM`] triples, the threads fill each table in chunks
-/// side by side, and every table is what one thread gives: its pairs in
-/// order, in a vector of exactly their length.
+/// Past [`PARALLEL_FROM`] base triples, the threads copy each large table
+/// in chunks side by side, and every table is what one thread gives: its
+/// pairs in order, in a vector of exactly their length.
 #[test]
 fn filling_in_chunks_matches_one_thread() {
     let mut rng = Rng::new(5);
     let n = PARALLEL_FROM + 20_000;
+    // Few predicates, so that each has pairs enough to copy in chunks; and
+    // one with a single pair.
     let mut triples: Vec<[u32; 3]> = (0..n)
-        .map(|_| [rng.below(50_000), rng.below(40), rng.below(50_000)])
+        .map(|_| [rng.below(50_000), 6 + rng.below(4), rng.below(50_000)])
         .collect();
+    triples.push([7, 3, 7]);
     triples.sort_unstable();
     triples.dedup();
     let len = triples.len();
-    // The facts: triples of the base at and around every 64th of it (where
-    // the chunks are cut), a predicate of their own, and a triple after
-    // every other.
-    let mut more = vec![[0, 99, 0], [60_000, 5, 1], triples[len - 1]];
+    // The facts: triples of the base at and around every 64th of it, a
+    // predicate of their own before the base's and one after, and a triple
+    // after every other.
+    let mut more = vec![[0, 99, 0], [60_000, 5, 1], [60_000, 8, 1], triples[len - 1]];
     for k in 0..64 {
         let at = k * len / 64;
         more.extend_from_slice(&triples[at.saturating_sub(1)..(at + 2).min(len)]);
     }
     more.sort_unstable();
     more.dedup();
+    let owned = by_predicate(&triples);
+    let base = borrowed(&owned);
+    assert!(base.iter().filter(|(_, pairs)| pairs.len() >= 4 * 4_096).count() >= 4);
     let tables = |workers: Workers| -> Vec<(u32, Vec<Pair>, usize)> {
         let mut store = Store::new();
         store.set_workers(workers);
-        store.fill(&triples, &more);
+        store.fill(&base, &more);
         let mut got = Vec::new();
         store.run(|round| {
             if round.number() == 1 {

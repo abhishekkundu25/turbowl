@@ -100,8 +100,8 @@ pub struct Memory {
     pub dictionary_entries: usize,
     /// The dictionary's hash slots, from text to term.
     pub dictionary_slots: usize,
-    /// The base: the loaded and inserted triples, sorted, and those added
-    /// since its last merge.
+    /// The base: the loaded and inserted triples, as sorted pairs by
+    /// predicate, and those added since its last merge.
     pub base: usize,
     /// The store's `rdf:type` table (the predicate the canon makes
     /// `rdf:type` stand for).

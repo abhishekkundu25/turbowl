@@ -8,7 +8,7 @@
 //! then do what they would have done on the saved reasoner. Saving the
 //! loaded reasoner gives the same bytes.
 //!
-//! # The format, version 1
+//! # The format, version 2
 //!
 //! Integers are little-endian: an *id* is a `u32` term id, a *count* a
 //! `u64`. A *string8* is a `u8` byte length then UTF-8; a *string16* the
@@ -17,7 +17,7 @@
 //! | Bytes | Field |
 //! |---|---|
 //! | 8 | magic: `89 54 75 72 62 4F 57 4C` (`\x89TurbOWL`; the high first byte catches a transfer as text) |
-//! | 4 | `u32` format version: 1 |
+//! | 4 | `u32` format version: 2 |
 //! | 8 | `u64` length of the whole snapshot, in bytes, checksum included |
 //! | 2 + n | string16: the producer, `turbowl <version>` |
 //! | ... | the sections below, in this order, each a 4-byte ASCII tag, a `u64` payload length, then the payload |
@@ -38,8 +38,10 @@
 //!   tagged literal's lexical form, then its tag). The first terms are the
 //!   vocabulary and the rules' literals, exactly as every new dictionary
 //!   holds them.
-//! - `BASE`, the base triples: a count, then `[s, p, o]` as three ids each,
-//!   strictly ascending.
+//! - `BASE`, the base triples, by predicate: a count of predicates, then
+//!   each one, strictly ascending: its id, a count of its pairs (one or
+//!   more), then its `(s, o)` pairs as two ids each, strictly ascending.
+//!   (Version 1 held `[s, p, o]` triples here.)
 //! - `CANO`, the canon of `owl:sameAs`: a `u32` count of the rules'
 //!   constants; a count and the ids of the watched constants; a count of
 //!   the merges made; a count and the ids of the representative of each id
@@ -115,7 +117,8 @@
 //!   Between runs every table's recent part is empty (a run ends at a
 //!   fixpoint), so only the stable batches are written.
 //! - **Recomputed, not stored**: the diagnostics (from the findings), the
-//!   base's hash set (the base is written sorted), the store's indexes.
+//!   base's hash set (the base is written merged, by predicate), the
+//!   store's indexes.
 //! - **Not stored**: the threads (a setting of the machine: a loaded
 //!   reasoner uses [`Threads::ALL`](crate::Threads::ALL)) and the counters
 //!   of the last run.
@@ -143,13 +146,14 @@
 //! core ([`Workers`], past the engine's threshold for a parallel round).
 //!
 //! Measured on lubm-50 (6.6 M base and 10.3 M closure triples, 2026-11-06,
-//! load average 3.6 on the 12-core machine of the tests): a snapshot of
-//! 312 MB (30 bytes a closure triple: 107 MB of terms, 79 MB of base, 125
-//! MB of stored pairs), saved in about 0.17 s and loaded in 0.11 s, against
-//! 1.69 s to parse and reason.
+//! load average 3.6 on the 12-core machine of the tests), in version 1: a
+//! snapshot of 312 MB (30 bytes a closure triple: 107 MB of terms, 79 MB of
+//! base, 125 MB of stored pairs), saved in about 0.17 s and loaded in
+//! 0.11 s, against 1.69 s to parse and reason. Version 2 holds the base in
+//! 8 bytes a triple, not 12: about 26 MB less.
 
 use crate::engine::{Canon, Pair, Relation, Store, Table, Variable, Workers, gallop};
-use crate::reasoner::State;
+use crate::reasoner::{ByPredicate, State};
 use crate::rules::Finding;
 use crate::term::{Dictionary, DocId, Kind, MAX_TERMS, Term, TermId, vocab};
 use crate::{Switch, Switches};
@@ -161,7 +165,7 @@ use std::io::{self, Write};
 pub(crate) const MAGIC: [u8; 8] = *b"\x89TurbOWL";
 
 /// The format version this build writes and reads.
-pub(crate) const VERSION: u32 = 1;
+pub(crate) const VERSION: u32 = 2;
 
 /// Who wrote a snapshot: this build's name and version.
 const PRODUCER: &str = concat!("turbowl ", env!("CARGO_PKG_VERSION"));
@@ -261,8 +265,8 @@ pub(crate) struct Saved<'a> {
     pub(crate) switches: Switches,
     pub(crate) state: State,
     pub(crate) terms: &'a Dictionary,
-    /// Sorted, deduplicated.
-    pub(crate) base: Cow<'a, [[u32; 3]]>,
+    /// Merged, by predicate.
+    pub(crate) base: Cow<'a, ByPredicate>,
     /// Settled: between runs ([`Store::is_settled`]).
     pub(crate) closure: &'a Store,
     pub(crate) rdf: usize,
@@ -282,7 +286,7 @@ pub(crate) struct Restored {
     pub(crate) switches: Switches,
     pub(crate) state: State,
     pub(crate) terms: Dictionary,
-    pub(crate) base: Vec<[u32; 3]>,
+    pub(crate) base: ByPredicate,
     /// With the queued triples queued.
     pub(crate) closure: Store,
     pub(crate) rdf: usize,
@@ -495,8 +499,14 @@ fn encode(s: &mut impl Sink, section: Section, saved: &Saved<'_>) -> io::Result<
         }
         Section::Terms => encode_terms(s, saved.terms),
         Section::Base => {
-            s.count(saved.base.len())?;
-            s.triples(&saved.base)
+            let predicates: Vec<(u32, &[[u32; 2]])> = saved.base.iter().collect();
+            s.count(predicates.len())?;
+            for (p, pairs) in predicates {
+                s.u32(p)?;
+                s.count(pairs.len())?;
+                s.ids(pairs.as_flattened())?;
+            }
+            Ok(())
         }
         Section::Canon => encode_canon(s, saved.closure.canon()),
         Section::Store => {
@@ -704,9 +714,9 @@ fn restore(
     let n = terms.len();
 
     let mut r = rest.section(Section::Base)?;
-    let count = r.count(12)?;
-    let base = r.triples(count, n, true, workers)?;
+    let base = read_base(&mut r, n, workers)?;
     r.end()?;
+    let base_len = base.len();
 
     let mut r = rest.section(Section::Canon)?;
     let canon = read_canon(&mut r, n)?;
@@ -735,7 +745,7 @@ fn restore(
 
     let mut r = rest.section(Section::Queue)?;
     let count = r.count(12)?;
-    let queued = r.triples(count, n, false, workers)?;
+    let queued = r.triples(count, n, workers)?;
     r.end()?;
 
     let mut r = rest.section(Section::Documents)?;
@@ -764,10 +774,9 @@ fn restore(
         State::Added => Some(rdf.saturating_add(queued.len())),
         State::Full => None,
     };
-    if counted.is_some_and(|c| c < base.len()) {
+    if counted.is_some_and(|c| c < base_len) {
         return Err(format!(
-            "the closure stands for {rdf} RDF triples, fewer than the {} base triples",
-            base.len()
+            "the closure stands for {rdf} RDF triples, fewer than the {base_len} base triples"
         ));
     }
     closure.extend(queued.iter().map(|&[s, p, o]| (s, p, o)));
@@ -892,6 +901,32 @@ fn read_terms(r: &mut Reader<'_>, mut terms: Dictionary) -> Result<Dictionary, S
     }
     terms.set_documents(documents);
     Ok(terms)
+}
+
+fn read_base(r: &mut Reader<'_>, n: usize, workers: &Workers) -> Result<ByPredicate, String> {
+    // Each predicate takes at least its id, a count and a pair.
+    let count = r.count(20)?;
+    let mut base = ByPredicate::default();
+    let mut last: Option<u32> = None;
+    for _ in 0..count {
+        let p = r.u32()?;
+        if p as usize >= n {
+            return Err(r.bad(format!("an id {p}, of {n}")));
+        }
+        if last.is_some_and(|q| q >= p) {
+            return Err(r.bad(format!("predicate {p} is not after the one before it")));
+        }
+        last = Some(p);
+        let len = r.count(8)?;
+        if len == 0 {
+            return Err(r.bad(format!("predicate {p} has no pairs")));
+        }
+        let pairs = r
+            .id_pairs(len, n, workers)
+            .map_err(|e| format!("{e} (predicate {p})"))?;
+        base.push(p, &pairs);
+    }
+    Ok(base)
 }
 
 fn read_canon(r: &mut Reader<'_>, n: usize) -> Result<Canon, String> {
@@ -1185,12 +1220,17 @@ impl<'a> Reader<'a> {
         self.items(count, 8, n, ("pair", true), workers, pair, |&(s, o)| s.max(o))
     }
 
-    /// `count` triples of ids, each below `n`; strictly ascending when
-    /// `ascending`.
-    fn triples(&mut self, count: usize, n: usize, ascending: bool, workers: &Workers) -> Result<Vec<[u32; 3]>, String> {
+    /// `count` pairs of ids as arrays, each below `n`, strictly ascending.
+    fn id_pairs(&mut self, count: usize, n: usize, workers: &Workers) -> Result<Vec<[u32; 2]>, String> {
+        let pair = |c: &[u8]| [word32(&c[..4]), word32(&c[4..])];
+        self.items(count, 8, n, ("pair", true), workers, pair, |&[s, o]| s.max(o))
+    }
+
+    /// `count` triples of ids, each below `n`, in any order.
+    fn triples(&mut self, count: usize, n: usize, workers: &Workers) -> Result<Vec<[u32; 3]>, String> {
         let triple = |c: &[u8]| [word32(&c[..4]), word32(&c[4..8]), word32(&c[8..])];
         let top = |t: &[u32; 3]| t[0].max(t[1]).max(t[2]);
-        self.items(count, 12, n, ("triple", ascending), workers, triple, top)
+        self.items(count, 12, n, ("triple", false), workers, triple, top)
     }
 
     /// `count` items of `width` bytes each, made by `item`, the largest id
