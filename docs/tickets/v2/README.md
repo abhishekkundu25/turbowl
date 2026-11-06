@@ -26,7 +26,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 15 | [Close-out: phase 1](15-close-out-phase-1.md) | done | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
 | 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
-| 18 | [All cores: parallel parsing](18-parallel-parsing.md) | todo | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
+| 18 | [All cores: parallel parsing](18-parallel-parsing.md) | done (budget at the close-out) | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
 | 19 | [Snapshots](19-snapshots.md) | done (budget at the close-out) | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
 | 20 | [The improvement loop](20-improvement-loop.md) | todo | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
 | 21 | [Close-out: phase 2](21-close-out-phase-2.md) | todo | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
@@ -463,3 +463,24 @@ Departures from the plan, as they happen.
     development) is not detected; a rules fingerprint would close it. The
     base takes 79 MB of the 312, mostly a copy of stored pairs. A crash
     mid-save can leave a `.NAME.PID-N.tmp` file beside the snapshot.
+- **18, landed (`8cee6d4`).** Documents of 384 KiB or more are cut at line
+  starts and parsed in pieces, each into its own term table, then merged in
+  order; a piece that started in the wrong state is parsed again.
+  Departures:
+  - **Turtle is split too**, at statement ends, since the bench's lubm-50
+    is a Turtle file: N-Triples alone would not have moved the budget.
+  - `oxiri` became a direct dependency (it was already in the build), and
+    about 750 lines of ported IRI code went. The sequential parse got 2 to
+    4% slower with it, bisected to that change alone; code layout is the
+    suspect.
+  - A reasoner set to one thread still parsed on every core:
+    `reasoner.rs`, ticket 19's file, called `io::parse`. The orchestrator
+    made it call `io::parse_on` with the reasoner's own workers.
+  - The merge is now the bound: interning about 2.2 M terms on one thread
+    takes 110 to 150 ms while the workers parse. A sharded dictionary
+    would let it run in parallel: a loop candidate.
+  - Open: a parallel parse briefly holds every piece's terms and triples
+    (about 80 MB on lubm-50); a cut inside a long multi-line Turtle string
+    can cost up to one more sequential parse (cap the overrun); a
+    `Workers::every_round()` getter would be cleaner than detecting it
+    with `engage(0)`.
