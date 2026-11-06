@@ -60,7 +60,7 @@ Phase 1:
 2. **03, 11, 13.**
 3. **04, 12, 25.** 25 (added: ticket 13 found the memory blow-up) lands before wave 4, whose rule tickets edit the core.
 4. **05, 06, 07, 08, 09, 14.**
-5. **10.**
+5. **10, 26** (26 ran beside 10 once 08 landed).
 6. **15.**
 
 Phase 2: **16, 17**, then **18, 19**, then **20**, then **21**.
@@ -287,3 +287,39 @@ Departures from the plan, as they happen.
 
   On landing: the oracle library has 35 tests (26 before); Brick and the
   W3C counts are unchanged.
+- **10.** As built:
+  - The datatype map holds only the 32 datatypes of OWL 2 RL, in the core
+    and the reference evaluator alike. `owl:real` and `owl:rational`
+    literals have no known value, and their lexical readers are deleted;
+    a language-tagged literal reads as an `rdf:PlainLiteral`; an untagged
+    `rdf:langString` literal is no longer reported. RDF-MT stays at 35:
+    `datatypes-intensional-xsd-integer-string-incompatible` passes now,
+    and `rdfs-entailment-test002` fails, since it needs `rdf:langString`
+    checked. The spec's budget names it.
+  - The value rules also range over the two literals the cardinality
+    rules name, interned with every dictionary, so `"1"^^xsd:integer`
+    fires cls-maxc2 with `literal-values` on. Chaos found that a merge can
+    move such a literal's class without a restart; the cardinality rules
+    then join every restriction again (`Round::class_moved`, ADR 0003's
+    new amendment). Making the two literals win their classes, as
+    vocabulary terms do, would remove that path: a follow-up.
+  - dt-type2 is stored. dt-eq stores one `owl:sameAs` per literal with
+    `equality` on, all k² pairs without it. dt-diff's departure covers its
+    eq-rep consequences too.
+  - Nemo judges dt-type2, dt-eq and dt-diff through facts the oracle
+    computes with the reference evaluator's map (`Codec::literal_facts`);
+    the oracle crate now depends on the reference crate. VLog's
+    translation gains `?x != ?y`, and the bench's converted input carries
+    the same facts. OWL-RL skips dt-eq and dt-diff on purpose: fault F15.
+  - The reference evaluator's prp-key went quadratic again on an
+    `owl:sameAs owl:sameAs rdf:rest` input and was rewritten with bitsets
+    (94 s to 9.7 s, the same result). In the complete configuration a
+    chaos iteration costs it about 70 ms, mostly dt-diff's n² unlisted
+    triples: 20,000 iterations took 611 to 818 s per shard, so ticket 15's
+    100,000 take about an hour per shard.
+
+  On landing, ticket 26's `"a  b"^^xsd:token` left the minimal inputs
+  again. The Python tests give the bindings each minimal input as rdflib
+  terms, and rdflib rewrites that form (F12), so six of them failed. 26's
+  brief had not run pytest. W3C OWL 2 RL 101 (`New-Feature-Keys-006`),
+  every case Nemo passes; Brick unchanged; pytest 780.

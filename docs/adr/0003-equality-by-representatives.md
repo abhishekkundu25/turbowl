@@ -3,7 +3,7 @@
 Status: accepted, 2026-11-05; amended 2026-11-05 (vocabulary terms, from
 `docs/research/sota-algorithms-2026-11.md` §4.3); amended again 2026-11-05
 by ticket 11, as built (`rdf:nil`, restarts, findings); amended 2026-11-06 by
-version 2's ticket 08 (eq-ref).
+version 2's tickets 08 (eq-ref) and 10 (literal constants).
 
 ## Context
 
@@ -95,3 +95,16 @@ trivial family stores `t owl:sameAs t` for every term of the closure,
 literals included, and from then on for the terms of each round's new
 triples. Real data almost never does this; the generator does, so chaos
 covers it.
+
+## Amendment: literal constants (version 2's ticket 10)
+
+The cardinality rules name two literals, `"0"` and `"1"` of
+`xsd:nonNegativeInteger`. With dt-eq, a literal of the same value
+(`"1"^^xsd:integer`) joins their class, and the larger class keeps its
+representative, so the constant's representative can change without a
+restart: it is no vocabulary term. The reasoner interns both literals
+with every dictionary, and in the round after a merge moves either one's
+class, the cardinality rules join every restriction again
+(`Round::class_moved`). Choosing these two as representatives, as
+vocabulary terms are chosen, would make that re-join unnecessary; it is a
+follow-up.

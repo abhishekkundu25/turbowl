@@ -161,14 +161,27 @@ Verification
   or object of a stored triple (ADR 0003's eq-ref amendment).
 - **dt-diff is never listed.** With `literal-values` on, two literals with
   different values that become `owl:sameAs` give the eq-diff1 finding; the
-  `owl:differentFrom` triples between all literals are not materialised.
-  This is a departure in output only, and the spec of the W3C test runner
-  lists it.
+  `owl:differentFrom` triples between all literals are not materialised,
+  nor is what eq-rep-s and eq-rep-o derive from them (every two terms
+  equal to such literals are reported through eq-diff1 instead). This is a
+  departure in output only, and the W3C runner lists it
+  (`w3c::DEPARTURES`).
 - **dt-eq merges literal classes.** With `literal-values` on, literals with
   equal values (the OWL 2 value spaces, where `xsd:integer` values are
-  `xsd:decimal` values) join one class in the canon.
-- **The datatype map** holds the value space and lexical mapping of every
-  OWL 2 RL datatype, shared by dt-not-type, dt-type2, dt-eq and dt-diff.
+  `xsd:decimal` values) join one class in the canon. The value rules range
+  over the input's literals and the two literals the cardinality rules
+  name (`"0"` and `"1"` of `xsd:nonNegativeInteger`), so that
+  `"1"^^xsd:integer` reaches cls-maxc2 as the W3C rules say; a merge that
+  moves one of those two makes the cardinality rules join every
+  restriction again (ADR 0003's literal-constants amendment).
+- **dt-type2 is stored**, since rules read `rdf:type` with a datatype as
+  the class (`owl:someValuesFrom xsd:integer`, a datatype in a hierarchy).
+- **The datatype map** holds the value space and lexical mapping of the 32
+  datatypes OWL 2 RL supports (OWL 2 Profiles, Section 4.2.1), shared by
+  dt-type1, dt-type2, dt-not-type, dt-eq and dt-diff. `owl:real`,
+  `owl:rational` and `rdf:langString` are outside it: their literals have
+  no known value. A language-tagged literal reads as an `rdf:PlainLiteral`
+  value.
 - **One rule source.** The W3C rule forms move from one Nemo file into one
   file per switch group, in Nemo's syntax. The oracle crate composes a
   program for a configuration and emits it for Nemo, Soufflé and VLog. The
@@ -251,7 +264,10 @@ Correctness (gates):
   version 1's 37 (`rdfs-domain-and-range-intensionality-domain` and
   `-range`) test that RDFS does not carry a domain or range up the class
   hierarchy; OWL 2 RL's scm-dom1 and scm-rng1 do, so TurbOWL, Nemo and
-  OWL-RL all entail them once `schema` is on, as the W3C rules say.
+  OWL-RL all entail them once `schema` is on, as the W3C rules say. A
+  third, `rdfs-entailment-test002`, expects `"flargh"^^xsd:string` in an
+  `rdf:langString` range to be inconsistent; `rdf:langString` is no
+  datatype of OWL 2 RL, so dt-not-type does not check it.
 - 100,000 full and 100,000 incremental chaos iterations pass, each drawing
   its configuration from the seed.
 - On every scoreboard scenario, every competitor's closure in the same
@@ -289,9 +305,11 @@ Build:
   `New-Feature-ReflexiveProperty-001`, `WebOnt-I5.5-005`,
   `WebOnt-imports-011`, `chain2trans1`); the target of 113 assumes they are
   beyond rules. Ticket 15 confirms each.
-- Nemo encodes literals as IRIs, so it cannot judge the value-based rules
-  (dt-not-type, dt-type2, dt-eq, dt-diff); OWL-RL, the W3C tests and the
-  reference evaluator judge them, as in version 1.
+- Nemo encodes literals as IRIs. It judges dt-type2, dt-eq and dt-diff
+  through facts the oracle computes from the input's literals with the
+  reference evaluator's datatype map (`Codec::literal_facts`); dt-not-type
+  stays outside Nemo, judged by OWL-RL, the W3C tests and the reference
+  evaluator, as in version 1.
 
 ## Principles
 
