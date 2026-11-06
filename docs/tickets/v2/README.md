@@ -497,3 +497,8 @@ Departures from the plan, as they happen.
   is judged on 10 alternating single runs per side, by medians and middle
   halves: the bench's largest of 3 runs is noise on all cores.
 
+- **Owner decision, 2026-11-07: the dictionary may drop its lookup table
+  during a large full run** and rebuild it at the next change (about 30 to
+  60 ms once on a lubm-50-sized input, microseconds on editor-sized ones),
+  to bring the all-cores footprint under its budget (iteration 8's
+  candidate 2, run as iteration 9).
