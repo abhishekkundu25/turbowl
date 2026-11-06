@@ -160,7 +160,10 @@ impl Workers {
     /// The items of `batches`, sorted and deduplicated. With threads and
     /// many items: joined side by side, sorted by rayon's parallel merge
     /// sort (which gains from sorted runs: the chunks of a split loop come
-    /// sorted), and deduplicated in chunks side by side.
+    /// sorted), and deduplicated in chunks side by side, into a vector of
+    /// exactly their length. Otherwise in place, in the largest batch's
+    /// allocation, which then gives back the room of the duplicates and of
+    /// its growth ([`fit`](super::relation::fit)).
     pub(crate) fn sort_dedup_batches<T: Ord + Copy + Send + Sync + Default>(&self, batches: Vec<Vec<T>>) -> Vec<T> {
         let total: usize = batches.iter().map(Vec::len).sum();
         let mut items = self.joined(batches, total);
@@ -190,6 +193,7 @@ impl Workers {
         }
         items.sort_unstable();
         items.dedup();
+        super::relation::fit(&mut items);
         items
     }
 
@@ -209,7 +213,7 @@ impl Workers {
         } else {
             batches.swap_remove(largest)
         };
-        all.reserve(total - all.len());
+        all.reserve_exact(total - all.len());
         for batch in batches {
             all.extend_from_slice(&batch);
         }

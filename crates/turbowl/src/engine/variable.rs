@@ -4,7 +4,7 @@
 //! parts, which joins and leapers take.
 
 use super::parallel::Workers;
-use super::relation::{Relation, gallop};
+use super::relation::{Relation, fit, gallop};
 
 /// A relation evaluated semi-naively.
 ///
@@ -67,7 +67,9 @@ impl<T: Ord + Copy> Variable<T> {
 
     /// Ends a round: `recent` joins `stable`, and what was queued, minus what
     /// is already known, becomes the new `recent`. True when it is non-empty,
-    /// so a loop over every variable stops when all return false.
+    /// so a loop over every variable stops when all return false. Every part
+    /// it leaves holds at most an eighth of its length in spare room, and an
+    /// empty `recent` none ([`fit`]).
     pub(crate) fn changed(&mut self) -> bool {
         self.end_round(Relation::merge, Relation::from_vec, |mut fresh, known| {
             retain_absent(&mut fresh, known);
@@ -124,7 +126,7 @@ impl<T: Ord + Copy> Variable<T> {
                     .max_by_key(|&i| self.to_add[i].len())
                     .expect("non-empty");
                 let mut all = self.to_add.swap_remove(largest).into_vec();
-                all.reserve(total - all.len());
+                all.reserve_exact(total - all.len());
                 for batch in self.to_add.drain(..) {
                     all.extend_from_slice(&batch);
                 }
@@ -149,6 +151,9 @@ impl<T: Ord + Copy> Variable<T> {
                 break;
             }
         }
+        // The filter leaves the room of the known tuples it dropped, all of
+        // it when nothing is new.
+        fit(&mut fresh);
         self.recent = Relation::from_sorted(fresh);
         !self.recent.is_empty()
     }
@@ -237,6 +242,7 @@ impl<T: Ord + Copy> Variable<T> {
                     moved.push(image);
                 }
             }
+            fit(&mut kept);
             *batch = Relation::from_sorted(kept);
         };
         for batch in &mut self.stable {

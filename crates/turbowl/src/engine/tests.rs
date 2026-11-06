@@ -662,3 +662,89 @@ fn parallel_helpers_match_one_thread() {
         );
     }
 }
+
+/// Sorting and merging leave a relation at most an eighth of its length in
+/// spare room, and a merge grows its allocation by exactly what it adds:
+/// a store keeps its relations for the whole run, so their room counts
+/// towards its peak.
+#[test]
+fn a_relation_holds_little_spare_room() {
+    let within = |r: &Relation<(u32, u32)>| r.bytes() <= (r.len() + r.len() / 8) * size_of::<(u32, u32)>();
+    // Many duplicates in a vector grown by pushes.
+    let mut pushed = Vec::new();
+    for i in 0..10_000u32 {
+        pushed.push((i % 100, 0));
+    }
+    let deduped = Relation::from_vec(pushed);
+    assert_eq!(deduped.len(), 100);
+    assert!(within(&deduped), "{} bytes for {}", deduped.bytes(), deduped.len());
+    // Exactly sized and disjoint: the union is exactly sized too.
+    let a = Relation::from_sorted((0..1_000u32).map(|i| (2 * i, 0)).collect());
+    let b = Relation::from_sorted((0..1_000u32).map(|i| (2 * i + 1, 0)).collect());
+    let union = a.merge(b);
+    assert_eq!(union.len(), 2_000);
+    assert_eq!(
+        union.bytes(),
+        2_000 * size_of::<(u32, u32)>(),
+        "no room for later pushes"
+    );
+    // Mostly the same tuples: the room of the duplicates is given back.
+    let c = Relation::from_sorted((0..2_000u32).map(|i| (i, 0)).collect());
+    let d = Relation::from_sorted((0..1_000u32).map(|i| (i, 0)).collect());
+    let overlap = c.merge(d);
+    assert_eq!(overlap.len(), 2_000);
+    assert!(within(&overlap), "{} bytes for {}", overlap.bytes(), overlap.len());
+    // Nothing left: no allocation.
+    let mut emptied = Variable::new();
+    emptied.insert(Relation::from_vec(vec![(1, 2), (3, 4)]));
+    assert!(emptied.changed());
+    emptied.insert(Relation::from_vec(vec![(1, 2), (3, 4)]));
+    assert!(!emptied.changed());
+    assert_eq!(emptied.recent().bytes(), 0);
+}
+
+/// After every step of a run, each part of each table (stable batches,
+/// recent part, both indexes) holds at most an eighth of its length in
+/// spare room, on one thread and on four with every round parallel, run
+/// after run. The rounds derive each pair many times over, into buffers
+/// that grow by doubling.
+#[test]
+fn a_store_holds_little_spare_room() {
+    const P: u32 = 7;
+    fn check(store: &Store) -> usize {
+        let mut parts = 0;
+        for (p, table) in store.tables() {
+            let indexes = std::iter::once(table.by_subject()).chain(table.by_object());
+            for variable in indexes {
+                for part in variable.stable().iter().chain(Some(variable.recent())) {
+                    let room = part.bytes() / size_of::<Pair>() - part.len();
+                    assert!(
+                        room <= part.len() / 8,
+                        "predicate {p}: room for {room} more pairs in a part of {}",
+                        part.len()
+                    );
+                    parts += 1;
+                }
+            }
+        }
+        parts
+    }
+    for workers in [Workers::one(), Workers::exactly(4).every_round()] {
+        let mut store = Store::new();
+        store.set_workers(workers);
+        let mut checked = 0;
+        // Two chains, the second joined to the first in a later run: the
+        // closure grows to tens of thousands of pairs, large enough for
+        // the parallel merges, sorts and filters.
+        for (from, to) in [(0, 200), (200, 300)] {
+            store.extend((from..to).map(|i| (i, P, i + 1)));
+            store.run(|round| {
+                checked += check(round.store());
+                store_transitive(round, P);
+            });
+            checked += check(&store);
+        }
+        assert_eq!(store.len(), 300 * 301 / 2);
+        assert!(checked > 20, "{checked} parts checked");
+    }
+}

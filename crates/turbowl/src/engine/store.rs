@@ -448,7 +448,8 @@ impl Store {
             let table = &mut self.tables[t];
             if table.os.is_none() {
                 let start = Clock::now();
-                let flipped: Vec<Pair> = table.so.all().iter().map(|(s, o)| (o, s)).collect();
+                let mut flipped: Vec<Pair> = Vec::with_capacity(table.so.len());
+                flipped.extend(table.so.all().iter().map(|(s, o)| (o, s)));
                 let workers = self.workers.engage(flipped.len()).then_some(&self.workers);
                 let mut os = Variable::new();
                 os.insert(sorted(flipped, workers));
