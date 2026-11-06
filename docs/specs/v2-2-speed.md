@@ -117,6 +117,12 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
   as with one (RDFox reached 5.2 to 7.4 times on 8 threads, AAAI 2014), and
   single-threaded reasoning is no slower than before the parallel change.
   Raised from twice by the owner on 2026-11-06.
+  On 2026-11-07 the owner accepted a gap: after loop iterations 7 to 11,
+  lubm-50 reasons about 4.1 to 4.2 times as fast on all 12 cores as on one
+  (about 387 against 93 ms). Iteration 11 found the limit: round 1 nearly
+  saturates the pool, 6 of whose 12 cores are Efficiency cores, and the
+  same work costs about four times the CPU on all cores. The candidates
+  left stay open in `docs/specs/experiments.md`.
 - Loading a snapshot of lubm-50's reasoned state is at least 10 times
   faster than parsing and reasoning it.
 - Peak memory on lubm-50 is at most 50 bytes per closure triple (RDFox

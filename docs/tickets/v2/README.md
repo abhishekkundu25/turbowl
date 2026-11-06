@@ -28,7 +28,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done (budget at the close-out) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | done (budget at the close-out) | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
 | 19 | [Snapshots](19-snapshots.md) | done (budget at the close-out) | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
-| 20 | [The improvement loop](20-improvement-loop.md) | todo | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
+| 20 | [The improvement loop](20-improvement-loop.md) | done (two gaps accepted) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
 | 21 | [Close-out: phase 2](21-close-out-phase-2.md) | todo | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
 | 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
 | 23 | [Removals: FBF](23-fbf.md) | todo | 22 | as for 22 |
@@ -509,4 +509,16 @@ Departures from the plan, as they happen.
   with the tables, or splitting IRIs), each a few hours at medium to high
   risk. Phase 2's remaining effort goes to the all-cores speed-up and the
   close-out; the two candidates stay open in the loop's list.
+- **Owner decision, 2026-11-07: the all-cores speed-up gap is accepted** at
+  about 4.1 to 4.2 times against 5. Iteration 11 showed round 1 nearly
+  saturates the 12-core pool (6 Efficiency cores), with about four times the
+  CPU of one thread for the same work.
+- **20, done.** Loop iterations 1 to 11 on phase 2's budgets: kept P0, the
+  windowed read, relations sized to their contents, dictionary slots to three
+  quarters, the full run from exact batches, the object index in place, and
+  the base by predicate; reverted the one-vector merge, the dictionary's
+  dropped lookup table and the first index in its job; counted and did not
+  build one split per property rule. lubm-50: reasoning 735 ms (version 1) to
+  about 387 ms on one thread and 93 ms on all cores; peak memory 1,483 MB to
+  about 482 MB on one thread and 544 MB on all cores.
 

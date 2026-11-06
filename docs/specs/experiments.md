@@ -922,6 +922,12 @@ are listed below; a new reviewer may reuse or replace them.
 
 ### Open candidates
 
+Added after iteration 11 (the orchestrator, from its counts; not yet rated):
+- Skip `Pending::compact`'s per-chunk sort for outputs that come out unsorted (prp-rng, prp-inv), leaving them to the step's sort: 10 to 19 ms of CPU out of round 1's saturated pool on all cores, part of it moved to the step. Measure the round and the step together.
+- Count the datatype family's splits before changing it: in round 1 it spends 45 to 50 ms of CPU on all cores against 22 on one thread, with 13 of its 29 splits inline.
+- Read a family's all-cores time with care: it includes other families' chunks that its waiting thread ran.
+
+
 Ranked by iteration 10's reviewer, for iteration 10 and later, by expected
 gain per effort against the two phase 2 budgets still open
 (`docs/specs/v2-2-speed.md`, Non-functional budgets): the all-cores
