@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-wordmark-dark.svg">
+    <img alt="TurbOWL: fast, verified OWL 2 RL reasoning in Rust" src="assets/logo-wordmark-light.svg" width="560">
+  </picture>
+</p>
+
 # TurbOWL
 
 TurbOWL is an OWL 2 RL reasoner in Rust. It computes the closure that the
