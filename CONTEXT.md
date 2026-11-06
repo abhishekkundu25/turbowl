@@ -50,6 +50,9 @@ leverage, locality) follow the codebase-design vocabulary.
   is off by default when other reasoners rarely implement it or when it
   slows reasoning down; everything else is on. Not a profile: in OWL 2, a
   profile is EL, QL or RL.
+- **Configuration**: the switches that are on for a run. The **default
+  configuration** has each switch at its default; the **complete
+  configuration** has every switch on, which is the W3C rule set.
 
 ## Results
 
@@ -90,7 +93,13 @@ leverage, locality) follow the codebase-design vocabulary.
   derives more is invisible to containment.
 - **Competitor**: another reasoner measured against this one on the same
   inputs, for speed and memory, never for correctness. Nemo is both an
-  oracle and a competitor.
+  oracle and a competitor. A competitor's closure must have the same size
+  as this project's; a difference that holds is a **competitor fault**,
+  listed with a test.
+- **Scenario**: one benchmark input and what is measured on it. An
+  **editor-size** scenario is one of the bench's default runs (Brick with
+  its models, the generated LUBM-style data, the incremental streams); a
+  **data-size** scenario is a public dataset, run only when asked.
 - **Scoreboard**: what the claim "the best OWL 2 RL reasoner" is measured
   on: the competitors, the scenarios, and the measures. Correctness and
   coverage are gates; then reasoning time, total time (loading plus

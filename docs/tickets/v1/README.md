@@ -3,22 +3,22 @@
 Spec: `docs/specs/v1.md`. After these, the improvement loop
 (`docs/specs/experiments.md`) takes over. Lock files are in **bold**.
 
-| # | Ticket | Blocked by | Files |
-|---|---|---|---|
-| 01 | [Scaffold and the interface](01-scaffold.md) | — | workspace `Cargo.toml`, `crates/turbowl/src/lib.rs`, `crates/turbowl/src/reasoner.rs` (stub), `crates/turbowl/src/rules/mod.rs` (table), `AGENTS.md`, `README.md`, scripts |
-| 02 | [Terms, dictionary and I/O](02-terms-io.md) | 01 | `crates/turbowl/src/term.rs`, `crates/turbowl/src/io.rs` |
-| 03 | [The engine](03-engine.md) | 01 | `crates/turbowl/src/engine/` |
-| 04 | [The oracles](04-oracles.md) | 01 | `crates/oracle/`, `oracles/`, `scripts/fetch-data.sh`, `scripts/fetch-tools.sh` |
-| 05 | [Reference evaluator and chaos](05-reference-chaos.md) | 01 | `crates/reference/` |
-| 06 | [The benchmark](06-bench.md) | 01 | `crates/bench/` |
-| 07 | [Rules: class family](07-rules-class.md) | 02, 03 | `crates/turbowl/src/rules/class.rs` |
-| 08 | [Rules: property family](08-rules-property.md) | 02, 03 | `crates/turbowl/src/rules/property.rs` |
-| 09 | [Diagnostics and datatypes](09-diagnostics.md) | 02, 03 | `crates/turbowl/src/diagnostics.rs`, `crates/turbowl/src/rules/datatype.rs` |
-| 10 | [The reasoner and incremental runs](10-reasoner.md) | 02, 03 | `crates/turbowl/src/reasoner.rs` |
-| 11 | [Equality by representatives](11-equality.md) | 03, 10 | `crates/turbowl/src/rules/equality.rs`, `crates/turbowl/src/engine/canon.rs`, **`crates/turbowl/src/rules/mod.rs`** (one line) |
-| 12 | [The CLI](12-cli.md) | 10 | `crates/cli/` |
-| 13 | [Python bindings](13-python.md) | 10 | `crates/python/` |
-| 14 | [Close-out: full verification](14-close-out.md) | all | `docs/verification/`, `README.md`, `CHANGELOG.md`, `AGENTS.md`, the specs |
+| # | Ticket | Status | Blocked by | Files |
+|---|---|---|---|---|
+| 01 | [Scaffold and the interface](01-scaffold.md) | done | — | workspace `Cargo.toml`, `crates/turbowl/src/lib.rs`, `crates/turbowl/src/reasoner.rs` (stub), `crates/turbowl/src/rules/mod.rs` (table), `AGENTS.md`, `README.md`, scripts |
+| 02 | [Terms, dictionary and I/O](02-terms-io.md) | done | 01 | `crates/turbowl/src/term.rs`, `crates/turbowl/src/io.rs` |
+| 03 | [The engine](03-engine.md) | done | 01 | `crates/turbowl/src/engine/` |
+| 04 | [The oracles](04-oracles.md) | done | 01 | `crates/oracle/`, `oracles/`, `scripts/fetch-data.sh`, `scripts/fetch-tools.sh` |
+| 05 | [Reference evaluator and chaos](05-reference-chaos.md) | done | 01 | `crates/reference/` |
+| 06 | [The benchmark](06-bench.md) | done | 01 | `crates/bench/` |
+| 07 | [Rules: class family](07-rules-class.md) | done | 02, 03 | `crates/turbowl/src/rules/class.rs` |
+| 08 | [Rules: property family](08-rules-property.md) | done | 02, 03 | `crates/turbowl/src/rules/property.rs` |
+| 09 | [Diagnostics and datatypes](09-diagnostics.md) | done | 02, 03 | `crates/turbowl/src/diagnostics.rs`, `crates/turbowl/src/rules/datatype.rs` |
+| 10 | [The reasoner and incremental runs](10-reasoner.md) | done | 02, 03 | `crates/turbowl/src/reasoner.rs` |
+| 11 | [Equality by representatives](11-equality.md) | done | 03, 10 | `crates/turbowl/src/rules/equality.rs`, `crates/turbowl/src/engine/canon.rs`, **`crates/turbowl/src/rules/mod.rs`** (one line) |
+| 12 | [The CLI](12-cli.md) | done | 10 | `crates/cli/` |
+| 13 | [Python bindings](13-python.md) | done | 10 | `crates/python/` |
+| 14 | [Close-out: full verification](14-close-out.md) | done | all | `docs/verification/`, `README.md`, `CHANGELOG.md`, `AGENTS.md`, the specs |
 
 ## Waves
 
@@ -267,3 +267,19 @@ Departures from the plan, as they happen.
   - The CLI's 20 tests and Python's 287 pass.
 
   `docs/verification/2026-11-05-wave-4.md` has the numbers.
+- **14.** Version 1 closed on 2026-11-06, without a quiet machine.
+  - The Baseline (`docs/verification/2026-11-06-v1.md`) ran at `f9e3625`
+    with TurbOWL and Nemo, 5 runs on every default scenario, at a 1-minute
+    load average of 1.1 to 2.3, by the owner's choice. The spread between
+    runs stays under 7% for TurbOWL and under 4% for Nemo. Nemo's
+    reasoning takes 38 to 97 times as long. All 26 `scaling_*` tests pass,
+    the highest at 1.18, and the LUBM time exponent is 1.01.
+  - Every budget of the spec is met (`docs/specs/v1.md`, Results). ADR
+    0006 retires the two that named `reasonable`; wave 3's trend run met
+    them.
+  - README, CHANGELOG and AGENTS were written on `v2`, the same day
+    version 2's phase 1 closed. So the README describes the `v2` branch,
+    the CHANGELOG's 0.1.0 section records version 1, and `main` keeps
+    version 1's code without a README.
+  - Iteration 0's rubric score is written in `docs/specs/experiments.md`
+    separately; until then the ticket's last box stays open.

@@ -1,0 +1,129 @@
+# Scoreboard
+
+- docs/verification/data/2026-11-06-v2-phase-1/C-default-editor.json: schema 7, 2026-11-06T07:27:05Z at 9fcff496fb, configuration default, load average 2.44 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+- docs/verification/data/2026-11-06-v2-phase-1/C-default-data-small.json: schema 7, 2026-11-06T08:15:38Z at 9fcff496fb, configuration default, load average 2.02 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+- docs/verification/data/2026-11-06-v2-phase-1/C-default-data-large.json: schema 7, 2026-11-06T09:09:03Z at 9fcff496fb, configuration default, load average 2.44 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+- docs/verification/data/2026-11-06-v2-phase-1/C-complete-editor.json: schema 7, 2026-11-06T10:04:26Z at 9fcff496fb, configuration complete, load average 2.19 before
+  warning: not a quiet machine; its numbers show a trend, not a claim
+
+Each cell is the median over the runs (min..max). The leader has the lowest median and leads only when its range lies below every other engine's; overlapping ranges tie. Soufflé and VLog report load and reasoning as one time: their reasoning is n/a, and Soufflé's total also holds writing its output (README).
+
+## default configuration, one thread
+
+From docs/verification/data/2026-11-06-v2-phase-1/C-default-editor.json, docs/verification/data/2026-11-06-v2-phase-1/C-default-data-small.json, docs/verification/data/2026-11-06-v2-phase-1/C-default-data-large.json.
+
+| scenario | axis | turbowl | nemo | souffle | vlog | leader |
+|---|---|---:|---:|---:|---:|---|
+| brick-small1 | reasoning | 4.3 ms (4.3 ms..4.6 ms) | 399.0 ms (397.0 ms..399.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| brick-small1 | total (load + reasoning) | 13.4 ms (13.1 ms..14.7 ms) | 476.0 ms (474.0 ms..484.0 ms) | 149.3 ms (147.2 ms..186.0 ms) | 226.0 ms (187.0 ms..234.0 ms) | turbowl |
+| brick-small1 | peak memory | 6 MB (6 MB..6 MB) | 19 MB (19 MB..19 MB) | 10 MB (10 MB..10 MB) | 78 MB (78 MB..90 MB) | turbowl |
+| brick-soda-hall | reasoning | 8.2 ms (8.2 ms..8.3 ms) | 854.0 ms (851.0 ms..867.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| brick-soda-hall | total (load + reasoning) | 19.6 ms (19.3 ms..20.4 ms) | 957.0 ms (953.0 ms..967.0 ms) | 273.1 ms (269.5 ms..282.7 ms) | 304.0 ms (265.0 ms..310.0 ms) | turbowl |
+| brick-soda-hall | peak memory | 8 MB (8 MB..8 MB) | 23 MB (23 MB..23 MB) | 18 MB (18 MB..19 MB) | 85 MB (85 MB..87 MB) | turbowl |
+| brick-buildings | reasoning | 162.2 ms (161.7 ms..162.6 ms) | 19.3 s (19.3 s..19.4 s) | n/a (not split) | n/a (not split) | turbowl |
+| brick-buildings | total (load + reasoning) | 265.1 ms (264.0 ms..280.9 ms) | 20.5 s (20.5 s..20.6 s) | 7057.3 ms (7001.8 ms..7125.1 ms) | 4518.0 ms (4505.0 ms..5373.0 ms) | turbowl |
+| brick-buildings | peak memory | 71 MB (71 MB..71 MB) | 238 MB (237 MB..238 MB) | 340 MB (339 MB..355 MB) | 466 MB (465 MB..472 MB) | turbowl |
+| lubm-1 | reasoning | 15.5 ms (15.4 ms..15.5 ms) | 987.0 ms (985.0 ms..988.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-1 | total (load + reasoning) | 81.8 ms (81.1 ms..83.7 ms) | 1194.0 ms (1192.0 ms..1204.0 ms) | 208.4 ms (202.8 ms..208.9 ms) | 869.0 ms (336.0 ms..876.0 ms) | turbowl |
+| lubm-1 | peak memory | 29 MB (29 MB..29 MB) | 45 MB (45 MB..45 MB) | 62 MB (50 MB..63 MB) | 111 MB (109 MB..117 MB) | turbowl |
+| lubm-10 | reasoning | 185.0 ms (184.1 ms..186.4 ms) | 11.0 s (11.0 s..11.0 s) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-10 | total (load + reasoning) | 921.9 ms (912.5 ms..924.3 ms) | 13.0 s (12.9 s..13.1 s) | 2641.1 ms (2574.7 ms..2689.0 ms) | 9580.0 ms (3587.0 ms..9605.0 ms) | turbowl |
+| lubm-10 | peak memory | 286 MB (286 MB..286 MB) | 517 MB (516 MB..518 MB) | 596 MB (580 MB..596 MB) | 525 MB (524 MB..558 MB) | turbowl |
+| lubm-50 | reasoning | 1008.0 ms (1000.6 ms..1025.8 ms) | 58.0 s (58.0 s..58.2 s) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-50 | total (load + reasoning) | 4902.4 ms (4859.0 ms..4946.0 ms) | 69.5 s (68.8 s..69.7 s) | 15.6 s (14.8 s..15.7 s) | 18.8 s (18.7 s..18.8 s) | turbowl |
+| lubm-50 | peak memory | 1486 MB (1486 MB..1486 MB) | 1957 MB (1870 MB..2079 MB) | 3005 MB (3005 MB..3005 MB) | 2770 MB (2770 MB..2771 MB) | turbowl |
+| incremental-add | per change | 0.1 ms (0.1 ms..0.1 ms) | unsupported | unsupported | unsupported | turbowl |
+| incremental-add | peak memory | 6 MB (6 MB..6 MB) | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | per change | 3.9 ms (3.9 ms..4.0 ms) | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | peak memory | 13 MB (13 MB..13 MB) | unsupported | unsupported | unsupported | turbowl |
+| uobm-010-l | reasoning | 450.5 ms (449.2 ms..451.7 ms) | 78.0 s (77.9 s..78.2 s) | n/a (not split) | n/a (not split) | turbowl |
+| uobm-010-l | total (load + reasoning) | 1973.0 ms (1948.3 ms..1985.1 ms) | 82.7 s (82.6 s..82.9 s) | 10.1 s (10.0 s..10.1 s) | 13.6 s (13.6 s..13.7 s) | turbowl |
+| uobm-010-l | peak memory | 570 MB (570 MB..570 MB) | 1171 MB (1165 MB..1189 MB) | 1177 MB (1155 MB..1177 MB) | 1593 MB (1593 MB..1594 MB) | turbowl |
+| owl2bench-rl-1 | reasoning | 175.0 ms (174.9 ms..176.5 ms) | over-memory | n/a (not split) | n/a (not split) | turbowl |
+| owl2bench-rl-1 | total (load + reasoning) | 204.7 ms (203.6 ms..209.2 ms) | over-memory | 44.1 s (44.0 s..44.1 s) | 94.2 s (94.1 s..94.7 s) | turbowl |
+| owl2bench-rl-1 | peak memory | 80 MB (80 MB..80 MB) | over-memory | 621 MB (620 MB..621 MB) | 2229 MB (2197 MB..2732 MB) | turbowl |
+| owl2bench-rl-2 | reasoning | 630.7 ms (630.3 ms..632.6 ms) | over-memory | n/a (not split) | timeout | turbowl |
+| owl2bench-rl-2 | total (load + reasoning) | 686.9 ms (685.1 ms..688.9 ms) | over-memory | 354.3 s (354.3 s..377.7 s) | timeout | turbowl |
+| owl2bench-rl-2 | peak memory | 278 MB (278 MB..278 MB) | over-memory | 2317 MB (2317 MB..2432 MB) | timeout | turbowl |
+| lubm-uba-10-l | reasoning | 124.0 ms (123.5 ms..124.0 ms) | 9149.0 ms (9127.0 ms..9165.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| lubm-uba-10-l | total (load + reasoning) | 815.6 ms (814.1 ms..828.2 ms) | 11.1 s (10.9 s..11.1 s) | 2349.9 ms (2327.2 ms..2378.0 ms) | 3226.0 ms (3199.0 ms..7833.0 ms) | turbowl |
+| lubm-uba-10-l | peak memory | 201 MB (201 MB..201 MB) | 489 MB (489 MB..490 MB) | 614 MB (580 MB..614 MB) | 551 MB (539 MB..551 MB) | turbowl |
+| claros-l | reasoning | 22.6 s | timeout | over-memory | over-memory | turbowl |
+| claros-l | total (load + reasoning) | 36.4 s | timeout | over-memory | over-memory | turbowl |
+| claros-l | peak memory | 9167 MB | timeout | over-memory | over-memory | turbowl |
+| uobm-010-u | reasoning | 2728.6 ms | over-memory | timeout | timeout | turbowl |
+| uobm-010-u | total (load + reasoning) | 4309.7 ms | over-memory | timeout | timeout | turbowl |
+| uobm-010-u | peak memory | 945 MB | over-memory | timeout | timeout | turbowl |
+| owl2bench-rl-5 | reasoning | 7454.0 ms | over-memory | over-memory | over-memory | turbowl |
+| owl2bench-rl-5 | total (load + reasoning) | 7639.0 ms | over-memory | over-memory | over-memory | turbowl |
+| owl2bench-rl-5 | peak memory | 2870 MB | over-memory | over-memory | over-memory | turbowl |
+| lubm-uba-100-l | reasoning | 1426.6 ms | 102.4 s | n/a (not split) | n/a (not split) | turbowl |
+| lubm-uba-100-l | total (load + reasoning) | 8992.5 ms | 123.7 s | 28.4 s | 34.4 s | turbowl |
+| lubm-uba-100-l | peak memory | 2054 MB | 3258 MB | 6235 MB | 4388 MB | turbowl |
+
+turbowl leads 46 and ties 0 of the 46 where an engine finished.
+
+## default configuration, all cores
+
+No results: no engine here runs on more than one core yet (README).
+
+## complete configuration, one thread
+
+From docs/verification/data/2026-11-06-v2-phase-1/C-complete-editor.json.
+
+| scenario | axis | turbowl | nemo | souffle | vlog | leader |
+|---|---|---:|---:|---:|---:|---|
+| brick-small1 | reasoning | 8.6 ms (8.5 ms..8.7 ms) | 1119.0 ms (1118.0 ms..1125.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| brick-small1 | total (load + reasoning) | 17.8 ms (17.3 ms..18.2 ms) | 1226.0 ms (1225.0 ms..1240.0 ms) | 232.8 ms (230.7 ms..267.5 ms) | 505.0 ms (405.0 ms..510.0 ms) | turbowl |
+| brick-small1 | peak memory | 8 MB (8 MB..8 MB) | 26 MB (26 MB..26 MB) | 22 MB (22 MB..22 MB) | 154 MB (154 MB..156 MB) | turbowl |
+| brick-soda-hall | reasoning | 18.3 ms (18.3 ms..18.5 ms) | 2052.0 ms (2043.0 ms..2057.0 ms) | n/a (not split) | n/a (not split) | turbowl |
+| brick-soda-hall | total (load + reasoning) | 29.6 ms (29.4 ms..30.2 ms) | 2186.0 ms (2176.0 ms..2191.0 ms) | 404.3 ms (402.0 ms..405.8 ms) | 701.0 ms (594.0 ms..710.0 ms) | turbowl |
+| brick-soda-hall | peak memory | 13 MB (13 MB..13 MB) | 31 MB (31 MB..31 MB) | 33 MB (32 MB..33 MB) | 166 MB (165 MB..167 MB) | turbowl |
+| brick-buildings | reasoning | 556.4 ms (552.3 ms..560.0 ms) | 43.0 s (42.9 s..43.0 s) | n/a (not split) | over-memory | turbowl |
+| brick-buildings | total (load + reasoning) | 661.5 ms (658.4 ms..687.0 ms) | 44.9 s (44.8 s..45.0 s) | 10.7 s (10.6 s..10.7 s) | over-memory | turbowl |
+| brick-buildings | peak memory | 209 MB (209 MB..209 MB) | 488 MB (479 MB..515 MB) | 591 MB (579 MB..596 MB) | over-memory | turbowl |
+| lubm-1 | reasoning | 42.2 ms (42.1 ms..43.3 ms) | 3615.0 ms (3600.0 ms..3632.0 ms) | n/a (not split) | over-memory | turbowl |
+| lubm-1 | total (load + reasoning) | 110.1 ms (108.3 ms..119.5 ms) | 4037.0 ms (4024.0 ms..4055.0 ms) | 664.0 ms (662.4 ms..679.2 ms) | over-memory | turbowl |
+| lubm-1 | peak memory | 36 MB (36 MB..36 MB) | 80 MB (80 MB..80 MB) | 169 MB (160 MB..169 MB) | over-memory | turbowl |
+| lubm-10 | reasoning | 513.0 ms (512.1 ms..514.9 ms) | 40.0 s (39.8 s..40.0 s) | n/a (not split) | over-memory | turbowl |
+| lubm-10 | total (load + reasoning) | 1261.0 ms (1242.8 ms..1284.9 ms) | 44.3 s (44.0 s..44.5 s) | 8682.8 ms (8446.0 ms..8713.7 ms) | over-memory | turbowl |
+| lubm-10 | peak memory | 363 MB (363 MB..363 MB) | 910 MB (907 MB..916 MB) | 1686 MB (1646 MB..1752 MB) | over-memory | turbowl |
+| lubm-50 | reasoning | 2903.7 ms (2895.7 ms..2940.5 ms) | 209.2 s (208.4 s..209.9 s) | n/a (not split) | timeout | turbowl |
+| lubm-50 | total (load + reasoning) | 6848.5 ms (6771.9 ms..6884.1 ms) | 233.1 s (232.7 s..234.5 s) | 50.3 s (48.8 s..51.1 s) | timeout | turbowl |
+| lubm-50 | peak memory | 1827 MB (1827 MB..1827 MB) | 3130 MB (3096 MB..3148 MB) | 8259 MB (7777 MB..8461 MB) | timeout | turbowl |
+| incremental-add | per change | 0.3 ms (0.3 ms..0.3 ms) | unsupported | unsupported | unsupported | turbowl |
+| incremental-add | peak memory | 8 MB (8 MB..8 MB) | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | per change | 8.1 ms (8.1 ms..8.1 ms) | unsupported | unsupported | unsupported | turbowl |
+| incremental-remove | peak memory | 14 MB (14 MB..14 MB) | unsupported | unsupported | unsupported | turbowl |
+
+turbowl leads 22 and ties 0 of the 22 where an engine finished.
+
+## complete configuration, all cores
+
+No results: no engine here runs on more than one core yet (README).
+
+## Estimates: RDFox through its published results
+
+Never measured here, and always an estimate: RDFox's time in the paper x the bridge's time here / the bridge's time in the paper, on the same job (`src/published.rs` says when). A published RDFox number is a floor: RDFox has improved since (ADR 0006).
+
+No estimate: no published result meets every condition.
+
+Refused:
+
+| scenario | configuration | source, variant | RDFox | bridge | why not |
+|---|---|---|---|---|---|
+| claros-l | default | vlog2016 (Table 1 (data and rule counts); Table 2 (time and peak memory, p. 6); MacBook Pro, 2.2 GHz Core i7, 16 GB, OS X 10.10.5), L | RDFox (2014 sequential build, recompiled) on 1 thread | VLog | counts after differ: 114392641 here (closure 114400654 less 8013 of the ontology alone), 95.5 M in the paper |
+| claros-l | default | cikm2019 (Table 3 (facts before and after, rules) and Table 4 (load and materialisation, p. 8, appendix B); Dell PowerEdge R720, 2x Xeon E5-2670 2.6 GHz, 256 GB, Fedora 27), L | RDFox on threads not stated | VLog (CSV) | threads: RDFox ran with threads not stated and VLog (CSV) with threads not stated in the paper; the bridge runs one thread here |
+| claros-l | default | glog2021 (Table 1 (facts), Table 3 (Datalog scenarios), Table 13 (RDFox on more threads); Intel i7 PC, 94.1 GiB, Ubuntu 16.04), L | RDFox (ChaseBench's) on 1 thread | VLog | whether the paper's program axiomatises owl:sameAs is not known |
+| claros-l | default | glog2021 (Table 1 (facts), Table 3 (Datalog scenarios), Table 13 (RDFox on more threads); Intel i7 PC, 94.1 GiB, Ubuntu 16.04), L | RDFox (ChaseBench's) on 8 threads | VLog | threads: RDFox ran with 8 threads and VLog with 1 thread in the paper; the bridge runs one thread here |
+| claros-l | default | glog2021 (Table 1 (facts), Table 3 (Datalog scenarios), Table 13 (RDFox on more threads); Intel i7 PC, 94.1 GiB, Ubuntu 16.04), L | RDFox (ChaseBench's) on 16 threads | VLog | threads: RDFox ran with 16 threads and VLog with 1 thread in the paper; the bridge runs one thread here |
+| claros-l | default | glog2021 (Table 1 (facts), Table 3 (Datalog scenarios), Table 13 (RDFox on more threads); Intel i7 PC, 94.1 GiB, Ubuntu 16.04), L | RDFox (ChaseBench's) on 32 threads | VLog | threads: RDFox ran with 32 threads and VLog with 1 thread in the paper; the bridge runs one thread here |
+
+Sources (`published.json`):
+
+- vlog2016: Urbani, Jacobs, Kroetzsch: Column-oriented Datalog materialization for large knowledge graphs. AAAI 2016. https://arxiv.org/pdf/1511.08915
+- cikm2019: Hu, Urbani, Motik, Horrocks: Datalog reasoning over compressed RDF knowledge bases. CIKM 2019. https://www.cs.ox.ac.uk/boris.motik/pubs/humh19compressed-materialisation.pdf
+- glog2021: Tsamoura, Carral, Malizia, Urbani: Materializing knowledge bases via trigger graphs. PVLDB 14 (2021). https://arxiv.org/pdf/2102.02753

@@ -1,0 +1,473 @@
+{
+  "meta": {
+    "build": "release",
+    "changes": 100,
+    "commit": "9fcff496fb5472382e31e7a5bc63c7614a50ca58",
+    "configuration": "default",
+    "cores": 12,
+    "cpu": "Apple M6",
+    "data_dir": "<repo>/data",
+    "date": "2026-11-06T09:09:03Z",
+    "dirty": true,
+    "load_after": [
+      2.31396484375,
+      2.2880859375,
+      2.185546875
+    ],
+    "load_before": [
+      2.4375,
+      2.27734375,
+      2.1337890625
+    ],
+    "memory_bytes": 34359738368,
+    "memory_cap_bytes": 17179869184,
+    "os": "macOS 27.0 (kernel 27.0.0, aarch64)",
+    "peak_memory": "lifetime peak physical footprint",
+    "runs": 1,
+    "switches": [
+      "equality",
+      "property-chains",
+      "checks",
+      "identity",
+      "schema"
+    ],
+    "threads": 1,
+    "timeout_s": 600,
+    "versions": {
+      "bench": "0.1.0",
+      "nemo": "0.10.1",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "souffle": "2.5",
+      "turbowl": "0.1.0",
+      "vlog": "1.3.7"
+    }
+  },
+  "problems": [],
+  "published_counts": [
+    {
+      "after": 114392641,
+      "before": 18793277,
+      "closure": 114400654,
+      "ontology_only": 8013,
+      "scenario": "claros-l"
+    },
+    {
+      "after": 39122316,
+      "before": 2217286,
+      "closure": 39123749,
+      "ontology_only": 1433,
+      "scenario": "uobm-010-u"
+    }
+  ],
+  "results": [
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/oxford/claros/Claros_L.owl",
+        "<repo>/data/oxford/claros/Claros.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 114400654,
+          "closure_counted": 114400654,
+          "load_ms": 13818.258875,
+          "peak_rss_bytes": 9612484072,
+          "reason_ms": 22580.826041,
+          "status": "ok"
+        }
+      ],
+      "scenario": "claros-l",
+      "status": "ok",
+      "summary": {
+        "closure": 114400654,
+        "export_median_ms": null,
+        "load_median_ms": 13818.259,
+        "max_ms": 22580.826,
+        "measure": "reason_ms",
+        "median_ms": 22580.826,
+        "min_ms": 22580.826,
+        "peak_bytes_per_closure_triple": 84.025,
+        "peak_rss_bytes": 9612484072,
+        "peak_rss_min_bytes": 9612484072,
+        "reason_median_ms": 22580.826,
+        "total_median_ms": 36399.085,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/oxford/claros/Claros_L.owl",
+        "<repo>/data/oxford/claros/Claros.ttl"
+      ],
+      "message": "over 600 s",
+      "runs": [],
+      "scenario": "claros-l",
+      "status": "timeout",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/oxford/claros/Claros_L.owl",
+        "<repo>/data/oxford/claros/Claros.ttl"
+      ],
+      "message": "its memory, 16386 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "claros-l",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/oxford/claros/Claros_L.owl",
+        "<repo>/data/oxford/claros/Claros.ttl"
+      ],
+      "message": "its memory, 16444 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "claros-l",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/oxford/uobm/UOBM_U.owl",
+        "<repo>/data/oxford/uobm/UOBM-010.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 39123749,
+          "closure_counted": 39123749,
+          "load_ms": 1581.1274580000002,
+          "peak_rss_bytes": 991069504,
+          "reason_ms": 2728.593334,
+          "status": "ok"
+        }
+      ],
+      "scenario": "uobm-010-u",
+      "status": "ok",
+      "summary": {
+        "closure": 39123749,
+        "export_median_ms": null,
+        "load_median_ms": 1581.127,
+        "max_ms": 2728.593,
+        "measure": "reason_ms",
+        "median_ms": 2728.593,
+        "min_ms": 2728.593,
+        "peak_bytes_per_closure_triple": 25.332,
+        "peak_rss_bytes": 991069504,
+        "peak_rss_min_bytes": 991069504,
+        "reason_median_ms": 2728.593,
+        "total_median_ms": 4309.721,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/oxford/uobm/UOBM_U.owl",
+        "<repo>/data/oxford/uobm/UOBM-010.ttl"
+      ],
+      "message": "its memory, 16582 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "uobm-010-u",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/oxford/uobm/UOBM_U.owl",
+        "<repo>/data/oxford/uobm/UOBM-010.ttl"
+      ],
+      "message": "over 600 s",
+      "runs": [],
+      "scenario": "uobm-010-u",
+      "status": "timeout",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/oxford/uobm/UOBM_U.owl",
+        "<repo>/data/oxford/uobm/UOBM-010.ttl"
+      ],
+      "message": "over 600 s",
+      "runs": [],
+      "scenario": "uobm-010-u",
+      "status": "timeout",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/owl2bench/OWL2RL-5.owl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 53301610,
+          "closure_counted": 53301610,
+          "load_ms": 184.9705,
+          "peak_rss_bytes": 3009694288,
+          "reason_ms": 7454.002166,
+          "status": "ok"
+        }
+      ],
+      "scenario": "owl2bench-rl-5",
+      "status": "ok",
+      "summary": {
+        "closure": 53301610,
+        "export_median_ms": null,
+        "load_median_ms": 184.971,
+        "max_ms": 7454.002,
+        "measure": "reason_ms",
+        "median_ms": 7454.002,
+        "min_ms": 7454.002,
+        "peak_bytes_per_closure_triple": 56.465,
+        "peak_rss_bytes": 3009694288,
+        "peak_rss_min_bytes": 3009694288,
+        "reason_median_ms": 7454.002,
+        "total_median_ms": 7638.973,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/owl2bench/OWL2RL-5.owl"
+      ],
+      "message": "its memory, 16455 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "owl2bench-rl-5",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/owl2bench/OWL2RL-5.owl"
+      ],
+      "message": "its memory, 16400 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "owl2bench-rl-5",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/owl2bench/OWL2RL-5.owl"
+      ],
+      "message": "its memory, 16514 MB, passed the cap of 16384 MB",
+      "runs": [],
+      "scenario": "owl2bench-rl-5",
+      "status": "over-memory",
+      "summary": null,
+      "x_turbowl": null
+    },
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/data/oxford/lubm/LUBM_L.owl",
+        "<repo>/data/uba/lubm-100.owl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 20659925,
+          "closure_counted": 20659925,
+          "load_ms": 7565.83075,
+          "peak_rss_bytes": 2154186792,
+          "reason_ms": 1426.632458,
+          "status": "ok"
+        }
+      ],
+      "scenario": "lubm-uba-100-l",
+      "status": "ok",
+      "summary": {
+        "closure": 20659925,
+        "export_median_ms": null,
+        "load_median_ms": 7565.831,
+        "max_ms": 1426.632,
+        "measure": "reason_ms",
+        "median_ms": 1426.632,
+        "min_ms": 1426.632,
+        "peak_bytes_per_closure_triple": 104.269,
+        "peak_rss_bytes": 2154186792,
+        "peak_rss_min_bytes": 2154186792,
+        "reason_median_ms": 1426.632,
+        "total_median_ms": 8992.463,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    },
+    {
+      "engine": "nemo",
+      "inputs": [
+        "<repo>/data/oxford/lubm/LUBM_L.owl",
+        "<repo>/data/uba/lubm-100.owl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 20659925,
+          "closure_counted": 20659925,
+          "export_ms": 8603.0,
+          "load_ms": 21315.0,
+          "peak_rss_bytes": 3416084056,
+          "reason_ms": 102399.0,
+          "status": "ok",
+          "wall_ms": 132354.99208300002
+        }
+      ],
+      "scenario": "lubm-uba-100-l",
+      "status": "ok",
+      "summary": {
+        "closure": 20659925,
+        "export_median_ms": 8603.0,
+        "load_median_ms": 21315.0,
+        "max_ms": 102399.0,
+        "measure": "reason_ms",
+        "median_ms": 102399.0,
+        "min_ms": 102399.0,
+        "peak_bytes_per_closure_triple": 165.348,
+        "peak_rss_bytes": 3416084056,
+        "peak_rss_min_bytes": 3416084056,
+        "reason_median_ms": 102399.0,
+        "total_median_ms": 123714.0,
+        "wall_median_ms": 132354.992
+      },
+      "x_turbowl": {
+        "peak_rss": 1.586,
+        "time": 71.777,
+        "total": 13.758
+      }
+    },
+    {
+      "engine": "souffle",
+      "inputs": [
+        "<repo>/data/oxford/lubm/LUBM_L.owl",
+        "<repo>/data/uba/lubm-100.owl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 20659925,
+          "closure_counted": 20659925,
+          "load_ms": null,
+          "peak_rss_bytes": 6537466872,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 28377.181459,
+          "wall_ms": 28377.181459
+        }
+      ],
+      "scenario": "lubm-uba-100-l",
+      "status": "ok",
+      "summary": {
+        "closure": 20659925,
+        "export_median_ms": null,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 316.432,
+        "peak_rss_bytes": 6537466872,
+        "peak_rss_min_bytes": 6537466872,
+        "reason_median_ms": null,
+        "total_median_ms": 28377.181,
+        "wall_median_ms": 28377.181
+      },
+      "x_turbowl": {
+        "peak_rss": 3.035,
+        "time": null,
+        "total": 3.156
+      }
+    },
+    {
+      "engine": "vlog",
+      "inputs": [
+        "<repo>/data/oxford/lubm/LUBM_L.owl",
+        "<repo>/data/uba/lubm-100.owl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 20659925,
+          "closure_counted": 20659925,
+          "export_ms": 34184.0,
+          "load_ms": null,
+          "peak_rss_bytes": 4600976040,
+          "reason_ms": null,
+          "status": "ok",
+          "total_ms": 34420.0,
+          "wall_ms": 73371.22637500001
+        }
+      ],
+      "scenario": "lubm-uba-100-l",
+      "status": "ok",
+      "summary": {
+        "closure": 20659925,
+        "export_median_ms": 34184.0,
+        "load_median_ms": null,
+        "max_ms": null,
+        "measure": "reason_ms",
+        "median_ms": null,
+        "min_ms": null,
+        "peak_bytes_per_closure_triple": 222.701,
+        "peak_rss_bytes": 4600976040,
+        "peak_rss_min_bytes": 4600976040,
+        "reason_median_ms": null,
+        "total_median_ms": 34420.0,
+        "wall_median_ms": 73371.226
+      },
+      "x_turbowl": {
+        "peak_rss": 2.136,
+        "time": null,
+        "total": 3.828
+      }
+    }
+  ],
+  "scaling": [],
+  "schema": 7
+}

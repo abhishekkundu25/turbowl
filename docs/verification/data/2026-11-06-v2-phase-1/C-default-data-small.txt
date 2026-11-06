@@ -1,0 +1,78 @@
+converted 2 files (2219766 triples) into <repo>/target/bench-input/ed1bc5ff866c7574 in 2.1 s
+converted 1 files (54910 triples) into <repo>/target/bench-input/14357579a5d5cb27 in 0.1 s
+converted 1 files (107367 triples) into <repo>/target/bench-input/a58bf2205dd0dbc8 in 0.2 s
+converted 2 files (1316547 triples) into <repo>/target/bench-input/84afbffe174d069a in 1.2 s
+load average before: 2.02 2.02 2.11
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+uobm-010-l turbowl run 1/3 ... 449.2 ms
+uobm-010-l nemo run 1/3 ... 78236.0 ms
+uobm-010-l souffle run 1/3 ... 10013.8 ms in all (no split)
+uobm-010-l vlog run 1/3 ... 13627.0 ms in all (no split)
+uobm-010-l turbowl run 2/3 ... 451.7 ms
+uobm-010-l nemo run 2/3 ... 77942.0 ms
+uobm-010-l souffle run 2/3 ... 10149.9 ms in all (no split)
+uobm-010-l vlog run 2/3 ... 13679.0 ms in all (no split)
+uobm-010-l turbowl run 3/3 ... 450.5 ms
+uobm-010-l nemo run 3/3 ... 78050.0 ms
+uobm-010-l souffle run 3/3 ... 10080.7 ms in all (no split)
+uobm-010-l vlog run 3/3 ... 13619.0 ms in all (no split)
+owl2bench-rl-1 turbowl run 1/3 ... 174.9 ms
+owl2bench-rl-1 nemo run 1/3 ... over-memory: its memory, 16401 MB, passed the cap of 16384 MB
+owl2bench-rl-1 souffle run 1/3 ... 44131.8 ms in all (no split)
+owl2bench-rl-1 vlog run 1/3 ... 94692.0 ms in all (no split)
+owl2bench-rl-1 turbowl run 2/3 ... 176.5 ms
+owl2bench-rl-1 souffle run 2/3 ... 44014.1 ms in all (no split)
+owl2bench-rl-1 vlog run 2/3 ... 94147.0 ms in all (no split)
+owl2bench-rl-1 turbowl run 3/3 ... 175.0 ms
+owl2bench-rl-1 souffle run 3/3 ... 44116.5 ms in all (no split)
+owl2bench-rl-1 vlog run 3/3 ... 94239.0 ms in all (no split)
+owl2bench-rl-2 turbowl run 1/3 ... 630.7 ms
+owl2bench-rl-2 nemo run 1/3 ... over-memory: its memory, 16389 MB, passed the cap of 16384 MB
+owl2bench-rl-2 souffle run 1/3 ... 377742.3 ms in all (no split)
+owl2bench-rl-2 vlog run 1/3 ... timeout: over 600 s
+owl2bench-rl-2 turbowl run 2/3 ... 632.6 ms
+owl2bench-rl-2 souffle run 2/3 ... 354326.6 ms in all (no split)
+owl2bench-rl-2 turbowl run 3/3 ... 630.3 ms
+owl2bench-rl-2 souffle run 3/3 ... 354336.7 ms in all (no split)
+lubm-uba-10-l turbowl run 1/3 ... 124.0 ms
+lubm-uba-10-l nemo run 1/3 ... 9165.0 ms
+lubm-uba-10-l souffle run 1/3 ... 2327.2 ms in all (no split)
+lubm-uba-10-l vlog run 1/3 ... 7833.0 ms in all (no split)
+lubm-uba-10-l turbowl run 2/3 ... 123.5 ms
+lubm-uba-10-l nemo run 2/3 ... 9149.0 ms
+lubm-uba-10-l souffle run 2/3 ... 2349.9 ms in all (no split)
+lubm-uba-10-l vlog run 2/3 ... 3199.0 ms in all (no split)
+lubm-uba-10-l turbowl run 3/3 ... 124.0 ms
+lubm-uba-10-l nemo run 3/3 ... 9127.0 ms
+lubm-uba-10-l souffle run 3/3 ... 2378.0 ms in all (no split)
+lubm-uba-10-l vlog run 3/3 ... 3226.0 ms in all (no split)
+load average after: 2.61 2.28 2.13
+warning: load average over 1 after the runs
+
+TurbOWL bench: default configuration, 3 runs each; load average 2.02 2.02 2.11 before, 2.61 2.28 2.13 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| uobm-010-l | turbowl | 3 | 1521.3 | 450.5 | 449.2 | 451.7 | 1973.0 | 570 | 4602952 | 130 | 1.00 | 1.00 | 1.00 |
+| uobm-010-l | nemo | 3 | 4637.0 | 78050.0 | 77942.0 | 78236.0 | 82677.0 | 1189 | 4602952 | 271 | 173.26 | 41.91 | 2.08 |
+| uobm-010-l | souffle | 3 |  |  |  |  | 10080.7 | 1177 | 4602952 | 268 | - | 5.11 | 2.06 |
+| uobm-010-l | vlog | 3 |  |  |  |  | 13627.0 | 1594 | 4602952 | 363 | - | 6.91 | 2.80 |
+| owl2bench-rl-1 | turbowl | 3 | 29.8 | 175.0 | 174.9 | 176.5 | 204.7 | 80 | 1450868 | 58 | 1.00 | 1.00 | 1.00 |
+| owl2bench-rl-1 | nemo (over-memory) | 0 | | | | | | | | | | | |
+| owl2bench-rl-1 | souffle | 3 |  |  |  |  | 44116.5 | 621 | 1450868 | 448 | - | 215.47 | 7.73 |
+| owl2bench-rl-1 | vlog | 3 |  |  |  |  | 94239.0 | 2732 | 1450868 | 1975 | - | 460.28 | 34.02 |
+| owl2bench-rl-2 | turbowl | 3 | 56.2 | 630.7 | 630.3 | 632.6 | 686.9 | 278 | 5016399 | 58 | 1.00 | 1.00 | 1.00 |
+| owl2bench-rl-2 | nemo (over-memory) | 0 | | | | | | | | | | | |
+| owl2bench-rl-2 | souffle | 3 |  |  |  |  | 354336.7 | 2432 | 5016399 | 508 | - | 515.86 | 8.75 |
+| owl2bench-rl-2 | vlog (timeout) | 0 | | | | | | | | | | | |
+| lubm-uba-10-l | turbowl | 3 | 692.1 | 124.0 | 123.5 | 124.0 | 815.6 | 201 | 1962021 | 108 | 1.00 | 1.00 | 1.00 |
+| lubm-uba-10-l | nemo | 3 | 1914.0 | 9149.0 | 9127.0 | 9165.0 | 11064.0 | 490 | 1962021 | 262 | 73.80 | 13.56 | 2.43 |
+| lubm-uba-10-l | souffle | 3 |  |  |  |  | 2349.9 | 614 | 1962021 | 328 | - | 2.88 | 3.05 |
+| lubm-uba-10-l | vlog | 3 |  |  |  |  | 3226.0 | 551 | 1962021 | 294 | - | 3.96 | 2.73 |
+
+problem: owl2bench-rl-1 vlog: the closure size differs between runs: [1445884, 1450868]
+wrote <results>/C-default-data-small.json

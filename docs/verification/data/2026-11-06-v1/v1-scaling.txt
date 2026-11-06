@@ -1,0 +1,251 @@
+   Compiling turbowl v0.1.0 (<v1-checkout>/crates/turbowl)
+    Finished `release` profile [optimized] target(s) in 15.17s
+     Running unittests src/lib.rs (target/release/deps/turbowl-c1c3d9f070280556)
+
+running 26 tests
+test rules::class::tests::scaling::scaling_class_family_run ... scaling_class_family_run: linear (exponent at most 1.25): pass
+        size          time   time / size
+        1000      1.084 ms      1.084 us
+        2000      2.193 ms      1.096 us
+        4000      4.286 ms      1.072 us
+        8000      8.719 ms      1.090 us
+       16000     17.757 ms      1.110 us
+  exponent 1.006 (fastest of 7 runs per size)
+ok
+test rules::datatype::tests::scaling_datatype_rules_linear_in_instances ... scaling_datatype_rules_linear_in_instances: linear (exponent at most 1.25): pass
+        size          time   time / size
+        1024     45.589 us      44.52 ns
+        2048     96.615 us      47.18 ns
+        4096    202.709 us      49.49 ns
+        8192    424.770 us      51.85 ns
+       16384    889.417 us      54.29 ns
+  exponent 1.071 (fastest of 7 runs per size)
+ok
+test rules::property::tests::scaling::scaling_property_family_in_the_data ... scaling_property_family_in_the_data: linear (exponent at most 1.25): pass
+        size          time   time / size
+         256     91.933 us     359.11 ns
+         512    189.756 us     370.62 ns
+        1024    398.643 us     389.30 ns
+        2048    856.031 us     417.98 ns
+        4096      1.939 ms     473.46 ns
+  exponent 1.097 (fastest of 7 runs per size)
+ok
+test scaling::dictionary::scaling_dictionary_bytes_per_term ... scaling_dictionary_bytes_per_term:
+       1024 terms:      93392 bytes, 80.2 per term (19.6 of text), bound 136796
+       2048 terms:     150944 bytes, 69.0 per term (18.0 of text), bound 235612
+       4096 terms:     301888 bytes, 71.3 per term (17.2 of text), bound 433244
+       8192 terms:     603776 bytes, 72.5 per term (16.7 of text), bound 828508
+      16384 terms:    1207552 bytes, 73.1 per term (16.5 of text), bound 1619036
+      32768 terms:    2415104 bytes, 73.4 per term (16.4 of text), bound 3200092
+      65536 terms:    4830208 bytes, 73.5 per term (16.3 of text), bound 6362204
+     131072 terms:    9660416 bytes, 73.6 per term (16.3 of text), bound 12686428
+     262144 terms:   19320832 bytes, 73.7 per term (16.3 of text), bound 25334876
+     524288 terms:   38641664 bytes, 73.7 per term (16.3 of text), bound 50631772
+    1048576 terms:   77283328 bytes, 73.7 per term (16.3 of text), bound 101225564
+
+ok
+test scaling::dictionary::scaling_dictionary_intern_new_terms ... scaling_dictionary_intern_new_terms: linear (exponent at most 1.25): pass
+        size          time   time / size
+       65536      1.474 ms      22.49 ns
+      131072      3.009 ms      22.95 ns
+      262144      6.282 ms      23.96 ns
+      524288     13.613 ms      25.96 ns
+     1048576     29.265 ms      27.91 ns
+  exponent 1.080 (fastest of 7 runs per size)
+ok
+test scaling::dictionary::scaling_dictionary_reintern_known_terms ... scaling_dictionary_reintern_known_terms: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048     13.784 us       6.73 ns
+        4096     27.885 us       6.81 ns
+        8192     56.681 us       6.92 ns
+       16384    116.842 us       7.13 ns
+       32768    236.146 us       7.21 ns
+  exponent 1.026 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_antijoin ... scaling_antijoin: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384     34.260 us       2.09 ns
+       32768     68.574 us       2.09 ns
+       65536    136.911 us       2.09 ns
+      131072    273.981 us       2.09 ns
+      262144    547.424 us       2.09 ns
+  exponent 0.999 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_join_merge ... scaling_join_merge: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384     35.785 us       2.18 ns
+       32768     71.558 us       2.18 ns
+       65536    143.125 us       2.18 ns
+      131072    286.212 us       2.18 ns
+      262144    576.097 us       2.20 ns
+  exponent 1.002 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_leapjoin ... scaling_leapjoin: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    154.786 us      37.79 ns
+        8192    347.566 us      42.43 ns
+       16384    873.938 us      53.34 ns
+       32768      1.858 ms      56.71 ns
+       65536      3.999 ms      61.03 ns
+  exponent 1.180 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_relation_from_vec ... scaling_relation_from_vec: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096     33.131 us       8.09 ns
+        8192     68.646 us       8.38 ns
+       16384    142.948 us       8.72 ns
+       32768    297.150 us       9.07 ns
+       65536    617.275 us       9.42 ns
+  exponent 1.055 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_relation_merge ... scaling_relation_merge: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384     33.909 us       2.07 ns
+       32768     62.286 us       1.90 ns
+       65536    122.474 us       1.87 ns
+      131072    241.759 us       1.84 ns
+      262144    483.964 us       1.85 ns
+  exponent 0.963 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_store_chain_rounds ... scaling_store_chain_rounds: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    363.495 us      88.74 ns
+        8192    762.291 us      93.05 ns
+       16384      1.549 ms      94.52 ns
+       32768      3.186 ms      97.24 ns
+       65536      6.507 ms      99.28 ns
+  exponent 1.039 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_store_disjoint_chains ... scaling_store_disjoint_chains: linear (exponent at most 1.25): pass
+        size          time   time / size
+         256    856.427 us      3.345 us
+         512      1.715 ms      3.350 us
+        1024      3.440 ms      3.359 us
+        2048      6.973 ms      3.405 us
+        4096     14.099 ms      3.442 us
+  exponent 1.011 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_store_incremental_insert ... scaling_store_incremental_insert: constant (exponent at most 0.25): pass
+        size          time   time / size
+        1024      1.782 us       1.74 ns
+        2048      1.709 us       0.83 ns
+        4096      1.801 us       0.44 ns
+        8192      1.696 us       0.21 ns
+       16384      2.188 us       0.13 ns
+  exponent 0.058 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_variable_large_batches ... scaling_variable_large_batches: linear (exponent at most 1.25): pass
+        size          time   time / size
+       16384    113.518 us       6.93 ns
+       32768    221.179 us       6.75 ns
+       65536    444.750 us       6.79 ns
+      131072    892.740 us       6.81 ns
+      262144      1.765 ms       6.73 ns
+  exponent 0.993 (fastest of 7 runs per size)
+ok
+test scaling::engine::scaling_variable_small_batches_comparisons ... scaling_variable_small_batches_comparisons: N log2(N/b)^2, pass
+         N   orderings / tuple   log2(N/b)^2   ratio
+     16384               34.28            64   0.536
+     32768               41.63            81   0.514
+     65536               51.82           100   0.518
+    131072               59.71           121   0.494
+    262144               71.07           144   0.494
+
+ok
+test scaling::engine::scaling_variable_tiers ... scaling_variable_tiers:
+  batches of  1:     1024 tuples, at most  7 tiers so far (bound 11)
+  batches of  1:     4096 tuples, at most  8 tiers so far (bound 13)
+  batches of  1:    16384 tuples, at most 10 tiers so far (bound 15)
+  batches of  1:    65536 tuples, at most 11 tiers so far (bound 17)
+  batches of 64:     1024 tuples, at most  3 tiers so far (bound 11)
+  batches of 64:     4096 tuples, at most  4 tiers so far (bound 13)
+  batches of 64:    16384 tuples, at most  6 tiers so far (bound 15)
+  batches of 64:    65536 tuples, at most  7 tiers so far (bound 17)
+  batches of 64:   262144 tuples, at most  8 tiers so far (bound 19)
+  batches of 64:  1048576 tuples, at most 10 tiers so far (bound 21)
+
+ok
+test scaling::io::scaling_parse_ntriples ... scaling_parse_ntriples: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048    689.067 us     336.46 ns
+        4096      1.375 ms     335.76 ns
+        8192      2.760 ms     336.92 ns
+       16384      5.547 ms     338.55 ns
+       32768     11.231 ms     342.74 ns
+  exponent 1.007 (fastest of 7 runs per size)
+ok
+test scaling::io::scaling_parse_turtle ... scaling_parse_turtle: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048    634.692 us     309.91 ns
+        4096      1.256 ms     306.63 ns
+        8192      2.524 ms     308.12 ns
+       16384      5.077 ms     309.87 ns
+       32768     10.180 ms     310.66 ns
+  exponent 1.002 (fastest of 7 runs per size)
+ok
+test scaling::io::scaling_write_ntriples ... scaling_write_ntriples: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    234.938 us      57.36 ns
+        8192    484.417 us      59.13 ns
+       16384    991.385 us      60.51 ns
+       32768      1.955 ms      59.68 ns
+       65536      4.022 ms      61.38 ns
+  exponent 1.021 (fastest of 7 runs per size)
+ok
+test scaling::io::scaling_write_turtle ... scaling_write_turtle: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    275.929 us      67.37 ns
+        8192    553.792 us      67.60 ns
+       16384      1.105 ms      67.47 ns
+       32768      2.190 ms      66.83 ns
+       65536      4.401 ms      67.15 ns
+  exponent 0.997 (fastest of 7 runs per size)
+ok
+test scaling::reasoner::scaling_reasoner_full_run ... scaling_reasoner_full_run: linear (exponent at most 1.25): pass
+        size          time   time / size
+        4096    321.440 us      78.48 ns
+        8192    769.677 us      93.95 ns
+       16384      1.746 ms     106.55 ns
+       32768      3.572 ms     109.00 ns
+       65536      7.411 ms     113.08 ns
+  exponent 1.127 (fastest of 7 runs per size)
+ok
+test scaling::reasoner::scaling_reasoner_incremental_addition ... scaling_reasoner_incremental_addition: constant (exponent at most 0.25): pass
+        size          time   time / size
+        2048      1.316 us       0.64 ns
+        4096      1.234 us       0.30 ns
+        8192      1.304 us       0.16 ns
+       16384      1.318 us       0.08 ns
+       32768      1.342 us       0.04 ns
+  exponent 0.015 (fastest of 7 runs per size)
+ok
+test scaling::reasoner::scaling_reasoner_load ... scaling_reasoner_load: linear (exponent at most 1.25): pass
+        size          time   time / size
+        2048    706.125 us     344.79 ns
+        4096      1.405 ms     343.11 ns
+        8192      2.863 ms     349.53 ns
+       16384      5.783 ms     352.94 ns
+       32768     11.525 ms     351.71 ns
+  exponent 1.010 (fastest of 7 runs per size)
+ok
+test scaling::reasoner::scaling_reasoner_same_as_clique ... scaling_reasoner_same_as_clique: linear (exponent at most 1.25): pass
+        size          time   time / size
+         256     58.878 us     229.99 ns
+         512    113.234 us     221.16 ns
+        1024    238.826 us     233.23 ns
+        2048    500.425 us     244.35 ns
+        4096      1.077 ms     262.95 ns
+  exponent 1.053 (fastest of 7 runs per size)
+ok
+test scaling::reasoner::scaling_reasoner_same_as_clique_expansion_per_triple ... scaling_reasoner_same_as_clique_expansion_per_triple: constant (exponent at most 0.25): pass
+        size          time   time / size
+          16      35.49 ns       2.22 ns
+          32      34.59 ns       1.08 ns
+          64      34.24 ns       0.54 ns
+         128      35.23 ns       0.28 ns
+         256      34.95 ns       0.14 ns
+  exponent -0.002 (fastest of 7 runs per size)
+ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 152 filtered out; finished in 7.85s
+

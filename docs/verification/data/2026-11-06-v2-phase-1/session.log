@@ -1,0 +1,27 @@
+12:15:32 load 1.13 1.54 1.62 :: session start; v1 f9e3625, v2 d48923c
+12:15:33 load 1.13 1.54 1.62 :: start A-v1-baseline: --engines turbowl,nemo --runs 5
+12:22:40 load 2.20 2.08 1.85 :: end A-v1-baseline: exit 0
+12:22:40 load 2.20 2.08 1.85 :: start A-v1-scaling
+12:23:04 load 1.98 2.04 1.84 :: end A-v1-scaling: exit 0
+12:23:49 load 2.01 2.04 1.85 :: session resumed at step B; v1 f9e3625, v2 9fcff49
+12:23:49 load 2.01 2.04 1.85 :: start B-default-editor: --engines turbowl --runs 5 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove
+12:24:33 load 2.37 2.12 1.88 :: end B-default-editor: exit 0
+12:24:33 load 2.37 2.12 1.88 :: start B-default-data: --engines turbowl --runs 3 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2,uobm-010-u,owl2bench-rl-5,lubm-uba-100-l,claros-l
+12:29:02 load 2.85 2.35 2.03 :: end B-default-data: exit 0
+12:29:02 load 2.85 2.35 2.03 :: start B-schema-off-editor: --engines turbowl --runs 5 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --switch schema=off
+12:29:44 load 2.25 2.26 2.01 :: end B-schema-off-editor: exit 0
+12:29:44 load 2.25 2.26 2.01 :: start B-schema-off-data: --engines turbowl --runs 3 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2,uobm-010-u,owl2bench-rl-5,lubm-uba-100-l,claros-l --switch schema=off
+12:33:44 load 2.41 2.35 2.11 :: end B-schema-off-data: exit 0
+12:33:44 load 2.41 2.35 2.11 :: start B-identity-off-editor: --engines turbowl --runs 5 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --switch identity=off
+12:34:29 load 2.37 2.36 2.13 :: end B-identity-off-editor: exit 0
+12:34:29 load 2.37 2.36 2.13 :: start B-identity-off-data: --engines turbowl --runs 3 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2,uobm-010-u,owl2bench-rl-5,lubm-uba-100-l,claros-l --switch identity=off
+12:38:40 load 2.28 2.30 2.16 :: end B-identity-off-data: exit 0
+12:38:40 load 2.28 2.30 2.16 :: start C-default-editor: --engines turbowl,nemo,souffle,vlog --runs 5 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove
+12:57:05 load 2.02 2.02 2.11 :: end C-default-editor: exit 0
+12:57:05 load 2.02 2.02 2.11 :: start C-default-data-small: --engines turbowl,nemo,souffle,vlog --runs 3 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2
+13:45:38 load 2.61 2.28 2.13 :: end C-default-data-small: exit 1
+13:45:38 load 2.61 2.28 2.13 :: start C-default-data-large: --engines turbowl,nemo,souffle,vlog --runs 1 --only uobm-010-u,owl2bench-rl-5,lubm-uba-100-l,claros-l
+14:39:03 load 2.19 2.26 2.18 :: end C-default-data-large: exit 0
+14:39:03 load 2.19 2.26 2.18 :: start C-complete-editor: --engines turbowl,nemo,souffle,vlog --runs 5 --only brick-small1,brick-soda-hall,brick-buildings,lubm-1,lubm-10,lubm-50,incremental-add,incremental-remove --complete
+15:34:26 load 1.82 2.12 2.24 :: end C-complete-editor: exit 0
+15:34:26 load 1.82 2.12 2.24 :: start C-complete-data-small: --engines turbowl,nemo,souffle,vlog --runs 3 --only uobm-010-l,lubm-uba-10-l,owl2bench-rl-1,owl2bench-rl-2 --complete

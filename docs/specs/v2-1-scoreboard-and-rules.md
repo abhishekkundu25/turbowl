@@ -274,8 +274,11 @@ Correctness (gates):
   the complete configuration, every case Nemo passes among them. Each case
   that fails is listed with the reason it is beyond the rules. (The first
   draft said 113; the owner set 101 on 2026-11-06, once every rule had
-  landed: Nemo and OWL-RL fail the other 18 too, and each expects a
-  conclusion no OWL 2 RL rule derives.)
+  landed: Nemo and OWL-RL fail the other 18 too. The close-out found that
+  15 of them expect a conclusion no OWL 2 RL rule derives, and 3 fail on
+  how the test runner reads a case: an import it does not load, and
+  annotations under the Direct Semantics. The runner's fix is a
+  follow-up.)
 - The RDF-MT suite passes at least 35 cases in the complete
   configuration, and no consistent case is reported inconsistent. Two of
   version 1's 37 (`rdfs-domain-and-range-intensionality-domain` and

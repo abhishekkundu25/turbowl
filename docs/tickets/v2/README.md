@@ -5,34 +5,34 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 `docs/specs/v2-3-removals.md` (phase 3, 22 to 24). Decisions: ADR 0005
 (switches), ADR 0006 (the scoreboard). Lock files are in **bold**.
 
-| # | Ticket | Blocked by | Files |
-|---|---|---|---|
-| 01 | [Remove `reasonable`](01-remove-reasonable.md) | — | `crates/bench/` (`Cargo.toml`, `src/engine.rs`, **`src/main.rs`**, `src/scaling.rs`, `src/compare.rs`, **`README.md`**), **`Cargo.lock`**, `docs/specs/experiments.md`, one doc line in `crates/oracle/src/lib.rs` |
-| 02 | [Switches: the seam](02-switches.md) | — | `crates/turbowl/`: `Cargo.toml`, `src/lib.rs`, new `src/switch.rs`, `src/reasoner.rs`, **`src/rules/mod.rs`**, **`src/term.rs`**, new `src/rules/checks.rs`, `src/rules/datatype.rs`, `src/rules/property.rs`, `src/rules/property/chain.rs`, new empty `src/rules/{identity,schema,trivial,literal_values}.rs` and `src/rules/class/enumerations.rs`, `src/rules/class.rs`, `src/rules/testing.rs`; `scripts/check-wasm.sh` |
-| 03 | [One rule source for every engine](03-rule-source.md) | 01, 02 | `oracles/nemo/owl2rl.rls` → `oracles/rules/<group>.rls`, new `crates/oracle/src/programs.rs`, `crates/oracle/src/{nemo,lib}.rs`, `crates/oracle/tests/programs/`, `crates/bench/src/nemo.rs`, `crates/bench/Cargo.toml`, **`Cargo.lock`** |
-| 04 | [Verification by configuration](04-verification-by-configuration.md) | 03 | `crates/reference/` (`src/evaluate.rs` → `src/rules/<group>.rs`, `src/generate.rs` → `src/generate/<group>.rs`, `src/lib.rs`, `tests/`), `crates/oracle/` (`src/cases.rs` → `src/cases/<group>.rs`, `src/{ours,triangulate,w3c}.rs`, `tests/`) |
-| 05 | [Rules: the new checks](05-rules-checks.md) | 04 | the `checks` files: `crates/turbowl/src/rules/checks.rs`, `oracles/rules/checks.rls`, and those in `crates/reference/src/{rules,generate}/` and `crates/oracle/src/cases/` |
-| 06 | [Rules: identity](06-rules-identity.md) | 04 | the `identity` files, as for 05 |
-| 07 | [Rules: the schema](07-rules-schema.md) | 04 | the `schema` files, as for 05 |
-| 08 | [Rules: the trivial group and cls-oo](08-rules-trivial-and-enumerations.md) | 04 | the `trivial` files, and for cls-oo `crates/turbowl/src/rules/class/enumerations.rs` and the `core` files; `crates/turbowl/src/reasoner.rs` (eq-ref on read) |
-| 09 | [The OWL 2 datatype map](09-datatype-map.md) | 04 | `crates/turbowl/src/rules/datatype.rs`, new `crates/turbowl/src/rules/datatype/values.rs`, `crates/reference/src/datatype.rs`, the `datatypes` files of the generator and the minimal inputs |
-| 10 | [Literal values and typing](10-literal-values-and-typing.md) | 08, 09 | the `literal-values` files; the `trivial` files (dt-type2) |
-| 11 | [Switches in the CLI and Python](11-switch-adapters.md) | 02 | `crates/cli/`, `crates/python/` |
-| 12 | [Competitors: VLog, Soufflé, Nemo (GraphDB if licensed)](12-competitors.md) | 03, 13 | `crates/bench/src/engine.rs`, new `crates/bench/src/{souffle,vlog,graphdb}.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`**, `scripts/fetch-tools.sh` |
-| 13 | [Scoreboard data and the 16 GB cap](13-scoreboard-data.md) | 01 | `scripts/fetch-data.sh`, `crates/bench/src/scenario.rs`, new `crates/bench/src/datasets.rs`, `crates/bench/src/machine.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
-| 14 | [Published results and the scoreboard report](14-published-results-and-report.md) | 12, 13 | new `crates/bench/src/{published,report}.rs` and the published-results data file, `crates/bench/src/compare.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
-| 25 | [Memory: OWL2Bench RL, UOBM-010 U and OpenCyc](25-memory.md) | 13 | `crates/turbowl/` (where the cause is), `crates/turbowl/src/scaling.rs` |
-| 26 | [OWL-RL's datatype and identity faults](26-owlrl-faults.md) | 08 | `crates/oracle/src/differences.rs`, `crates/oracle/src/cases/datatypes.rs` |
-| 15 | [Close-out: phase 1](15-close-out-phase-1.md) | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
-| 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
-| 17 | [All cores: parallel rounds](17-parallel-rounds.md) | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
-| 18 | [All cores: parallel parsing](18-parallel-parsing.md) | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
-| 19 | [Snapshots](19-snapshots.md) | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
-| 20 | [The improvement loop](20-improvement-loop.md) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
-| 21 | [Close-out: phase 2](21-close-out-phase-2.md) | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
-| 22 | [Removals: DRed](22-dred.md) | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
-| 23 | [Removals: FBF](23-fbf.md) | 22 | as for 22 |
-| 24 | [Close-out: phase 3 and the claim](24-close-out-phase-3.md) | 22, 23 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
+| # | Ticket | Status | Blocked by | Files |
+|---|---|---|---|---|
+| 01 | [Remove `reasonable`](01-remove-reasonable.md) | done | — | `crates/bench/` (`Cargo.toml`, `src/engine.rs`, **`src/main.rs`**, `src/scaling.rs`, `src/compare.rs`, **`README.md`**), **`Cargo.lock`**, `docs/specs/experiments.md`, one doc line in `crates/oracle/src/lib.rs` |
+| 02 | [Switches: the seam](02-switches.md) | done | — | `crates/turbowl/`: `Cargo.toml`, `src/lib.rs`, new `src/switch.rs`, `src/reasoner.rs`, **`src/rules/mod.rs`**, **`src/term.rs`**, new `src/rules/checks.rs`, `src/rules/datatype.rs`, `src/rules/property.rs`, `src/rules/property/chain.rs`, new empty `src/rules/{identity,schema,trivial,literal_values}.rs` and `src/rules/class/enumerations.rs`, `src/rules/class.rs`, `src/rules/testing.rs`; `scripts/check-wasm.sh` |
+| 03 | [One rule source for every engine](03-rule-source.md) | done | 01, 02 | `oracles/nemo/owl2rl.rls` → `oracles/rules/<group>.rls`, new `crates/oracle/src/programs.rs`, `crates/oracle/src/{nemo,lib}.rs`, `crates/oracle/tests/programs/`, `crates/bench/src/nemo.rs`, `crates/bench/Cargo.toml`, **`Cargo.lock`** |
+| 04 | [Verification by configuration](04-verification-by-configuration.md) | done | 03 | `crates/reference/` (`src/evaluate.rs` → `src/rules/<group>.rs`, `src/generate.rs` → `src/generate/<group>.rs`, `src/lib.rs`, `tests/`), `crates/oracle/` (`src/cases.rs` → `src/cases/<group>.rs`, `src/{ours,triangulate,w3c}.rs`, `tests/`) |
+| 05 | [Rules: the new checks](05-rules-checks.md) | done | 04 | the `checks` files: `crates/turbowl/src/rules/checks.rs`, `oracles/rules/checks.rls`, and those in `crates/reference/src/{rules,generate}/` and `crates/oracle/src/cases/` |
+| 06 | [Rules: identity](06-rules-identity.md) | done | 04 | the `identity` files, as for 05 |
+| 07 | [Rules: the schema](07-rules-schema.md) | done | 04 | the `schema` files, as for 05 |
+| 08 | [Rules: the trivial group and cls-oo](08-rules-trivial-and-enumerations.md) | done | 04 | the `trivial` files, and for cls-oo `crates/turbowl/src/rules/class/enumerations.rs` and the `core` files; `crates/turbowl/src/reasoner.rs` (eq-ref on read) |
+| 09 | [The OWL 2 datatype map](09-datatype-map.md) | done | 04 | `crates/turbowl/src/rules/datatype.rs`, new `crates/turbowl/src/rules/datatype/values.rs`, `crates/reference/src/datatype.rs`, the `datatypes` files of the generator and the minimal inputs |
+| 10 | [Literal values and typing](10-literal-values-and-typing.md) | done | 08, 09 | the `literal-values` files; the `trivial` files (dt-type2) |
+| 11 | [Switches in the CLI and Python](11-switch-adapters.md) | done | 02 | `crates/cli/`, `crates/python/` |
+| 12 | [Competitors: VLog, Soufflé, Nemo (GraphDB if licensed)](12-competitors.md) | done | 03, 13 | `crates/bench/src/engine.rs`, new `crates/bench/src/{souffle,vlog,graphdb}.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`**, `scripts/fetch-tools.sh` |
+| 13 | [Scoreboard data and the 16 GB cap](13-scoreboard-data.md) | done | 01 | `scripts/fetch-data.sh`, `crates/bench/src/scenario.rs`, new `crates/bench/src/datasets.rs`, `crates/bench/src/machine.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
+| 14 | [Published results and the scoreboard report](14-published-results-and-report.md) | done | 12, 13 | new `crates/bench/src/{published,report}.rs` and the published-results data file, `crates/bench/src/compare.rs`, **`crates/bench/src/main.rs`**, **`crates/bench/README.md`** |
+| 25 | [Memory: OWL2Bench RL, UOBM-010 U and OpenCyc](25-memory.md) | done | 13 | `crates/turbowl/` (where the cause is), `crates/turbowl/src/scaling.rs` |
+| 26 | [OWL-RL's datatype and identity faults](26-owlrl-faults.md) | done | 08 | `crates/oracle/src/differences.rs`, `crates/oracle/src/cases/datatypes.rs` |
+| 15 | [Close-out: phase 1](15-close-out-phase-1.md) | done | 01 to 14, 25, 26, version 1's 14 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `CONTEXT.md`, the phase 1 spec, `docs/verification/`, this README |
+| 16 | [Fast loading: parsers and the dictionary](16-parsers-and-dictionary.md) | todo | 15 | `crates/turbowl/src/io.rs` and new `src/io/`, **`crates/turbowl/src/term.rs`**, `crates/turbowl/src/scaling.rs` |
+| 17 | [All cores: parallel rounds](17-parallel-rounds.md) | todo | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
+| 18 | [All cores: parallel parsing](18-parallel-parsing.md) | todo | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
+| 19 | [Snapshots](19-snapshots.md) | todo | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
+| 20 | [The improvement loop](20-improvement-loop.md) | todo | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
+| 21 | [Close-out: phase 2](21-close-out-phase-2.md) | todo | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
+| 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
+| 23 | [Removals: FBF](23-fbf.md) | todo | 22 | as for 22 |
+| 24 | [Close-out: phase 3 and the claim](24-close-out-phase-3.md) | todo | 22, 23 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
 
 ## How the lock files stay apart
 
@@ -330,3 +330,72 @@ Departures from the plan, as they happen.
   LUBM-1K is fetched now and run after phase 2's memory work. The close-out
   measures at a load of about 1.9 (an animated wallpaper and two idle apps
   kept running), which its record states.
+- **15.** Phase 1 closed on 2026-11-06, on a busy machine (load average
+  about 2) by the owner's choice
+  (`docs/verification/2026-11-06-v2-phase-1.md`). Departures:
+  - **The defaults.** ADR 0005's rule turned `schema` and `identity` off
+    (`660e3bd`). The research alone would have kept both on: owlrl,
+    GraphDB's `owl2-rl` and the OWL-RS Nemo program implement both groups,
+    so neither is rarely implemented. The measurement decided. `schema`
+    slowed 12 of the 15 scenarios by more than 5%: 22% to 39% on the
+    editor-size ones and up to 62% on claros-l. `identity` slowed
+    uobm-010-u by 26% and claros-l by 6%. The new default was not measured
+    on its own: the closest run has `schema` off and `identity` on, and
+    `identity` costs nothing measurable on the editor-size scenarios.
+  - **The scoreboard** ran before the defaults were decided, so its
+    competitor runs are in the old default (`schema` and `identity` on);
+    then the complete configuration at editor size. The owner stopped the
+    session after 4 hours ("record what you have measured and move on").
+    Missing: the new default against the competitors; the complete
+    configuration on claros-l, uobm-010-u, owl2bench-rl-5 and
+    lubm-uba-100-l; a quiet machine. No engine runs on all cores yet, and
+    no RDFox estimate meets the bridge's conditions. TurbOWL leads every
+    scenario and axis where some engine finished: 46 pairs in the old
+    default, 22 in the complete configuration.
+  - **Two chaos finds**, both on inputs that make a vocabulary term equal
+    to `rdf:rest`, both past the 30 s watchdog. Iteration 65821: prp-key
+    read a key list whose cells branch, exponentially many paths, for 32 s.
+    It now reads such a list by pairs along its paths and keeps the hash
+    grouping for chains (`44e411a`, with a unit test and
+    `scaling_identity_keys_on_a_branching_list`): 0.16 s. Iteration 27725:
+    the reference evaluator's list checks read each alias's pairs anew, for
+    29 s; TurbOWL took 18 ms. Each head is now read once (`7a813b4`, with a
+    test that pins the findings). The iteration takes 5.4 s.
+  - **F1's property test** (`f1_owlrl_scm_spo_skips_reflexive_subproperty`)
+    now runs Nemo with `schema` on, since that fault concerns the `schema`
+    rules and `schema` is off by default.
+  - **The W3C cases.** Of the 18 that fail, 15 expect a conclusion no
+    OWL 2 RL rule derives. Three depend on how the runner reads a case:
+    `WebOnt-imports-011` needs its imported ontology loaded, and the two
+    `-Direct` cases need the annotations dropped from a conclusion under
+    the Direct Semantics. The record lists each one.
+  - **Open:** VLog's closure on owl2bench-rl-1 differed in one run of
+    three (1,445,884 triples against 1,450,868). It needs a reproduction
+    and, if it holds, a listed competitor fault. The 16 GB cap overshoots
+    by up to 314 MB before it stops a run (16,698 MB, VLog on lubm-10,
+    complete).
+- **Follow-ups after phase 1.**
+  - ADR 0003's choice rule for the two literal constants: make them win
+    their classes, as vocabulary terms do, and remove `Round::class_moved`.
+  - The reference evaluator's speed in the complete configuration. Its
+    prp-key reads each alias of a key list anew: chaos iteration 27725
+    still takes 5.4 s of the 30 s watchdog.
+  - The oracle crate's `reference` test takes 52 to 100 s of its 120 s
+    cap.
+  - eq-ref is spread across three places; one would be easier to change.
+  - Split `reasoner.rs` (1,336 lines) and `rules/checks.rs` (1,624 lines).
+  - Why `schema` costs 35% on LUBM at every size while it adds 99 triples.
+    A phase 2 candidate: measure where the time goes before guessing the
+    cause.
+  - The W3C runner: load a case's imported ontologies from the export
+    (`test:importedOntology`), and treat the cases whose only regime is
+    the Direct Semantics as the W3C does: run them with annotations dropped
+    from the conclusion, or count them as not applicable to the RDF-Based
+    rules. A change to an oracle, so it is an iteration of its own
+    (`docs/specs/experiments.md`, Rules). It moves every engine's count,
+    not only TurbOWL's.
+  - VLog's time on the scoreboard is its own report, which leaves out the
+    JVM's start, the rulewerk client and the export. Its wall time is 1.1
+    to 18 times as long (brick-small1: 187 to 234 ms reported against
+    1,659 to 4,311 ms of wall time). Decide whether the scoreboard should
+    show wall time for every engine that runs as a process.

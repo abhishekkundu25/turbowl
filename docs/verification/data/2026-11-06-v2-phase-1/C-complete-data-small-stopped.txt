@@ -1,0 +1,26 @@
+load average before: 1.82 2.12 2.24
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+uobm-010-l turbowl run 1/3 ... 899.8 ms
+uobm-010-l nemo run 1/3 ... 145374.0 ms
+uobm-010-l souffle run 1/3 ... 18348.4 ms in all (no split)
+uobm-010-l vlog run 1/3 ... over-memory: its memory, 16556 MB, passed the cap of 16384 MB
+uobm-010-l turbowl run 2/3 ... 909.0 ms
+uobm-010-l nemo run 2/3 ... 145536.0 ms
+uobm-010-l souffle run 2/3 ... 18392.1 ms in all (no split)
+uobm-010-l turbowl run 3/3 ... 904.1 ms
+uobm-010-l nemo run 3/3 ... 145241.0 ms
+uobm-010-l souffle run 3/3 ... 19112.3 ms in all (no split)
+owl2bench-rl-1 turbowl run 1/3 ... 222.2 ms
+owl2bench-rl-1 nemo run 1/3 ... over-memory: its memory, 16404 MB, passed the cap of 16384 MB
+owl2bench-rl-1 souffle run 1/3 ... 44955.5 ms in all (no split)
+owl2bench-rl-1 vlog run 1/3 ... 103308.0 ms in all (no split)
+owl2bench-rl-1 turbowl run 2/3 ... 222.4 ms
+owl2bench-rl-1 souffle run 2/3 ... 45747.0 ms in all (no split)
+owl2bench-rl-1 vlog run 2/3 ... 102884.0 ms in all (no split)
+owl2bench-rl-1 turbowl run 3/3 ... 222.2 ms
+owl2bench-rl-1 souffle run 3/3 ... 45511.2 ms in all (no split)
+owl2bench-rl-1 vlog run 3/3 ... 103121.0 ms in all (no split)
+owl2bench-rl-2 turbowl run 1/3 ... 784.2 ms
+owl2bench-rl-2 nemo run 1/3 ... over-memory: its memory, 16390 MB, passed the cap of 16384 MB
+owl2bench-rl-2 souffle run 1/3 ... 357296.1 ms in all (no split)
+owl2bench-rl-2 vlog run 1/3 ... 

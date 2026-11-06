@@ -1,0 +1,172 @@
+load average before: 2.19 2.26 2.18
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+brick-small1 turbowl run 1/5 ... 8.6 ms
+brick-small1 nemo run 1/5 ... 1125.0 ms
+brick-small1 souffle run 1/5 ... compiled the Soufflé program into <repo>/target/bench-souffle/bin/fdc876d88f2faca4/program in 17.9 s
+267.5 ms in all (no split)
+brick-small1 vlog run 1/5 ... 510.0 ms in all (no split)
+brick-small1 turbowl run 2/5 ... 8.5 ms
+brick-small1 nemo run 2/5 ... 1118.0 ms
+brick-small1 souffle run 2/5 ... 231.8 ms in all (no split)
+brick-small1 vlog run 2/5 ... 405.0 ms in all (no split)
+brick-small1 turbowl run 3/5 ... 8.7 ms
+brick-small1 nemo run 3/5 ... 1123.0 ms
+brick-small1 souffle run 3/5 ... 230.7 ms in all (no split)
+brick-small1 vlog run 3/5 ... 505.0 ms in all (no split)
+brick-small1 turbowl run 4/5 ... 8.6 ms
+brick-small1 nemo run 4/5 ... 1118.0 ms
+brick-small1 souffle run 4/5 ... 232.8 ms in all (no split)
+brick-small1 vlog run 4/5 ... 504.0 ms in all (no split)
+brick-small1 turbowl run 5/5 ... 8.5 ms
+brick-small1 nemo run 5/5 ... 1119.0 ms
+brick-small1 souffle run 5/5 ... 235.7 ms in all (no split)
+brick-small1 vlog run 5/5 ... 506.0 ms in all (no split)
+brick-soda-hall turbowl run 1/5 ... 18.3 ms
+brick-soda-hall nemo run 1/5 ... 2055.0 ms
+brick-soda-hall souffle run 1/5 ... 405.2 ms in all (no split)
+brick-soda-hall vlog run 1/5 ... 710.0 ms in all (no split)
+brick-soda-hall turbowl run 2/5 ... 18.3 ms
+brick-soda-hall nemo run 2/5 ... 2052.0 ms
+brick-soda-hall souffle run 2/5 ... 403.0 ms in all (no split)
+brick-soda-hall vlog run 2/5 ... 594.0 ms in all (no split)
+brick-soda-hall turbowl run 3/5 ... 18.5 ms
+brick-soda-hall nemo run 3/5 ... 2057.0 ms
+brick-soda-hall souffle run 3/5 ... 404.3 ms in all (no split)
+brick-soda-hall vlog run 3/5 ... 701.0 ms in all (no split)
+brick-soda-hall turbowl run 4/5 ... 18.3 ms
+brick-soda-hall nemo run 4/5 ... 2045.0 ms
+brick-soda-hall souffle run 4/5 ... 405.8 ms in all (no split)
+brick-soda-hall vlog run 4/5 ... 702.0 ms in all (no split)
+brick-soda-hall turbowl run 5/5 ... 18.3 ms
+brick-soda-hall nemo run 5/5 ... 2043.0 ms
+brick-soda-hall souffle run 5/5 ... 402.0 ms in all (no split)
+brick-soda-hall vlog run 5/5 ... 699.0 ms in all (no split)
+brick-buildings turbowl run 1/5 ... 552.3 ms
+brick-buildings nemo run 1/5 ... 42993.0 ms
+brick-buildings souffle run 1/5 ... 10659.6 ms in all (no split)
+brick-buildings vlog run 1/5 ... over-memory: its memory, 16484 MB, passed the cap of 16384 MB
+brick-buildings turbowl run 2/5 ... 560.0 ms
+brick-buildings nemo run 2/5 ... 43047.0 ms
+brick-buildings souffle run 2/5 ... 10610.2 ms in all (no split)
+brick-buildings turbowl run 3/5 ... 559.1 ms
+brick-buildings nemo run 3/5 ... 42978.0 ms
+brick-buildings souffle run 3/5 ... 10688.1 ms in all (no split)
+brick-buildings turbowl run 4/5 ... 556.4 ms
+brick-buildings nemo run 4/5 ... 42923.0 ms
+brick-buildings souffle run 4/5 ... 10586.6 ms in all (no split)
+brick-buildings turbowl run 5/5 ... 555.9 ms
+brick-buildings nemo run 5/5 ... 42906.0 ms
+brick-buildings souffle run 5/5 ... 10686.9 ms in all (no split)
+lubm-1 turbowl run 1/5 ... 42.2 ms
+lubm-1 nemo run 1/5 ... 3616.0 ms
+lubm-1 souffle run 1/5 ... 662.4 ms in all (no split)
+lubm-1 vlog run 1/5 ... over-memory: its memory, 16431 MB, passed the cap of 16384 MB
+lubm-1 turbowl run 2/5 ... 43.3 ms
+lubm-1 nemo run 2/5 ... 3615.0 ms
+lubm-1 souffle run 2/5 ... 679.2 ms in all (no split)
+lubm-1 turbowl run 3/5 ... 42.4 ms
+lubm-1 nemo run 3/5 ... 3600.0 ms
+lubm-1 souffle run 3/5 ... 663.7 ms in all (no split)
+lubm-1 turbowl run 4/5 ... 42.1 ms
+lubm-1 nemo run 4/5 ... 3609.0 ms
+lubm-1 souffle run 4/5 ... 673.5 ms in all (no split)
+lubm-1 turbowl run 5/5 ... 42.1 ms
+lubm-1 nemo run 5/5 ... 3632.0 ms
+lubm-1 souffle run 5/5 ... 664.0 ms in all (no split)
+lubm-10 turbowl run 1/5 ... 513.0 ms
+lubm-10 nemo run 1/5 ... 39817.0 ms
+lubm-10 souffle run 1/5 ... 8682.8 ms in all (no split)
+lubm-10 vlog run 1/5 ... over-memory: its memory, 16698 MB, passed the cap of 16384 MB
+lubm-10 turbowl run 2/5 ... 513.9 ms
+lubm-10 nemo run 2/5 ... 40047.0 ms
+lubm-10 souffle run 2/5 ... 8471.8 ms in all (no split)
+lubm-10 turbowl run 3/5 ... 512.6 ms
+lubm-10 nemo run 3/5 ... 39989.0 ms
+lubm-10 souffle run 3/5 ... 8708.2 ms in all (no split)
+lubm-10 turbowl run 4/5 ... 512.1 ms
+lubm-10 nemo run 4/5 ... 39890.0 ms
+lubm-10 souffle run 4/5 ... 8446.0 ms in all (no split)
+lubm-10 turbowl run 5/5 ... 514.9 ms
+lubm-10 nemo run 5/5 ... 39995.0 ms
+lubm-10 souffle run 5/5 ... 8713.7 ms in all (no split)
+lubm-50 turbowl run 1/5 ... 2903.7 ms
+lubm-50 nemo run 1/5 ... 209719.0 ms
+lubm-50 souffle run 1/5 ... 50656.1 ms in all (no split)
+lubm-50 vlog run 1/5 ... timeout: over 600 s
+lubm-50 turbowl run 2/5 ... 2906.6 ms
+lubm-50 nemo run 2/5 ... 209880.0 ms
+lubm-50 souffle run 2/5 ... 48787.3 ms in all (no split)
+lubm-50 turbowl run 3/5 ... 2940.5 ms
+lubm-50 nemo run 3/5 ... 209249.0 ms
+lubm-50 souffle run 3/5 ... 50266.6 ms in all (no split)
+lubm-50 turbowl run 4/5 ... 2897.3 ms
+lubm-50 nemo run 4/5 ... 208415.0 ms
+lubm-50 souffle run 4/5 ... 49118.9 ms in all (no split)
+lubm-50 turbowl run 5/5 ... 2895.7 ms
+lubm-50 nemo run 5/5 ... 208713.0 ms
+lubm-50 souffle run 5/5 ... 51144.4 ms in all (no split)
+incremental-add turbowl run 1/5 ... 0.3 ms
+incremental-add turbowl run 2/5 ... 0.3 ms
+incremental-add turbowl run 3/5 ... 0.3 ms
+incremental-add turbowl run 4/5 ... 0.3 ms
+incremental-add turbowl run 5/5 ... 0.3 ms
+incremental-remove turbowl run 1/5 ... 8.1 ms
+incremental-remove turbowl run 2/5 ... 8.1 ms
+incremental-remove turbowl run 3/5 ... 8.1 ms
+incremental-remove turbowl run 4/5 ... 8.1 ms
+incremental-remove turbowl run 5/5 ... 8.1 ms
+load average after: 1.82 2.12 2.24
+warning: load average over 1 after the runs
+
+TurbOWL bench: complete configuration, 5 runs each; load average 2.19 2.26 2.18 before, 1.82 2.12 2.24 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | turbowl | 5 | 9.2 | 8.6 | 8.5 | 8.7 | 17.8 | 8 | 47718 | 172 | 1.00 | 1.00 | 1.00 |
+| brick-small1 | nemo | 5 | 108.0 | 1119.0 | 1118.0 | 1125.0 | 1226.0 | 26 | 47718 | 580 | 130.85 | 69.03 | 3.37 |
+| brick-small1 | souffle | 5 |  |  |  |  | 232.8 | 22 | 47718 | 489 | - | 13.11 | 2.84 |
+| brick-small1 | vlog | 5 |  |  |  |  | 505.0 | 156 | 47718 | 3424 | - | 28.44 | 19.86 |
+| brick-soda-hall | turbowl | 5 | 11.1 | 18.3 | 18.3 | 18.5 | 29.6 | 13 | 82381 | 169 | 1.00 | 1.00 | 1.00 |
+| brick-soda-hall | nemo | 5 | 133.0 | 2052.0 | 2043.0 | 2057.0 | 2186.0 | 31 | 82381 | 399 | 111.91 | 73.90 | 2.36 |
+| brick-soda-hall | souffle | 5 |  |  |  |  | 404.3 | 33 | 82381 | 423 | - | 13.67 | 2.50 |
+| brick-soda-hall | vlog | 5 |  |  |  |  | 701.0 | 167 | 82381 | 2132 | - | 23.70 | 12.58 |
+| brick-buildings | turbowl | 5 | 103.1 | 556.4 | 552.3 | 560.0 | 661.5 | 209 | 1366430 | 160 | 1.00 | 1.00 | 1.00 |
+| brick-buildings | nemo | 5 | 1890.0 | 42978.0 | 42906.0 | 43047.0 | 44864.0 | 515 | 1366430 | 395 | 77.24 | 67.82 | 2.46 |
+| brick-buildings | souffle | 5 |  |  |  |  | 10659.6 | 596 | 1366430 | 457 | - | 16.11 | 2.85 |
+| brick-buildings | vlog (over-memory) | 0 | | | | | | | | | | | |
+| lubm-1 | turbowl | 5 | 67.7 | 42.2 | 42.1 | 43.3 | 110.1 | 36 | 225358 | 167 | 1.00 | 1.00 | 1.00 |
+| lubm-1 | nemo | 5 | 423.0 | 3615.0 | 3600.0 | 3632.0 | 4037.0 | 80 | 225358 | 374 | 85.71 | 36.67 | 2.24 |
+| lubm-1 | souffle | 5 |  |  |  |  | 664.0 | 169 | 225358 | 787 | - | 6.03 | 4.71 |
+| lubm-1 | vlog (over-memory) | 0 | | | | | | | | | | | |
+| lubm-10 | turbowl | 5 | 748.0 | 513.0 | 512.1 | 514.9 | 1261.0 | 363 | 2451113 | 155 | 1.00 | 1.00 | 1.00 |
+| lubm-10 | nemo | 5 | 4410.0 | 39989.0 | 39817.0 | 40047.0 | 44300.0 | 916 | 2451113 | 392 | 77.95 | 35.13 | 2.52 |
+| lubm-10 | souffle | 5 |  |  |  |  | 8682.8 | 1752 | 2451113 | 750 | - | 6.89 | 4.82 |
+| lubm-10 | vlog (over-memory) | 0 | | | | | | | | | | | |
+| lubm-50 | turbowl | 5 | 3925.8 | 2903.7 | 2895.7 | 2940.5 | 6848.5 | 1827 | 12519479 | 153 | 1.00 | 1.00 | 1.00 |
+| lubm-50 | nemo | 5 | 24379.0 | 209249.0 | 208415.0 | 209880.0 | 233092.0 | 3148 | 12519479 | 264 | 72.06 | 34.04 | 1.72 |
+| lubm-50 | souffle | 5 |  |  |  |  | 50266.6 | 8461 | 12519479 | 709 | - | 7.34 | 4.63 |
+| lubm-50 | vlog (timeout) | 0 | | | | | | | | | | | |
+| incremental-add | turbowl | 5 | 9.2 | 0.3 | 0.3 | 0.3 | 17.9 | 8 | 48748 | 178 | 1.00 | 1.00 | 1.00 |
+| incremental-add | nemo (unsupported) | 0 | | | | | | | | | | | |
+| incremental-add | souffle (unsupported) | 0 | | | | | | | | | | | |
+| incremental-add | vlog (unsupported) | 0 | | | | | | | | | | | |
+| incremental-remove | turbowl | 5 | 8.4 | 8.1 | 8.1 | 8.1 | 16.9 | 14 | 47009 | 321 | 1.00 | 1.00 | 1.00 |
+| incremental-remove | nemo (unsupported) | 0 | | | | | | | | | | | |
+| incremental-remove | souffle (unsupported) | 0 | | | | | | | | | | | |
+| incremental-remove | vlog (unsupported) | 0 | | | | | | | | | | | |
+
+Scaling: the fitted exponent of total time (load + reasoning, median) and of peak memory
+against the input triples, least squares on a log-log scale. 1 is linear.
+
+| family | engine | input triples | total ms | peak MB | time exponent | memory exponent | not fitted |
+|---|---|---|---|---|---:|---:|---|
+| lubm | turbowl | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 110, 1261, 6848 | 36, 363, 1827 | 1.02 | 0.97 |  |
+| lubm | nemo | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 4037, 44300, 233092 | 80, 916, 3148 | 1.00 | 0.92 |  |
+| lubm | souffle | lubm-1 116513, lubm-10 1290416, lubm-50 6600957 | 664, 8683, 50267 | 169, 1752, 8461 | 1.07 | 0.97 |  |
+| lubm | vlog |  |  |  | - | - | lubm-1 (over-memory), lubm-10 (over-memory), lubm-50 (timeout) |
+
+wrote <results>/C-complete-editor.json

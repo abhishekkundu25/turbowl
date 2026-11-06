@@ -1,0 +1,70 @@
+converted 2 files (20863016 triples) into <repo>/target/bench-input/47fc17327ee09afc in 21.2 s
+converted 2 files (2219964 triples) into <repo>/target/bench-input/631b9ad2c6d20c6f in 2.1 s
+converted 1 files (349702 triples) into <repo>/target/bench-input/2f8557c87f215588 in 0.5 s
+converted 2 files (13876181 triples) into <repo>/target/bench-input/3ae5507126df2187 in 12.5 s
+load average before: 2.44 2.28 2.13
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+claros-l turbowl run 1/1 ... 22580.8 ms
+claros-l nemo run 1/1 ... timeout: over 600 s
+claros-l souffle run 1/1 ... over-memory: its memory, 16386 MB, passed the cap of 16384 MB
+claros-l vlog run 1/1 ... over-memory: its memory, 16444 MB, passed the cap of 16384 MB
+uobm-010-u turbowl run 1/1 ... 2728.6 ms
+uobm-010-u nemo run 1/1 ... over-memory: its memory, 16582 MB, passed the cap of 16384 MB
+uobm-010-u souffle run 1/1 ... timeout: over 600 s
+uobm-010-u vlog run 1/1 ... timeout: over 600 s
+owl2bench-rl-5 turbowl run 1/1 ... 7454.0 ms
+owl2bench-rl-5 nemo run 1/1 ... over-memory: its memory, 16455 MB, passed the cap of 16384 MB
+owl2bench-rl-5 souffle run 1/1 ... over-memory: its memory, 16400 MB, passed the cap of 16384 MB
+owl2bench-rl-5 vlog run 1/1 ... over-memory: its memory, 16514 MB, passed the cap of 16384 MB
+lubm-uba-100-l turbowl run 1/1 ... 1426.6 ms
+lubm-uba-100-l nemo run 1/1 ... 102399.0 ms
+lubm-uba-100-l souffle run 1/1 ... 28377.2 ms in all (no split)
+lubm-uba-100-l vlog run 1/1 ... 34420.0 ms in all (no split)
+load average after: 2.31 2.29 2.19
+warning: load average over 1 after the runs
+claros-l: counting the data and the ontology's own closure (not timed) ...
+uobm-010-u: counting the data and the ontology's own closure (not timed) ...
+
+TurbOWL bench: default configuration, 1 runs each; load average 2.44 2.28 2.13 before, 2.31 2.29 2.19 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| claros-l | turbowl | 1 | 13818.3 | 22580.8 | 22580.8 | 22580.8 | 36399.1 | 9167 | 114400654 | 84 | 1.00 | 1.00 | 1.00 |
+| claros-l | nemo (timeout) | 0 | | | | | | | | | | | |
+| claros-l | souffle (over-memory) | 0 | | | | | | | | | | | |
+| claros-l | vlog (over-memory) | 0 | | | | | | | | | | | |
+| uobm-010-u | turbowl | 1 | 1581.1 | 2728.6 | 2728.6 | 2728.6 | 4309.7 | 945 | 39123749 | 25 | 1.00 | 1.00 | 1.00 |
+| uobm-010-u | nemo (over-memory) | 0 | | | | | | | | | | | |
+| uobm-010-u | souffle (timeout) | 0 | | | | | | | | | | | |
+| uobm-010-u | vlog (timeout) | 0 | | | | | | | | | | | |
+| owl2bench-rl-5 | turbowl | 1 | 185.0 | 7454.0 | 7454.0 | 7454.0 | 7639.0 | 2870 | 53301610 | 56 | 1.00 | 1.00 | 1.00 |
+| owl2bench-rl-5 | nemo (over-memory) | 0 | | | | | | | | | | | |
+| owl2bench-rl-5 | souffle (over-memory) | 0 | | | | | | | | | | | |
+| owl2bench-rl-5 | vlog (over-memory) | 0 | | | | | | | | | | | |
+| lubm-uba-100-l | turbowl | 1 | 7565.8 | 1426.6 | 1426.6 | 1426.6 | 8992.5 | 2054 | 20659925 | 104 | 1.00 | 1.00 | 1.00 |
+| lubm-uba-100-l | nemo | 1 | 21315.0 | 102399.0 | 102399.0 | 102399.0 | 123714.0 | 3258 | 20659925 | 165 | 71.78 | 13.76 | 1.59 |
+| lubm-uba-100-l | souffle | 1 |  |  |  |  | 28377.2 | 6235 | 20659925 | 316 | - | 3.16 | 3.04 |
+| lubm-uba-100-l | vlog | 1 |  |  |  |  | 34420.0 | 4388 | 20659925 | 223 | - | 3.83 | 2.14 |
+
+Published counts: turbowl's before is the data's distinct triples; its after, the closure less
+the triples of the ontology's own closure that are not data. A paper's count is printed to its precision.
+
+| scenario | turbowl before | turbowl after (closure - ontology alone) | paper | program | variant | paper before -> after | before | after |
+|---|---:|---:|---|---|---|---|---|---|
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | aaai2014-a | Oxford AAAI 2014 Claros_L (2,174 rules) | L | 18.8 M -> 95.5 M | matches | differs (+19.8%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | aaai2014-b | Oxford AAAI 2014 Claros_L (2,174 rules) | L | 18.8 M -> 95.5 M | matches | differs (+19.8%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | aaai2015 | AAAI 2015 Claros L-eq (1,312 rules, 42 with owl:sameAs in the head) | L-eq AX | 19 M -> 102 M | matches | differs (+12.1%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | aaai2015 | AAAI 2015 Claros L-eq (1,312 rules) | L-eq REW | 19 M -> 79.7 M | matches | differs (+43.5%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | aij2019 | AIJ 2019 Claros L (1,310 rules) | L | 18.8 M -> 73.8 M | matches | differs (+55.0%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | vlog2016 | Oxford AAAI 2014 Claros_L (VLog's rewriting: 2,689 rules) | L | 18.8 M -> 95.5 M | matches | differs (+19.8%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | cikm2019 | Claros L (1,310 rules, as AIJ 2019) | L | 18.8 M -> 73.8 M | matches | differs (+55.0%) |
+| claros-l | 18793277 | 114392641 (114400654 - 8013) | glog2021 | Claros L (VLog's rewriting: 2,689 rules) | L | 13.8 M -> ? | differs (+36.2%) | not published |
+| uobm-010-u | 2217286 | 39122316 (39123749 - 1433) | aaai2014-a | Oxford AAAI 2014 UOBM_U (518 rules) | U | 2.2 M -> 35.6 M | matches | differs (+9.9%) |
+| uobm-010-u | 2217286 | 39122316 (39123749 - 1433) | aaai2015 | AAAI 2015 UOBM U-eq (279 rules, 4 with owl:sameAs in the head) | U-eq AX | 2.2 M -> 36 M | matches | differs (+8.7%) |
+| uobm-010-u | 2217286 | 39122316 (39123749 - 1433) | aaai2015 | AAAI 2015 UOBM U-eq (279 rules) | U-eq REW | 2.2 M -> 9.7 M | matches | differs (+303.3%) |
+
+wrote <results>/C-default-data-large.json

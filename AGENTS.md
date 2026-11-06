@@ -7,16 +7,23 @@ verification suite that judges it against several independent oracles.
 ## Start here
 
 1. **What it is and the words it uses:** `CONTEXT.md`.
-2. **Why it is built this way:** `docs/adr/` (engine, equality, and
-   ADR 0004: the W3C rules are the target, `reasonable` a speed baseline).
+2. **Why it is built this way:** `docs/adr/` (engine, equality, ADR 0004:
+   the W3C rules are the target, ADR 0005: switches, and ADR 0006: the
+   scoreboard replaces `reasonable`).
 3. **Where the work stands:**
-   - Version 1, a fast OWL 2 RL reasoner: `docs/specs/v1.md`, tickets
-     in `docs/tickets/v1/` (the README there has the table, the waves and
-     the log of departures).
+   - Version 1, a fast OWL 2 RL reasoner, is done: `docs/specs/v1.md`
+     (with each budget's result), tickets in `docs/tickets/v1/` (the
+     README there has the table, the waves and the log of departures). It
+     is `f9e3625` on `main`, and its Baseline numbers are
+     `docs/verification/2026-11-06-v1.md`.
    - Version 2, the best OWL 2 RL reasoner, in three phases:
      `docs/specs/v2-1-scoreboard-and-rules.md`, `v2-2-speed.md` and
      `v2-3-removals.md`, tickets in `docs/tickets/v2/` (ADRs 0005 and
-     0006). It is built on the `v2` branch; `main` holds version 1.
+     0006). It is built on the `v2` branch. Phase 1 (every W3C OWL 2 RL
+     rule, the switches, the scoreboard) is closed:
+     `docs/verification/2026-11-06-v2-phase-1.md` has its results and the
+     gaps the owner accepted, and the tickets README its follow-ups. Phase
+     2, speed, is next: tickets 16 and 17 first.
    - After version 1, **the improvement loop** (rate, find, change,
      evaluate, decide, record): `docs/specs/experiments.md`. This is how the
      project improves; its table is the history, and its last section says
@@ -27,7 +34,9 @@ verification suite that judges it against several independent oracles.
 ## Where things live
 
 - The public interface: `crates/turbowl/src/lib.rs` (the
-  `Reasoner`, `Format`, `Summary`, `Diagnostic`, `Severity`, `Error`).
+  `Reasoner`, `Format`, `Summary`, `Diagnostic`, `Severity`, `Error`,
+  `Switch`, `Switches`). The crate doc's switch table gives each switch's
+  default and the reason for it.
   Everything else in the crate is `pub(crate)`. Add to the interface only
   when an adapter (CLI, Python, oracle, bench) needs it, and say so in the
   crate doc.
@@ -35,7 +44,9 @@ verification suite that judges it against several independent oracles.
   write), `engine/` (relations, rounds, joins, and `canon.rs`, the
   union-find of `owl:sameAs` whose representatives the store rewrites
   into; knows no rules), `rules/` (one file per rule family, registered
-  one line each in `rules/mod.rs`), `diagnostics.rs`, `reasoner.rs`.
+  one line each in `rules/mod.rs` with the switch it belongs to),
+  `switch.rs` (the switches and their defaults), `diagnostics.rs`,
+  `reasoner.rs`.
 - Adapters: `crates/cli` (the `turbowl` binary; `--help` and the crate
   doc in `src/main.rs` define its report, the JSON fields and the exit
   codes 0, 1, 2 and 64), `crates/python` (the `turbowl` Python package:
@@ -43,9 +54,14 @@ verification suite that judges it against several independent oracles.
   the API and its documentation, `tests/` the pytest suite, and
   `examples/minimal_cases.rs` the Rust side of its comparison on the
   minimal inputs).
-- Verification: `crates/oracle` (the oracles), `crates/reference` (the
-  reference evaluator, the generator, chaos), `crates/bench` (benchmarks).
-- Oracle tools and data are fetched, never committed:
+- Verification: `crates/oracle` (the oracles; `src/differences.rs` lists
+  the oracle faults), `crates/reference` (the reference evaluator, the
+  generator, chaos), `crates/bench` (the benchmark and the scoreboard
+  against Nemo, Soufflé and VLog).
+- The rule program: `oracles/rules/`, one file per switch group in Nemo's
+  syntax. The oracle crate composes it for a configuration and emits it
+  for Nemo, Soufflé and VLog.
+- Oracle and competitor tools and the data are fetched, never committed:
   `scripts/fetch-tools.sh` into `tools/`, `scripts/fetch-data.sh` into
   `data/`. The OWL-RL oracle runs from `oracles/owlrl/` with `uv`.
 
@@ -79,7 +95,10 @@ cargo run --release -p turbowl-bench -- --list
   with a unit test on the reduced input; never `#[ignore]` a test or exempt
   a check.
 - 100,000 chaos iterations: run each of the four shard tests alone
-  (`--exact`) with `CHAOS_ITERS=100000`. Each takes about 60 to 80 s.
+  (`--exact`) with `CHAOS_ITERS=100000`; each shard holds 50,000. Since
+  the complete configuration came in, a full shard takes about 32 minutes
+  and an incremental one about 37 minutes, most of it in the reference
+  evaluator. The four can run in parallel from one built test binary.
 - The slow oracle tier runs with `ORACLE_SLOW=1`, one test at a time
   (`--exact`). The Brick variants and soda hall take under a minute each.
   `building_models` (108 models) takes about half an hour, the one test
