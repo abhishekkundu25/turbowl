@@ -113,13 +113,15 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
   Baseline's time (median of 5, quiet machine).
 - The total time of every editor-size and data-size scenario is below the
   Baseline's.
-- Reasoning on lubm-50 with all 12 cores is at least twice as fast as with
-  one, and single-threaded reasoning is no slower than before the parallel
-  change.
+- Reasoning on lubm-50 with 8 or more cores is at least 5 times as fast
+  as with one (RDFox reached 5.2 to 7.4 times on 8 threads, AAAI 2014), and
+  single-threaded reasoning is no slower than before the parallel change.
+  Raised from twice by the owner on 2026-11-06.
 - Loading a snapshot of lubm-50's reasoned state is at least 10 times
   faster than parsing and reasoning it.
-- Peak memory on lubm-50 is at most 85 bytes per closure triple, so that
-  LUBM-1K L (182.4 M triples) fits under the 16 GB cap.
+- Peak memory on lubm-50 is at most 50 bytes per closure triple (RDFox
+  uses 37 to 51), so that LUBM-1K L (182.4 M triples) fits in about 9 GB.
+  Lowered from 85 by the owner on 2026-11-06.
 - Every oracle agrees at every thread count, and 100,000 full and 100,000
   incremental chaos iterations pass.
 - The WebAssembly build passes; fmt and clippy are clean.

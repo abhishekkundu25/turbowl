@@ -256,9 +256,12 @@ Correctness (gates):
   configuration: Nemo exactly (dt-* aside), OWL-RL by containment after its
   listed faults, HermiT on every inferred subsumption it can judge, the
   reference evaluator on chaos.
-- The W3C OWL 2 RL suite passes at least 113 of its 119 runnable cases in
+- The W3C OWL 2 RL suite passes at least 101 of its 119 runnable cases in
   the complete configuration, every case Nemo passes among them. Each case
-  that fails is listed with the reason it is beyond the rules.
+  that fails is listed with the reason it is beyond the rules. (The first
+  draft said 113; the owner set 101 on 2026-11-06, once every rule had
+  landed: Nemo and OWL-RL fail the other 18 too, and each expects a
+  conclusion no OWL 2 RL rule derives.)
 - The RDF-MT suite passes at least 35 cases in the complete
   configuration, and no consistent case is reported inconsistent. Two of
   version 1's 37 (`rdfs-domain-and-range-intensionality-domain` and
@@ -303,8 +306,9 @@ Build:
 - Six W3C OWL 2 RL cases fail in OWL-RL too and name no rule
   (`DisjointClasses-001`, `New-Feature-DisjointObjectProperties-001`,
   `New-Feature-ReflexiveProperty-001`, `WebOnt-I5.5-005`,
-  `WebOnt-imports-011`, `chain2trans1`); the target of 113 assumes they are
-  beyond rules. Ticket 15 confirms each.
+  `WebOnt-imports-011`, `chain2trans1`). With every rule in, 18 fail on
+  every oracle of the rule set, these six among them; ticket 15 lists each
+  with its reason.
 - Nemo encodes literals as IRIs. It judges dt-type2, dt-eq and dt-diff
   through facts the oracle computes from the input's literals with the
   reference evaluator's datatype map (`Codec::literal_facts`); dt-not-type

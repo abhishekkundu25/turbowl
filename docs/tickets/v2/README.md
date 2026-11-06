@@ -323,3 +323,10 @@ Departures from the plan, as they happen.
   terms, and rdflib rewrites that form (F12), so six of them failed. 26's
   brief had not run pytest. W3C OWL 2 RL 101 (`New-Feature-Keys-006`),
   every case Nemo passes; Brick unchanged; pytest 780.
+- **Owner decisions, 2026-11-06.** The W3C OWL 2 RL budget is 101, every
+  case the rules can pass, with the other 18 listed. Phase 2's bar is
+  raised: at least 5 times on 8 or more cores, at most 50 bytes per
+  closure triple, with E2, E8 and E1 first in the loop as before.
+  LUBM-1K is fetched now and run after phase 2's memory work. The close-out
+  measures at a load of about 1.9 (an animated wallpaper and two idle apps
+  kept running), which its record states.

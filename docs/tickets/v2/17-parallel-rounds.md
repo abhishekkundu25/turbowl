@@ -6,5 +6,5 @@ A native-only cargo feature, on by default, runs rounds in parallel. At least tw
 
 ## Acceptance
 - [ ] Chaos runs each iteration at 1 thread and at all cores and finds the same closure and diagnostics.
-- [ ] `scaling_*` tests of a round at 1 and at 12 threads; reasoning on lubm-50 is at least twice as fast on 12 cores at the close-out, and no slower on 1.
+- [ ] `scaling_*` tests of a round at 1 and at 12 threads; reasoning on lubm-50 is at least 5 times as fast on 8 or more cores at the close-out, and no slower on 1.
 - [ ] `scripts/check-wasm.sh` passes without the feature.

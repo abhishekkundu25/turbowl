@@ -6,6 +6,6 @@ Full validation with nothing else running: every suite in both configurations, t
 
 ## Acceptance
 - [ ] Every budget of the phase 1 spec passes, or the gap is listed and the owner is told before phase 2 starts.
-- [ ] The W3C OWL 2 RL suite passes at least 113 cases in the complete configuration; each failure is listed with why rules cannot pass it.
+- [ ] The W3C OWL 2 RL suite passes at least 101 cases in the complete configuration (the owner's budget since 2026-11-06); each of the 18 failures is listed with why rules cannot pass it.
 - [ ] The scoreboard record holds every engine, scenario, axis, configuration and thread mode, each number with its run count, spread and limiter, and the RDFox estimates with their bridges.
 - [ ] The switch defaults are recorded with the measurement behind each.
