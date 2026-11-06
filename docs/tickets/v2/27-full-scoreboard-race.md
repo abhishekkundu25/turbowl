@@ -16,3 +16,4 @@ not now on 2026-11-07).
 ## Acceptance
 - [ ] The scoreboard record holds every engine, scenario, axis, configuration and thread mode, each number with its run count, spread and limiter.
 - [ ] Every competitor's closure equals TurbOWL's, or the difference is a listed competitor fault.
+- [ ] The bench stops a competitor run once it passes 3 times TurbOWL's time on the same scenario and records it as more than 3 times slower (the owner, 2026-11-07).

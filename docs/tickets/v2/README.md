@@ -526,3 +526,9 @@ Departures from the plan, as they happen.
   editor-size scenarios only, without GLog or a multi-core Soufflé. The
   full-size race is ticket 27, pending.
 
+- **Owner decision, 2026-11-07: a competitor run stops once it passes 3 times
+  TurbOWL's time** on the same scenario, recorded as more than 3 times
+  slower, instead of waiting for the 600 s timeout. Applied by hand in phase
+  2's short race (VLog on lubm-50 with every rule on, stopped after about
+  9 minutes against TurbOWL's 2.1 s); the bench should gain it as an option
+  before ticket 27's full race.
