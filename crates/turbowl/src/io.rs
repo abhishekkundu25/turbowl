@@ -1,11 +1,20 @@
 //! Parsing and writing documents.
 //!
-//! Turtle, N-Triples and N3 are read with `oxttl`, RDF/XML with `oxrdfxml`,
-//! straight into the [`Dictionary`]: each triple is interned and handed to
-//! the caller's sink as `[subject, predicate, object]` term ids, with no
-//! intermediate list of owned triples. Turtle and N-Triples are written with
-//! `oxttl` (N3 is written as Turtle, which N3 reads) and RDF/XML with
-//! `oxrdfxml`, from term ids, language tags kept.
+//! N-Triples and Turtle are read by TurbOWL's own parsers ([`ntriples`] and
+//! [`turtle`], over the tokens of [`lexer`]), N3 with `oxttl` and RDF/XML
+//! with `oxrdfxml`, straight into the [`Dictionary`]: each triple is
+//! interned and handed to the caller's sink as `[subject, predicate,
+//! object]` term ids, with no intermediate list of owned triples.
+//!
+//! The own parsers are ports of `oxttl`'s, held to parity with them by
+//! `io/cross_check.rs`: the same triples, their terms interned in the same
+//! order, and the same documents rejected at the same line and column with
+//! the same message. They validate at this edge (UTF-8, escapes, IRIs with
+//! [`iri`], language tags); past it, the engine trusts term ids.
+//!
+//! Turtle and N-Triples are written with `oxttl` (N3 is written as Turtle,
+//! which N3 reads) and RDF/XML with `oxrdfxml`, from term ids, language tags
+//! kept.
 //!
 //! # Interface (for `reasoner.rs`; `parse_file` is for the tests, since the
 //! reasoner reads a file itself to key the document)
@@ -51,12 +60,21 @@
 //!   subject, so sort by subject first for compact output. Blank nodes are
 //!   labelled `<label>_<document>` ([`Dictionary::write_blank_label`]).
 
+mod iri;
+mod lexer;
+mod ntriples;
+mod terms;
+mod turtle;
+
+#[cfg(test)]
+mod cross_check;
+
 use crate::term::{Dictionary, DocId, MAX_TERM_BYTES, MAX_TERMS, Term, TermId, vocab};
 use crate::{Error, Format};
 use oxrdf::{BlankNodeRef, GraphName, NamedNodeRef, NamedOrBlankNodeRef, TermRef, TripleRef};
 use oxrdfxml::{RdfXmlParser, RdfXmlSerializer};
 use oxttl::n3::{N3Parser, N3Quad, N3Term};
-use oxttl::{NTriplesParser, NTriplesSerializer, TurtleParser, TurtleSerializer, TurtleSyntaxError};
+use oxttl::{NTriplesSerializer, TurtleSerializer, TurtleSyntaxError};
 use std::fmt::Display;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -109,67 +127,35 @@ pub(crate) fn parse(
     path: Option<&Path>,
     sink: impl FnMut([TermId; 3]),
 ) -> Result<Loaded, Error> {
-    let mut load = Load {
-        dict,
-        document: DocId::NONE,
-        sink,
-        triples: 0,
-        path,
-    };
-    load.document = load.dict.new_document();
-    let mut skipped = 0;
-    let syntax = |e: TurtleSyntaxError| {
-        let at = e.location().start;
-        error_at(path, at.line + 1, at.column + 1, e.message())
-    };
+    let document = dict.new_document();
     let bad_base = |e: &dyn Display| error_at(path, 0, 0, format_args!("invalid base IRI: {e}"));
-    match format {
+    let (triples, skipped) = match format {
         Format::NTriples => {
-            for triple in NTriplesParser::new().for_slice(text) {
-                load.triple(triple.map_err(syntax)?.as_ref())?;
-            }
+            let mut out = terms::Out::new(dict, document, sink, path);
+            ntriples::parse(text, &mut out)?;
+            (out.triples, 0)
         }
         Format::Turtle => {
-            let mut parser = TurtleParser::new();
-            if let Some(base) = base_iri {
-                parser = parser.with_base_iri(base).map_err(|e| bad_base(&e))?;
-            }
-            for triple in parser.for_slice(text) {
-                load.triple(triple.map_err(syntax)?.as_ref())?;
-            }
+            let base = base_iri.map(iri::Base::new).transpose().map_err(|e| bad_base(&e))?;
+            let mut out = terms::Out::new(dict, document, sink, path);
+            turtle::parse(text, base, &mut out)?;
+            (out.triples, 0)
         }
-        Format::N3 => {
-            let mut parser = N3Parser::new();
-            if let Some(base) = base_iri {
-                parser = parser.with_base_iri(base).map_err(|e| bad_base(&e))?;
-            }
-            for quad in parser.for_slice(text) {
-                match n3_triple(&quad.map_err(syntax)?) {
-                    Some(triple) => load.triple(triple)?,
-                    None => skipped += 1,
-                }
-            }
+        Format::N3 | Format::RdfXml => {
+            let mut load = Load {
+                dict,
+                document,
+                sink,
+                triples: 0,
+                path,
+            };
+            let skipped = load.oxigraph(text, format, base_iri)?;
+            (load.triples, skipped)
         }
-        Format::RdfXml => {
-            let mut parser = RdfXmlParser::new();
-            if let Some(base) = base_iri {
-                parser = parser.with_base_iri(base).map_err(|e| bad_base(&e))?;
-            }
-            let mut triples = parser.for_slice(text);
-            while let Some(triple) = triples.next() {
-                match triple {
-                    Ok(triple) => load.triple(triple.as_ref())?,
-                    Err(e) => {
-                        let (line, column) = line_column(text, triples.buffer_position());
-                        return Err(error_at(path, line, column, e));
-                    }
-                }
-            }
-        }
-    }
+    };
     Ok(Loaded {
-        document: load.document,
-        triples: load.triples,
+        document,
+        triples,
         skipped,
     })
 }
@@ -184,6 +170,46 @@ struct Load<'a, 'p, S> {
 }
 
 impl<S: FnMut([TermId; 3])> Load<'_, '_, S> {
+    /// Parses N3 or RDF/XML with Oxigraph's parsers; gives the N3 statements
+    /// left out.
+    fn oxigraph(&mut self, text: &[u8], format: Format, base_iri: Option<&str>) -> Result<usize, Error> {
+        let path = self.path;
+        let syntax = |e: TurtleSyntaxError| {
+            let at = e.location().start;
+            error_at(path, at.line + 1, at.column + 1, e.message())
+        };
+        let bad_base = |e: &dyn Display| error_at(path, 0, 0, format_args!("invalid base IRI: {e}"));
+        let mut skipped = 0;
+        if format == Format::N3 {
+            let mut parser = N3Parser::new();
+            if let Some(base) = base_iri {
+                parser = parser.with_base_iri(base).map_err(|e| bad_base(&e))?;
+            }
+            for quad in parser.for_slice(text) {
+                match n3_triple(&quad.map_err(syntax)?) {
+                    Some(triple) => self.triple(triple)?,
+                    None => skipped += 1,
+                }
+            }
+        } else {
+            let mut parser = RdfXmlParser::new();
+            if let Some(base) = base_iri {
+                parser = parser.with_base_iri(base).map_err(|e| bad_base(&e))?;
+            }
+            let mut triples = parser.for_slice(text);
+            while let Some(triple) = triples.next() {
+                match triple {
+                    Ok(triple) => self.triple(triple.as_ref())?,
+                    Err(e) => {
+                        let (line, column) = line_column(text, triples.buffer_position());
+                        return Err(error_at(path, line, column, e));
+                    }
+                }
+            }
+        }
+        Ok(skipped)
+    }
+
     #[inline]
     fn triple(&mut self, t: TripleRef<'_>) -> Result<(), Error> {
         if self.dict.len() > MAX_TERMS - 3 {
@@ -627,7 +653,7 @@ mod tests {
 
         let start = std::time::Instant::now();
         let mut count = 0;
-        for triple in NTriplesParser::new().for_slice(&text) {
+        for triple in oxttl::NTriplesParser::new().for_slice(&text) {
             triple.unwrap();
             count += 1;
         }

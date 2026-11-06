@@ -534,6 +534,97 @@ mod io {
         });
     }
 
+    /// `n` Turtle statements of 11 triples each that take the parser's
+    /// slower paths: a base to resolve against, escapes in IRIs and strings,
+    /// a nested blank node property list, a list, a long string, prefixed
+    /// names with escapes, and a new language tag every eight statements.
+    fn turtle_nested(n: usize) -> String {
+        let mut text = String::with_capacity(n * 160);
+        text.push_str("@base <http://example.org/base/> .\n@prefix ex: <http://example.org/ns#> .\n");
+        for i in 0..n {
+            let _ = writeln!(
+                text,
+                "<s{i}> <p\\u0041> [ ex:q \"esc\\t{i}\" ; ex:r ( ex:a\\-{i} \"\"\"long {i}\nline\"\"\" [ ex:t 1.5 ] ) ] ; \
+                 ex:l \"x\"@en-x-{} .",
+                i / 8
+            );
+        }
+        text
+    }
+
+    #[test]
+    fn scaling_parse_turtle_nested() {
+        let _lock = lock();
+        let sizes = sizes(1_024);
+        for &n in &sizes {
+            assert_eq!(parse_counting(&turtle_nested(n), Format::Turtle).1, 11 * n);
+        }
+        linear(
+            "scaling_parse_turtle_nested",
+            &sizes,
+            shared(turtle_nested),
+            |text: Rc<String>| parse_counting(&text, Format::Turtle),
+        );
+    }
+
+    /// One statement of `n` objects, then a list of `n` members: what a
+    /// parse holds for one statement grows with it.
+    fn turtle_one_statement(n: usize) -> String {
+        let mut text = String::with_capacity(n * 40);
+        text.push_str("@prefix ex: <http://example.org/> .\nex:s ex:p ex:o0");
+        for i in 1..n {
+            let _ = write!(text, ", ex:o{i}");
+        }
+        text.push_str(" ; ex:list (");
+        for i in 0..n {
+            let _ = write!(text, " \"m{i}\"");
+        }
+        text.push_str(" ) .\n");
+        text
+    }
+
+    #[test]
+    fn scaling_parse_turtle_one_statement() {
+        let _lock = lock();
+        let sizes = sizes(4_096);
+        for &n in &sizes {
+            // n objects, the list's head, and a first and a rest per member.
+            assert_eq!(parse_counting(&turtle_one_statement(n), Format::Turtle).1, 3 * n + 1);
+        }
+        linear(
+            "scaling_parse_turtle_one_statement",
+            &sizes,
+            shared(turtle_one_statement),
+            |text: Rc<String>| parse_counting(&text, Format::Turtle),
+        );
+    }
+
+    /// The line and column of an error at the end of a long document are
+    /// found in one pass over it.
+    #[test]
+    fn scaling_parse_error_at_the_end() {
+        let _lock = lock();
+        let broken = |n: usize| {
+            let mut text = ntriples(n);
+            text.push_str("<http://example.org/s> <http://example.org/p> \"\\q\" .\n");
+            text
+        };
+        let fail = |text: Rc<String>| {
+            let mut d = Dictionary::new();
+            parse(&mut d, text.as_bytes(), Format::NTriples, None, None, |t| {
+                black_box(t);
+            })
+            .unwrap_err()
+        };
+        for &n in &sizes(2_048) {
+            let crate::Error::Parse { line, column, .. } = fail(Rc::new(broken(n))) else {
+                panic!("a parse error");
+            };
+            assert_eq!((line, column), (n as u64 + 1, 48));
+        }
+        linear("scaling_parse_error_at_the_end", &sizes(2_048), shared(broken), fail);
+    }
+
     fn written(format: Format) -> impl FnMut(Rc<Loaded>) -> Vec<u8> {
         move |input| {
             let (d, triples) = &*input;
