@@ -19,7 +19,8 @@ verification suite that judges it against several independent oracles.
    - Version 2, the best OWL 2 RL reasoner, in three phases:
      `docs/specs/v2-1-scoreboard-and-rules.md`, `v2-2-speed.md` and
      `v2-3-removals.md`, tickets in `docs/tickets/v2/` (ADRs 0005 and
-     0006). It is built on the `v2` branch. Phase 1 (every W3C OWL 2 RL
+     0006). It was built on the `v2` branch and merged into `main`; version 1
+     is the tag `v0.1.0`. Phase 1 (every W3C OWL 2 RL
      rule, the switches, the scoreboard) is closed:
      `docs/verification/2026-11-06-v2-phase-1.md` has its results and the
      gaps the owner accepted, and the tickets README its follow-ups. Phase
@@ -27,7 +28,7 @@ verification suite that judges it against several independent oracles.
      is closed with gaps: `docs/verification/2026-11-07-v2-phase-2.md`.
      The owner accepted the all-cores speed-up and memory gaps; the
      snapshot's 9.2 times against 10 and one-thread loading wait for the
-     owner. Phase 3, removals, is next: tickets 22 to 24. Ticket 27, the
+     owner. Phase 3, removals (tickets 22 to 24), is planned and not started. Ticket 27, the
      full-size scoreboard race, is pending the owner.
    - After version 1, **the improvement loop** (rate, find, change,
      evaluate, decide, record): `docs/specs/experiments.md`. This is how the

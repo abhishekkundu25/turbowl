@@ -12,11 +12,12 @@ reuses the previous closure.
 It is judged by independent oracles (Nemo, OWL-RL, the W3C tests, HermiT
 and a reference evaluator), never by one reasoner.
 
-**Status.** This is the `v2` branch. Version 1 (`0.1.0`, `main` at
-`f9e3625`) implements 39 of the 78 rules. Version 2's phase 1 adds the
+**Status.** This is version 2, on `main`. Version 1 (`0.1.0`, tag `v0.1.0`
+at `f9e3625`) implements 39 of the 78 rules. Version 2's phase 1 adds the
 other 39, the switches and the scoreboard. Phase 2 adds speed: TurbOWL's
 own parsers, every core, snapshots and the improvement loop. Both phases
-are closed, with the gaps listed below. Phase 3, removals, is next.
+are closed, with the gaps listed below. Phase 3, removals, is planned and
+not started, at the owner's request.
 Nothing is published: there is no crate on crates.io and no package on
 PyPI. See `CHANGELOG.md`.
 
