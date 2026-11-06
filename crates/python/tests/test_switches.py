@@ -25,8 +25,8 @@ DEFAULTS = {
     "equality": True,
     "property-chains": True,
     "checks": True,
-    "identity": True,
-    "schema": True,
+    "identity": False,
+    "schema": False,
     "trivial": False,
     "literal-values": False,
 }
@@ -68,8 +68,8 @@ def test_complete_turns_every_switch_on():
 
 
 def test_switches_change_only_the_switches_they_name():
-    r = Reasoner(switches={"identity": False, "trivial": True})
-    assert r.switches == {**DEFAULTS, "identity": False, "trivial": True}
+    r = Reasoner(switches={"identity": True, "checks": False})
+    assert r.switches == {**DEFAULTS, "identity": True, "checks": False}
 
 
 def test_switches_apply_after_complete():

@@ -57,8 +57,8 @@ pays for them anyway.
 | `equality` | eq-sym, eq-trans, eq-rep-s, eq-rep-p, eq-rep-o | on |
 | `property-chains` | prp-spo2 | on |
 | `checks` | cax-dw, cax-adc, cls-com, cls-nothing2, cls-maxc1, cls-maxqc1, cls-maxqc2, prp-irp, prp-asyp, prp-pdw, prp-adp, prp-npa1, prp-npa2, eq-diff1, eq-diff2, eq-diff3, dt-not-type | on |
-| `identity` | prp-key, cls-maxc2, cls-maxqc3, cls-maxqc4 | on until the close-out decides |
-| `schema` | scm-eqc2, scm-spo, scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2, scm-hv, scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni | on until the close-out decides |
+| `identity` | prp-key, cls-maxc2, cls-maxqc3, cls-maxqc4 | off (the close-out: 26% slower on uobm-010-u) |
+| `schema` | scm-eqc2, scm-spo, scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2, scm-hv, scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni | off (the close-out: 22% to 62% slower) |
 | `trivial` | eq-ref, scm-cls, scm-op, scm-dp, prp-ap, dt-type1, dt-type2 | off |
 | `literal-values` | dt-eq, dt-diff | off |
 
@@ -68,6 +68,20 @@ reasoning time of a scoreboard scenario by more than 5%. `equality`,
 `property-chains` and `checks` keep version 1's behaviour and stay on. The
 close-out (ticket 15) applies the rule to `identity` and `schema` with the
 research and a quiet-machine measurement.
+
+The close-out turned both off on 2026-11-06
+(`docs/verification/2026-11-06-v2-phase-1.md`). The research keeps them
+on, since owlrl, GraphDB and the OWL-RS Nemo program implement both groups.
+The measurement turns them off:
+- `schema` slowed every editor-size scenario by 22% to 39%, claros-l by
+  62% and uobm-010-u by 53%.
+- `identity` slowed uobm-010-u by 26% and claros-l by 6%. It costs nothing
+  measurable on the editor-size scenarios.
+
+The machine was not quiet (load average about 2), by the owner's choice.
+The gaps are many times the spread between runs. The defaults therefore
+give less than owlrl and GraphDB do (user story 16): no key merges and no
+schema subsumptions. Each group comes back with one switch.
 
 ## User Stories
 

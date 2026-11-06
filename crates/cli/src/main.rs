@@ -162,11 +162,13 @@ fn about(switch: Switch) -> &'static str {
         Switch::Identity => {
             "owl:hasKey and max cardinality 1 make individuals the same \
              (prp-key, cls-maxc2, ...). A join per key and restriction, then \
-             equality's cost per merge."
+             equality's cost per merge: 26% slower on uobm-010-u, whose \
+             closure it grows from 21 M to 39 M triples."
         }
         Switch::Schema => {
             "Subsumptions between schema axioms (scm-spo, scm-dom1, ...). \
-             Grows with the schema, not with the data."
+             Its cost grows with the data too: 35% slower on LUBM at every \
+             size, though it adds only 99 triples there."
         }
         Switch::Trivial => {
             "Filler: x owl:sameAs x for every term, four triples per class, \

@@ -40,13 +40,15 @@ Switches
         Reports contradictions and ill-typed literals (cax-dw, dt-not-type,
         ...). Derives no triple: off saves a pass over the facts each check
         names, and loses the diagnostics.
-    ``identity`` (on)
+    ``identity`` (off)
         ``owl:hasKey`` and max cardinality 1 make individuals the same
         (prp-key, cls-maxc2, ...). A join per key and restriction, then
-        equality's cost per merge.
-    ``schema`` (on)
-        Subsumptions between schema axioms (scm-spo, scm-dom1, ...). Grows
-        with the schema, not with the data.
+        equality's cost per merge: 26% slower on uobm-010-u, whose closure it
+        grows from 21 M to 39 M triples.
+    ``schema`` (off)
+        Subsumptions between schema axioms (scm-spo, scm-dom1, ...). Its cost
+        grows with the data too: 35% slower on LUBM at every size, though it
+        adds only 99 triples there.
     ``trivial`` (off)
         Filler: ``x owl:sameAs x`` for every term, four triples per class,
         each literal's datatypes (eq-ref, scm-cls, dt-type2, ...). Grows with

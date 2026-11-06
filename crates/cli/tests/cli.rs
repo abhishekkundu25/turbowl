@@ -571,7 +571,7 @@ fn the_json_and_ndjson_summaries_name_the_switches_that_were_on() {
     let doc = json(&turbowl(&[&schema, "--summary-only", "--diagnostics", "json"]).stdout);
     assert_eq!(
         doc["summary"]["switches"],
-        serde_json::json!(["equality", "property-chains", "checks", "identity", "schema"])
+        serde_json::json!(["equality", "property-chains", "checks"])
     );
     let nd = turbowl(&[&schema, "--summary-only", "--diagnostics", "ndjson", "--complete"]);
     let record = json(&nd.stdout);

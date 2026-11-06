@@ -1296,11 +1296,11 @@ mod reasoner {
 #[cfg(feature = "io")]
 mod identity {
     use super::*;
-    use crate::{Format, Reasoner};
+    use crate::{Format, Reasoner, Switch, Switches};
     use std::fmt::Write as _;
 
     fn loaded(text: &str) -> Reasoner {
-        let mut r = Reasoner::new();
+        let mut r = Reasoner::with_switches(Switches::default().on(Switch::Identity));
         r.load_str(text, Format::Turtle, None).unwrap();
         r
     }
@@ -1535,7 +1535,7 @@ mod datatypes {
 #[cfg(feature = "io")]
 mod schema {
     use super::*;
-    use crate::{Format, Reasoner};
+    use crate::{Format, Reasoner, Switch, Switches};
     use oxrdf::{NamedNode, Triple};
     use std::fmt::Write as _;
 
@@ -1614,13 +1614,13 @@ mod schema {
     }
 
     fn loaded(text: &str) -> Reasoner {
-        let mut r = Reasoner::new();
+        let mut r = Reasoner::with_switches(Switches::default().on(Switch::Schema));
         r.load_str(text, Format::Turtle, None).unwrap();
         r
     }
 
     /// The first `reason()` over the hierarchy, in the default
-    /// configuration (the `schema` switch on).
+    /// configuration with the `schema` switch on.
     #[test]
     fn scaling_schema_deep_hierarchy() {
         let _lock = lock();

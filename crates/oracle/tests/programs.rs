@@ -296,9 +296,14 @@ fn a_configurations_program_lists_its_codes_and_rules() {
     assert!(programs::codes(no_checks).is_empty());
     assert!(nemo::codes(no_checks).is_empty());
     let rules = programs::rules(default);
-    for rule in ["cax-sco", "cls-thing", "prp-spo2", "eq-rep-o", "cax-dw", "prp-key"] {
+    for rule in ["cax-sco", "cls-thing", "prp-spo2", "eq-rep-o", "cax-dw"] {
         assert!(rules.contains(rule), "{rule}");
     }
+    // Off by default: identity's prp-key and schema's scm-spo.
+    for rule in ["prp-key", "scm-spo"] {
+        assert!(!rules.contains(rule), "{rule}");
+    }
+    assert!(programs::rules(default.on(Switch::Identity)).contains("prp-key"));
     // dt-not-type is left out: Nemo reads literals as IRIs.
     assert!(!rules.contains("dt-not-type"), "{rules:?}");
     let chains = programs::rules(default.off(Switch::PropertyChains));

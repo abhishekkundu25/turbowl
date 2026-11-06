@@ -56,8 +56,8 @@ const TABLE: [(Switch, &str, bool); 7] = [
     (Switch::Equality, "equality", true),
     (Switch::PropertyChains, "property-chains", true),
     (Switch::Checks, "checks", true),
-    (Switch::Identity, "identity", true),
-    (Switch::Schema, "schema", true),
+    (Switch::Identity, "identity", false),
+    (Switch::Schema, "schema", false),
     (Switch::Trivial, "trivial", false),
     (Switch::LiteralValues, "literal-values", false),
 ];
@@ -74,10 +74,7 @@ fn the_defaults_follow_the_spec_table() {
     }
     assert_eq!(Reasoner::new().switches(), default);
     assert_eq!(Reasoner::default().switches(), default);
-    assert_eq!(
-        format!("{default:?}"),
-        r#"{"equality", "property-chains", "checks", "identity", "schema"}"#
-    );
+    assert_eq!(format!("{default:?}"), r#"{"equality", "property-chains", "checks"}"#);
 }
 
 #[test]
@@ -107,7 +104,9 @@ fn on_and_off_change_one_switch() {
         assert_eq!(Switches::complete().off(s).on(s), Switches::complete());
     }
     assert_eq!(
-        Switches::default().on(Switch::Trivial).on(Switch::LiteralValues),
+        [Switch::Identity, Switch::Schema, Switch::Trivial, Switch::LiteralValues]
+            .into_iter()
+            .fold(Switches::default(), Switches::on),
         Switches::complete()
     );
 }

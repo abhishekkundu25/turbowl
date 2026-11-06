@@ -532,9 +532,7 @@ fn watchdog_reports_a_stuck_iteration() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(101), "{stderr}");
     assert!(
-        stderr.contains(
-            "CHAOS_SEED=7 CHAOS_ITERS=2000 CHAOS_ONLY=5 CHAOS_SWITCHES=property-chains,checks,identity,schema"
-        ),
+        stderr.contains("CHAOS_SEED=7 CHAOS_ITERS=2000 CHAOS_ONLY=5 CHAOS_SWITCHES=property-chains,checks"),
         "{stderr}"
     );
     assert!(stderr.contains("budget 100ms"), "{stderr}");

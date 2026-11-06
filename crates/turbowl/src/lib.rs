@@ -38,8 +38,8 @@
 //! | `equality` | on | Version 1's behaviour: `owl:sameAs` makes terms equal, as in other OWL 2 RL reasoners. |
 //! | `property-chains` | on | Version 1's behaviour: chains were on by default there. |
 //! | `checks` | on | Version 1's behaviour: contradictions and ill-typed literals are reported. |
-//! | `identity` | on | Until the close-out of phase 1 (ticket 15) measures it against the rule above. |
-//! | `schema` | on | Until the close-out of phase 1 (ticket 15) measures it against the rule above. |
+//! | `identity` | off | Slower by more than 5%: 26% on uobm-010-u, where it adds 18 M of the closure's 39 M triples (the phase 1 close-out, 2026-11-06). Common elsewhere: owlrl, GraphDB and the Nemo program have it. |
+//! | `schema` | off | Slower by more than 5%: 22% to 39% on every editor-size scenario and up to 62% on the data-size ones, a cost that grows with the data (the phase 1 close-out). Common elsewhere, as `identity`. |
 //! | `trivial` | off | Rarely implemented elsewhere, and filler: `x owl:sameAs x` for every term, four triples for every class, its datatypes for every literal. |
 //! | `literal-values` | off | Rarely implemented elsewhere, and it reads every literal's value; dt-diff only checks, and lists no `owl:differentFrom` triples. |
 //!

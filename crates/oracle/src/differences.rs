@@ -771,7 +771,13 @@ mod tests {
 
     /// Nemo's closure and OWL-RL's outcome, or `None` when one is not installed.
     fn both(input: &Input) -> Option<(Closure, Outcome)> {
-        let nemo = match nemo::run(input) {
+        both_with(input, turbowl::Switches::default())
+    }
+
+    /// [`both`], with Nemo in the configuration `switches` (OWL-RL has no
+    /// switches).
+    fn both_with(input: &Input, switches: turbowl::Switches) -> Option<(Closure, Outcome)> {
+        let nemo = match nemo::run_with(input, switches) {
             Outcome::Ran(c) => c,
             Outcome::Skipped(why) => {
                 println!("skipped: {why}");
@@ -959,13 +965,16 @@ mod tests {
         filter_is_needed_and_enough(Fault::F1, &input, &nemo, &owlrl);
     }
 
-    /// F1 on properties: scm-spo closes the cycle scm-eqp1 gives
-    /// reflexively, and scm-eqp2 makes `p owl:equivalentProperty p`; OWL-RL
-    /// has neither.
+    /// F1 on properties: with `schema` on, scm-spo closes the cycle scm-eqp1
+    /// gives reflexively, and scm-eqp2 makes `p owl:equivalentProperty p`;
+    /// OWL-RL has neither.
     #[test]
     fn f1_owlrl_scm_spo_skips_reflexive_subproperty() {
         let input = input("f1-property", "ex:p owl:equivalentProperty ex:q .");
-        let Some((nemo, owlrl)) = both(&input) else { return };
+        let schema = turbowl::Switches::default().on(turbowl::Switch::Schema);
+        let Some((nemo, owlrl)) = both_with(&input, schema) else {
+            return;
+        };
         let owlrl = ran(owlrl);
         for t in [
             "<http://example.org/p> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <http://example.org/p>",

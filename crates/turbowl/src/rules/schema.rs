@@ -558,7 +558,7 @@ mod tests {
     #[test]
     fn the_rules_feed_the_core() {
         let run = testing::run_with(
-            crate::Switches::default(),
+            crate::Switches::complete(),
             "ex:r1 owl:someValuesFrom ex:A ; owl:onProperty ex:p .
              ex:r2 owl:someValuesFrom ex:B ; owl:onProperty ex:p .
              ex:A rdfs:subClassOf ex:B . ex:x a ex:r1 .

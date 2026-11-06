@@ -23,11 +23,11 @@ pub enum Switch {
     /// eq-diff2, eq-diff3, dt-not-type. On by default.
     Checks,
     /// Keys and cardinalities that make individuals the same: prp-key,
-    /// cls-maxc2, cls-maxqc3, cls-maxqc4. On by default.
+    /// cls-maxc2, cls-maxqc3, cls-maxqc4. Off by default.
     Identity,
     /// The schema rules beyond the class hierarchy: scm-eqc2, scm-spo,
     /// scm-eqp1, scm-eqp2, scm-dom1, scm-dom2, scm-rng1, scm-rng2, scm-hv,
-    /// scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni. On by
+    /// scm-svf1, scm-svf2, scm-avf1, scm-avf2, scm-int, scm-uni. Off by
     /// default.
     Schema,
     /// Triples that hold of every term, class, property or literal:
@@ -88,8 +88,9 @@ impl Switch {
         match self {
             // Version 1's behaviour.
             Switch::Equality | Switch::PropertyChains | Switch::Checks => true,
-            // Until the close-out of phase 1 measures them (ticket 15).
-            Switch::Identity | Switch::Schema => true,
+            // More than 5% slower on a scoreboard scenario (the phase 1
+            // close-out, 2026-11-06).
+            Switch::Identity | Switch::Schema => false,
             // Rarely implemented elsewhere, and costly.
             Switch::Trivial | Switch::LiteralValues => false,
         }
@@ -101,9 +102,9 @@ impl Switch {
 }
 
 /// The switches that are on. [`Switches::default`] is the default
-/// configuration (every switch on except [`Switch::Trivial`] and
-/// [`Switch::LiteralValues`]); [`Switches::complete`] turns every switch
-/// on, which is the W3C rule set.
+/// configuration ([`Switch::Equality`], [`Switch::PropertyChains`] and
+/// [`Switch::Checks`] on); [`Switches::complete`] turns every switch on,
+/// which is the W3C rule set.
 ///
 /// ```
 /// use turbowl::{Reasoner, Switch, Switches};
@@ -119,8 +120,8 @@ pub struct Switches {
 }
 
 impl Default for Switches {
-    /// The default configuration: every switch on except
-    /// [`Switch::Trivial`] and [`Switch::LiteralValues`].
+    /// The default configuration: [`Switch::Equality`],
+    /// [`Switch::PropertyChains`] and [`Switch::Checks`] on.
     fn default() -> Self {
         let mut switches = Self { on: 0 };
         for s in Switch::ALL {

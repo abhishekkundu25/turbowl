@@ -1,10 +1,9 @@
 // Composed by crates/oracle (src/programs.rs) from oracles/rules/: do not edit.
-// Groups: core, equality, property-chains, checks, identity, schema.
+// Groups: core, equality, property-chains, checks.
 
 .decl T(a0: symbol, a1: symbol, a2: symbol)
 .decl Tp(a0: symbol, a1: symbol, a2: symbol)
 .decl allTypes(a0: symbol, a1: symbol)
-.decl avfRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl caxAdc(a0: symbol, a1: symbol, a2: symbol)
 .decl caxDw(a0: symbol, a1: symbol, a2: symbol)
 .decl chainCell(a0: symbol)
@@ -18,15 +17,8 @@
 .decl eqDiff2(a0: symbol, a1: symbol, a2: symbol)
 .decl eqDiff3(a0: symbol, a1: symbol, a2: symbol)
 .decl equivalentClassOf(a0: symbol, a1: symbol)
-.decl hvRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl input_(a0: symbol, a1: symbol, a2: symbol)
-.decl keyCell(a0: symbol, a1: symbol)
 .decl listCell(a0: symbol, a1: symbol)
-.decl maxOne(a0: symbol, a1: symbol)
-.decl maxOneOf(a0: symbol, a1: symbol)
-.decl maxQOne(a0: symbol, a1: symbol, a2: symbol)
-.decl maxQOneOf(a0: symbol, a1: symbol, a2: symbol)
-.decl maxQValue(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
 .decl maxQZero(a0: symbol, a1: symbol, a2: symbol)
 .decl maxQZeroOf(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
 .decl maxZeroOf(a0: symbol, a1: symbol, a2: symbol)
@@ -38,14 +30,12 @@
 .decl prpNpa1(a0: symbol, a1: symbol, a2: symbol)
 .decl prpNpa2(a0: symbol, a1: symbol, a2: symbol)
 .decl prpPdw(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
-.decl sameKeyFrom(a0: symbol, a1: symbol, a2: symbol, a3: symbol)
 .decl setAfter(a0: symbol, a1: symbol)
 .decl setBefore(a0: symbol, a1: symbol, a2: symbol)
 .decl setCell(a0: symbol, a1: symbol)
 .decl setList(a0: symbol)
 .decl setLive(a0: symbol, a1: symbol)
 .decl setWellFormed(a0: symbol)
-.decl svfRestriction(a0: symbol, a1: symbol, a2: symbol)
 .decl usedProp(a0: symbol)
 .decl valueOf(a0: symbol, a1: symbol)
 .decl wellFormed(a0: symbol)
@@ -298,75 +288,3 @@ usedProp(p) :- T(_, "<http://www.w3.org/2002/07/owl#assertionProperty>", p).
 .output clsMaxc1(IO=file, filename="cls-maxc1.tsv", delimiter="\t")
 .output clsMaxqc1(IO=file, filename="cls-maxqc1.tsv", delimiter="\t")
 .output clsMaxqc2(IO=file, filename="cls-maxqc2.tsv", delimiter="\t")
-
-// oracles/rules/identity.rls
-
-// The `identity` switch: keys and cardinalities that make individuals the
-// same (Tables 5 and 6).
-//
-// The literal "1"^^xsd:nonNegativeInteger that the cardinality rules name
-// reaches the engines as the IRI crates/oracle gives it
-// (turbowl_oracle::NAMED_LITERALS).
-
-// prp-key: c owl:hasKey (p1 ... pn), x and y of type c, with a common value
-// of each pi => x owl:sameAs y. The key list is read as the other lists are
-// (core.rls): a path from the head to rdf:nil, each cell giving one first.
-// keyCell(?c, ?l): a cell of the key list of class ?c.
-// sameKeyFrom(?c, ?l, ?x, ?y): ?x and ?y are of type ?c and share a value of
-// the property of each cell from ?l to the end of the list.
-keyCell(c, h) :- T(c, "<http://www.w3.org/2002/07/owl#hasKey>", h).
-keyCell(c, r) :- keyCell(c, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".
-sameKeyFrom(c, l, x, y) :- keyCell(c, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>"), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", p), T(x, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c), Tp(p, x, z), Tp(p, y, z), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c).
-sameKeyFrom(c, l, x, y) :- keyCell(c, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", p), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#rest>", r), r != "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>", sameKeyFrom(c, r, x, y), Tp(p, x, z), Tp(p, y, z).
-T(x, "<http://www.w3.org/2002/07/owl#sameAs>", y) :- T(c, "<http://www.w3.org/2002/07/owl#hasKey>", h), sameKeyFrom(c, h, x, y).  // prp-key
-
-// Table 6: classes. Each rule reads its restriction's instances through
-// helper relations: maxOneOf(?u, ?p) for `?u rdf:type ?x` where ?x is a
-// restriction to at most one value of ?p, maxQOneOf(?u, ?p, ?c) for one value
-// of ?p in ?c. Written as the W3C's five to eight atoms of T, Nemo took 67
-// seconds on a 48-statement input in the complete configuration.
-maxOne(x, p) :- T(x, "<http://www.w3.org/2002/07/owl#maxCardinality>", "<urn:x-turbowl-oracle:term:nonNegativeInteger-1>"), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
-maxOneOf(u, p) :- maxOne(x, p), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x).
-T(y1, "<http://www.w3.org/2002/07/owl#sameAs>", y2) :- maxOneOf(u, p), Tp(p, u, y1), Tp(p, u, y2).  // cls-maxc2
-maxQOne(x, p, c) :- T(x, "<http://www.w3.org/2002/07/owl#maxQualifiedCardinality>", "<urn:x-turbowl-oracle:term:nonNegativeInteger-1>"), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p), T(x, "<http://www.w3.org/2002/07/owl#onClass>", c).
-maxQOneOf(u, p, c) :- maxQOne(x, p, c), T(u, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", x).
-maxQValue(u, p, c, y) :- maxQOneOf(u, p, c), Tp(p, u, y), T(y, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>", c).
-T(y1, "<http://www.w3.org/2002/07/owl#sameAs>", y2) :- maxQValue(u, p, c, y1), maxQValue(u, p, c, y2).  // cls-maxqc3
-T(y1, "<http://www.w3.org/2002/07/owl#sameAs>", y2) :- maxQOneOf(u, p, "<http://www.w3.org/2002/07/owl#Thing>"), Tp(p, u, y1), Tp(p, u, y2).  // cls-maxqc4
-
-// sameKeyFrom reads Tp: the properties of a key are used properties (the
-// cardinality rules' properties are, by owl:onProperty, in core.rls).
-usedProp(p) :- keyCell(_, l), T(l, "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>", p).
-
-// oracles/rules/schema.rls
-
-// The `schema` switch: the schema rules beyond the class hierarchy (Table 9).
-// scm-sco and scm-eqc1 are in the core; scm-cls, scm-op and scm-dp in the
-// `trivial` group. No rule here has a reflexive premise of its own: scm-svf1
-// and scm-avf1 on one filler need `y rdfs:subClassOf y`, and scm-hv, scm-svf2
-// and scm-avf2 on one property `p rdfs:subPropertyOf p`, from a cycle or from
-// the `trivial` group. scm-int and scm-uni read the core's member relation.
-
-T(c1, "<http://www.w3.org/2002/07/owl#equivalentClass>", c2) :- T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2), T(c2, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c1).  // scm-eqc2
-T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p3) :- T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), T(p2, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p3).  // scm-spo
-T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2).  // scm-eqp1
-T(p2, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p1) :- T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2).  // scm-eqp1
-T(p1, "<http://www.w3.org/2002/07/owl#equivalentProperty>", p2) :- T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), T(p2, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p1).  // scm-eqp2
-T(p, "<http://www.w3.org/2000/01/rdf-schema#domain>", c2) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#domain>", c1), T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2).  // scm-dom1
-T(p1, "<http://www.w3.org/2000/01/rdf-schema#domain>", c) :- T(p2, "<http://www.w3.org/2000/01/rdf-schema#domain>", c), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2).  // scm-dom2
-T(p, "<http://www.w3.org/2000/01/rdf-schema#range>", c2) :- T(p, "<http://www.w3.org/2000/01/rdf-schema#range>", c1), T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2).  // scm-rng1
-T(p1, "<http://www.w3.org/2000/01/rdf-schema#range>", c) :- T(p2, "<http://www.w3.org/2000/01/rdf-schema#range>", c), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2).  // scm-rng2
-// The restriction rules read each restriction through one relation per
-// filler, restriction(?x, ?y, ?p) for `?x <filler> ?y` and `?x owl:onProperty
-// ?p`, joined with the hierarchy between the two. Written as the W3C's five
-// atoms of T, Nemo took 30 seconds on 48-statement inputs.
-svfRestriction(x, y, p) :- T(x, "<http://www.w3.org/2002/07/owl#someValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
-avfRestriction(x, y, p) :- T(x, "<http://www.w3.org/2002/07/owl#allValuesFrom>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
-hvRestriction(x, y, p) :- T(x, "<http://www.w3.org/2002/07/owl#hasValue>", y), T(x, "<http://www.w3.org/2002/07/owl#onProperty>", p).
-T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- hvRestriction(c1, i, p1), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), hvRestriction(c2, i, p2).  // scm-hv
-T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- svfRestriction(c1, y1, p), T(y1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", y2), svfRestriction(c2, y2, p).  // scm-svf1
-T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- svfRestriction(c1, y, p1), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), svfRestriction(c2, y, p2).  // scm-svf2
-T(c1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c2) :- avfRestriction(c1, y1, p), T(y1, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", y2), avfRestriction(c2, y2, p).  // scm-avf1
-T(c2, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c1) :- avfRestriction(c1, y, p1), T(p1, "<http://www.w3.org/2000/01/rdf-schema#subPropertyOf>", p2), avfRestriction(c2, y, p2).  // scm-avf2
-T(c, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", ci) :- T(c, "<http://www.w3.org/2002/07/owl#intersectionOf>", h), member(h, ci).  // scm-int
-T(ci, "<http://www.w3.org/2000/01/rdf-schema#subClassOf>", c) :- T(c, "<http://www.w3.org/2002/07/owl#unionOf>", h), member(h, ci).  // scm-uni

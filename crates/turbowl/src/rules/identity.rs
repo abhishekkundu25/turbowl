@@ -769,17 +769,18 @@ mod tests {
         has_all(&r, "ex:y1 owl:sameAs ex:y2");
     }
 
-    /// In the default configuration the merges reach the other rules: a key
-    /// value made equal makes its owners equal.
+    /// With the switch on over the defaults, the merges reach the other
+    /// rules: a key value made equal makes its owners equal.
     #[test]
     fn identity_merges_reach_the_other_rules() {
         let input = "ex:P owl:hasKey ( ex:k ) .
              ex:a a ex:P ; ex:k ex:v1 . ex:b a ex:P ; ex:k ex:v2 .
              ex:R owl:maxCardinality \"1\"^^xsd:nonNegativeInteger ; owl:onProperty ex:p .
              ex:u a ex:R ; ex:p ex:v1 , ex:v2 . ex:a ex:q ex:o .";
-        let on = testing::run_with(Switches::default(), input);
+        let with = Switches::default().on(Switch::Identity);
+        let on = testing::run_with(with, input);
         has_all(&on, "ex:v1 owl:sameAs ex:v2\nex:a owl:sameAs ex:b\nex:b ex:q ex:o");
-        let off = testing::run_with(Switches::default().off(Switch::Identity), input);
+        let off = testing::run_with(with.off(Switch::Identity), input);
         has_none(&off, "ex:v1 owl:sameAs ex:v2\nex:a owl:sameAs ex:b\nex:b ex:q ex:o");
     }
 }
