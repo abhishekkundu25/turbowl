@@ -1,0 +1,856 @@
+{
+  "meta": {
+    "build": "release",
+    "changes": 100,
+    "commit": "b654de6e02a925fb41471f560a6a3447c3c588a9",
+    "configuration": "default",
+    "cores": 12,
+    "cpu": "Apple M6",
+    "data_dir": "<repo>/data",
+    "date": "2026-11-06T19:56:44Z",
+    "dirty": false,
+    "load_after": [
+      3.27392578125,
+      3.96240234375,
+      4.11669921875
+    ],
+    "load_before": [
+      3.2294921875,
+      3.978515625,
+      4.12451171875
+    ],
+    "memory_bytes": 34359738368,
+    "memory_cap_bytes": 17179869184,
+    "os": "macOS 27.0 (kernel 27.0.0, aarch64)",
+    "peak_memory": "lifetime peak physical footprint",
+    "runs": 3,
+    "switches": [
+      "equality",
+      "property-chains",
+      "checks"
+    ],
+    "threads": 1,
+    "timeout_s": 600,
+    "versions": {
+      "bench": "0.1.0",
+      "nemo": "0.10.1",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+      "souffle": "2.5",
+      "turbowl": "0.1.0",
+      "vlog": "1.3.7"
+    }
+  },
+  "problems": [],
+  "published_counts": [],
+  "results": [
+    {
+      "engine": "turbowl",
+      "inputs": [
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
+      ],
+      "message": null,
+      "runs": [
+        {
+          "change_ms": [],
+          "closure": 10345697,
+          "closure_counted": 10345697,
+          "load_ms": 1589.93875,
+          "peak_rss_bytes": 481870736,
+          "profile": {
+            "changed_ms": 39.724,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality"
+            ],
+            "memory": {
+              "base": 52582928,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 36700160,
+              "dictionary_slots": 33554432,
+              "dictionary_text": 101515264,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 30206192,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 30206096,
+                  "tuples": 3775750
+                },
+                {
+                  "object_index": 11374744,
+                  "predicate": "<http://example.org/univ-bench#takesCourse>",
+                  "recent": 96,
+                  "stable": 11374648,
+                  "tuples": 1421819
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#name>",
+                  "recent": 96,
+                  "stable": 7702536,
+                  "tuples": 962805
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#publicationAuthor>",
+                  "recent": 96,
+                  "stable": 5692648,
+                  "tuples": 711569
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#member>",
+                  "recent": 96,
+                  "stable": 4734088,
+                  "tuples": 591723
+                }
+              ],
+              "other": 1664,
+              "store_other": {
+                "object_index": 12367056,
+                "recent": 2976,
+                "stable": 52562968,
+                "tuples": 6569947
+              },
+              "store_rest": 5872,
+              "store_type": {
+                "object_index": 30206192,
+                "recent": 96,
+                "stable": 30206096,
+                "tuples": 3775750
+              },
+              "total": 349705708
+            },
+            "round_count": 6,
+            "rounds": {
+              "delta": [
+                6572386,
+                1521208,
+                869020,
+                1069475,
+                156805,
+                156803
+              ],
+              "emitted": [
+                [
+                  12,
+                  4157053,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  886030,
+                  1974795,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  3527522,
+                  856322,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  2892958,
+                  32866,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  788015,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  474401,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.012,
+                  8.345,
+                  0.0,
+                  0.002,
+                  23.649,
+                  0.0
+                ],
+                [
+                  1.806,
+                  3.728,
+                  0.0,
+                  0.005,
+                  2.903,
+                  0.0
+                ],
+                [
+                  13.156,
+                  1.595,
+                  0.0,
+                  0.002,
+                  1.911,
+                  0.0
+                ],
+                [
+                  47.757,
+                  0.095,
+                  0.0,
+                  0.004,
+                  1.673,
+                  0.0
+                ],
+                [
+                  1.694,
+                  0.002,
+                  0.0,
+                  0.003,
+                  0.356,
+                  0.0
+                ],
+                [
+                  0.905,
+                  0.001,
+                  0.0,
+                  0.002,
+                  0.301,
+                  0.0
+                ]
+              ],
+              "ms": [
+                40.011,
+                9.777,
+                17.312,
+                50.281,
+                2.39,
+                1.486
+              ]
+            },
+            "rules_ms": 121.258,
+            "sort_ms": 230.651,
+            "step_ms": 270.399,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                4.585,
+                6.459,
+                7.291,
+                16.829,
+                2.394,
+                2.164
+              ],
+              "ms": [
+                0.007,
+                66.78,
+                59.276,
+                71.915,
+                52.606,
+                12.584,
+                7.231
+              ],
+              "new": [
+                6572386,
+                1521208,
+                869020,
+                1069475,
+                156805,
+                156803,
+                0
+              ],
+              "pairs": [
+                6572386,
+                2001303,
+                2090927,
+                2109376,
+                1942368,
+                600075,
+                317598
+              ],
+              "sort_ms": [
+                0.0,
+                62.191,
+                52.813,
+                64.621,
+                35.772,
+                10.188,
+                5.065
+              ]
+            }
+          },
+          "reason_ms": 394.05675,
+          "status": "ok",
+          "threads": 1
+        },
+        {
+          "change_ms": [],
+          "closure": 10345697,
+          "closure_counted": 10345697,
+          "load_ms": 1512.133084,
+          "peak_rss_bytes": 481837968,
+          "profile": {
+            "changed_ms": 39.614,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality"
+            ],
+            "memory": {
+              "base": 52582928,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 36700160,
+              "dictionary_slots": 33554432,
+              "dictionary_text": 101515264,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 30206192,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 30206096,
+                  "tuples": 3775750
+                },
+                {
+                  "object_index": 11374744,
+                  "predicate": "<http://example.org/univ-bench#takesCourse>",
+                  "recent": 96,
+                  "stable": 11374648,
+                  "tuples": 1421819
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#name>",
+                  "recent": 96,
+                  "stable": 7702536,
+                  "tuples": 962805
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#publicationAuthor>",
+                  "recent": 96,
+                  "stable": 5692648,
+                  "tuples": 711569
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#member>",
+                  "recent": 96,
+                  "stable": 4734088,
+                  "tuples": 591723
+                }
+              ],
+              "other": 1664,
+              "store_other": {
+                "object_index": 12367056,
+                "recent": 2976,
+                "stable": 52562968,
+                "tuples": 6569947
+              },
+              "store_rest": 5872,
+              "store_type": {
+                "object_index": 30206192,
+                "recent": 96,
+                "stable": 30206096,
+                "tuples": 3775750
+              },
+              "total": 349705708
+            },
+            "round_count": 6,
+            "rounds": {
+              "delta": [
+                6572386,
+                1521208,
+                869020,
+                1069475,
+                156805,
+                156803
+              ],
+              "emitted": [
+                [
+                  12,
+                  4157053,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  886030,
+                  1974795,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  3527522,
+                  856322,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  2892958,
+                  32866,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  788015,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  474401,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.013,
+                  8.348,
+                  0.0,
+                  0.002,
+                  22.472,
+                  0.0
+                ],
+                [
+                  1.779,
+                  3.689,
+                  0.0,
+                  0.005,
+                  2.903,
+                  0.0
+                ],
+                [
+                  13.311,
+                  1.585,
+                  0.0,
+                  0.003,
+                  1.834,
+                  0.0
+                ],
+                [
+                  48.44,
+                  0.094,
+                  0.0,
+                  0.004,
+                  1.67,
+                  0.0
+                ],
+                [
+                  1.612,
+                  0.002,
+                  0.0,
+                  0.002,
+                  0.32,
+                  0.0
+                ],
+                [
+                  0.877,
+                  0.002,
+                  0.0,
+                  0.002,
+                  0.31,
+                  0.0
+                ]
+              ],
+              "ms": [
+                38.857,
+                9.713,
+                17.353,
+                50.947,
+                2.249,
+                1.44
+              ]
+            },
+            "rules_ms": 120.559,
+            "sort_ms": 230.3,
+            "step_ms": 269.937,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                4.697,
+                6.587,
+                7.03,
+                16.796,
+                2.398,
+                2.104
+              ],
+              "ms": [
+                0.007,
+                66.797,
+                59.504,
+                71.864,
+                52.028,
+                12.568,
+                7.168
+              ],
+              "new": [
+                6572386,
+                1521208,
+                869020,
+                1069475,
+                156805,
+                156803,
+                0
+              ],
+              "pairs": [
+                6572386,
+                2001303,
+                2090927,
+                2109376,
+                1942368,
+                600075,
+                317598
+              ],
+              "sort_ms": [
+                0.0,
+                62.096,
+                52.914,
+                64.832,
+                35.229,
+                10.167,
+                5.063
+              ]
+            }
+          },
+          "reason_ms": 392.951333,
+          "status": "ok",
+          "threads": 1
+        },
+        {
+          "change_ms": [],
+          "closure": 10345697,
+          "closure_counted": 10345697,
+          "load_ms": 1511.92525,
+          "peak_rss_bytes": 481821584,
+          "profile": {
+            "changed_ms": 39.438,
+            "families": [
+              "class",
+              "property",
+              "property-chains",
+              "checks",
+              "datatype",
+              "equality"
+            ],
+            "memory": {
+              "base": 52582928,
+              "canon": 4,
+              "diagnostics": 0,
+              "dictionary_entries": 36700160,
+              "dictionary_slots": 33554432,
+              "dictionary_text": 101515264,
+              "findings": 0,
+              "largest": [
+                {
+                  "object_index": 30206192,
+                  "predicate": "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>",
+                  "recent": 96,
+                  "stable": 30206096,
+                  "tuples": 3775750
+                },
+                {
+                  "object_index": 11374744,
+                  "predicate": "<http://example.org/univ-bench#takesCourse>",
+                  "recent": 96,
+                  "stable": 11374648,
+                  "tuples": 1421819
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#name>",
+                  "recent": 96,
+                  "stable": 7702536,
+                  "tuples": 962805
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#publicationAuthor>",
+                  "recent": 96,
+                  "stable": 5692648,
+                  "tuples": 711569
+                },
+                {
+                  "object_index": 0,
+                  "predicate": "<http://example.org/univ-bench#member>",
+                  "recent": 96,
+                  "stable": 4734088,
+                  "tuples": 591723
+                }
+              ],
+              "other": 1664,
+              "store_other": {
+                "object_index": 12367056,
+                "recent": 2976,
+                "stable": 52562968,
+                "tuples": 6569947
+              },
+              "store_rest": 5872,
+              "store_type": {
+                "object_index": 30206192,
+                "recent": 96,
+                "stable": 30206096,
+                "tuples": 3775750
+              },
+              "total": 349705708
+            },
+            "round_count": 6,
+            "rounds": {
+              "delta": [
+                6572386,
+                1521208,
+                869020,
+                1069475,
+                156805,
+                156803
+              ],
+              "emitted": [
+                [
+                  12,
+                  4157053,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  886030,
+                  1974795,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  3527522,
+                  856322,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  2892958,
+                  32866,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  788015,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  474401,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "family_ms": [
+                [
+                  0.011,
+                  8.343,
+                  0.0,
+                  0.002,
+                  22.083,
+                  0.0
+                ],
+                [
+                  1.747,
+                  3.706,
+                  0.0,
+                  0.005,
+                  2.912,
+                  0.0
+                ],
+                [
+                  13.117,
+                  1.594,
+                  0.0,
+                  0.003,
+                  1.88,
+                  0.0
+                ],
+                [
+                  47.851,
+                  0.094,
+                  0.0,
+                  0.005,
+                  1.672,
+                  0.0
+                ],
+                [
+                  1.598,
+                  0.002,
+                  0.0,
+                  0.002,
+                  0.335,
+                  0.0
+                ],
+                [
+                  0.892,
+                  0.001,
+                  0.0,
+                  0.001,
+                  0.277,
+                  0.0
+                ]
+              ],
+              "ms": [
+                38.239,
+                9.661,
+                17.222,
+                50.385,
+                2.247,
+                1.428
+              ]
+            },
+            "rules_ms": 119.182,
+            "sort_ms": 230.789,
+            "step_ms": 270.25,
+            "steps": {
+              "changed_ms": [
+                0.001,
+                4.478,
+                6.535,
+                7.419,
+                16.523,
+                2.402,
+                2.079
+              ],
+              "ms": [
+                0.007,
+                67.303,
+                59.525,
+                71.74,
+                51.983,
+                12.557,
+                7.134
+              ],
+              "new": [
+                6572386,
+                1521208,
+                869020,
+                1069475,
+                156805,
+                156803,
+                0
+              ],
+              "pairs": [
+                6572386,
+                2001303,
+                2090927,
+                2109376,
+                1942368,
+                600075,
+                317598
+              ],
+              "sort_ms": [
+                0.0,
+                62.82,
+                52.986,
+                64.319,
+                35.458,
+                10.152,
+                5.055
+              ]
+            }
+          },
+          "reason_ms": 391.639416,
+          "status": "ok",
+          "threads": 1
+        }
+      ],
+      "scenario": "lubm-50",
+      "status": "ok",
+      "summary": {
+        "closure": 10345697,
+        "export_median_ms": null,
+        "load_median_ms": 1512.133,
+        "max_ms": 394.057,
+        "measure": "reason_ms",
+        "median_ms": 392.951,
+        "min_ms": 391.639,
+        "peak_bytes_per_closure_triple": 46.577,
+        "peak_rss_bytes": 481870736,
+        "peak_rss_min_bytes": 481821584,
+        "profile": {
+          "bytes_per_closure_triple": {
+            "base": 5.1,
+            "dictionary": 16.6,
+            "not_counted": 12.8,
+            "peak": 46.6,
+            "rest": 0.0,
+            "store": 12.1
+          },
+          "changed_median_ms": 39.614,
+          "memory": {
+            "base": 52582928,
+            "dictionary": 171769856,
+            "rest": 1668,
+            "store": 125351256,
+            "total": 349705708
+          },
+          "rounds": 6,
+          "rules_median_ms": 120.559,
+          "sort_median_ms": 230.651,
+          "step_median_ms": 270.25
+        },
+        "reason_median_ms": 392.951,
+        "total_median_ms": 1905.084,
+        "wall_median_ms": null
+      },
+      "x_turbowl": {
+        "peak_rss": 1.0,
+        "time": 1.0,
+        "total": 1.0
+      }
+    }
+  ],
+  "scaling": [],
+  "schema": 9
+}

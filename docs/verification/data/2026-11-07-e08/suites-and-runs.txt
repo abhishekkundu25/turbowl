@@ -1,0 +1,102 @@
+ M crates/turbowl/src/profile.rs
+ M crates/turbowl/src/reasoner.rs
+ M crates/turbowl/src/scaling.rs
+ M crates/turbowl/src/term.rs
+02cef09 Dictionary: drop the lookup table during a large parallel run (loop iteration 9)
+01:17:30 load 3.51 4.27 4.22 :: suites
+== fmt
+fmt ok
+== clippy
+== wasm
+== turbowl --lib and --doc
+test result: ok. 328 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.56s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+== turbowl-cli --test cli
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+== turbowl-oracle --lib
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+== turbowl-oracle --test minimal
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 36.90s
+== turbowl-oracle --test programs
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+== turbowl-oracle --test reference
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 54.33s
+== turbowl-oracle --test w3c
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.30s
+== turbowl-oracle --test data_brick
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.80s
+== turbowl-reference --lib
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 48.17s
+== turbowl-reference --test reference
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.80s
+== turbowl-reference --test chaos
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.45s
+== pytest
+787 passed, 6 warnings in 14.80s
+== turbowl-bench
+test result: ok. 42 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+== done
+== oracle snapshot
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+01:24:42 load 4.88 4.48 4.31 :: A/B round 1: before
+   brick-small1        reason     2.3  ms  total     11.0  ms  peak     6  MB
+   brick-soda-hall     reason     5.2  ms  total     18.1  ms  peak     7  MB
+   brick-buildings     reason    85.6  ms  total    149.0  ms  peak    45  MB
+   lubm-1              reason     6.2  ms  total     30.5  ms  peak    26  MB
+   lubm-10             reason    73.0  ms  total    363.3  ms  peak   124  MB
+   lubm-50             reason   407.0  ms  total   1942.1  ms  peak   460  MB
+   incremental-add     reason     0.2  ms  total     11.0  ms  peak     6  MB
+   incremental-remove  reason     1.9  ms  total     10.7  ms  peak    13  MB
+                       reason          ms  total           ms  peak        MB
+01:25:07 load 4.44 4.40 4.28 :: A/B round 1: after
+   brick-small1        reason     3.0  ms  total     15.6  ms  peak     6  MB
+   brick-soda-hall     reason     4.6  ms  total     16.1  ms  peak     7  MB
+   brick-buildings     reason    84.0  ms  total    146.3  ms  peak    43  MB
+   lubm-1              reason     5.9  ms  total     29.8  ms  peak    25  MB
+   lubm-10             reason    70.1  ms  total    365.1  ms  peak   119  MB
+   lubm-50             reason   396.0  ms  total   1925.3  ms  peak   463  MB
+   incremental-add     reason     0.2  ms  total     11.3  ms  peak     6  MB
+   incremental-remove  reason     1.9  ms  total     11.0  ms  peak    13  MB
+                       reason          ms  total           ms  peak        MB
+01:25:34 load 3.74 4.23 4.22 :: A/B round 2: before
+   brick-small1        reason     2.3  ms  total     11.0  ms  peak     6  MB
+   brick-soda-hall     reason     5.0  ms  total     17.0  ms  peak     7  MB
+   brick-buildings     reason    85.5  ms  total    149.1  ms  peak    45  MB
+   lubm-1              reason     6.4  ms  total     32.3  ms  peak    26  MB
+   lubm-10             reason    73.1  ms  total    369.5  ms  peak   124  MB
+   lubm-50             reason   407.7  ms  total   2000.8  ms  peak   461  MB
+   incremental-add     reason     0.2  ms  total     11.0  ms  peak     6  MB
+   incremental-remove  reason     1.9  ms  total     10.7  ms  peak    13  MB
+                       reason          ms  total           ms  peak        MB
+01:25:59 load 3.19 4.07 4.16 :: A/B round 2: after
+   brick-small1        reason     2.4  ms  total     12.1  ms  peak     6  MB
+   brick-soda-hall     reason     4.7  ms  total     17.1  ms  peak     7  MB
+   brick-buildings     reason    84.4  ms  total    146.8  ms  peak    43  MB
+   lubm-1              reason     5.9  ms  total     29.5  ms  peak    25  MB
+   lubm-10             reason    69.9  ms  total    377.3  ms  peak   122  MB
+   lubm-50             reason   395.0  ms  total   1996.8  ms  peak   463  MB
+   incremental-add     reason     0.2  ms  total     11.9  ms  peak     6  MB
+   incremental-remove  reason     1.9  ms  total     10.8  ms  peak    13  MB
+                       reason          ms  total           ms  peak        MB
+01:26:25 load 3.17 3.99 4.13 :: lubm-50 breakdown: before, threads one
+  load  1553.3  ms  reason   417.5  ms  total   1979.6  ms  peak   462  MB
+| lubm-50 | 46.9 | 16.6 | 7.6 | 12.1 | 0.0 | 10.5 | 6 | 122.4 | 273.5 | 233.5 | 40.0 |
+
+01:26:35 load 3.23 3.98 4.12 :: lubm-50 breakdown: after, threads one
+  load  1512.1  ms  reason   393.0  ms  total   1905.1  ms  peak   460  MB
+| lubm-50 | 46.6 | 16.6 | 5.1 | 12.1 | 0.0 | 12.8 | 6 | 120.6 | 270.2 | 230.7 | 39.6 |
+
+01:26:44 load 3.27 3.96 4.12 :: lubm-50 breakdown: before, threads all
+  load   811.4  ms  reason   100.8  ms  total    912.4  ms  peak   558  MB
+| lubm-50 | 56.6 | 16.6 | 7.6 | 12.1 | 0.0 | 20.2 | 6 | 38.1 | 58.8 | 67.5 | 20.1 |
+
+01:26:50 load 3.41 3.98 4.12 :: lubm-50 breakdown: after, threads all
+  load   800.0  ms  reason    96.7  ms  total    896.4  ms  peak   520  MB
+| lubm-50 | 52.7 | 16.6 | 5.1 | 12.1 | 0.0 | 18.9 | 6 | 37.1 | 56.2 | 57.5 | 19.1 |
+
+01:26:56 load 3.38 3.96 4.11 :: lubm-50 all cores: 10 single runs per side, alternating
+before  n=10  median  581.5 MB ( 56.2 B/triple)  middle half  580.5.. 582.3  largest  583.5 MB ( 56.4 B/triple)  all 580, 580, 581, 581, 581, 582, 582, 582, 583, 583
+after   n=10  median  544.2 MB ( 52.6 B/triple)  middle half  542.9.. 547.2  largest  548.3 MB ( 53.0 B/triple)  all 543, 543, 543, 543, 544, 545, 546, 547, 548, 548
+01:27:37 load 3.75 4.00 4.12 :: done
+
+[exited with code 0]
