@@ -7,6 +7,10 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+# The core's RDF 1.2 triple terms, for tests/rdf12.rs.
+rdf-12 = ["turbowl/rdf-12"]
+
 [dependencies]
 oxrdf.workspace = true
 # The core's `Switches` only, to name a configuration; the rules share no code

@@ -993,10 +993,10 @@ impl Reasoner {
         rounds
     }
 
-    /// True when `(s, p, _)` is an RDF triple: a subject that is not a
-    /// literal, an IRI predicate.
+    /// True when `(s, p, _)` is an RDF triple: an IRI or blank node subject
+    /// (not a literal, not a triple term), an IRI predicate.
     fn is_rdf(&self, s: u32, p: u32) -> bool {
-        self.terms.kind(TermId(s)) != Kind::Literal && self.terms.kind(TermId(p)) == Kind::Iri
+        self.terms.kind(TermId(s)).is_subject() && self.terms.kind(TermId(p)) == Kind::Iri
     }
 
     /// The `oxrdf` triple of term ids, or `None` when it is not RDF.
@@ -1007,7 +1007,9 @@ impl Reasoner {
         let subject: NamedOrBlankNode = match self.terms.to_oxrdf(TermId(s)) {
             oxrdf::Term::NamedNode(n) => n.into(),
             oxrdf::Term::BlankNode(b) => b.into(),
-            _ => return None,
+            oxrdf::Term::Literal(_) => return None,
+            #[cfg(feature = "rdf-12")]
+            oxrdf::Term::Triple(_) => return None,
         };
         let predicate = NamedNode::new_unchecked(self.terms.iri(TermId(p))?);
         Some(Triple::new(subject, predicate, self.terms.to_oxrdf(TermId(o))))
@@ -1086,15 +1088,15 @@ fn rdf_triples(pairs: &[(u32, u32)], p: u32, terms: &Dictionary, weights: &Weigh
     let mut rdf = 0;
     let mut last: Option<(u32, bool)> = None;
     for &(s, _) in pairs {
-        let literal = match last {
-            Some((l, literal)) if l == s => literal,
+        let subject = match last {
+            Some((l, subject)) if l == s => subject,
             _ => {
-                let literal = terms.kind(TermId(s)) == Kind::Literal;
-                last = Some((s, literal));
-                literal
+                let subject = terms.kind(TermId(s)).is_subject();
+                last = Some((s, subject));
+                subject
             }
         };
-        rdf += usize::from(!literal);
+        rdf += usize::from(subject);
     }
     rdf
 }

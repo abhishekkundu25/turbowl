@@ -516,6 +516,8 @@ fn too_long(t: TripleRef<'_>) -> bool {
         TermRef::NamedNode(n) => n.as_str().len(),
         TermRef::BlankNode(b) => b.as_str().len(),
         TermRef::Literal(l) => l.value().len() + l.language().map_or(0, str::len),
+        #[cfg(feature = "rdf-12")]
+        TermRef::Triple(t) => t.to_string().len(),
     };
     subject.max(object).max(t.predicate.as_str().len()) > MAX_TERM_BYTES
 }
@@ -537,6 +539,8 @@ fn n3_triple(quad: &N3Quad) -> Option<TripleRef<'_>> {
         N3Term::NamedNode(n) => n.into(),
         N3Term::BlankNode(b) => b.into(),
         N3Term::Literal(l) => l.into(),
+        #[cfg(feature = "rdf-12")]
+        N3Term::Triple(t) => TermRef::Triple(t),
         _ => return None,
     };
     Some(TripleRef::new(subject, predicate, object))
@@ -640,6 +644,8 @@ impl Scratch {
                 BlankNodeRef::new_unchecked(&self.subject).into()
             }
             Term::Literal { .. } => return None,
+            #[cfg(feature = "rdf-12")]
+            Term::Triple(_) => return None,
         };
         let predicate = NamedNodeRef::new_unchecked(dict.iri(p)?);
         let object = dict.to_oxrdf_ref(o, &mut self.object);

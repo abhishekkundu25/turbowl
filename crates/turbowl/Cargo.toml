@@ -14,6 +14,12 @@ io = ["dep:oxttl", "dep:oxrdfxml", "dep:oxiri"]
 # Rounds on every core (ticket 17), on a rayon thread pool. Native only:
 # on WebAssembly the dependency is left out and rounds run on one thread.
 parallel = ["dep:rayon"]
+# RDF 1.2 triple terms (`<<( s p o )>>`), opaque terms (the crate doc).
+# An embedder that turns on `oxrdf/rdf-12` must turn this on too: the
+# matches on oxrdf's terms name the `Triple` variant only under it. With
+# `io`, the parsers get theirs too (oxttl and oxrdfxml match on oxrdf's
+# terms as well).
+rdf-12 = ["oxrdf/rdf-12", "oxttl?/rdf-12", "oxrdfxml?/rdf-12"]
 
 [dependencies]
 oxrdf.workspace = true

@@ -14,7 +14,12 @@
 //!   documents is two blank nodes;
 //! - a literal is its lexical form plus its datatype, or plus its language
 //!   tag (datatype `rdf:langString`). Literals are never compared by value:
-//!   `"1"^^xsd:integer` and `"01"^^xsd:integer` are two terms.
+//!   `"1"^^xsd:integer` and `"01"^^xsd:integer` are two terms;
+//! - with the `rdf-12` feature, a triple term (`<<( s p o )>>`) is its
+//!   N-Triples text with every blank node inside it, at any depth, written
+//!   as [`Dictionary::write_blank_label`] writes a blank node of the
+//!   triple's document. It is opaque: interned whole, like a literal, and
+//!   the triple inside is neither interned nor asserted.
 //!
 //! On output a blank node of a document is labelled `<label>_<document>`,
 //! and one from no document (inserted by a caller) keeps its label, so
@@ -24,8 +29,9 @@
 //! Layout, for speed: all term text lives in one arena `String`; an entry
 //! per term holds its range, its kind and one 32-bit field (the document of a
 //! blank node, the datatype id of a literal, or the length of a language
-//! tag). The term-to-id map is an open-addressed table of `u64` slots, at
-//! most three quarters full, each the term's 32-bit FxHash beside its id, so
+//! tag; 0 for a triple term, whose owned `oxrdf` triple the dictionary keeps
+//! beside, for reading back). The term-to-id map is an open-addressed table
+//! of `u64` slots, at most three quarters full, each the term's 32-bit FxHash beside its id, so
 //! a probe compares hashes inside the table and reads the arena only on a
 //! hash match. Interning a term seen before allocates nothing; a new term
 //! appends to the arena and the entry list (amortised). Id to term is one
@@ -33,6 +39,8 @@
 //!
 //! This module builds without the `io` feature (WebAssembly).
 
+#[cfg(feature = "rdf-12")]
+use oxrdf::{BlankNode, Triple, TripleRef};
 use oxrdf::{BlankNodeRef, LiteralRef, NamedNodeRef, NamedOrBlankNodeRef, TermRef};
 use rustc_hash::FxHasher;
 use std::fmt;
@@ -77,6 +85,10 @@ pub(crate) enum Term<'a> {
         datatype: TermId,
         language: Option<&'a str>,
     },
+    /// A triple term, its blank nodes labelled as written. Opaque: no rule
+    /// reads inside it.
+    #[cfg(feature = "rdf-12")]
+    Triple(&'a Triple),
 }
 
 /// The kinds of term, as rules test them.
@@ -85,6 +97,17 @@ pub(crate) enum Kind {
     Iri,
     Blank,
     Literal,
+    #[cfg(feature = "rdf-12")]
+    Triple,
+}
+
+impl Kind {
+    /// True when a term of this kind can be the subject of an RDF triple:
+    /// an IRI or a blank node (not a literal, not a triple term).
+    #[inline]
+    pub(crate) fn is_subject(self) -> bool {
+        matches!(self, Kind::Iri | Kind::Blank)
+    }
 }
 
 /// The most terms a dictionary holds: ids `0..MAX_TERMS`. `u32::MAX` is never
@@ -95,12 +118,17 @@ pub(crate) const MAX_TERMS: usize = u32::MAX as usize;
 /// lexical form plus its tag).
 pub(crate) const MAX_TERM_BYTES: usize = u32::MAX as usize;
 
-// Entry tags, in the top two bits of `Entry::start`.
+// Entry tags, in the top two bits of `Entry::start` (three with `rdf-12`).
 const TAG_IRI: u64 = 0;
 const TAG_BLANK: u64 = 1;
 const TAG_TYPED: u64 = 2;
 const TAG_LANG: u64 = 3;
+#[cfg(feature = "rdf-12")]
+const TAG_TRIPLE: u64 = 4;
+#[cfg(not(feature = "rdf-12"))]
 const TAG_SHIFT: u32 = 62;
+#[cfg(feature = "rdf-12")]
+const TAG_SHIFT: u32 = 61;
 const START_MASK: u64 = (1 << TAG_SHIFT) - 1;
 
 /// An empty slot: hash `u32::MAX` beside id `u32::MAX`, which is never an id.
@@ -120,8 +148,9 @@ fn slots_for(terms: usize) -> usize {
 }
 
 /// One term: `start` is its offset in the arena with the tag in the top two
-/// bits; `aux` is the blank node's document, the typed literal's datatype id,
-/// or the language tag's length (the tag follows the lexical form).
+/// bits (three with `rdf-12`); `aux` is the blank node's document, the typed
+/// literal's datatype id, the language tag's length (the tag follows the
+/// lexical form), or 0 for a triple term.
 #[derive(Clone, Copy)]
 struct Entry {
     start: u64,
@@ -151,6 +180,10 @@ pub(crate) struct Dictionary {
     /// ([`over_full`]): `hash << 32 | id`.
     slots: Vec<u64>,
     documents: u32,
+    /// Each triple term's id and its owned triple, in id order: what
+    /// [`Self::term`] and [`Self::to_oxrdf_ref`] give back for it.
+    #[cfg(feature = "rdf-12")]
+    triples: Vec<(TermId, Triple)>,
 }
 
 impl fmt::Debug for Dictionary {
@@ -189,6 +222,8 @@ impl Dictionary {
             entries: Vec::with_capacity(vocab::IRIS.len()),
             slots: vec![EMPTY; slots_for(vocab::IRIS.len())],
             documents: 0,
+            #[cfg(feature = "rdf-12")]
+            triples: Vec::new(),
         };
         for (i, iri) in vocab::IRIS.iter().enumerate() {
             let id = d.intern_iri(iri);
@@ -305,7 +340,46 @@ impl Dictionary {
             TermRef::NamedNode(n) => self.intern_iri(n.as_str()),
             TermRef::BlankNode(b) => self.intern_blank(doc, b.as_str()),
             TermRef::Literal(l) => self.intern_literal(l),
+            #[cfg(feature = "rdf-12")]
+            TermRef::Triple(t) => self.intern_triple(t.as_ref(), doc),
         }
+    }
+
+    /// The id of a triple term, interned if new; its blank nodes, at any
+    /// depth, belong to `doc`.
+    #[cfg(feature = "rdf-12")]
+    pub(crate) fn intern_triple(&mut self, triple: TripleRef<'_>, doc: DocId) -> TermId {
+        self.intern_written_triple(written_triple(triple, doc))
+    }
+
+    /// The id of a triple term whose blank nodes carry their written labels
+    /// (as [`Self::term`] gives it back), interned if new.
+    #[cfg(feature = "rdf-12")]
+    pub(crate) fn intern_written_triple(&mut self, triple: Triple) -> TermId {
+        let key = triple.to_string();
+        let h = hash(TAG_TRIPLE, 0, &key, "");
+        match self.find(h, TAG_TRIPLE, 0, &key, "") {
+            Ok(id) => id,
+            Err(slot) => {
+                let id = self.insert(h, slot, TAG_TRIPLE, 0, &key, "");
+                self.triples.push((id, triple));
+                id
+            }
+        }
+    }
+
+    /// The id of a triple term whose blank nodes carry their written labels,
+    /// if it is interned; nothing is added.
+    #[cfg(feature = "rdf-12")]
+    pub(crate) fn get_written_triple(&self, triple: TripleRef<'_>) -> Option<TermId> {
+        self.get(TAG_TRIPLE, 0, &triple.to_string(), "")
+    }
+
+    /// The owned triple of a triple term's id.
+    #[cfg(feature = "rdf-12")]
+    fn triple(&self, id: TermId) -> &Triple {
+        let i = self.triples.binary_search_by_key(&id, |&(t, _)| t);
+        &self.triples[i.expect("a triple term's id has its triple")].1
     }
 
     /// The id of an `oxrdf` subject, interned if new; a blank node belongs to `doc`.
@@ -329,6 +403,8 @@ impl Dictionary {
                     self.get(TAG_TYPED, datatype.0, l.value(), "")
                 }
             },
+            #[cfg(feature = "rdf-12")]
+            TermRef::Triple(t) => self.get_written_triple(written_triple(t.as_ref(), doc).as_ref()),
         }
     }
 
@@ -356,6 +432,8 @@ impl Dictionary {
                 datatype: TermId(e.aux),
                 language: None,
             },
+            #[cfg(feature = "rdf-12")]
+            TAG_TRIPLE => Term::Triple(self.triple(id)),
             _ => {
                 let (lexical, language) = text.split_at(text.len() - e.aux as usize);
                 Term::Literal {
@@ -373,6 +451,8 @@ impl Dictionary {
         match self.entries[id.index()].tag() {
             TAG_IRI => Kind::Iri,
             TAG_BLANK => Kind::Blank,
+            #[cfg(feature = "rdf-12")]
+            TAG_TRIPLE => Kind::Triple,
             _ => Kind::Literal,
         }
     }
@@ -403,13 +483,7 @@ impl Dictionary {
     pub(crate) fn write_blank_label(&self, id: TermId, out: &mut String) {
         out.clear();
         if let Term::Blank { doc, label } = self.term(id) {
-            out.push_str(label);
-            if doc != DocId::NONE {
-                out.push('_');
-                push_decimal(out, doc.0);
-            } else if looks_like_document_label(label) {
-                out.push_str("_0");
-            }
+            push_written_label(out, doc, label);
         }
     }
 
@@ -458,6 +532,8 @@ impl Dictionary {
                 let datatype = self.iri(datatype).unwrap_or(vocab::XSD_STRING_IRI);
                 LiteralRef::new_typed_literal(lexical, NamedNodeRef::new_unchecked(datatype)).into()
             }
+            #[cfg(feature = "rdf-12")]
+            Term::Triple(triple) => TermRef::Triple(triple),
         }
     }
 
@@ -542,6 +618,40 @@ impl Dictionary {
 #[inline]
 fn lang_len(language: &str) -> u32 {
     u32::try_from(language.len()).unwrap_or(u32::MAX)
+}
+
+/// Appends the label [`Dictionary::write_blank_label`] writes for the blank
+/// node `label` of document `doc`.
+fn push_written_label(out: &mut String, doc: DocId, label: &str) {
+    out.push_str(label);
+    if doc != DocId::NONE {
+        out.push('_');
+        push_decimal(out, doc.0);
+    } else if looks_like_document_label(label) {
+        out.push_str("_0");
+    }
+}
+
+/// `triple` with each blank node in it, at any depth, labelled as
+/// [`Dictionary::write_blank_label`] writes a blank node of `doc`.
+#[cfg(feature = "rdf-12")]
+fn written_triple(triple: TripleRef<'_>, doc: DocId) -> Triple {
+    let blank = |b: BlankNodeRef<'_>| {
+        let mut label = String::with_capacity(b.as_str().len() + 4);
+        push_written_label(&mut label, doc, b.as_str());
+        BlankNode::new_unchecked(label)
+    };
+    let subject: oxrdf::NamedOrBlankNode = match triple.subject {
+        NamedOrBlankNodeRef::NamedNode(n) => n.into_owned().into(),
+        NamedOrBlankNodeRef::BlankNode(b) => blank(b).into(),
+    };
+    let object: oxrdf::Term = match triple.object {
+        TermRef::NamedNode(n) => n.into_owned().into(),
+        TermRef::BlankNode(b) => blank(b).into(),
+        TermRef::Literal(l) => l.into_owned().into(),
+        TermRef::Triple(t) => written_triple(t.as_ref(), doc).into(),
+    };
+    Triple::new(subject, triple.predicate.into_owned(), object)
 }
 
 /// True when `label` ends in `_` and one or more digits, the shape of a
@@ -795,6 +905,8 @@ impl Dictionary {
     /// # Panics
     /// As `intern_*`.
     pub(crate) fn append(&mut self, term: Term<'_>) {
+        #[cfg(feature = "rdf-12")]
+        let key: String;
         let (tag, aux, text, tail) = match term {
             Term::Iri(iri) => (TAG_IRI, 0, iri, ""),
             Term::Blank { doc, label } => (TAG_BLANK, doc.0, label, ""),
@@ -808,6 +920,11 @@ impl Dictionary {
                 datatype,
                 language: None,
             } => (TAG_TYPED, datatype.0, lexical, ""),
+            #[cfg(feature = "rdf-12")]
+            Term::Triple(triple) => {
+                key = triple.to_string();
+                (TAG_TRIPLE, 0, key.as_str(), "")
+            }
         };
         let id = self.entries.len();
         assert!(id < MAX_TERMS, "the dictionary is full ({MAX_TERMS} terms)");
@@ -821,6 +938,10 @@ impl Dictionary {
             len: len as u32,
             aux,
         });
+        #[cfg(feature = "rdf-12")]
+        if let Term::Triple(triple) = term {
+            self.triples.push((TermId(id as u32), triple.clone()));
+        }
     }
 
     /// Indexes the terms [`Dictionary::append`] added from id `from` on, so
@@ -1358,6 +1479,99 @@ mod tests {
             let mut s = String::new();
             push_decimal(&mut s, n);
             assert_eq!(s, n.to_string());
+        }
+    }
+
+    /// Triple terms (`rdf-12`): opaque terms, interned whole.
+    #[cfg(feature = "rdf-12")]
+    mod triple_terms {
+        use super::*;
+        use oxrdf::{BlankNode, Literal, NamedNode, Triple};
+
+        fn ex(local: &str) -> NamedNode {
+            NamedNode::new_unchecked(format!("http://example.org/{local}"))
+        }
+
+        fn triple(subject: impl Into<oxrdf::NamedOrBlankNode>, object: impl Into<oxrdf::Term>) -> oxrdf::Term {
+            Triple::new(subject, ex("p"), object).into()
+        }
+
+        #[test]
+        fn a_triple_term_is_one_opaque_term() {
+            let mut d = Dictionary::new();
+            let t = triple(ex("s"), Literal::new_language_tagged_literal_unchecked("chat", "fr"));
+            let id = d.intern_term(t.as_ref(), DocId::NONE);
+            let len = d.len();
+            assert_eq!(
+                d.intern_term(t.clone().as_ref(), DocId::NONE),
+                id,
+                "oxrdf-equal terms are one term"
+            );
+            assert_eq!(d.len(), len, "no new terms");
+            assert_eq!(d.kind(id), Kind::Triple);
+            assert!(!d.kind(id).is_subject());
+            assert_eq!(d.to_oxrdf(id), t);
+            assert_eq!(d.get_term(t.as_ref(), DocId::NONE), Some(id));
+            assert_eq!(
+                d.get_iri("http://example.org/s"),
+                None,
+                "the triple inside is not interned"
+            );
+            let other = triple(ex("s"), Literal::new_language_tagged_literal_unchecked("chat", "en"));
+            assert_eq!(d.get_term(other.as_ref(), DocId::NONE), None);
+            assert_ne!(d.intern_term(other.as_ref(), DocId::NONE), id);
+            // Its text is not an IRI's, nor a literal's.
+            let text = t.to_string();
+            assert_ne!(d.intern_iri(&text), id);
+            assert_ne!(d.intern_typed_literal(&text, vocab::XSD_STRING), id);
+        }
+
+        #[test]
+        fn a_triple_terms_blank_nodes_belong_to_its_document() {
+            let mut d = Dictionary::new();
+            let (one, two) = (d.new_document(), d.new_document());
+            let nested = triple(
+                BlankNode::new_unchecked("b"),
+                triple(ex("s"), BlankNode::new_unchecked("c")),
+            );
+            let a = d.intern_term(nested.as_ref(), one);
+            let b = d.intern_term(nested.as_ref(), two);
+            let inserted = d.intern_term(nested.as_ref(), DocId::NONE);
+            assert_ne!(a, b, "two documents, two terms");
+            assert_ne!(a, inserted);
+            assert_eq!(d.intern_term(nested.as_ref(), one), a);
+            assert_eq!(d.get_term(nested.as_ref(), two), Some(b));
+            let written = triple(
+                BlankNode::new_unchecked("b_1"),
+                triple(ex("s"), BlankNode::new_unchecked("c_1")),
+            );
+            assert_eq!(d.to_oxrdf(a), written, "labelled as a blank node of its document is");
+            assert_eq!(d.to_oxrdf(inserted), nested, "a caller's keeps its labels");
+            // An inserted `_:b_1` is not document 1's `_:b`: written `b_1_0`.
+            let look_alike = d.intern_term(written.as_ref(), DocId::NONE);
+            assert_ne!(look_alike, a);
+            let oxrdf::Term::Triple(read) = d.to_oxrdf(look_alike) else {
+                panic!("a triple term reads back as one");
+            };
+            assert_eq!(read.subject.to_string(), "_:b_1_0");
+            // Read back, it is found again by its written form.
+            let oxrdf::Term::Triple(read) = d.to_oxrdf(a) else {
+                panic!("a triple term reads back as one");
+            };
+            assert_eq!(d.get_written_triple(TripleRef::from(&*read)), Some(a));
+        }
+
+        #[test]
+        fn an_appended_triple_term_is_found_once_indexed() {
+            let mut d = Dictionary::new();
+            let t = triple(ex("s"), ex("o"));
+            let oxrdf::Term::Triple(inner) = &t else { unreachable!() };
+            let known = d.len();
+            d.append(Term::Triple(inner));
+            d.index_appended(known).expect("no repeat");
+            let id = TermId(known as u32);
+            assert_eq!(d.get_term(t.as_ref(), DocId::NONE), Some(id));
+            assert_eq!(d.term(id), Term::Triple(inner));
         }
     }
 }

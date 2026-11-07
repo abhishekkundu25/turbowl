@@ -4,6 +4,21 @@ What changed in each version of TurbOWL. Nothing has been published yet:
 the versions here are the repository's. The numbers come from the records
 in `docs/verification/`.
 
+## Unreleased: RDF 1.2 triple terms
+
+TurbOWL builds against an oxrdf with its `rdf-12` feature, as turtle-lsp
+builds it (`docs/tickets/rdf12/`).
+
+### Added
+
+- **The `rdf-12` cargo feature**, off by default: an RDF 1.2 triple term
+  (`<<( s p o )>>`) is an opaque term, interned whole as a literal is.
+  Rules carry it (as the object of `rdf:reifies`, through `eq-rep-o`) but
+  never look inside it, and the triple inside is not asserted. Blank nodes
+  inside one belong to its document. Snapshots and proofs keep triple terms.
+  An embedder that turns on `oxrdf/rdf-12` must turn this on too. With the
+  feature off, the code and the closure are as before.
+
 ## Unreleased: explanations
 
 Why a triple is in the closure, or why a diagnostic was reported, computed

@@ -17,17 +17,17 @@ the term it is (`Statement` already holds `oxrdf::Term`).
 
 **Status:** todo
 
-- [ ] TurbOWL has an `rdf-12` feature that turns on `oxrdf/rdf-12`, so its
+- [x] TurbOWL has an `rdf-12` feature that turns on `oxrdf/rdf-12`, so its
       own tests build the way turtle-lsp builds it; the crate doc's feature
       list names it.
-- [ ] `cargo build -p turbowl --no-default-features --features rdf-12`
+- [x] `cargo build -p turbowl --no-default-features --features rdf-12`
       and the default build both compile with no warnings; clippy is clean
       on both.
-- [ ] The wasm32 check builds with and without `rdf-12`.
-- [ ] Every `match` on an oxrdf term or subject in `crates/turbowl/src`
+- [x] The wasm32 check builds with and without `rdf-12`.
+- [x] Every `match` on an oxrdf term or subject in `crates/turbowl/src`
       handles triple terms without a wildcard arm, so a new oxrdf variant is
       a compile error again.
-- [ ] New tests, run with `--features rdf-12`: a triple term survives
+- [x] New tests, run with `--features rdf-12`: a triple term survives
       `set_base`, `reason()` and `inferred()` unchanged; `eq-rep-o` carries
       a triple term across `owl:sameAs`; a triple term with a blank node in
       two documents gives two different terms; `explain` of an inferred
@@ -39,4 +39,4 @@ the term it is (`Statement` already holds `oxrdf::Term`).
 - [ ] The reasoning benchmark is unchanged with `rdf-12` off (the
       orchestrator measures it on a quiet machine; the slice does not run
       it).
-- [ ] `CHANGELOG.md` has the entry.
+- [x] `CHANGELOG.md` has the entry.

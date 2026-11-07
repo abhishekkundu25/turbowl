@@ -574,6 +574,9 @@ const KIND_IRI: u8 = 0;
 const KIND_BLANK: u8 = 1;
 const KIND_TYPED: u8 = 2;
 const KIND_LANG: u8 = 3;
+/// A triple term: its text is its N-Triples form (`Dictionary` has the rule).
+#[cfg(feature = "rdf-12")]
+const KIND_TRIPLE: u8 = 4;
 
 fn encode_terms(s: &mut impl Sink, terms: &Dictionary) -> io::Result<()> {
     let n = terms.len();
@@ -581,12 +584,16 @@ fn encode_terms(s: &mut impl Sink, terms: &Dictionary) -> io::Result<()> {
         .map(|i| match terms.term(TermId(i as u32)) {
             Term::Iri(t) | Term::Blank { label: t, .. } => t.len(),
             Term::Literal { lexical, language, .. } => lexical.len() + language.map_or(0, str::len),
+            #[cfg(feature = "rdf-12")]
+            Term::Triple(triple) => triple.to_string().len(),
         })
         .sum();
     s.u32(terms.documents())?;
     s.count(n)?;
     s.count(text)?;
     for i in 0..n {
+        #[cfg(feature = "rdf-12")]
+        let written: String;
         let (kind, aux, head, tail) = match terms.term(TermId(i as u32)) {
             Term::Iri(iri) => (KIND_IRI, 0, iri, ""),
             Term::Blank { doc, label } => (KIND_BLANK, doc.0, label, ""),
@@ -600,6 +607,11 @@ fn encode_terms(s: &mut impl Sink, terms: &Dictionary) -> io::Result<()> {
                 language: Some(tag),
                 ..
             } => (KIND_LANG, tag.len() as u32, lexical, tag),
+            #[cfg(feature = "rdf-12")]
+            Term::Triple(triple) => {
+                written = triple.to_string();
+                (KIND_TRIPLE, 0, written.as_str(), "")
+            }
         };
         s.u8(kind)?;
         s.u32(aux)?;
@@ -842,6 +854,8 @@ fn read_terms(r: &mut Reader<'_>, mut terms: Dictionary) -> Result<Dictionary, S
         let bytes = r.take(len)?;
         let text = std::str::from_utf8(bytes).map_err(|_| r.bad(format!("term {i} is not UTF-8")))?;
         seen += len;
+        #[cfg(feature = "rdf-12")]
+        let triple: oxrdf::Triple;
         let term = match kind {
             KIND_IRI => Term::Iri(text),
             KIND_BLANK if aux <= documents => Term::Blank {
@@ -869,6 +883,15 @@ fn read_terms(r: &mut Reader<'_>, mut terms: Dictionary) -> Result<Dictionary, S
                     datatype: vocab::RDF_LANG_STRING,
                     language: Some(tag),
                 }
+            }
+            #[cfg(feature = "rdf-12")]
+            KIND_TRIPLE => {
+                triple = text
+                    .parse()
+                    .ok()
+                    .filter(|t: &oxrdf::Triple| aux == 0 && t.to_string() == text)
+                    .ok_or_else(|| r.bad(format!("term {i} is not a triple term in N-Triples")))?;
+                Term::Triple(&triple)
             }
             other => return Err(r.bad(format!("term {i} has an unknown kind {other}"))),
         };

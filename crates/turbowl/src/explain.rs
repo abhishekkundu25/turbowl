@@ -499,7 +499,9 @@ impl<'r> Explainer<'r> {
 fn id_of(terms: &Dictionary, term: TermRef<'_>) -> Option<u32> {
     match term {
         TermRef::BlankNode(b) => terms.get_written_blank(b.as_str()),
-        other => terms.get_term(other, DocId::NONE),
+        TermRef::NamedNode(_) | TermRef::Literal(_) => terms.get_term(term, DocId::NONE),
+        #[cfg(feature = "rdf-12")]
+        TermRef::Triple(t) => terms.get_written_triple(t.as_ref()),
     }
     .map(|t| t.0)
 }

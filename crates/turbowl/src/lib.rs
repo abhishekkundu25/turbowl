@@ -179,6 +179,25 @@
 //! out of the CLI and Python. Their fields may change with what the loop
 //! needs to measure.
 //!
+//! # Cargo features
+//!
+//! - `io`, on by default: parsing and writing documents ([`Format`]).
+//! - `parallel`, on by default: rounds on every core (see Threads).
+//! - `rdf-12`, off by default: RDF 1.2 triple terms (`<<( s p o )>>`), as
+//!   oxrdf's `rdf-12` feature has them. A triple term is an opaque term,
+//!   interned whole as a literal is: a rule carries it (as the object of
+//!   `rdf:reifies`, or through `eq-rep-o`) but never looks inside it, and
+//!   the triple inside is not asserted. Two triple terms are one term when
+//!   oxrdf's terms are equal; the blank nodes inside one belong to its
+//!   document and are written as other blank nodes are. A triple whose
+//!   subject is a triple term (from `eq-sym`, say) is not RDF: it is neither
+//!   read nor counted, as one with a literal subject is not. An embedder
+//!   that turns on `oxrdf/rdf-12` must turn this on too, or the crate does
+//!   not compile. With `io`, it turns on the parsers' `rdf-12` features
+//!   too (they match on oxrdf's terms as well). Of the formats, RDF/XML
+//!   reads triple terms (`rdf:parseType="Triple"`); Turtle, N-Triples and
+//!   N3 reject them as syntax errors.
+//!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.
 

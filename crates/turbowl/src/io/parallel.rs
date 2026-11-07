@@ -411,6 +411,9 @@ impl<'a, S: FnMut([TermId; 3])> Merge<'_, '_, 'a, S> {
                     ..
                 } => dict.intern_lang_literal(lexical, language),
                 Term::Literal { lexical, datatype, .. } => dict.intern_typed_literal(lexical, map[datatype.index()]),
+                // Its blank nodes are already labelled with their document.
+                #[cfg(feature = "rdf-12")]
+                Term::Triple(triple) => dict.intern_written_triple(triple.clone()),
             };
             map.push(id);
         }

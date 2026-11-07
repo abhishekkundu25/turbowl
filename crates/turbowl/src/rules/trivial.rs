@@ -65,7 +65,7 @@
 use super::Context;
 use super::datatype::{self, map::Datatype};
 use crate::engine::{Pair, Round, Store, gallop};
-use crate::term::{Dictionary, Kind, TermId, vocab};
+use crate::term::{Dictionary, TermId, vocab};
 
 /// The annotation properties of prp-ap (OWL 2 Profiles, Table 5).
 const ANNOTATION_PROPERTIES: [TermId; 9] = [
@@ -223,7 +223,8 @@ fn terms(store: &Store, recent_only: bool) -> Bits {
 /// in increasing order. Once expanded (`equality::expanded`), each stands
 /// for `x owl:sameAs y` for every two members of its class. eq-ref's own
 /// triples name `owl:sameAs`, so it is among them as soon as there is one.
-/// A literal alone in its class is left out: its triple is not RDF.
+/// A literal or a triple term alone in its class is left out: its triple is
+/// not RDF.
 pub(crate) fn same_as_itself(store: &Store, terms: &Dictionary) -> Vec<u32> {
     let canon = store.canon();
     let same = canon.find(vocab::OWL_SAME_AS.0);
@@ -233,7 +234,7 @@ pub(crate) fn same_as_itself(store: &Store, terms: &Dictionary) -> Vec<u32> {
         all.insert(same);
     }
     all.iter()
-        .filter(|&r| canon.members(r).len() > 1 || terms.kind(TermId(r)) != Kind::Literal)
+        .filter(|&r| canon.members(r).len() > 1 || terms.kind(TermId(r)).is_subject())
         .filter(|&r| !stored.is_some_and(|v| v.contains(&(r, r))))
         .collect()
 }

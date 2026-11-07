@@ -123,7 +123,7 @@ pub(crate) fn expand_finding(canon: &Canon, finding: &Finding, out: &mut Vec<Fin
 #[derive(Debug, Default)]
 pub(crate) struct Weights {
     /// For the representative of each class of two or more: its members,
-    /// those that are not literals, and its IRIs.
+    /// those that can be subjects (IRIs and blank nodes), and its IRIs.
     classes: FxHashMap<u32, (usize, usize, usize)>,
 }
 
@@ -134,12 +134,12 @@ impl Weights {
             .classes()
             .map(|(rep, members)| {
                 let kinds = members.iter().map(|&m| terms.kind(TermId(m)));
-                let (mut not_literal, mut iri) = (0, 0);
+                let (mut subjects, mut iri) = (0, 0);
                 for kind in kinds {
-                    not_literal += usize::from(kind != Kind::Literal);
+                    subjects += usize::from(kind.is_subject());
                     iri += usize::from(kind == Kind::Iri);
                 }
-                (rep, (members.len(), not_literal, iri))
+                (rep, (members.len(), subjects, iri))
             })
             .collect();
         Self { classes }
@@ -155,7 +155,7 @@ impl Weights {
     pub(crate) fn of(&self, terms: &Dictionary, s: u32, p: u32, o: u32) -> usize {
         let subjects = match self.classes.get(&s) {
             Some(c) => c.1,
-            None => usize::from(terms.kind(TermId(s)) != Kind::Literal),
+            None => usize::from(terms.kind(TermId(s)).is_subject()),
         };
         if subjects == 0 {
             return 0;

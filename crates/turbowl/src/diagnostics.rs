@@ -132,7 +132,9 @@ pub(crate) fn name(term: &Term) -> String {
             }
             out
         }
-        _ => term.to_string(),
+        Term::BlankNode(_) => term.to_string(),
+        #[cfg(feature = "rdf-12")]
+        Term::Triple(_) => term.to_string(),
     }
 }
 

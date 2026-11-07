@@ -254,8 +254,8 @@ pub(crate) fn diagnostic_bytes(diagnostics: &Vec<crate::Diagnostic>) -> usize {
             };
             l.value().len() + tagged + typed
         }
-        #[allow(unreachable_patterns)]
-        _ => 0,
+        #[cfg(feature = "rdf-12")]
+        Term::Triple(t) => t.to_string().len(),
     };
     vec_bytes(diagnostics)
         + diagnostics

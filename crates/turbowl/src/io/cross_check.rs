@@ -22,6 +22,14 @@
 //! every string literal of the Rust and Python sources (the suites' inline
 //! documents, and much that is not RDF), each read as both formats and with
 //! and without a base; then generated documents and mutations of them.
+//!
+//! With the `rdf-12` feature, oxttl reads RDF 1.2 Turtle (`VERSION`,
+//! directional literals, `~` reifiers, triple terms) and TurbOWL's parsers
+//! still read RDF 1.1, so the two parity tests against oxttl hold only
+//! without it; the parse in pieces and in windows is checked either way.
+
+// Their helpers go unused with it.
+#![cfg_attr(feature = "rdf-12", allow(dead_code))]
 
 use super::*;
 use oxttl::{NTriplesParser, TurtleParser};
@@ -309,6 +317,7 @@ fn literals(source: &str, out: &mut Vec<String>) {
 
 /// Every document of the repository and of the fetched data, and every
 /// string literal of the sources, parse the same with both.
+#[cfg(not(feature = "rdf-12"))]
 #[test]
 fn every_test_document_parses_as_oxttl_does() {
     let root = workspace();
@@ -666,6 +675,7 @@ fn mutate(r: &mut Rng, text: &str) -> Vec<u8> {
 }
 
 /// Generated documents, valid and broken, parse the same with both.
+#[cfg(not(feature = "rdf-12"))]
 #[test]
 fn generated_documents_parse_as_oxttl_does() {
     let mut r = Rng(0x9E37_79B9_7F4A_7C15);
