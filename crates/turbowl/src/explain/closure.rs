@@ -51,6 +51,8 @@ pub(crate) struct Indexes {
     /// The base triples a term of which is in a class of two or more, by
     /// their triple in representatives (their image), in base order.
     images: OnceLock<FxHashMap<[u32; 3], Vec<[u32; 3]>>>,
+    /// The same triples by each such term they state, sorted.
+    stating: OnceLock<FxHashMap<u32, Vec<[u32; 3]>>>,
 }
 
 /// How a free position of a pattern takes the terms of a class.
@@ -65,6 +67,10 @@ pub(crate) enum Free {
     /// matched by the representative and by the members base triples of
     /// the same image state there.
     Classed,
+    /// Bound up to its class, as [`Free::Classed`], and matched only by the
+    /// members base triples of the same image state there: the pattern
+    /// gives only base triples.
+    Base,
 }
 
 impl Indexes {
@@ -80,6 +86,7 @@ impl Indexes {
             eq_ref: OnceLock::new(),
             recent: OnceLock::new(),
             images: OnceLock::new(),
+            stating: OnceLock::new(),
         }
     }
 
@@ -98,6 +105,10 @@ impl Indexes {
             + self.recent.get().map_or(0, vec_bytes)
             + self.images.get().map_or(0, |m| {
                 crate::profile::hash_bytes(m.capacity(), std::mem::size_of::<([u32; 3], Vec<[u32; 3]>)>())
+                    + m.values().map(vec_bytes).sum::<usize>()
+            })
+            + self.stating.get().map_or(0, |m| {
+                crate::profile::hash_bytes(m.capacity(), std::mem::size_of::<(u32, Vec<[u32; 3]>)>())
                     + m.values().map(vec_bytes).sum::<usize>()
             })
     }
@@ -358,8 +369,10 @@ impl<'a> Closure<'a> {
         let stated = free
             .iter()
             .zip(&bound)
-            .any(|(f, b)| (*f == Free::Stated && b.is_none()) || *f == Free::Classed)
+            .any(|(f, b)| (*f == Free::Stated && b.is_none()) || matches!(f, Free::Classed | Free::Base))
             && !self.is_flat();
+        // Only base triples: no triple in representatives.
+        let base = free.contains(&Free::Base);
         let (rs, ro) = (s.map(|x| self.find(x)), o.map(|x| self.find(x)));
         let predicates = match p {
             Some(p) => vec![self.find(p)],
@@ -368,7 +381,7 @@ impl<'a> Closure<'a> {
         for rp in predicates {
             let ps = class(rp, 1);
             let mut emit = |a: u32, b: u32| -> Flow {
-                for s in class(a, 0).iter() {
+                for s in class(a, 0).iter().filter(|_| !base) {
                     for p in ps.iter() {
                         for o in class(b, 2).iter() {
                             f([s, p, o])?;
@@ -383,10 +396,10 @@ impl<'a> Closure<'a> {
                     // triple may spell it as another member of its class);
                     // a free one takes the base triple's member, unless the
                     // members above gave it already.
-                    let given = |k: usize| bound[k].is_some() && free[k] != Free::Classed;
+                    let given = |k: usize| bound[k].is_some() && !matches!(free[k], Free::Classed | Free::Base);
                     let mut sent: Vec<[u32; 3]> = Vec::new();
                     for t in self.images().get(&image).into_iter().flatten() {
-                        let shown = (0..3).all(|k| given(k) || free[k] == Free::Members || t[k] == image[k]);
+                        let shown = !base && (0..3).all(|k| given(k) || free[k] == Free::Members || t[k] == image[k]);
                         if shown {
                             continue;
                         }
@@ -435,6 +448,28 @@ impl<'a> Closure<'a> {
             }
             out
         })
+    }
+
+    /// The base triples that state `m`, a member of a class of two or more,
+    /// in any position (see [`Indexes::stating`]).
+    pub(crate) fn stating(&self, m: u32) -> &'a [[u32; 3]] {
+        let all = self.ix.stating.get_or_init(|| {
+            let mut out: FxHashMap<u32, Vec<[u32; 3]>> = FxHashMap::default();
+            for ts in self.images().values() {
+                for &t in ts {
+                    for k in 0..3 {
+                        if self.members(self.find(t[k])).len() > 1 && !t[..k].contains(&t[k]) {
+                            out.entry(t[k]).or_default().push(t);
+                        }
+                    }
+                }
+            }
+            for ts in out.values_mut() {
+                ts.sort_unstable();
+            }
+            out
+        });
+        all.get(&m).map_or(&[], Vec::as_slice)
     }
 
     /// The value of a term, when it is a literal with one.

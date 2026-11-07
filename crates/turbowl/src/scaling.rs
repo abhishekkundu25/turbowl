@@ -1594,14 +1594,35 @@ mod reasoner {
         );
     }
 
+    /// One class of n / 8 values that n triples reach: a subject with n / 8
+    /// values of a functional property (prp-fp makes them one class), and
+    /// n others with one value each, as Claros's time spans (ticket 02's
+    /// hang, there by cls-maxc2).
+    fn functional_hub(n: usize) -> String {
+        let values = n / 8;
+        let mut text = String::with_capacity(n * 40);
+        text.push_str("@prefix ex: <http://example.org/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n");
+        text.push_str("ex:value a owl:FunctionalProperty .\n");
+        for k in 0..values {
+            let _ = writeln!(text, "ex:hub ex:value ex:v{k} .");
+        }
+        for i in 0..n {
+            let _ = writeln!(text, "ex:u{i} ex:value ex:v{} .", i % values);
+        }
+        text
+    }
+
     /// Explaining one inferred triple with a fresh explainer
     /// (`Reasoner::explain`): its first use compiles the rule program and
     /// builds only the lazy indexes the search needs, and the search reads
     /// only what the goal reaches, so the time grows at most n log n with
-    /// the closure. Two goals of one shape at every size: an instance's
-    /// type through its class tree and a property's domain (Brick's shape),
-    /// and an alias of a clique's triple, whose proof is an eq-rep-s over
-    /// the chain from the alias that states it, n - 1 links long.
+    /// the closure. Three goals of one shape at every size: an instance's
+    /// type through its class tree and a property's domain (Brick's shape);
+    /// an alias of a clique's triple, whose proof is an eq-rep-s over the
+    /// chain from the alias that states it, n - 1 links long; and a value
+    /// of a class that n triples reach ([`functional_hub`]), whose links
+    /// are found once for the class, not once per member (members × triples
+    /// matches, cubic here).
     #[test]
     fn scaling_explain() {
         let _lock = lock();
@@ -1645,6 +1666,27 @@ mod reasoner {
             "scaling_explain (an alias of a clique)",
             &cliques,
             shared(move |n| (reasoned(clique(n)), alias(n))),
+            |r: Rc<(Reasoner, Triple)>| r.0.explain(r.1.as_ref()).unwrap().map(|p| p.steps().len()),
+        );
+        // `ex:u0 ex:value ex:v{n / 8 - 1}`: eq-rep-o from `ex:u0 ex:value
+        // ex:v0` over the values' link.
+        let valued = |n: usize| {
+            Triple::new(
+                NamedNode::new_unchecked(format!("{EX}u0")),
+                NamedNode::new_unchecked(format!("{EX}value")),
+                NamedNode::new_unchecked(format!("{EX}v{}", n / 8 - 1)),
+            )
+        };
+        let hubs = sizes(1_024);
+        for &n in &hubs {
+            let r = reasoned(functional_hub(n));
+            let proof = r.explain(valued(n).as_ref()).unwrap().expect("a proof");
+            assert!(proof.depth() <= 4, "n = {n}: {proof}");
+        }
+        linear(
+            "scaling_explain (a class that n triples reach)",
+            &hubs,
+            shared(move |n| (reasoned(functional_hub(n)), valued(n))),
             |r: Rc<(Reasoner, Triple)>| r.0.explain(r.1.as_ref()).unwrap().map(|p| p.steps().len()),
         );
     }

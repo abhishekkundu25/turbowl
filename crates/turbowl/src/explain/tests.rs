@@ -736,3 +736,74 @@ _:x2 <http://example.org/d2> "a" .
         start.elapsed()
     );
 }
+
+/// A class of many members that many triples reach, as Claros's time spans
+/// in the complete configuration: one production with 100 time spans makes
+/// them one class by cls-maxc2 (at most one `ex:span`), and 3,000 other
+/// productions each name one of them. Read member by member, the class's
+/// links read every production once per member and every member once per
+/// production (spans × productions × spans matches: on claros-l one
+/// explanation ran for over 20 minutes); read once for the class, each
+/// triple is read once and a member's partners form a star. Each proof is
+/// checked against the base, and the whole is timed.
+#[test]
+fn a_class_that_many_triples_reach_is_linked_in_time() {
+    use std::collections::HashSet;
+    use std::fmt::Write;
+    const SPANS: usize = 100;
+    const PRODUCTIONS: usize = 3_000;
+    let mut text = String::from(
+        "ex:Production rdfs:subClassOf [ a owl:Restriction ; owl:onProperty ex:span ;
+           owl:maxCardinality \"1\"^^xsd:nonNegativeInteger ] .
+         ex:hub a ex:Production .\n",
+    );
+    for k in 0..SPANS {
+        let _ = writeln!(text, "ex:hub ex:span ex:s{k} .");
+    }
+    for i in 0..PRODUCTIONS {
+        let _ = writeln!(text, "ex:u{i} a ex:Production ; ex:span ex:s{} .", i % SPANS);
+    }
+    let r = reasoned(&text, Switches::complete());
+    let inferred: HashSet<Triple> = r.inferred().collect();
+    let base: HashSet<Statement> = r
+        .triples()
+        .filter(|t| !inferred.contains(t))
+        .map(|t| statement(&t))
+        .collect();
+    let goals = [
+        triple("ex:u7", "ex:span", "ex:s42"),
+        triple("ex:hub", "ex:span", "ex:s3"),
+        triple("ex:s3", "owl:sameAs", "ex:s99"),
+        triple("ex:s99", "owl:sameAs", "ex:s3"),
+        triple("ex:s5", "owl:sameAs", "ex:s5"),
+        triple("ex:u1234", "ex:span", "ex:s0"),
+    ];
+    let start = std::time::Instant::now();
+    let explainer = r.explainer().unwrap();
+    for t in &goals {
+        let proof = explainer
+            .explain(t.as_ref())
+            .unwrap_or_else(|| panic!("no proof of {t}"));
+        assert_eq!(proof.goal(), Goal::Statement(&statement(t)));
+        for (i, step) in proof.steps().iter().enumerate() {
+            match &step.reason {
+                Reason::Base => assert!(
+                    base.contains(&step.statement),
+                    "{:?} is not base\n{proof}",
+                    step.statement
+                ),
+                Reason::Rule { premises, .. } => {
+                    assert!(premises.iter().all(|&p| p < i), "step {i} reads a later step:\n{proof}");
+                }
+            }
+        }
+        assert!(proof.depth() <= 8, "{proof}");
+    }
+    // About 8 ms (release, an M-series Mac at load 2, 2026-11-07); read
+    // member by member, 30 s.
+    assert!(
+        start.elapsed() < std::time::Duration::from_secs(2),
+        "{:?}",
+        start.elapsed()
+    );
+}

@@ -45,15 +45,24 @@
 //! - **Links**: a class's base `owl:sameAs` triples (either way round),
 //!   dt-eq's pairs of equal literals, and the pairs a rule other than the
 //!   eq-* ones concludes (prp-fp, prp-key, cls-maxc2, ...), found once per
-//!   class by joining those rules with each member as the subject
-//!   ([`Search::links`]).
+//!   class ([`Search::links`]): by joining those rules with each member as
+//!   the subject and any member as the object, within a budget of matches
+//!   ([`LINKS_WORK`]); for a class past it, or of more than
+//!   [`MANY_MEMBERS`] members, by joining them once for the class, both
+//!   terms bound up to it and *pinned* to the members base triples state
+//!   ([`Item::Class`], [`Search::pin`]). Each member reading every triple
+//!   of its class costs members × triples; the class read once, its
+//!   triples.
 //! - **`x owl:sameAs y`** in a class: eq-sym from a link the other way
 //!   round, and eq-trans from `x owl:sameAs m` and the link
-//!   `m owl:sameAs y`, for each link `m` of `y`. The chains are
-//!   left-linear, so the ranks keep the shortest whose links have proofs. A
-//!   base link and a dt-eq pair need no chain; at the first level a
-//!   `owl:sameAs` fact in a class gets no other instances (its links' come
-//!   with the links).
+//!   `m owl:sameAs y`, for each link `m` of `y` (in a class of more than
+//!   [`FEW_LINKS`] links, only each `m` one link nearer to `x` than `y` is,
+//!   by a breadth-first search over the links from `x`,
+//!   [`Search::distance`]: the shortest chains, so that a goal reaches the
+//!   members on them, not every member). The chains are left-linear, so
+//!   the ranks keep the shortest whose links have proofs. A base link and
+//!   a dt-eq pair need no chain; at the first level a `owl:sameAs` fact in
+//!   a class gets no other instances (its links' come with the links).
 //! - **Any other fact `s p o`**: eq-rep-s, eq-rep-p and eq-rep-o, in that
 //!   order, from up to [`SEEDS`] *seeds* with the same representatives,
 //!   those sharing most terms with the goal first: the base triples of its
@@ -77,7 +86,7 @@
 //! program, under which every proof the program has is found. The goals
 //! that do not need them never walk their graphs.
 //!
-//! A graph that a goal left unchanged is ranked whole once
+//! A fallback's graph that a goal left unchanged is ranked whole once
 //! ([`Search::ranks_all`]), and a later goal it ranks at r is built from
 //! those ranks when every fact within r - 1 of it is explained already.
 //!
@@ -102,12 +111,17 @@
 
 use super::closure::{Closure, Flow, Free};
 use super::program::{Arg, Body, Builtin, Compiled, EqRules, Kind, MAX_ARITY, NONE, RelId, T, UNLISTED};
+use crate::engine::Members;
 use crate::rules::datatype::map::{Datatype, Reading, Value, value_of};
 use crate::term::{Term, TermId, vocab};
 use rustc_hash::{FxHashMap, FxHashSet, FxHasher};
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 use std::hash::{Hash, Hasher};
+
+/// A call's relation, pattern, and how it reads members: expanded, the
+/// positions bound up to their class and those pinned, and pinning.
+type CallKey = (RelId, Pattern, bool, u8, u8, bool);
 
 /// A tuple of a relation, padded with zeros past its arity.
 pub(crate) type Tuple = [u32; MAX_ARITY];
@@ -121,9 +135,24 @@ const SAME: u32 = vocab::OWL_SAME_AS.0;
 /// The most base triples an eq-rep rewrite starts from.
 pub(crate) const SEEDS: usize = 16;
 
-/// The instances a graph holds before a goal that explains nothing new has
-/// the whole graph ranked for the next ones ([`Search::ranks_all`]).
+/// The instances a fallback's graph holds before a goal that explains
+/// nothing new has the whole graph ranked for the next ones
+/// ([`Search::ranks_all`]).
 const WHOLE: usize = 4096;
+
+/// The matches the members' links of one class may read before the class
+/// is linked as a whole ([`Search::links`]): about 0.1 s. Chaos's classes
+/// read up to about 250,000.
+const LINKS_WORK: usize = 1 << 20;
+
+/// The members of a class linked as a whole at once ([`Search::links`]):
+/// each member's links read every triple of the class again.
+const MANY_MEMBERS: usize = 64;
+
+/// The links a class may have for a chain to take every link into its last
+/// member ([`Search::chain`]); a class of more takes the shortest chains
+/// only.
+const FEW_LINKS: usize = 4096;
 
 /// The first value id ([`Builtin::ValueId`]): far from the term ids, which
 /// they are never compared with.
@@ -153,8 +182,12 @@ enum Item {
     Fact(u32),
     Call(u32),
     /// The links a member of a class has by a rule other than the eq-*
-    /// ones: `m owl:sameAs ?y` ([`Search::links`]).
+    /// ones: `m owl:sameAs ?y`, `?y` any member ([`Search::links`]).
     Links(u32),
+    /// The links of the class of this representative by such a rule, with
+    /// both terms bound up to the class: `x owl:sameAs y` for the members
+    /// the premises state ([`Search::links`]).
+    Class(u32),
     /// The triples a rule derives as stated whose image is this node's, a
     /// triple in representatives ([`Search::realized`]).
     Realize(u32),
@@ -184,6 +217,14 @@ struct Call {
     /// Evaluated with every member of a class for a free variable (the
     /// fallback), not its representative alone.
     expand: bool,
+    /// The positions bound only up to their class ([`Free::Classed`]), as
+    /// bits: an answer holds there the member a premise states.
+    classed: u8,
+    /// The positions bound to a member that the premises must state, as
+    /// bits, and whether a member a premise states for a classed position
+    /// is then pinned so (a class's links, [`Item::Class`]).
+    pinned: u8,
+    pin: bool,
     answers: Vec<u32>,
     answered: FxHashSet<u32>,
     readers: Vec<Item>,
@@ -212,17 +253,31 @@ struct Links {
     stated: FxHashMap<(u32, u32), u32>,
     group_of: FxHashMap<u32, u32>,
     groups: Vec<Vec<u32>>,
+    /// Every link is found: a link found later makes the searches over the
+    /// links stale ([`Graph::reach`]).
+    built: bool,
+    /// Linked as a whole ([`Item::Class`]): a large class, whose members
+    /// share partners (a star), so that a chain takes the shortest links.
+    whole: bool,
 }
 
 impl Links {
-    fn neighbours(&self, x: u32) -> impl Iterator<Item = u32> + '_ {
-        let base = self.base.get(&x).into_iter().flatten().copied();
-        let group = self
-            .group_of
-            .get(&x)
-            .into_iter()
-            .flat_map(|&g| self.groups[g as usize].iter().copied());
-        base.chain(group).filter(move |&m| m != x)
+    /// The members linked to `x` (some more than once), its group of equal
+    /// values included unless `groups` says it was walked already.
+    fn neighbours(&self, x: u32, groups: Option<&mut FxHashSet<u32>>) -> Vec<u32> {
+        let mut out: Vec<u32> = self.base.get(&x).cloned().unwrap_or_default();
+        if let Some(&g) = self.group_of.get(&x)
+            && groups.is_none_or(|done| done.insert(g))
+        {
+            out.extend(&self.groups[g as usize]);
+        }
+        out.retain(|&m| m != x);
+        out
+    }
+
+    /// The links held, each once each way, and the pairs of equal values.
+    fn len(&self) -> usize {
+        self.base.values().map(Vec::len).sum::<usize>() + self.groups.iter().map(|g| g.len() * g.len()).sum::<usize>()
     }
 
     fn bytes(&self) -> usize {
@@ -233,6 +288,25 @@ impl Links {
             + hash_bytes(self.derived.capacity(), 8)
             + hash_bytes(self.stated.capacity(), 12)
             + self.groups.iter().map(vec_bytes).sum::<usize>()
+    }
+}
+
+/// A breadth-first search over a class's links from one member, run as far
+/// as the members asked for need ([`Search::distance`]).
+#[derive(Debug, Default)]
+struct Reach {
+    /// The number of links from the source, of each member met.
+    dist: FxHashMap<u32, u32>,
+    /// The members met and not walked yet, nearest first.
+    queue: VecDeque<u32>,
+    /// The groups of equal values walked.
+    groups: FxHashSet<u32>,
+}
+
+impl Reach {
+    fn bytes(&self) -> usize {
+        use crate::profile::hash_bytes;
+        hash_bytes(self.dist.capacity(), 8) + self.queue.capacity() * 4 + hash_bytes(self.groups.capacity(), 4)
     }
 }
 
@@ -254,13 +328,15 @@ pub(crate) struct Graph {
     nodes: Vec<Node>,
     node_ids: FxHashMap<(RelId, Tuple), u32>,
     calls: Vec<Call>,
-    call_ids: FxHashMap<(RelId, Pattern, bool), u32>,
+    call_ids: FxHashMap<CallKey, u32>,
     instances: Vec<Instance>,
     seen: FxHashSet<(usize, u32, Vec<u32>)>,
     /// The instances of each node.
     of: Vec<Vec<usize>>,
     /// The links of each class met, by representative.
     links: FxHashMap<u32, Links>,
+    /// The searches over the links, by source member.
+    reach: FxHashMap<u32, Reach>,
     values: Values,
     /// The triples [`Search::realizations`] found, by image.
     realized: FxHashMap<[u32; 3], Vec<[u32; 3]>>,
@@ -311,13 +387,15 @@ impl Graph {
                         + hash_bytes(c.read_by.capacity(), size_of::<Item>())
                 })
                 .sum::<usize>()
-            + hash_bytes(self.call_ids.capacity(), size_of::<((RelId, Pattern, bool), u32)>())
+            + hash_bytes(self.call_ids.capacity(), size_of::<(CallKey, u32)>())
             + vec_bytes(&self.instances)
             + self.instances.iter().map(|i| 2 * vec_bytes(&i.premises)).sum::<usize>()
             + hash_bytes(self.seen.capacity(), size_of::<(usize, u32, Vec<u32>)>())
             + vec_bytes(&self.of)
             + self.of.iter().map(vec_bytes).sum::<usize>()
             + self.links.values().map(Links::bytes).sum::<usize>()
+            + hash_bytes(self.reach.capacity(), size_of::<(u32, Reach)>())
+            + self.reach.values().map(Reach::bytes).sum::<usize>()
             + self.values.by_hash.values().map(vec_bytes).sum::<usize>()
             + vec_bytes(&self.slot)
             + vec_bytes(&self.stamp)
@@ -357,13 +435,25 @@ pub(crate) struct Search<'a> {
     eq_rules: bool,
     /// The item being evaluated has an instance over base triples alone.
     stop: bool,
-    /// The links an [`Item::Links`] found, as (member, member).
-    found: Vec<(u32, u32)>,
     /// The triples an [`Item::Realize`] found.
     realized: Vec<[u32; 3]>,
     /// The variables of the rule being joined bound only up to their class
     /// ([`Free::Classed`]), as bits.
     classed: u64,
+    /// The variables bound to a member that the premises must state, as
+    /// bits (see [`Search::pin`]).
+    pinned: u64,
+    /// A variable bound up to its class takes the member a premise states
+    /// pinned: later premises must state that member too, not any other
+    /// spelling of the class (a class's links, [`Item::Class`]: each
+    /// premise is then read for the members it states, never once per
+    /// member).
+    pin: bool,
+    /// The matches left to the members' links of the class being linked
+    /// ([`Search::links`]).
+    work: usize,
+    /// The links [`Item::Class`] concluded (see [`Search::solve`]).
+    linked: usize,
 }
 
 /// A step of a proof in term ids: a closure triple, its rule (`None`: a
@@ -394,9 +484,12 @@ impl<'a> Search<'a> {
             generic: false,
             eq_rules: false,
             stop: false,
-            found: Vec::new(),
             realized: Vec::new(),
             classed: 0,
+            pinned: 0,
+            pin: false,
+            work: 0,
+            linked: 0,
         }
     }
 
@@ -434,9 +527,13 @@ impl<'a> Search<'a> {
         }
         let start = self.g.len();
         let built = self.deepen(rel, tuple, goal);
-        // A goal that explained nothing new: the next ones likely will not
-        // either, and ranking the whole graph once serves them all.
-        if self.g.len() == start && self.g.instances.len() >= WHOLE {
+        // A goal that explained nothing new in a fallback's graph: the next
+        // ones likely will not either, and ranking the whole graph once
+        // serves them all. (A fallback joins every member of a class, so
+        // its goals reach most of its graph. At the first level a goal
+        // reaches a small part of a graph that most goals grow, and ranking
+        // it all again would cost each goal the whole graph.)
+        if self.generic && self.g.len() == start && self.g.instances.len() >= WHOLE {
             self.ranks_all();
         }
         built
@@ -614,11 +711,12 @@ impl<'a> Search<'a> {
         }
     }
 
-    /// True when the call binds every argument of its relation.
+    /// True when the call binds every argument of its relation, none only
+    /// up to its class.
     fn closed(&self, c: u32) -> bool {
         let call = &self.g.calls[c as usize];
         let arity = self.world.program.relations[call.rel as usize].arity;
-        call.pattern[..arity].iter().all(Option::is_some)
+        call.classed == 0 && call.pattern[..arity].iter().all(Option::is_some)
     }
 
     /// Joins the body of every rule whose head matches the item, and for a
@@ -640,10 +738,19 @@ impl<'a> Search<'a> {
                 (call.rel, call.pattern)
             }
             Item::Links(m) => (T, [Some(m), Some(SAME), None, None]),
+            Item::Class(r) => (T, [Some(r), Some(SAME), Some(r), None]),
             Item::Realize(n) => (T, self.g.nodes[n as usize].tuple.map(Some)),
         };
         let program = self.world.program;
         self.stop = false;
+        let pin = std::mem::replace(
+            &mut self.pin,
+            match item {
+                Item::Class(_) => true,
+                Item::Call(c) => self.g.calls[c as usize].pin,
+                _ => false,
+            },
+        );
         // `x owl:sameAs y` in a class: its links' own instances are found
         // with the class's links (`Search::links`), and the rest is chains.
         let chained = match item {
@@ -654,17 +761,33 @@ impl<'a> Search<'a> {
             if self.stop || chained {
                 break;
             }
-            if program.is_eq[r] && (!self.eq_rules || matches!(item, Item::Links(_))) {
+            if program.is_eq[r] && (!self.eq_rules || matches!(item, Item::Links(_) | Item::Class(_))) {
                 continue;
             }
             let rule = &program.rules[r];
+            // A class's links: a rule whose head has one variable for both
+            // terms (eq-ref) links a member to itself only.
+            if matches!(item, Item::Class(_)) && rule.head.args[0] == rule.head.args[2] {
+                continue;
+            }
             let mut b = vec![None; rule.vars];
             let arity = program.relations[rel as usize].arity;
             let closure = self.world.closure;
             // Realizing: a position whose class has two or more members
-            // binds its variable up to the class.
-            let classed = |k: usize, x: u32| matches!(item, Item::Realize(_)) && closure.members(x).len() > 1 && k < 3;
+            // binds its variable up to the class; finding a class's links,
+            // both terms; a call, the positions its reader bound so.
+            let (call_classed, call_pinned) = match item {
+                Item::Call(c) => (self.g.calls[c as usize].classed, self.g.calls[c as usize].pinned),
+                _ => (0, 0),
+            };
+            let classed = |k: usize, x: u32| match item {
+                Item::Realize(_) => k < 3 && closure.members(x).len() > 1,
+                Item::Class(_) => k == 0 || k == 2,
+                Item::Call(_) => call_classed & (1 << k) != 0,
+                Item::Fact(_) | Item::Links(_) => false,
+            };
             let mut bits = 0u64;
+            let mut pins = 0u64;
             let unified = rule
                 .head
                 .args
@@ -681,16 +804,20 @@ impl<'a> Search<'a> {
                             if classed(k, *x) {
                                 bits |= 1 << v;
                             }
+                            if call_pinned & (1 << k) != 0 {
+                                pins |= 1 << v;
+                            }
                             true
                         }
                     },
                 });
             if unified {
-                self.classed = bits;
+                (self.classed, self.pinned) = (bits, pins);
                 self.solve(r, item, &mut b, 0, &mut Vec::new());
-                self.classed = 0;
+                (self.classed, self.pinned) = (0, 0);
             }
         }
+        self.pin = pin;
         if let Item::Fact(n) = item
             && rel == T
             && !self.stop
@@ -702,7 +829,10 @@ impl<'a> Search<'a> {
 
     /// The next body element of rule `r` to join, given what is bound and
     /// done: a filter as soon as it can run, then the atom with the most
-    /// bound arguments (a triple before a helper).
+    /// bound arguments (a triple before a helper). A variable bound only up
+    /// to its class is bound for an atom, which gives it the member stated,
+    /// and not yet for a filter, which would read the representative: a
+    /// filter reads it so only when no atom is left.
     fn choose(&self, r: usize, b: &[Option<u32>], done: u64) -> Option<usize> {
         let program = self.world.program;
         let rule = &program.rules[r];
@@ -710,47 +840,61 @@ impl<'a> Search<'a> {
             Arg::Id(_) => true,
             Arg::Var(v) => b[*v as usize].is_some(),
         };
+        let settled = |a: &Arg| bound(a) && !matches!(a, Arg::Var(v) if self.classed & (1 << v) != 0);
+        let ready = |element: &Body, bound: &dyn Fn(&Arg) -> bool| match element {
+            Body::NotEqual(x, y) => bound(x) && bound(y),
+            Body::Atom(a) => match program.relations[a.rel as usize].kind {
+                Kind::Builtin(f) => match f {
+                    Builtin::RuleLiteral => true,
+                    Builtin::TypesOf | Builtin::IllTyped | Builtin::ValueId => bound(&a.args[0]),
+                    Builtin::OutsideValueSpace => bound(&a.args[0]) && bound(&a.args[1]),
+                },
+                _ => false,
+            },
+        };
         let mut best: Option<(usize, usize)> = None;
-        let mut left = false;
+        let mut left = None;
         for (k, element) in rule.body.iter().enumerate() {
             if done & (1 << k) != 0 {
                 continue;
             }
-            left = true;
+            left.get_or_insert(k);
             match element {
-                Body::NotEqual(x, y) => {
-                    if bound(x) && bound(y) {
+                Body::Atom(a) if !matches!(program.relations[a.rel as usize].kind, Kind::Builtin(_)) => {
+                    let kind = program.relations[a.rel as usize].kind;
+                    let score = 2 * a.args.iter().filter(|a| bound(a)).count() + usize::from(kind == Kind::Triple);
+                    if best.is_none_or(|(s, _)| score > s) {
+                        best = Some((score, k));
+                    }
+                }
+                filter => {
+                    if ready(filter, &settled) {
                         return Some(k);
                     }
                 }
-                Body::Atom(a) => match program.relations[a.rel as usize].kind {
-                    Kind::Builtin(f) => {
-                        let ready = match f {
-                            Builtin::RuleLiteral => true,
-                            Builtin::TypesOf | Builtin::IllTyped | Builtin::ValueId => bound(&a.args[0]),
-                            Builtin::OutsideValueSpace => bound(&a.args[0]) && bound(&a.args[1]),
-                        };
-                        if ready {
-                            return Some(k);
-                        }
-                    }
-                    kind => {
-                        let score = 2 * a.args.iter().filter(|a| bound(a)).count() + usize::from(kind == Kind::Triple);
-                        if best.is_none_or(|(s, _)| score > s) {
-                            best = Some((score, k));
-                        }
-                    }
-                },
             }
         }
-        match best {
-            Some((_, k)) => Some(k),
-            None if left => panic!(
+        if let Some((_, k)) = best {
+            return Some(k);
+        }
+        let left = left?;
+        let filter = (left..rule.body.len()).find(|&k| done & (1 << k) == 0 && ready(&rule.body[k], &bound));
+        Some(filter.unwrap_or_else(|| {
+            panic!(
                 "the rule {:?} has a filter whose terms no atom binds",
                 rule.name.unwrap_or("(a helper)")
-            ),
-            None => None,
-        }
+            )
+        }))
+    }
+
+    /// The variables of `args` bound only up to their class, as bits.
+    fn classed_in(&self, args: &[Arg]) -> u64 {
+        args.iter()
+            .filter_map(|a| match *a {
+                Arg::Var(v) if self.classed & (1 << v) != 0 => Some(1 << v),
+                _ => None,
+            })
+            .fold(0, |x, y| x | y)
     }
 
     /// Joins what is left of rule `r`'s body; each match is an instance.
@@ -770,7 +914,12 @@ impl<'a> Search<'a> {
         match &rule.body[k] {
             Body::NotEqual(x, y) => {
                 if value(b, x) != value(b, y) {
+                    // A variable bound up to its class is the
+                    // representative from here on.
+                    let classed = self.classed;
+                    self.classed &= !self.classed_in(&[*x, *y]);
                     self.solve(r, item, b, done, premises);
+                    self.classed = classed;
                 }
             }
             Body::Atom(atom) => {
@@ -778,11 +927,11 @@ impl<'a> Search<'a> {
                 match program.relations[atom.rel as usize].kind {
                     Kind::Triple => {
                         let closure = world.closure;
-                        let classed = self.classed;
-                        let is_classed = |k: usize| matches!(&atom.args[k], Arg::Var(v) if classed & (1 << v) != 0);
+                        let (classed, pinned) = (self.classed, self.pinned);
+                        let var_in = |bits: u64, k: usize| matches!(&atom.args[k], Arg::Var(v) if bits & (1 << v) != 0);
                         let mut expand = match item {
-                            // Discovering links: every partner a member has,
-                            // and for the rest what is stated.
+                            // Discovering a member's links: every partner it
+                            // has, and for the rest what is stated.
                             Item::Links(_) if !self.generic => [0, 1, 2].map(|k| match &atom.args[k] {
                                 Arg::Var(v) if rule.head.args.contains(&Arg::Var(*v)) => Free::Members,
                                 _ => Free::Stated,
@@ -790,12 +939,43 @@ impl<'a> Search<'a> {
                             _ if self.expands(item) => [Free::Members; 3],
                             _ => [Free::Stated; 3],
                         };
+                        // A pinned position is read as one bound up to its
+                        // class, and only its member is kept. Pinning, a
+                        // position bound up to its class is matched by base
+                        // triples only.
+                        let unlisted = pattern[1] == Some(UNLISTED);
+                        let pinning = self.pin;
+                        let pins = [0, 1, 2].map(|k| var_in(pinned, k) && !unlisted);
+                        let classes = [0, 1, 2].map(|k| var_in(classed, k) || pins[k]);
+                        let mut query = [pattern[0], pattern[1], pattern[2]];
                         for (k, free) in expand.iter_mut().enumerate() {
-                            if is_classed(k) {
-                                *free = Free::Classed;
+                            if classes[k] {
+                                *free = if pinning { Free::Base } else { Free::Classed };
+                            }
+                            if pins[k] {
+                                query[k] = query[k].map(|x| closure.find(x));
                             }
                         }
-                        let _ = closure.each(pattern[0], pattern[1], pattern[2], expand, &mut |t| {
+                        // A class's links: the atom that gives the second
+                        // member of a pair, the first pinned, gives one
+                        // partner, not every one (a member of many partners,
+                        // as a functional property's subject of many
+                        // values, links them as a star, not pairwise).
+                        let partner =
+                            matches!(item, Item::Class(_)) && pinned != 0 && (0..3).any(|k| var_in(classed, k));
+                        let visit = &mut |t: [u32; 3]| {
+                            if (0..3).any(|k| pins[k] && Some(t[k]) != pattern[k]) {
+                                return Flow::Continue(());
+                            }
+                            let linked = self.linked;
+                            // A member's links within their budget.
+                            if let Item::Links(_) = item {
+                                if self.work == 0 {
+                                    self.stop = true;
+                                    return Flow::Break(());
+                                }
+                                self.work -= 1;
+                            }
                             // A variable bound up to its class takes the
                             // member matched.
                             let mut was = [(0u8, None); 3];
@@ -809,6 +989,9 @@ impl<'a> Search<'a> {
                                         w += 1;
                                         b[v as usize] = Some(x);
                                         self.classed &= !(1 << v);
+                                        if self.pin {
+                                            self.pinned |= 1 << v;
+                                        }
                                     }
                                 }
                             }
@@ -822,11 +1005,54 @@ impl<'a> Search<'a> {
                             for &(v, old) in &was[..w] {
                                 b[v as usize] = old;
                             }
-                            self.classed = classed;
-                            if self.stop { Flow::Break(()) } else { Flow::Continue(()) }
-                        });
+                            (self.classed, self.pinned) = (classed, pinned);
+                            if self.stop || (partner && self.linked > linked) {
+                                Flow::Break(())
+                            } else {
+                                Flow::Continue(())
+                            }
+                        };
+                        // Base triples only: read by the member pinned when it
+                        // is not its class's representative, or with no
+                        // subject bound, by each member of the class, not
+                        // through the representatives' tables (whose
+                        // subjects of an object need an index of their own,
+                        // one for each predicate when it is free).
+                        let by_member = (0..3)
+                            .find(|&k| pins[k] && query[k] != pattern[k])
+                            .or_else(|| (0..3).find(|&k| classes[k] && pattern[0].is_none()))
+                            .filter(|_| pinning && !unlisted && !expand.contains(&Free::Members));
+                        match by_member {
+                            Some(k) => {
+                                let x = pattern[k].expect("bound up to its class");
+                                let members = if pins[k] { Members::One(x) } else { closure.members(x) };
+                                'members: for m in members.iter() {
+                                    for &st in closure.stating(m) {
+                                        let mut u = st;
+                                        let fits = st[k] == m
+                                            && (0..3).all(|j| match pattern[j] {
+                                                None => true,
+                                                Some(x) if pins[j] => st[j] == x,
+                                                Some(x) if classes[j] => closure.find(st[j]) == x,
+                                                Some(x) => {
+                                                    u[j] = x;
+                                                    closure.find(st[j]) == closure.find(x)
+                                                }
+                                            });
+                                        if fits && visit(u).is_break() {
+                                            break 'members;
+                                        }
+                                    }
+                                }
+                            }
+                            None => {
+                                let _ = closure.each(query[0], query[1], query[2], expand, visit);
+                            }
+                        }
                     }
                     Kind::Builtin(f) => {
+                        let classed = self.classed;
+                        self.classed &= !self.classed_in(&atom.args);
                         for t in self.test(f, &pattern) {
                             if self.stop {
                                 break;
@@ -836,21 +1062,64 @@ impl<'a> Search<'a> {
                                 unbind(new, b);
                             }
                         }
+                        self.classed = classed;
                     }
                     Kind::Derived => {
                         let mut call_pattern: Pattern = [None; MAX_ARITY];
                         call_pattern[..pattern.len()].copy_from_slice(&pattern);
-                        let c = self.call(atom.rel, call_pattern, self.expands(item) && self.eq_rules, item);
+                        // A variable bound up to its class is so in the call
+                        // too, and takes the member an answer holds.
+                        let (classed, pinned) = (self.classed, self.pinned);
+                        let (mut mask, mut pins) = (0u8, 0u8);
+                        for (k, arg) in atom.args.iter().enumerate() {
+                            if let Arg::Var(v) = *arg {
+                                if classed & (1 << v) != 0 {
+                                    mask |= 1 << k;
+                                }
+                                if pinned & (1 << v) != 0 {
+                                    pins |= 1 << k;
+                                }
+                            }
+                        }
+                        let expand = self.expands(item) && self.eq_rules;
+                        let pin = self.pin && (mask | pins) != 0;
+                        let c = self.call(atom.rel, call_pattern, (expand, mask, pins, pin), item);
+                        let partner = matches!(item, Item::Class(_)) && pinned != 0 && mask != 0;
+                        let linked = self.linked;
                         let mut j = 0;
-                        while j < self.g.calls[c as usize].answers.len() && !self.stop {
+                        while j < self.g.calls[c as usize].answers.len()
+                            && !self.stop
+                            && !(partner && self.linked > linked)
+                        {
                             let n = self.g.calls[c as usize].answers[j];
                             let t = self.g.nodes[n as usize].tuple;
+                            let mut was = [(0u8, None); MAX_ARITY];
+                            let mut w = 0;
+                            if mask != 0 {
+                                for (arg, &x) in atom.args.iter().zip(&t) {
+                                    if let Arg::Var(v) = *arg
+                                        && self.classed & (1 << v) != 0
+                                    {
+                                        was[w] = (v, b[v as usize]);
+                                        w += 1;
+                                        b[v as usize] = Some(x);
+                                        self.classed &= !(1 << v);
+                                        if self.pin {
+                                            self.pinned |= 1 << v;
+                                        }
+                                    }
+                                }
+                            }
                             if let Some(new) = bind(&atom.args, &t, b) {
                                 premises.push(n);
                                 self.solve(r, item, b, done, premises);
                                 premises.pop();
                                 unbind(new, b);
                             }
+                            for &(v, old) in &was[..w] {
+                                b[v as usize] = old;
+                            }
+                            (self.classed, self.pinned) = (classed, pinned);
                             j += 1;
                         }
                     }
@@ -951,14 +1220,17 @@ impl<'a> Search<'a> {
         match item {
             Item::Fact(_) => self.generic,
             Item::Call(c) => self.g.calls[c as usize].expand,
-            Item::Links(_) | Item::Realize(_) => false,
+            Item::Links(_) | Item::Class(_) | Item::Realize(_) => false,
         }
     }
 
-    /// The call of `rel` with `pattern`, read by `reader`, which is
-    /// evaluated again when the call gains an answer.
-    fn call(&mut self, rel: RelId, pattern: Pattern, expand: bool, reader: Item) -> u32 {
-        let c = match self.g.call_ids.get(&(rel, pattern, expand)).copied() {
+    /// The call of `rel` with `pattern`, read as `how` says (expanded, the
+    /// positions bound up to their class, those pinned, and pinning), read
+    /// by `reader`, which is evaluated again when the call gains an answer.
+    fn call(&mut self, rel: RelId, pattern: Pattern, how: (bool, u8, u8, bool), reader: Item) -> u32 {
+        let (expand, classed, pinned, pin) = how;
+        let key = (rel, pattern, expand, classed, pinned, pin);
+        let c = match self.g.call_ids.get(&key).copied() {
             Some(c) => c,
             None => {
                 let c = self.g.calls.len() as u32;
@@ -966,12 +1238,15 @@ impl<'a> Search<'a> {
                     rel,
                     pattern,
                     expand,
+                    classed,
+                    pinned,
+                    pin,
                     answers: Vec::new(),
                     answered: FxHashSet::default(),
                     readers: Vec::new(),
                     read_by: FxHashSet::default(),
                 });
-                self.g.call_ids.insert((rel, pattern, expand), c);
+                self.g.call_ids.insert(key, c);
                 self.enqueue(Item::Call(c));
                 c
             }
@@ -1007,8 +1282,23 @@ impl<'a> Search<'a> {
             Item::Links(m) => {
                 let n = self.node(T, tuple);
                 let closure = self.world.closure;
-                if tuple[2] != m && closure.find(tuple[2]) == closure.find(m) {
-                    self.found.push((m, tuple[2]));
+                let c = closure.find(m);
+                if tuple[2] != m && closure.find(tuple[2]) == c {
+                    self.link(c, m, tuple[2]);
+                }
+                n
+            }
+            Item::Class(c) => {
+                let n = self.node(T, tuple);
+                let closure = self.world.closure;
+                let (x, y) = (tuple[0], tuple[2]);
+                if x != y && closure.find(x) == c && closure.find(y) == c {
+                    self.link(c, x, y);
+                    self.linked += 1;
+                }
+                // A link over base triples alone needs no other instance.
+                if self.g.nodes[n as usize].grounded {
+                    return;
                 }
                 n
             }
@@ -1028,7 +1318,7 @@ impl<'a> Search<'a> {
         let grounded = self.instance(r, head, premises.to_vec());
         let closed = match item {
             Item::Fact(_) => true,
-            Item::Links(_) | Item::Realize(_) => false,
+            Item::Links(_) | Item::Class(_) | Item::Realize(_) => false,
             Item::Call(c) => self.closed(c),
         };
         if grounded && closed {
@@ -1121,24 +1411,76 @@ impl<'a> Search<'a> {
                     }
                 }
             }
-            // The derived links: each member's `m owl:sameAs ?y` by every
-            // rule but the eq-* ones, joined with every member of a class.
-            // The run may find another class's links first: each keeps its
-            // own.
-            for &m in &members {
-                let outer = std::mem::take(&mut self.found);
+            self.g.links.insert(r, links);
+            // The derived links, each added as it is concluded
+            // ([`Search::link`]): each member's `m owl:sameAs ?y` by every
+            // rule but the eq-* ones, `?y` any member, within a budget of
+            // matches for the class. Past it, or for a class of many
+            // members (whose members each read every triple of the class
+            // again), the rules are joined once for the class instead, with
+            // both terms bound up to it, so that each takes the members the
+            // premises state.
+            let budget = if members.len() > MANY_MEMBERS { 0 } else { LINKS_WORK };
+            let outer = std::mem::replace(&mut self.work, budget);
+            for &m in members.iter().filter(|_| budget > 0) {
                 self.evaluate(Item::Links(m));
                 self.run_nested();
-                for (a, b) in std::mem::replace(&mut self.found, outer) {
-                    if links.derived.insert((a, b)) {
-                        links.base.entry(a).or_default().push(b);
-                        links.base.entry(b).or_default().push(a);
-                    }
+                if self.work == 0 {
+                    break;
                 }
             }
-            self.g.links.insert(r, links);
+            if self.work == 0 {
+                self.g.links.get_mut(&r).expect("inserted").whole = true;
+                self.evaluate(Item::Class(r));
+                self.run_nested();
+            }
+            self.work = outer;
+            self.g.links.get_mut(&r).expect("inserted").built = true;
         }
         &self.g.links[&r]
+    }
+
+    /// Adds the link `x owl:sameAs y` a rule concludes in the class of `c`.
+    fn link(&mut self, c: u32, x: u32, y: u32) {
+        let links = self
+            .g
+            .links
+            .get_mut(&c)
+            .expect("a class's links are built from its links item");
+        if links.derived.insert((x, y)) {
+            links.base.entry(x).or_default().push(y);
+            links.base.entry(y).or_default().push(x);
+            if links.built {
+                self.g.reach.clear();
+            }
+        }
+    }
+
+    /// The number of links from `x` to `y` in the class of `r`, by a
+    /// breadth-first search from `x` kept for the next members asked for,
+    /// and run only as far as `y`. When `y` is met, every member one link
+    /// nearer to `x` is met too.
+    fn distance(&mut self, r: u32, x: u32, y: u32) -> Option<u32> {
+        let g = &mut *self.g;
+        let links = &g.links[&r];
+        let reach = g.reach.entry(x).or_insert_with(|| Reach {
+            dist: FxHashMap::from_iter([(x, 0)]),
+            queue: VecDeque::from([x]),
+            groups: FxHashSet::default(),
+        });
+        while !reach.dist.contains_key(&y) {
+            let Some(m) = reach.queue.pop_front() else {
+                break;
+            };
+            let d = reach.dist[&m] + 1;
+            for w in links.neighbours(m, Some(&mut reach.groups)) {
+                if let std::collections::hash_map::Entry::Vacant(e) = reach.dist.entry(w) {
+                    e.insert(d);
+                    reach.queue.push_back(w);
+                }
+            }
+        }
+        reach.dist.get(&y).copied()
     }
 
     /// `x owl:sameAs y` in a class: eq-sym from a link the other way round,
@@ -1175,8 +1517,26 @@ impl<'a> Search<'a> {
         if based || valued || spelled.is_some() {
             return;
         }
+        // In a class of few links, every link into `y`: the ranks keep the
+        // shortest chain whose links have proofs. In a larger one (or one
+        // linked as a whole, whose members share partners), the links
+        // into `y` from a member one link nearer to `x`, on the shortest
+        // chains, so that a chain reaches only the members on them (for
+        // `x owl:sameAs x`, every link of `x`).
         let links = &self.g.links[&r];
-        let before: Vec<u32> = links.neighbours(y).filter(|&m| m != x).collect();
+        let mut before = links.neighbours(y, None);
+        if (links.whole || links.len() > FEW_LINKS) && x != y {
+            match self.distance(r, x, y) {
+                Some(d) => {
+                    let reach = &self.g.reach[&x];
+                    before.retain(|&m| reach.dist.get(&m).is_some_and(|&e| e + 1 == d));
+                }
+                None => before.clear(),
+            }
+        }
+        before.retain(|&m| m != x);
+        before.sort_unstable();
+        before.dedup();
         for m in before {
             let (to, link) = (self.triple([x, SAME, m]), self.triple([m, SAME, y]));
             self.instance(eq.trans, n, vec![to, link]);
