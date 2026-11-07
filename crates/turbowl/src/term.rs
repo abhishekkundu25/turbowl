@@ -413,6 +413,26 @@ impl Dictionary {
         }
     }
 
+    /// The id of the blank node that [`Self::write_blank_label`] writes as
+    /// `written`, if it is interned: the reverse of its rule, so that a
+    /// triple read back from the closure is found again (a document's
+    /// `b_1`, an inserted `b`, an inserted `b_1` written `b_1_0`).
+    pub(crate) fn get_written_blank(&self, written: &str) -> Option<TermId> {
+        if let Some(label) = written.strip_suffix("_0")
+            && looks_like_document_label(label)
+        {
+            return self.get(TAG_BLANK, DocId::NONE.0, label, "");
+        }
+        if looks_like_document_label(written) {
+            let (label, digits) = written.rsplit_once('_')?;
+            if digits.starts_with('0') {
+                return None;
+            }
+            return self.get(TAG_BLANK, digits.parse().ok()?, label, "");
+        }
+        self.get(TAG_BLANK, DocId::NONE.0, written, "")
+    }
+
     /// The owned `oxrdf` term of an id (blank nodes labelled as by
     /// [`Self::write_blank_label`]).
     pub(crate) fn to_oxrdf(&self, id: TermId) -> oxrdf::Term {
@@ -954,6 +974,31 @@ mod tests {
         ] {
             let id = d.intern_blank(DocId::NONE, text);
             assert_eq!(label(&d, id), written, "{text}");
+        }
+    }
+
+    /// Every blank node is found again by the label it is written with.
+    #[test]
+    fn a_written_blank_label_finds_its_node() {
+        let mut d = Dictionary::new();
+        let mut docs = vec![DocId::NONE];
+        for _ in 0..11 {
+            docs.push(d.new_document());
+        }
+        let labels = ["b", "b_1", "b_", "_7", "x_1_0", "1", "b1", "b__2", "a_10"];
+        let mut ids = Vec::new();
+        for &doc in &docs {
+            for label in labels {
+                ids.push(d.intern_blank(doc, label));
+            }
+        }
+        let mut written = String::new();
+        for id in ids {
+            d.write_blank_label(id, &mut written);
+            assert_eq!(d.get_written_blank(&written), Some(id), "{written}");
+        }
+        for unknown in ["c", "b_12", "b_01", "b_1_1_0", "x_0"] {
+            assert_eq!(d.get_written_blank(unknown), None, "{unknown}");
         }
     }
 

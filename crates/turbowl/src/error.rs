@@ -35,6 +35,10 @@ pub enum Error {
         /// does not match its contents".
         message: String,
     },
+    /// The base or the switches changed since the last run, so there is no
+    /// closure to explain until [`Reasoner::reason`](crate::Reasoner::reason)
+    /// runs ([`Reasoner::explainer`](crate::Reasoner::explainer)).
+    NotReasoned,
 }
 
 impl fmt::Display for Error {
@@ -55,6 +59,7 @@ impl fmt::Display for Error {
                 message,
             } => write!(f, "{}{line}:{column}: {message}", at(path)),
             Error::Snapshot { path, message } => write!(f, "{}{message}", at(path)),
+            Error::NotReasoned => write!(f, "the reasoner changed since its last run: reason() first"),
             Error::UnknownFormat { path } => write!(
                 f,
                 "{}: unknown format (use .ttl, .nt, .n3, .rdf or .owl)",

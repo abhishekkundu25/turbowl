@@ -117,7 +117,7 @@ fn message(code: &str, terms: &[Term]) -> String {
 }
 
 /// A term as a message writes it (see [`Diagnostic`]).
-fn name(term: &Term) -> String {
+pub(crate) fn name(term: &Term) -> String {
     match term {
         Term::NamedNode(iri) => short(iri.as_str()),
         Term::Literal(literal) => {

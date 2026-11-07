@@ -120,6 +120,7 @@
 
 use crate::Error;
 use crate::engine::{Canon, Round, Store, Workers};
+use crate::explain::{ExplainCache, Explainer, Proof};
 use crate::profile::{self, Clock, Memory, Parts, Profile, Step};
 use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
@@ -501,6 +502,53 @@ impl Reasoner {
         &self.diagnostics
     }
 
+    /// An explainer over the closure of the last run: it proves a triple
+    /// of the closure ([`Explainer::explain`]) or a diagnostic
+    /// ([`Explainer::explain_diagnostic`]) from the base, with the rules
+    /// the switches leave on. Its indexes are built on its first use; to
+    /// keep them for the next explainer, see [`Reasoner::explainer_with`].
+    /// Nothing is recorded while reasoning runs, so this costs nothing
+    /// until it is called.
+    ///
+    /// # Errors
+    /// [`Error::NotReasoned`] when the base or the switches changed since
+    /// the last run (or there was none): proofs are of the last run's
+    /// closure, and the reads show it apart from the base as it now is.
+    pub fn explainer(&self) -> Result<Explainer<'_>, Error> {
+        self.explainer_with(ExplainCache::default())
+    }
+
+    /// [`Reasoner::explainer`], reusing the indexes `cache` holds
+    /// ([`Explainer::into_cache`]) when they were built on this closure;
+    /// otherwise they are built again.
+    ///
+    /// # Errors
+    /// [`Error::NotReasoned`], as for [`Reasoner::explainer`].
+    pub fn explainer_with(&self, cache: ExplainCache) -> Result<Explainer<'_>, Error> {
+        if self.state != State::Current {
+            return Err(Error::NotReasoned);
+        }
+        Ok(Explainer::new(self, cache))
+    }
+
+    /// The proof of a triple of the last run's closure
+    /// ([`Explainer::explain`]), with an explainer of its own.
+    ///
+    /// # Errors
+    /// [`Error::NotReasoned`], as for [`Reasoner::explainer`].
+    pub fn explain(&self, triple: TripleRef<'_>) -> Result<Option<Proof>, Error> {
+        Ok(self.explainer()?.explain(triple))
+    }
+
+    /// The proof of a diagnostic of the last run
+    /// ([`Explainer::explain_diagnostic`]), with an explainer of its own.
+    ///
+    /// # Errors
+    /// [`Error::NotReasoned`], as for [`Reasoner::explainer`].
+    pub fn explain_diagnostic(&self, diagnostic: &Diagnostic) -> Result<Option<Proof>, Error> {
+        Ok(self.explainer()?.explain_diagnostic(diagnostic))
+    }
+
     /// Writes the closure (or only the inferred triples) as `format`,
     /// sorted by subject so that Turtle groups each subject's triples.
     #[cfg(feature = "io")]
@@ -641,9 +689,18 @@ impl Reasoner {
     }
 
     /// The closure as stored, in representatives.
-    #[cfg(test)]
     pub(crate) fn store(&self) -> &Store {
         &self.closure
+    }
+
+    /// True when `t` is a base triple.
+    pub(crate) fn is_base(&self, t: &[u32; 3]) -> bool {
+        self.base.contains(t)
+    }
+
+    /// The base triples.
+    pub(crate) fn base_len(&self) -> usize {
+        self.base.len()
     }
 
     /// The base, merged, by predicate, and the triples its hash set holds.
@@ -653,7 +710,6 @@ impl Reasoner {
     }
 
     /// The dictionary.
-    #[cfg(test)]
     pub(crate) fn terms(&self) -> &Dictionary {
         &self.terms
     }

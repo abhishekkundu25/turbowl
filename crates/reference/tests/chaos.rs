@@ -30,6 +30,18 @@
 //! budget (CHAOS_ITERATION_BUDGET_MS) is reported the same way by a
 //! watchdog, which then exits the process.
 //!
+//! Each iteration also explains its final state (the full test's run, the
+//! incremental test's last state): up to 32 inferred triples and 32
+//! diagnostics, drawn from a stream of their own (as the configuration is),
+//! each proved with one explainer per state and checked by the reference
+//! rules (`turbowl_reference::check_proof`). A missing or wrong proof fails
+//! the iteration with its replay line. Proofs are checked without
+//! `equality` and `literal-values` (ticket 01 of `docs/tickets/explain/`;
+//! ticket 02 adds them): an iteration with either on explains a one-thread
+//! reasoner of its input with both off; one with both off explains its own
+//! state, and its one-thread and all-cores reasoners must give the same
+//! proofs.
+//!
 //! Inputs whose reference closure would pass `MAX_CLOSURE` triples are
 //! skipped and counted: the reference has no representatives, so a large
 //! `owl:sameAs` clique is beyond it. Every other input is compared, those
@@ -45,7 +57,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use turbowl::{Reasoner, Summary, Switch, Switches, Threads};
-use turbowl_reference::{Diagnostics, Rng, evaluate_within, generate, to_ntriples};
+use turbowl_reference::{Diagnostics, Rng, check_proof, evaluate_within, generate, to_ntriples};
 
 /// The largest reference closure an iteration is compared on.
 const MAX_CLOSURE: usize = 20_000;
@@ -140,10 +152,103 @@ fn parse_switches(names: &str) -> Result<Switches, String> {
     }
 }
 
+/// Mixed into the seed for the explanations' stream, so that drawing what to
+/// explain leaves the inputs, the splits and the configurations as they were.
+const EXPLANATIONS: u64 = 0xE8A1_A1E5_0F5E_ED05;
+
+/// The most inferred triples, and the most diagnostics, a state explains.
+const EXPLAINED: usize = 32;
+
+/// The configuration a state's proofs are checked in: its own, without
+/// `equality` and `literal-values` (ticket 01).
+fn explained_in(switches: Switches) -> Switches {
+    switches.off(Switch::Equality).off(Switch::LiteralValues)
+}
+
+/// Up to `n` of `0..len`, drawn from `rng`, in increasing order.
+fn sample(rng: &mut Rng, len: usize, n: usize) -> Vec<usize> {
+    let mut all: Vec<usize> = (0..len).collect();
+    for k in 0..n.min(len) {
+        let j = k + rng.below(len - k);
+        all.swap(k, j);
+    }
+    all.truncate(n);
+    all.sort_unstable();
+    all
+}
+
+/// Explains up to [`EXPLAINED`] inferred triples and diagnostics of the
+/// final state of `twins`, whose base is `input`, and checks each proof, in
+/// the configuration [`explained_in`] gives: on `twins` when it is theirs
+/// (and the one-thread and the all-cores reasoner must give the same
+/// proofs), or else on a one-thread reasoner of `input` in it. Returns how
+/// many proofs were checked.
+fn explain(input: &[Triple], twins: &Twins, switches: Switches, rng: &mut Rng) -> Result<usize, String> {
+    let explained = explained_in(switches);
+    if explained == switches {
+        return explain_state(input, &twins.one, Some(&twins.all), explained, "", rng);
+    }
+    let mut own = Reasoner::with_switches(explained);
+    own.set_threads(Threads::ONE);
+    own.insert(input.iter().map(Triple::as_ref));
+    reason(&mut own)?;
+    let context = format!(" (in the configuration {})", switches_name(explained));
+    explain_state(input, &own, None, explained, &context, rng)
+}
+
+/// [`explain`] on one state: `one`'s proofs checked, and equal to `all`'s.
+fn explain_state(
+    input: &[Triple],
+    one: &Reasoner,
+    all: Option<&Reasoner>,
+    switches: Switches,
+    context: &str,
+    rng: &mut Rng,
+) -> Result<usize, String> {
+    let base: HashSet<Triple> = input.iter().cloned().collect();
+    let one_explainer = one.explainer().map_err(|e| format!("{e}{context}"))?;
+    let all_explainer = all.map(Reasoner::explainer).transpose().map_err(|e| e.to_string())?;
+    let inferred: Vec<Triple> = one.inferred().collect();
+    let mut checked = 0;
+    for i in sample(rng, inferred.len(), EXPLAINED) {
+        let t = &inferred[i];
+        let Some(proof) = one_explainer.explain(t.as_ref()) else {
+            return Err(format!("no proof of the inferred {t}{context}"));
+        };
+        check_proof(&proof, &base, switches).map_err(|e| format!("the proof of {t}{context}: {e}"))?;
+        if let Some(all) = &all_explainer
+            && all.explain(t.as_ref()).as_ref() != Some(&proof)
+        {
+            return Err(format!("the proof of {t} differs between one thread and all cores"));
+        }
+        checked += 1;
+    }
+    let diagnostics = one.diagnostics();
+    for i in sample(rng, diagnostics.len(), EXPLAINED) {
+        let d = &diagnostics[i];
+        let Some(proof) = one_explainer.explain_diagnostic(d) else {
+            return Err(format!("no proof of the diagnostic {} {:?}{context}", d.code, d.terms));
+        };
+        check_proof(&proof, &base, switches)
+            .map_err(|e| format!("the proof of the diagnostic {} {:?}{context}: {e}", d.code, d.terms))?;
+        if let Some(all) = &all_explainer
+            && all.explain_diagnostic(d).as_ref() != Some(&proof)
+        {
+            return Err(format!(
+                "the proof of {} {:?} differs between one thread and all cores",
+                d.code, d.terms
+            ));
+        }
+        checked += 1;
+    }
+    Ok(checked)
+}
+
 /// What one iteration did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Done {
-    Compared,
+    /// Compared, with this many proofs checked.
+    Compared(usize),
     /// The reference closure would pass `MAX_CLOSURE`.
     TooLarge,
 }
@@ -396,13 +501,13 @@ fn run(
     kind: &'static str,
     default_seed: u64,
     k: usize,
-    check: impl Fn(&[Triple], Switches, &mut Rng) -> Result<Done, String>,
+    check: impl Fn(&[Triple], Switches, &mut Rng, &mut Rng) -> Result<Done, String>,
 ) {
     let seed = env_or("CHAOS_SEED", default_seed);
     let iters = env_or("CHAOS_ITERS", 400usize);
     let mut watchdog = Watchdog::new(kind);
     // Compared iterations by configuration: default, complete or random.
-    let (mut too_large, mut compared) = (0, std::collections::BTreeMap::<String, usize>::new());
+    let (mut too_large, mut proofs, mut compared) = (0, 0, std::collections::BTreeMap::<String, usize>::new());
     for i in iterations(iters, k) {
         let (input, mut rng) = input_of(seed, i);
         let switches = configuration_of(seed, i);
@@ -413,8 +518,12 @@ fn run(
             switches,
         };
         watchdog.start(at, &input);
-        match catch_unwind(AssertUnwindSafe(|| check(&input, switches, &mut rng))) {
-            Ok(Ok(Done::Compared)) => {
+        let mut explanations = Rng::at(seed ^ EXPLANATIONS, i);
+        match catch_unwind(AssertUnwindSafe(|| {
+            check(&input, switches, &mut rng, &mut explanations)
+        })) {
+            Ok(Ok(Done::Compared(checked))) => {
+                proofs += checked;
                 let name = switches_name(switches);
                 let label = match name.as_str() {
                     "default" | "complete" => name,
@@ -432,12 +541,12 @@ fn run(
     }
     let total: usize = compared.values().sum();
     say(&format!(
-        "{kind} shard {k}: {total} compared ({compared:?}); not compared: {too_large} too large for the reference"
+        "{kind} shard {k}: {total} compared ({compared:?}), {proofs} proofs checked; not compared: {too_large} too large for the reference"
     ));
 }
 
-/// One full run equals the reference.
-fn full(input: &[Triple], switches: Switches, _rng: &mut Rng) -> Result<Done, String> {
+/// One full run equals the reference, and its proofs are valid.
+fn full(input: &[Triple], switches: Switches, _rng: &mut Rng, explanations: &mut Rng) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let Some(expected) = reference(&base, switches) else {
         return Ok(Done::TooLarge);
@@ -448,12 +557,14 @@ fn full(input: &[Triple], switches: Switches, _rng: &mut Rng) -> Result<Done, St
     if let Some(diff) = difference(&expected, &core_state(&twins.one)) {
         return Err(format!("one full run:\n{diff}"));
     }
-    Ok(Done::Compared)
+    let proofs = explain(input, &twins, switches, explanations)?;
+    Ok(Done::Compared(proofs))
 }
 
 /// Batches of insertions, then a removal, then the removed triples put
-/// back, each followed by `reason()`, equal a full evaluation of the base.
-fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng) -> Result<Done, String> {
+/// back, each followed by `reason()`, equal a full evaluation of the base;
+/// the last state's proofs are valid.
+fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng, explanations: &mut Rng) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let batches = 1 + rng.below(4);
     let mut split: Vec<Vec<&Triple>> = vec![Vec::new(); batches];
@@ -486,7 +597,8 @@ fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng) -> Result<Do
     if let Some(diff) = difference(&whole, &core_state(&twins.one)) {
         return Err(format!("after putting the removed triples back:\n{diff}"));
     }
-    Ok(Done::Compared)
+    let proofs = explain(input, &twins, switches, explanations)?;
+    Ok(Done::Compared(proofs))
 }
 
 const FULL_SEED: u64 = 0x5EED_0005;

@@ -23,6 +23,11 @@
 //! [`generate`] draws a small ontology and its data from a seed; its shapes
 //! are split by group too, under `src/generate/`.
 //!
+//! [`check_proof`] judges a `turbowl::Proof` by these rules: each rule step
+//! must follow from its premises alone in one round of its rule's family,
+//! each leaf must be a base triple, and the steps must be acyclic. It shares
+//! no code with the core's explainer.
+//!
 //! ```
 //! use std::collections::HashSet;
 //! use turbowl::{Switch, Switches};
@@ -37,12 +42,14 @@
 mod datatype;
 mod evaluate;
 mod generate;
+mod proof;
 mod rules;
 mod vocab;
 
 pub use datatype::DataValue;
 pub use evaluate::{Diagnostics, Evaluation, evaluate, evaluate_counted, evaluate_within};
 pub use generate::{Rng, generate};
+pub use proof::check_proof;
 pub use rules::{diagnostic_rules, rules};
 
 use oxrdf::Triple;

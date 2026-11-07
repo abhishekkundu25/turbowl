@@ -104,6 +104,57 @@
 //!
 //! The format, and what loading checks, are documented in `src/snapshot.rs`.
 //!
+//! # Explanations
+//!
+//! [`Reasoner::explainer`] gives an [`Explainer`] over the closure of the
+//! last run. [`Explainer::explain`] proves a triple of the closure and
+//! [`Explainer::explain_diagnostic`] a diagnostic, as a [`Proof`]: a DAG of
+//! [`Step`]s in topological order, each a [`Statement`] (three terms: a
+//! generalized triple, since a proof may pass through a literal subject)
+//! with its [`Reason`], [`Reason::Base`] or a W3C rule over earlier steps
+//! (an axiom rule such as cls-thing has none). Only the goal can be a
+//! diagnostic ([`Proof::goal`], [`Goal`]). [`Proof::leaves`] gives the base
+//! triples, [`Proof::depth`] the most rule steps to a leaf, and `Display`
+//! an indented tree. A triple outside the closure, or a diagnostic not
+//! reported, has no proof (`None`).
+//!
+//! ```
+//! use oxrdf::{NamedNode, Triple, vocab::rdf};
+//! use turbowl::{Format, Reason, Reasoner, Switch, Switches};
+//! let mut r = Reasoner::with_switches(Switches::default().off(Switch::Equality));
+//! r.load_str("@prefix ex: <http://example.org/> .
+//!             @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+//!             ex:Dog rdfs:subClassOf ex:Animal . ex:rex a ex:Dog .", Format::Turtle, None).unwrap();
+//! r.reason();
+//! let ex = |l: &str| NamedNode::new_unchecked(format!("http://example.org/{l}"));
+//! let proof = r.explain(Triple::new(ex("rex"), rdf::TYPE, ex("Animal")).as_ref()).unwrap().unwrap();
+//! assert!(matches!(proof.reason(), Reason::Rule { rule: "cax-sco", .. }));
+//! assert_eq!(proof.leaves().count(), 2);
+//! ```
+//!
+//! A proof is computed on demand: the explainer runs the declarative rule
+//! program (`oracles/rules/`, which every oracle holds equal to TurbOWL's
+//! rules) backwards over the closure, with the rules the switches leave
+//! on, and keeps the shallowest proof. Nothing is recorded while reasoning
+//! runs, so reasoning costs what it did. Not yet explained: a closure in
+//! which `owl:sameAs` made two terms one, and dt-eq's triples (switch
+//! `literal-values`); the explainer gives them `None` for now.
+//!
+//! The interface gained these for the adapters, the CLI's `--explain` and
+//! Python's `Reasoner.explain`, and for the proof checks of the oracle and
+//! reference crates:
+//!
+//! - [`Reasoner::explainer`] and [`Explainer`], with
+//!   [`Reasoner::explain`] and [`Reasoner::explain_diagnostic`] as one-call
+//!   forms.
+//! - [`ExplainCache`]: the explainer's indexes and what its searches
+//!   found, owned and `Send + Sync`, which [`Reasoner::explainer_with`]
+//!   reuses and [`Explainer::into_cache`] gives back, so that an editor or
+//!   Python pays for them once while the reasoner does not change.
+//! - [`Proof`], [`Step`], [`Statement`], [`Reason`] and [`Goal`].
+//! - [`Error::NotReasoned`]: there is no closure to explain while the base
+//!   or the switches changed since the last run.
+//!
 //! # Counters
 //!
 //! [`Reasoner::profile`] tells what the last run did and what the reasoner
@@ -128,6 +179,7 @@
 mod diagnostics;
 mod engine;
 mod error;
+mod explain;
 #[cfg(feature = "io")]
 mod io;
 pub mod profile;
@@ -142,6 +194,7 @@ mod threads;
 
 pub use diagnostics::{Diagnostic, Severity};
 pub use error::Error;
+pub use explain::{ExplainCache, Explainer, Goal, Proof, Reason, Statement, Step};
 pub use reasoner::{Format, Reasoner, Summary};
 pub use switch::{Switch, Switches};
 pub use threads::Threads;

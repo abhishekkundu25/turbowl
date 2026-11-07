@@ -1,0 +1,25 @@
+% What the rule program (oracles/rules/) leaves to the oracle crate or leaves
+% out, for the explainer only, in the same syntax. The relations
+% ruleLiteral, typesOf, illTyped and outsideValueSpace are tests on terms
+% that TurbOWL's datatype code answers (src/rules/datatype/map.rs); they
+% have no proof of their own.
+%
+% literalType, which trivial.rls imports for dt-type2: a literal with a
+% value, typed with each datatype whose value space holds it, once a
+% closure triple names it as a subject or an object (as the reference
+% evaluator and the core read the literals of a closure), or when the rules
+% name it (the cardinalities "0" and "1").
+literalNamed(?x) :- T(?x, ?p, ?o) .
+literalNamed(?x) :- T(?s, ?p, ?x) .
+literalNamed(?x) :- ruleLiteral(?x) .
+literalType(?lt, rdf:type, ?dt) :- literalNamed(?lt), typesOf(?lt, ?dt) .
+
+% dt-not-type, which checks.rls leaves out: a literal ill-typed for its own
+% datatype, named by a closure triple in any position, or a literal typed
+% with a checked datatype whose value space does not hold it.
+termNamed(?x) :- literalNamed(?x) .
+termNamed(?x) :- T(?s, ?x, ?o) .
+dtNotType(?lt, ?dt) :- termNamed(?lt), illTyped(?lt, ?dt) .                       % dt-not-type
+dtNotType(?lt, ?dt) :- T(?lt, rdf:type, ?dt), outsideValueSpace(?lt, ?dt) .       % dt-not-type
+
+@export dtNotType :- csv{resource="dt-not-type.csv"} .

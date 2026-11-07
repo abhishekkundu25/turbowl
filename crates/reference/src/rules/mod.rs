@@ -79,6 +79,12 @@ pub fn rules(switches: Switches) -> Vec<&'static str> {
     on(switches).flat_map(|f| f.rules.iter().copied()).collect()
 }
 
+/// The families `switches` leave on that hold the deriving or diagnostic
+/// rule `rule` (the proof checker runs them, `crate::proof`).
+pub(crate) fn families_of(rule: &str, switches: Switches) -> impl Iterator<Item = &'static Family> + '_ {
+    on(switches).filter(move |f| f.rules.contains(&rule) || f.diagnostic_rules.contains(&rule))
+}
+
 /// The diagnostic rules `switches` leave on, run once over the closure at
 /// the fixpoint. Each name is also the code of what it finds.
 pub fn diagnostic_rules(switches: Switches) -> Vec<&'static str> {

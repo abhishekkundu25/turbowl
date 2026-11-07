@@ -119,6 +119,7 @@ pub fn evaluate_within(triples: &HashSet<Triple>, switches: Switches, max_closur
             fresh: HashMap::new(),
             room,
             overflow: false,
+            log: None,
         };
         for family in on(switches) {
             (family.derive)(&view, &mut round);
@@ -194,7 +195,7 @@ const NONE: &[Term] = &[];
 const NO_PAIRS: &[(Term, Term)] = &[];
 
 impl View {
-    fn new(closure: &HashSet<Fact>) -> View {
+    pub(crate) fn new(closure: &HashSet<Fact>) -> View {
         let mut view = View {
             by_p: HashMap::new(),
             by_s: HashMap::new(),
@@ -430,12 +431,35 @@ pub(crate) struct Round<'a> {
     /// How many fresh triples fit under the limit.
     pub(crate) room: usize,
     pub(crate) overflow: bool,
+    /// Every (triple, rule) a rule derives, known or not, when kept (the
+    /// proof checker's round, `crate::proof`).
+    log: Option<HashSet<(Fact, &'static str)>>,
 }
 
-impl Round<'_> {
+impl<'a> Round<'a> {
+    /// A round over `closure` that keeps every (triple, rule) its rules
+    /// derive, not only the first rule of each new triple.
+    pub(crate) fn logged(closure: &'a HashSet<Fact>) -> Self {
+        Round {
+            closure,
+            fresh: HashMap::new(),
+            room: usize::MAX,
+            overflow: false,
+            log: Some(HashSet::new()),
+        }
+    }
+
+    /// The (triple, rule) pairs a [`Round::logged`] round derived.
+    pub(crate) fn into_log(self) -> HashSet<(Fact, &'static str)> {
+        self.log.unwrap_or_default()
+    }
+
     /// Adds `s p o` unless it is already known. It need not be RDF.
     pub(crate) fn derive(&mut self, rule: &'static str, s: &Term, p: &Term, o: &Term) {
         let triple = (s.clone(), p.clone(), o.clone());
+        if let Some(log) = &mut self.log {
+            log.insert((triple.clone(), rule));
+        }
         if self.overflow || self.closure.contains(&triple) || self.fresh.contains_key(&triple) {
             return;
         }
