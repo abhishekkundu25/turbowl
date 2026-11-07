@@ -2,7 +2,8 @@
 //! the W3C rules that Nemo, Soufflé and VLog run (and that every oracle
 //! holds equal to TurbOWL's), read with `include_str!` and parsed here,
 //! plus `literals.rls`, what that program leaves to the oracle crate
-//! (`literalType`) or leaves out (dt-not-type).
+//! (`literalType`, `literalValue`) or leaves out (dt-not-type), and
+//! `values.rls`, dt-diff in the one shape a proof gives it.
 //!
 //! The parser reads the part of Nemo's syntax the files use: `%` comments,
 //! `@prefix`, `@import`, `@export`, facts and rules of atoms over variables
@@ -20,6 +21,16 @@
 //!   `T(?s, ?p, ?o) :- input(?s, ?p, ?o)`: a base triple is a leaf of every
 //!   proof.
 //!
+//! One more, for dt-diff's proof shape (`docs/specs/explanations.md`): the
+//! oracle files' dt-diff rule, which concludes eq-diff1 from the values of
+//! two terms made the same (`valueOf`, carried through `owl:sameAs`), is
+//! dropped with the `valueOf` rules. `values.rls` states dt-diff as the
+//! reference evaluator does: a generalized triple `lt1 unlisted lt2` between
+//! two literals of different values, whose predicate
+//! ([`UNLISTED`](super::UNLISTED)) is the reference's unlisted
+//! `owl:differentFrom`, carried by eq-rep-s and eq-rep-o like any triple,
+//! and read by eq-diff1 as `owl:differentFrom` is.
+//!
 //! The literals the oracle names as IRIs (`turbowl_oracle::NAMED_LITERALS`)
 //! are read back as the literals they stand for.
 
@@ -29,7 +40,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 /// The files, each with its group (`None`: always on).
-const FILES: [(&str, Option<Switch>, &str); 9] = [
+const FILES: [(&str, Option<Switch>, &str); 10] = [
     ("core.rls", None, include_str!("../../../../oracles/rules/core.rls")),
     (
         "equality.rls",
@@ -67,7 +78,16 @@ const FILES: [(&str, Option<Switch>, &str); 9] = [
         include_str!("../../../../oracles/rules/literal-values.rls"),
     ),
     ("literals.rls", None, include_str!("literals.rls")),
+    ("values.rls", Some(Switch::LiteralValues), include_str!("values.rls")),
 ];
+
+/// The IRI `values.rls` writes for dt-diff's unlisted predicate, read as
+/// [`UNLISTED`].
+const UNLISTED_IRI: &str = "urn:x-turbowl-explain:unlisted";
+
+/// The id of dt-diff's unlisted predicate, which no term of the
+/// dictionary has (see the module doc).
+pub(crate) const UNLISTED: u32 = u32::MAX - 1;
 
 /// The literals `crates/oracle` names as IRIs, so that the files can write
 /// them: (IRI, lexical form, datatype).
@@ -105,13 +125,17 @@ pub(crate) enum Builtin {
     /// `outsideValueSpace(lt, dt)`: `dt` is a checked datatype whose value
     /// space does not hold `lt`.
     OutsideValueSpace,
+    /// `valueId(lt, v)`: `lt` has a value, and `v` names it: two literals
+    /// have one `v` when they have one value.
+    ValueId,
 }
 
-const BUILTINS: [(&str, Builtin, usize); 4] = [
+const BUILTINS: [(&str, Builtin, usize); 5] = [
     ("ruleLiteral", Builtin::RuleLiteral, 1),
     ("typesOf", Builtin::TypesOf, 2),
     ("illTyped", Builtin::IllTyped, 2),
     ("outsideValueSpace", Builtin::OutsideValueSpace, 2),
+    ("valueId", Builtin::ValueId, 2),
 ];
 
 /// What a relation is.
@@ -139,6 +163,8 @@ enum Written {
     Iri(String),
     /// A literal the oracle names as an IRI: lexical form, datatype.
     Literal(&'static str, &'static str),
+    /// dt-diff's unlisted predicate ([`UNLISTED`]).
+    Unlisted,
 }
 
 #[derive(Debug, Clone)]
@@ -220,6 +246,20 @@ pub(crate) struct Compiled {
     /// The rules of each relation's head, by relation id.
     pub(crate) by_head: Vec<Vec<usize>>,
     pub(crate) findings: Vec<(&'static str, RelId)>,
+    /// The eq-* rules of `T`, when `equality` is on.
+    pub(crate) eq: Option<EqRules>,
+    /// By rule: one of [`Compiled::eq`]'s, which the search replaces by
+    /// steps through the canon unless it falls back to them.
+    pub(crate) is_eq: Vec<bool>,
+}
+
+/// The indices of the eq-* rules that conclude `T`.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct EqRules {
+    pub(crate) sym: usize,
+    pub(crate) trans: usize,
+    /// eq-rep-s, eq-rep-p, eq-rep-o: by the position they rewrite.
+    pub(crate) rep: [usize; 3],
 }
 
 impl Program {
@@ -234,6 +274,7 @@ impl Program {
                         oxrdf::LiteralRef::new_typed_literal(lexical, oxrdf::NamedNodeRef::new_unchecked(datatype));
                     Arg::Id(terms.get_term(literal.into(), DocId::NONE).map_or(NONE, |t| t.0))
                 }
+                Written::Unlisted => Arg::Id(UNLISTED),
             }
         };
         let atom = |a: &WrittenAtom| Atom {
@@ -262,11 +303,29 @@ impl Program {
         for (i, r) in rules.iter().enumerate() {
             by_head[r.head.rel as usize].push(i);
         }
+        let named = |name: &str| {
+            by_head[T as usize]
+                .iter()
+                .copied()
+                .find(|&i| rules[i].name == Some(name))
+        };
+        let eq = (|| {
+            Some(EqRules {
+                sym: named("eq-sym")?,
+                trans: named("eq-trans")?,
+                rep: [named("eq-rep-s")?, named("eq-rep-p")?, named("eq-rep-o")?],
+            })
+        })();
+        let is_eq = (0..rules.len())
+            .map(|i| eq.is_some_and(|e| i == e.sym || i == e.trans || e.rep.contains(&i)))
+            .collect();
         Compiled {
             relations: &self.relations,
             rules,
             by_head,
             findings: self.findings.iter().map(|(code, rel)| (code.as_str(), *rel)).collect(),
+            eq,
+            is_eq,
         }
     }
 
@@ -284,6 +343,7 @@ impl Program {
             Written::Var(v) => format!("?{v}"),
             Written::Iri(i) => format!("<{i}>"),
             Written::Literal(l, d) => format!("\"{l}\"^^<{d}>"),
+            Written::Unlisted => format!("<{UNLISTED_IRI}>"),
         };
         let atom = |a: &WrittenAtom| {
             let args: Vec<String> = a.args.iter().map(term).collect();
@@ -436,6 +496,9 @@ impl Parser {
             }
             other => return Err(format!("{other:?} is not a term")),
         };
+        if iri == UNLISTED_IRI {
+            return Ok(Written::Unlisted);
+        }
         Ok(match NAMED_LITERALS.iter().find(|(named, _, _)| *named == iri) {
             Some(&(_, lexical, datatype)) => Written::Literal(lexical, datatype),
             None => Written::Iri(iri),
@@ -452,7 +515,18 @@ fn parse(files: &[(&'static str, Option<Switch>, &'static str)]) -> Result<Progr
     };
     p.relation("T", 3)?;
     for &(file, group, text) in files {
+        let from = p.rules.len();
         parse_file(&mut p, group, text).map_err(|e| format!("{file}: {e}"))?;
+        // dt-diff as the oracle files write it, and the `valueOf` it reads
+        // (see the module doc): `values.rls` states it as a proof shows it.
+        if file != "values.rls" {
+            let value_of = p.relations.iter().position(|r| r.name == "valueOf").map(|i| i as RelId);
+            let mut k = 0;
+            p.rules.retain(|r| {
+                k += 1;
+                k <= from || (r.name != Some("dt-diff") && Some(r.head.rel) != value_of)
+            });
+        }
     }
     // The rewrites: Tp to T, and the rules that only steer Nemo's joins (or
     // read the base) dropped.

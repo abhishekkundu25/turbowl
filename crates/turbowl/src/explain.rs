@@ -16,18 +16,37 @@
 //! partial paths) is folded into the step that reads it, so each step's
 //! premises are triples.
 //!
-//! The explainer's indexes (the closure sorted three ways, the program with
-//! its constants as term ids) are built on first use, and the rule
-//! instances its searches find are kept, so each fact is explained once.
-//! Both live in an [`ExplainCache`], which the caller may keep between
-//! explainers while the reasoner does not change.
+//! The explainer reads the reasoner's own store, in the terms the user
+//! wrote: no copy of the closure is made. What the store cannot answer (a
+//! predicate's triples by object where it keeps none, eq-ref's triples)
+//! is built on first use, as is the program with its constants as term ids,
+//! and the rule instances its searches find are kept, so each fact is
+//! explained once. All of it lives in an [`ExplainCache`], which the
+//! caller may keep between explainers while the reasoner does not change.
 //!
-//! # Limits
+//! # Equality and literal values
 //!
-//! Ticket 01 of `docs/tickets/explain/`: a closure in which `owl:sameAs`
-//! made two terms one (the canon has a class) gets no proofs yet, and
-//! neither do the triples of `literal-values` (dt-eq): ticket 02 adds them.
+//! A triple about terms `owl:sameAs` made equal is proved in the user's
+//! terms with the eq-* rules: eq-rep-s, eq-rep-p and eq-rep-o from a triple
+//! as stated, and each `owl:sameAs` needed as the shortest chain of eq-sym
+//! and eq-trans over the class's links (`explain/search.rs`). dt-eq cites a
+//! closure triple that names each literal; dt-diff, which the closure never
+//! lists, is a generalized step whose predicate is the reference
+//! evaluator's unlisted `owl:differentFrom` ([`UNLISTED_LEXICAL`] typed
+//! [`UNLISTED_DATATYPE`]), carried by eq-rep-s and eq-rep-o to the terms
+//! equal to its literals, where eq-diff1 reads it.
+//!
+//! # A cache that outlives its closure
+//!
+//! A cache is matched to its reasoner by the switches and a fingerprint of
+//! its state (the counts of terms, base triples, stored triples and
+//! diagnostics, each predicate's triples, the rounds run and the merges
+//! made), and every proof's steps are checked against the reasoner before
+//! it is returned: each base step is a base triple, each other a triple of
+//! the closure. A proof that fails starts the cache over, and the search
+//! runs again.
 
+mod closure;
 mod program;
 mod search;
 #[cfg(all(test, feature = "io"))]
@@ -35,12 +54,12 @@ mod tests;
 
 use crate::reasoner::Reasoner;
 use crate::rules::datatype;
-use crate::switch::Switch;
-use crate::term::{Dictionary, DocId, TermId, vocab};
+use crate::term::{Dictionary, DocId, TermId};
 use crate::{Diagnostic, Switches};
-use oxrdf::{Term, TermRef, TripleRef};
-use program::{Compiled, MAX_ARITY, T};
-use search::{Built, Facts, Graph, Search, World};
+use closure::{Closure, Indexes};
+use oxrdf::{Literal, NamedNode, Term, TermRef, TripleRef};
+use program::{Compiled, MAX_ARITY, T, UNLISTED};
+use search::{Built, Graph, Search, World};
 use std::fmt;
 use std::sync::{Mutex, OnceLock};
 
@@ -202,7 +221,9 @@ impl Proof {
 /// A cache belongs to the closure it was built on. Keep it only while the
 /// reasoner does not change; an explainer given a cache made for another
 /// state (another configuration, or another count of terms, base triples,
-/// stored triples or diagnostics) starts it over.
+/// stored triples or diagnostics, or other tables, rounds or merges)
+/// starts it over, and a proof whose steps the reasoner does not hold is
+/// never returned from it: the search runs again on a fresh one.
 #[derive(Default)]
 pub struct ExplainCache {
     key: Option<Key>,
@@ -216,10 +237,21 @@ impl fmt::Debug for ExplainCache {
         let (nodes, instances) = self.graph.lock().map_or((0, 0), |g| g.len());
         f.debug_struct("ExplainCache")
             .field("built", &self.parts.get().is_some())
-            .field("bytes", &self.parts.get().map_or(0, |p| p.facts.bytes()))
+            .field("bytes", &self.bytes())
             .field("nodes", &nodes)
             .field("instances", &instances)
             .finish()
+    }
+}
+
+impl ExplainCache {
+    /// The bytes the cache holds: its indexes, the compiled program and the
+    /// searches' graph (an estimate from each vector's room and each map's
+    /// table; `profile::explain_cache_bytes` gives it to the bench).
+    pub(crate) fn bytes(&self) -> usize {
+        let parts = self.parts.get().map_or(0, Parts::bytes);
+        let graph = self.graph.lock().map_or(0, |g| g.bytes());
+        parts + graph
     }
 }
 
@@ -237,16 +269,27 @@ struct Key {
     base: usize,
     stored: usize,
     diagnostics: usize,
+    /// Each predicate's triples, the rounds run and the merges made,
+    /// hashed.
+    fingerprint: u64,
 }
 
 impl Key {
     fn of(r: &Reasoner) -> Self {
+        use std::hash::{Hash, Hasher};
+        let store = r.store();
+        let mut h = rustc_hash::FxHasher::default();
+        for (p, table) in store.tables() {
+            (p, table.by_subject().len()).hash(&mut h);
+        }
+        (store.rounds(), store.canon().merges()).hash(&mut h);
         Self {
             switches: r.switches(),
             terms: r.terms().len(),
             base: r.base_len(),
-            stored: r.store().len(),
+            stored: store.len(),
             diagnostics: r.diagnostics().len(),
+            fingerprint: h.finish(),
         }
     }
 }
@@ -254,7 +297,7 @@ impl Key {
 /// The indexes, built on first use.
 #[derive(Debug)]
 struct Parts {
-    facts: Facts,
+    indexes: Indexes,
     program: Compiled,
     rule_literals: Vec<u32>,
 }
@@ -262,25 +305,35 @@ struct Parts {
 impl Parts {
     fn new(r: &Reasoner) -> Self {
         let terms = r.terms();
-        let mut triples: Vec<[u32; 3]> = r.store().triples().map(|(s, p, o)| [s, p, o]).collect();
-        // eq-ref (switch `trivial`) for every term of the closure, literals
-        // included, as the program has it: the reads add it, and the store
-        // holds it only where a rule could read it (`rules/trivial.rs`).
-        if r.switches().is_on(Switch::Trivial) && !triples.is_empty() {
-            let same = vocab::OWL_SAME_AS.0;
-            let mut all: Vec<u32> = triples.iter().flatten().copied().collect();
-            all.push(same);
-            all.sort_unstable();
-            all.dedup();
-            triples.extend(all.into_iter().map(|t| [t, same, t]));
-        }
         Self {
-            facts: Facts::new(triples),
+            indexes: Indexes::new(r),
             program: program::program().compile(r.switches(), terms),
             rule_literals: datatype::rule_literals(terms).collect(),
         }
     }
+
+    fn bytes(&self) -> usize {
+        use crate::profile::vec_bytes;
+        let program = vec_bytes(&self.program.rules)
+            + self
+                .program
+                .rules
+                .iter()
+                .map(|r| vec_bytes(&r.body) + vec_bytes(&r.head.args))
+                .sum::<usize>()
+            + vec_bytes(&self.program.by_head)
+            + vec_bytes(&self.program.is_eq);
+        self.indexes.bytes() + program + vec_bytes(&self.rule_literals)
+    }
 }
+
+/// The lexical form of dt-diff's unlisted predicate in a proof: the
+/// reference evaluator's (`crates/reference/src/vocab.rs`), a literal, so
+/// that a step with it is a generalized triple RDF cannot write.
+pub(crate) const UNLISTED_LEXICAL: &str = "owl:differentFrom";
+
+/// The datatype of dt-diff's unlisted predicate ([`UNLISTED_LEXICAL`]).
+pub(crate) const UNLISTED_DATATYPE: &str = "urn:x-turbowl-reference:unlisted";
 
 /// Explains triples and diagnostics of a reasoner's last run
 /// ([`Reasoner::explainer`]). It borrows the reasoner, so the closure
@@ -318,19 +371,14 @@ impl<'r> Explainer<'r> {
         self.cache.parts.get_or_init(|| Parts::new(self.reasoner))
     }
 
-    /// True when the closure is one the search reads as it is (ticket 01:
-    /// no two terms made one by `owl:sameAs`).
-    fn readable(&self) -> bool {
-        self.reasoner.store().canon().is_empty()
+    fn closure<'a>(&'a self, parts: &'a Parts) -> Closure<'a> {
+        Closure::new(self.reasoner, &parts.indexes)
     }
 
     /// The proof of a triple of the closure: base, or derived by the rules
     /// the switches leave on. `None` when the triple is not in the closure.
     /// Blank nodes are named as the reads write them ([`Reasoner::triples`]).
     pub fn explain(&self, triple: TripleRef<'_>) -> Option<Proof> {
-        if !self.readable() {
-            return None;
-        }
         let terms = self.reasoner.terms();
         let t = [
             id_of(terms, triple.subject.into())?,
@@ -338,7 +386,7 @@ impl<'r> Explainer<'r> {
             id_of(terms, triple.object)?,
         ];
         let parts = self.parts();
-        if !parts.facts.contains(t) {
+        if !self.closure(parts).contains(t) {
             return None;
         }
         let built = self.prove(parts, T, [t[0], t[1], t[2], 0])?;
@@ -348,7 +396,7 @@ impl<'r> Explainer<'r> {
     /// The proof of a diagnostic of the last run: the rule that reports it
     /// and the proofs of its premises. `None` when it is not reported.
     pub fn explain_diagnostic(&self, diagnostic: &Diagnostic) -> Option<Proof> {
-        if !self.readable() || !self.reasoner.diagnostics().contains(diagnostic) {
+        if !self.reasoner.diagnostics().contains(diagnostic) {
             return None;
         }
         let terms = self.reasoner.terms();
@@ -369,8 +417,12 @@ impl<'r> Explainer<'r> {
         Some(self.proof(built, Some(diagnostic)))
     }
 
-    /// The search for one goal, over the graph earlier goals left. A search
-    /// that panicked leaves a graph that may lack instances: it is dropped.
+    /// The search for one goal, over the graph earlier goals left, and its
+    /// proof checked against the reasoner ([`Explainer::holds`]): a graph
+    /// that gives a proof the closure does not hold (a cache from another
+    /// state that matched its key) is dropped, and the search runs again
+    /// on a fresh one. A search that panicked leaves a graph that may lack
+    /// instances: it is dropped too.
     fn prove(&self, parts: &Parts, rel: program::RelId, tuple: [u32; MAX_ARITY]) -> Option<Built> {
         let mut graph = self.cache.graph.lock().unwrap_or_else(|poisoned| {
             let mut g = poisoned.into_inner();
@@ -379,17 +431,44 @@ impl<'r> Explainer<'r> {
         });
         let world = World {
             program: &parts.program,
-            facts: &parts.facts,
-            reasoner: self.reasoner,
+            closure: self.closure(parts),
             rule_literals: &parts.rule_literals,
         };
-        Search::new(world, &mut graph).prove(rel, tuple)
+        let built = Search::new(world, &mut graph).prove(rel, tuple);
+        if built.as_ref().is_none_or(|b| self.holds(parts, b)) {
+            return built;
+        }
+        *graph = Graph::default();
+        Search::new(world, &mut graph)
+            .prove(rel, tuple)
+            .filter(|b| self.holds(parts, b))
+    }
+
+    /// True when every step of `built` holds of the reasoner: a base step
+    /// is a base triple, any other a triple of the closure (dt-diff's
+    /// unlisted ones between terms equal to literals of different values).
+    fn holds(&self, parts: &Parts, built: &Built) -> bool {
+        let closure = self.closure(parts);
+        built.steps.iter().all(|s| {
+            let t = s.triple;
+            match s.rule {
+                None => self.reasoner.is_base(&t),
+                Some(_) if t[1] == UNLISTED => closure.unlisted(t[0], t[2]),
+                Some(_) => closure.contains(t),
+            }
+        })
     }
 
     /// The public form of a proof in term ids.
     fn proof(&self, built: Built, diagnostic: Option<&Diagnostic>) -> Proof {
         let terms = self.reasoner.terms();
-        let term = |id: u32| terms.to_oxrdf(TermId(id));
+        let term = |id: u32| match id {
+            UNLISTED => Term::from(Literal::new_typed_literal(
+                UNLISTED_LEXICAL,
+                NamedNode::new_unchecked(UNLISTED_DATATYPE),
+            )),
+            id => terms.to_oxrdf(TermId(id)),
+        };
         let steps = built
             .steps
             .into_iter()

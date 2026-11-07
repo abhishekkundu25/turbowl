@@ -11,13 +11,12 @@ use turbowl_oracle::cases;
 use turbowl_reference::check_proof;
 
 /// The configurations proofs are checked in.
-fn configurations() -> [(&'static str, Switches); 2] {
+fn configurations() -> [(&'static str, Switches); 4] {
     [
+        ("default", Switches::default()),
+        ("complete", Switches::complete()),
         ("default without equality", Switches::default().off(Switch::Equality)),
-        (
-            "complete without equality and literal values",
-            Switches::complete().off(Switch::Equality).off(Switch::LiteralValues),
-        ),
+        ("complete without equality", Switches::complete().off(Switch::Equality)),
     ]
 }
 

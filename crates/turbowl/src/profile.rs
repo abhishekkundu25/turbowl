@@ -207,6 +207,15 @@ impl Clock {
     }
 }
 
+/// The bytes an explainer's cache holds now: its lazy indexes, the
+/// compiled rule program and the instances its searches found (an
+/// estimate from each vector's room and each map's table). For the bench's
+/// `--explain`, which cannot tell them apart from reasoning in the
+/// process's peak.
+pub fn explain_cache_bytes(cache: &crate::ExplainCache) -> usize {
+    cache.bytes()
+}
+
 /// The bytes a vector of `T` holds: its capacity.
 pub(crate) fn vec_bytes<T>(v: &Vec<T>) -> usize {
     v.capacity() * size_of::<T>()

@@ -16,6 +16,7 @@ mod compare;
 mod convert;
 mod datasets;
 mod engine;
+mod explain;
 mod lubm;
 mod machine;
 mod nemo;
@@ -88,6 +89,11 @@ usage: turbowl-bench [options]
   --compare OLD NEW   print per-scenario deltas between two results files
   --scoreboard FILE...  print each engine's value and the leader per scenario
                       and axis, and the estimates from published results
+  --explain           explanation latency instead: per scenario, a seeded
+                      1,000 inferred triples and up to 1,000 diagnostics
+                      explained with one explainer (median, 99th percentile
+                      and max warm, the cold first use, the cache's bytes);
+                      takes --only, --complete, --switch, --threads, --json
 
 Run on a quiet machine: load average under 1, nothing building or testing.";
 
@@ -110,6 +116,8 @@ struct Args {
     json: Option<PathBuf>,
     compare: Option<(PathBuf, PathBuf)>,
     scoreboard: Option<Vec<PathBuf>>,
+    /// Explanation latency instead of the runs (`explain.rs`).
+    explain: bool,
 }
 
 fn parse_args(argv: &[String]) -> Result<Args, String> {
@@ -127,6 +135,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
         json: None,
         compare: None,
         scoreboard: None,
+        explain: false,
     };
     let (mut complete, mut settings) = (false, Vec::new());
     let mut it = argv.iter().peekable();
@@ -148,6 +157,7 @@ fn parse_args(argv: &[String]) -> Result<Args, String> {
                     .collect::<Result<_, _>>()?
             }
             "--complete" => complete = true,
+            "--explain" => a.explain = true,
             "--switch" => settings.push(switch_setting(&value()?)?),
             "--threads" => {
                 let v = value()?;
@@ -261,7 +271,76 @@ fn main() -> ExitCode {
     if let Some(files) = &args.scoreboard {
         return report::run(files);
     }
+    if args.explain {
+        return run_explain(&args);
+    }
     run(&args)
+}
+
+/// `--explain`: each chosen scenario's explanation latency (`explain.rs`),
+/// in this process, one scenario after another.
+fn run_explain(args: &Args) -> ExitCode {
+    let root = repo_root();
+    let data = args.data_dir.clone().unwrap_or_else(|| root.join("data"));
+    let generated = root.join("target/bench-data");
+    if cfg!(debug_assertions) {
+        eprintln!("warning: a debug build; the numbers mean nothing (use --release)");
+    }
+    let chosen: Vec<&'static Scenario> = scenario::all()
+        .filter(|s| match &args.only {
+            Some(only) => only.iter().any(|n| n == s.name),
+            None => !s.opt_in && s.mode == Mode::Full,
+        })
+        .collect();
+    let load_before = machine::load_average();
+    eprintln!("load average before: {}", load_text(load_before));
+    let mut rows = Vec::new();
+    for s in chosen {
+        let files = match s.inputs(&data, &generated) {
+            Ok(files) => files,
+            Err(why) => {
+                eprintln!("{}: skipped: {why}", s.name);
+                continue;
+            }
+        };
+        eprint!("{} ... ", s.name);
+        let row = explain::measure(s, &files, args.switches, args.threads)
+            .unwrap_or_else(|e| json!({ "scenario": s.name, "error": e }));
+        eprintln!("done");
+        rows.push(row);
+    }
+    let load_after = machine::load_average();
+    eprintln!("load average after: {}", load_text(load_after));
+    println!(
+        "explanations: {}, {}; {} inferred triples and up to {} diagnostics per scenario",
+        configuration(args.switches),
+        args.threads.label(),
+        explain::SAMPLE,
+        explain::SAMPLE
+    );
+    explain::print(&rows);
+    if let Some(path) = &args.json {
+        let out = json!({
+            "explain": rows,
+            "meta": {
+                "configuration": configuration(args.switches),
+                "switches": switch_names(args.switches),
+                "threads": args.threads.count(),
+                "load_before": load_before,
+                "load_after": load_after,
+            },
+        });
+        if let Err(e) = std::fs::write(path, serde_json::to_string_pretty(&out).unwrap_or_default()) {
+            eprintln!("{}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let missing: u64 = rows.iter().filter_map(|r| r["missing"].as_u64()).sum();
+    if missing > 0 {
+        eprintln!("{missing} triples or diagnostics had no proof");
+        return ExitCode::FAILURE;
+    }
+    ExitCode::SUCCESS
 }
 
 /// The hidden `--one` mode's arguments, after `--one`.

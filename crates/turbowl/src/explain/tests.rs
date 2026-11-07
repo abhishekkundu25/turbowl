@@ -15,7 +15,7 @@ const PREFIXES: &str = "@prefix ex: <http://example.org/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 ";
 
-/// The configuration ticket 01 explains: the default, without equality.
+/// The default configuration without equality: no class forms.
 fn switches() -> Switches {
     Switches::default().off(Switch::Equality)
 }
@@ -67,7 +67,9 @@ fn well_formed(r: &Reasoner, proof: &Proof) {
             Reason::Base => assert!(base.contains(&step.statement), "{:?} is not base", step.statement),
             Reason::Rule { premises, .. } => {
                 assert!(premises.iter().all(|&p| p < i), "step {i} reads a later step:\n{proof}");
-                if !step.statement.subject.is_literal() {
+                // A generalized triple (a literal subject, dt-diff's unlisted
+                // predicate) is not one the reads give.
+                if !step.statement.subject.is_literal() && step.statement.predicate.is_named_node() {
                     assert!(
                         closure.contains(&step.statement),
                         "{:?} is not in the closure",
@@ -451,4 +453,286 @@ fn every_inferred_triple_and_diagnostic_has_a_proof() {
         well_formed(&r, &proof);
     }
     assert!(n > 100 && !r.diagnostics().is_empty(), "{n}");
+}
+
+fn literal(lexical: &str, datatype: &str) -> Term {
+    Term::from(Literal::new_typed_literal(lexical, iri(datatype)))
+}
+
+/// `ex:a owl:sameAs ex:b`, `ex:b owl:sameAs ex:c`, `ex:c owl:sameAs ex:d`:
+/// `ex:a owl:sameAs ex:d` is the chain of three links, by eq-trans, and a
+/// triple about `ex:d` holds of `ex:a` by one eq-rep-s over it.
+#[test]
+fn a_same_as_chain_of_three_hops() {
+    let r = reasoned(
+        "ex:a owl:sameAs ex:b . ex:b owl:sameAs ex:c . ex:c owl:sameAs ex:d . ex:d ex:p ex:o .",
+        Switches::default(),
+    );
+    let proof = explain(&r, &triple("ex:a", "owl:sameAs", "ex:d"));
+    assert_eq!(
+        rules(&proof),
+        ["base", "base", "eq-trans", "base", "eq-trans"],
+        "{proof}"
+    );
+    assert_eq!(proof.depth(), 2);
+    assert_eq!(proof.leaves().count(), 3);
+    // Backwards: each link turned by eq-sym.
+    let proof = explain(&r, &triple("ex:d", "owl:sameAs", "ex:a"));
+    assert_eq!(rules(&proof).iter().filter(|&&r| r == "eq-sym").count(), 3, "{proof}");
+    let proof = explain(&r, &triple("ex:a", "ex:p", "ex:o"));
+    assert_eq!(rules(&proof).last(), Some(&"eq-rep-s"), "{proof}");
+    assert_eq!(proof.leaves().count(), 4, "{proof}");
+    // A term is the same as itself through a link.
+    let proof = explain(&r, &triple("ex:b", "owl:sameAs", "ex:b"));
+    assert_eq!(rules(&proof).last(), Some(&"eq-trans"), "{proof}");
+}
+
+/// The store holds `ex:x ex:p ex:o` once, in representatives; a triple of
+/// the user's terms that no rule derives as stated holds only through
+/// them: eq-rep-s, eq-rep-p and eq-rep-o from the base triple.
+#[test]
+fn a_fact_that_holds_only_through_a_representative() {
+    let r = reasoned(
+        "ex:x ex:p ex:o . ex:x owl:sameAs ex:y . ex:p owl:sameAs ex:q . ex:o owl:sameAs ex:z .
+         ex:C rdfs:subClassOf ex:D . ex:y a ex:C .",
+        Switches::default(),
+    );
+    let canon = r.store().canon();
+    assert!(!canon.is_empty());
+    let proof = explain(&r, &triple("ex:y", "ex:q", "ex:z"));
+    assert_eq!(
+        rules(&proof).iter().filter(|r| r.starts_with("eq-rep")).count(),
+        3,
+        "{proof}"
+    );
+    assert_eq!(proof.leaves().count(), 4, "{proof}");
+    // A rule over a triple about another member: cax-sco on ex:y, carried
+    // to ex:x.
+    let proof = explain(&r, &triple("ex:x", "rdf:type", "ex:D"));
+    assert!(rules(&proof).contains(&"cax-sco"), "{proof}");
+    // Every inferred triple and diagnostic has one.
+    let explainer = r.explainer().unwrap();
+    for t in r.inferred() {
+        let proof = explainer
+            .explain(t.as_ref())
+            .unwrap_or_else(|| panic!("no proof of {t}"));
+        well_formed(&r, &proof);
+    }
+}
+
+/// dt-eq: two literals of one value are the same, each named by a closure
+/// triple, which is the step's premise. (Its triple has a literal subject,
+/// so it is asked for through what eq-rep-o carries.)
+#[test]
+fn dt_eq_cites_a_triple_naming_each_literal() {
+    {
+        let r = reasoned(
+            "ex:x ex:p \"1\"^^xsd:integer . ex:y ex:p \"01\"^^xsd:integer .",
+            Switches::complete(),
+        );
+        let one = literal("1", "xsd:integer");
+        let other = literal("01", "xsd:integer");
+        let proof = r
+            .explain(oxrdf::TripleRef::new(
+                oxrdf::NamedOrBlankNodeRef::from(iri("ex:x").as_ref()),
+                iri("ex:p").as_ref(),
+                other.as_ref(),
+            ))
+            .unwrap()
+            .expect("a proof");
+        well_formed(&r, &proof);
+        // ex:x ex:p "01": eq-rep-o over dt-eq's "1" owl:sameAs "01".
+        let dt_eq = proof
+            .steps()
+            .iter()
+            .find(|s| s.reason != Reason::Base && matches!(s.reason, Reason::Rule { rule: "dt-eq", .. }))
+            .unwrap_or_else(|| panic!("{proof}"));
+        assert_eq!(dt_eq.statement.subject, one, "{proof}");
+        let Reason::Rule { premises, .. } = &dt_eq.reason else {
+            panic!()
+        };
+        assert_eq!(premises.len(), 2, "{proof}");
+    }
+}
+
+/// dt-diff: two literals of different values made the same (by a
+/// functional property) are reported by eq-diff1, whose proof reads a
+/// dt-diff step between them, with the reference's unlisted predicate.
+#[test]
+fn dt_diff_goes_into_eq_diff1() {
+    for switches in [Switches::complete(), Switches::complete().off(Switch::Equality)] {
+        let r = reasoned(
+            "ex:f a owl:FunctionalProperty . ex:x ex:f \"1\"^^xsd:integer , \"2\"^^xsd:integer .",
+            switches,
+        );
+        let explainer = r.explainer().unwrap();
+        let found: Vec<_> = r.diagnostics().iter().filter(|d| d.code == "eq-diff1").collect();
+        assert!(!found.is_empty(), "{:?}", r.diagnostics());
+        for d in found {
+            let proof = explainer
+                .explain_diagnostic(d)
+                .unwrap_or_else(|| panic!("no proof of {d:?}"));
+            well_formed(&r, &proof);
+            let Reason::Rule { rule, premises } = proof.reason() else {
+                panic!()
+            };
+            assert_eq!((*rule, premises.len()), ("eq-diff1", 2), "{proof}");
+            let unlisted = Term::from(Literal::new_typed_literal(
+                super::UNLISTED_LEXICAL,
+                NamedNode::new_unchecked(super::UNLISTED_DATATYPE),
+            ));
+            let diff = proof
+                .steps()
+                .iter()
+                .find(|s| matches!(s.reason, Reason::Rule { rule: "dt-diff", .. }))
+                .unwrap_or_else(|| panic!("{proof}"));
+            assert_eq!(diff.statement.predicate, unlisted, "{proof}");
+            assert!(diff.statement.subject.is_literal() && diff.statement.object.is_literal());
+            // The root reads the unlisted triple between its own terms.
+            let read = &proof.steps()[premises[1]].statement;
+            assert_eq!(read.predicate, unlisted, "{proof}");
+            assert_eq!([&read.subject, &read.object], [&d.terms[0], &d.terms[1]], "{proof}");
+        }
+    }
+}
+
+/// dt-not-type's two cases: a literal ill-typed for its own datatype cites
+/// a closure triple that names it, and a literal typed by a triple outside
+/// that type's value space cites the typing's proof, through equality too.
+#[test]
+fn dt_not_type_has_two_cases() {
+    let r = reasoned(
+        "ex:y ex:p \"abc\"^^xsd:integer .
+         ex:age rdfs:range xsd:boolean . ex:x ex:years \"12\"^^xsd:integer . ex:x owl:sameAs ex:x2 .
+         ex:x2 ex:age \"12\"^^xsd:integer .",
+        Switches::default(),
+    );
+    let explainer = r.explainer().unwrap();
+    let mut seen = (false, false);
+    for d in r.diagnostics().iter().filter(|d| d.code == "dt-not-type") {
+        let proof = explainer
+            .explain_diagnostic(d)
+            .unwrap_or_else(|| panic!("no proof of {d:?}"));
+        well_formed(&r, &proof);
+        if d.terms[0] == literal("abc", "xsd:integer") {
+            assert_eq!(rules(&proof), ["base"], "{proof}");
+            seen.0 = true;
+        } else {
+            assert_eq!(d.terms[0], literal("12", "xsd:integer"));
+            assert!(rules(&proof).contains(&"prp-rng"), "{proof}");
+            seen.1 = true;
+        }
+    }
+    assert_eq!(seen, (true, true), "{:?}", r.diagnostics());
+}
+
+/// A cache from another reasoner whose counts happen to match is never
+/// trusted blindly: a proof whose steps the closure does not hold is not
+/// returned, and the search runs again on a fresh cache.
+#[test]
+fn a_stale_cache_gives_no_wrong_proof() {
+    let a = reasoned("ex:A rdfs:subClassOf ex:B . ex:x a ex:A .", switches());
+    let b = reasoned("ex:C rdfs:subClassOf ex:D . ex:y a ex:C .", switches());
+    let explainer = a.explainer().unwrap();
+    let t = triple("ex:x", "rdf:type", "ex:B");
+    assert!(explainer.explain(t.as_ref()).is_some());
+    let cache = explainer.into_cache();
+    // Same counts: the key alone may match, but the proofs must be b's.
+    let other = b.explainer_with(cache).unwrap();
+    let proof = other
+        .explain(triple("ex:y", "rdf:type", "ex:D").as_ref())
+        .expect("a proof");
+    well_formed(&b, &proof);
+    assert_eq!(other.explain(t.as_ref()), None);
+}
+
+/// A chaos input (reduced from seed 1592590341, iteration 336 of the full
+/// test) whose run restarts: `owl:hasValue owl:sameAs owl:sameAs` makes
+/// `owl:hasValue` a spelling of `owl:sameAs`, so `_:g42 owl:hasValue
+/// "plain"` is a link of a class that ends up holding `rdf:type` and most
+/// terms, literals of different values among them. Its eq-diff1
+/// diagnostics on `"a"` need the program's eq-* rules (the last level of
+/// the search): each took over a second in chaos, and the ten take about
+/// half a second here with one explainer.
+#[test]
+fn a_restarted_closure_is_explained_in_time() {
+    const INPUT: &str = r##"<http://example.org/C0> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/C2> .
+<http://example.org/C0> <http://www.w3.org/2002/07/owl#hasKey> _:g38 .
+<http://example.org/C1> <http://www.w3.org/2000/01/rdf-schema#subClassOf> _:g41 .
+<http://example.org/C1> <http://www.w3.org/2002/07/owl#equivalentClass> _:g47 .
+<http://example.org/C2> <http://www.w3.org/2000/01/rdf-schema#subClassOf> _:g6 .
+<http://example.org/C3> <http://www.w3.org/2000/01/rdf-schema#subClassOf> _:g46 .
+<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#FunctionalProperty> .
+<http://example.org/d1> <http://www.w3.org/2002/07/owl#equivalentProperty> <http://example.org/d0> .
+<http://example.org/i0> <http://example.org/p5> <http://example.org/i8> .
+<http://example.org/i0> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/C0> .
+<http://example.org/i0> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> _:g35 .
+<http://example.org/i0> <http://www.w3.org/2002/07/owl#sameAs> <http://example.org/i6> .
+<http://example.org/i1> <http://example.org/d0> "a@"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral> .
+<http://example.org/i7> <http://example.org/p4> <http://example.org/i2> .
+<http://example.org/i7> <http://example.org/p5> <http://example.org/i1> .
+<http://example.org/i7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/C0> .
+<http://example.org/i7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Nothing> .
+<http://example.org/i9> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/C0> .
+<http://example.org/p4> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <http://example.org/p5> .
+<http://www.w3.org/2002/07/owl#hasValue> <http://www.w3.org/2002/07/owl#sameAs> <http://www.w3.org/2002/07/owl#sameAs> .
+_:g1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Restriction> .
+_:g1 <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/C1> .
+_:g1 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/p5> .
+_:g1 <http://www.w3.org/2002/07/owl#someValuesFrom> <http://www.w3.org/2002/07/owl#Thing> .
+_:g35 <http://www.w3.org/2002/07/owl#maxCardinality> "1"^^<http://www.w3.org/2001/XMLSchema#nonNegativeInteger> .
+_:g35 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/p5> .
+_:g36 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> <http://example.org/p2> .
+_:g38 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> <http://example.org/p5> .
+_:g38 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> .
+_:g39 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> <http://example.org/p1> .
+_:g41 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/d0> .
+_:g42 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2002/07/owl#Restriction> .
+_:g42 <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/C4> .
+_:g42 <http://www.w3.org/2002/07/owl#hasValue> "plain"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral> .
+_:g42 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/d2> .
+_:g47 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/p4> .
+_:g6 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/p4> .
+_:g6 <http://www.w3.org/2002/07/owl#someValuesFrom> <http://example.org/C4> .
+_:g8 <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/C5> .
+_:g8 <http://www.w3.org/2002/07/owl#onProperty> <http://example.org/p5> .
+_:g8 <http://www.w3.org/2002/07/owl#someValuesFrom> <http://example.org/C0> .
+_:g9 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> <http://example.org/p2> .
+_:g9 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> _:g10 .
+_:x0 <http://example.org/d0> "+5"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:x0 <http://example.org/d0> "- 1"^^<http://www.w3.org/2001/XMLSchema#double> .
+_:x0 <http://example.org/d0> "99999999999999999999999999999999999999999"^^<http://www.w3.org/2001/XMLSchema#nonNegativeInteger> .
+_:x0 <http://example.org/d0> "QQ=="^^<http://www.w3.org/2001/XMLSchema#base64Binary> .
+_:x0 <http://example.org/d0> "plain"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral> .
+_:x0 <http://example.org/p4> <http://example.org/i2> .
+_:x0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/C0> .
+_:x1 <http://example.org/p4> <http://example.org/i6> .
+_:x1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> _:g44 .
+_:x2 <http://example.org/d1> "hello" .
+_:x2 <http://example.org/d2> "a" .
+"##;
+    let mut r = Reasoner::with_switches(Switches::complete());
+    r.load_str(INPUT, Format::NTriples, None).unwrap();
+    r.reason();
+    let explainer = r.explainer().unwrap();
+    let a = Term::from(Literal::new_simple_literal("a"));
+    let start = std::time::Instant::now();
+    let found: Vec<_> = r
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == "eq-diff1" && d.terms[0] == a)
+        .collect();
+    assert_eq!(found.len(), 10);
+    for d in found {
+        let proof = explainer
+            .explain_diagnostic(d)
+            .unwrap_or_else(|| panic!("no proof of {d:?}"));
+        well_formed(&r, &proof);
+    }
+    // About 0.5 s (release, an M-series Mac at load 3, 2026-11-07).
+    assert!(
+        start.elapsed() < std::time::Duration::from_secs(5),
+        "{:?}",
+        start.elapsed()
+    );
 }

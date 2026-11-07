@@ -1,0 +1,18 @@
+% dt-diff in the one shape a proof gives it (docs/specs/explanations.md),
+% for the explainer only (src/explain/program.rs), in the syntax of
+% oracles/rules/. The group of the `literal-values` switch.
+%
+% literalValue, which literal-values.rls imports: each literal with a value
+% that the closure names (or the rules name), with the value valueId gives
+% it, so that two literals share it exactly when their values are one.
+% The oracle's value IRI matches what literal-values.rls writes.
+literalValue(?lt, <urn:x-turbowl-oracle:value>, ?v) :- literalNamed(?lt), valueId(?lt, ?v) .
+
+% dt-diff, as the reference evaluator states it: a generalized triple
+% between two literals of different values, whose predicate is the
+% reference's unlisted owl:differentFrom (the core stores these triples
+% nowhere). eq-rep-s and eq-rep-o carry it to the terms equal to the
+% literals, and eq-diff1 reads it as it reads owl:differentFrom.
+T(?x, <urn:x-turbowl-explain:unlisted>, ?y) :- literalValue(?x, <urn:x-turbowl-oracle:value>, ?vx),
+    literalValue(?y, <urn:x-turbowl-oracle:value>, ?vy), ?vx != ?vy .                % dt-diff
+eqDiff1(?x, ?y) :- T(?x, owl:sameAs, ?y), T(?x, <urn:x-turbowl-explain:unlisted>, ?y) .  % eq-diff1

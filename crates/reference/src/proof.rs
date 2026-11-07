@@ -11,6 +11,12 @@
 //! root is judged the same way by the family's diagnostic rules. Each base
 //! step must be a base triple, each premise an earlier step (so the steps
 //! are acyclic), and each statement must appear once.
+//!
+//! dt-diff's triples have this crate's unlisted predicate
+//! ([`unlisted_different_from`](crate::vocab::unlisted_different_from)), as
+//! the explainer writes them: the families that hold dt-diff, eq-rep-s,
+//! eq-rep-o and eq-diff1 read it as they do in a run, and a step with it is
+//! never a base triple (its predicate is a literal).
 
 use crate::evaluate::{Fact, Round, View};
 use crate::rules::families_of;
@@ -279,6 +285,45 @@ mod tests {
             let mut steps = premises.to_vec();
             steps.push(rule(statement(ex("b"), p.clone(), ex("a")), name, vec![0, 1]));
             assert_eq!(check(&steps, &triples(&steps)), Ok(()), "{name}");
+        }
+    }
+
+    /// dt-diff's shape: the unlisted triple between two literals of
+    /// different values, carried to the terms made the same, and read by
+    /// eq-diff1. The core's proof passes; the same triple claimed as base
+    /// does not.
+    #[test]
+    fn a_dt_diff_proof_reads_the_unlisted_predicate() {
+        let turtle = "@prefix ex: <http://example.org/> .
+            @prefix owl: <http://www.w3.org/2002/07/owl#> .
+            @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+            ex:f a owl:FunctionalProperty . ex:x ex:f \"1\"^^xsd:integer . ex:y ex:f \"2\"^^xsd:integer .
+            ex:x owl:sameAs ex:y .";
+        let mut r = Reasoner::with_switches(Switches::complete());
+        r.load_str(turtle, turbowl::Format::Turtle, None).unwrap();
+        r.reason();
+        let base: HashSet<Triple> = r.triples().filter(|t| r.inferred().all(|i| i != *t)).collect();
+        let found: Vec<&Diagnostic> = r.diagnostics().iter().filter(|d| d.code == "eq-diff1").collect();
+        assert!(!found.is_empty());
+        let unlisted = unlisted_different_from();
+        for d in found {
+            let proof = r.explain_diagnostic(d).unwrap().expect("a proof");
+            assert_eq!(check_proof(&proof, &base, r.switches()), Ok(()));
+            let mut steps = proof.steps().to_vec();
+            let k = steps
+                .iter()
+                .position(|s| s.statement.predicate == unlisted)
+                .expect("an unlisted step");
+            steps[k].reason = Reason::Base;
+            let Reason::Rule { premises, .. } = proof.reason() else {
+                panic!()
+            };
+            let root = Reason::Rule {
+                rule: "eq-diff1",
+                premises: premises.clone(),
+            };
+            let e = check_steps(&steps, Some((d, &root)), &base, r.switches()).unwrap_err();
+            assert!(e.contains("not a base triple"), "{e}");
         }
     }
 

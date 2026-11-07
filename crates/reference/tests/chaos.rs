@@ -31,16 +31,15 @@
 //! watchdog, which then exits the process.
 //!
 //! Each iteration also explains its final state (the full test's run, the
-//! incremental test's last state): up to 32 inferred triples and 32
-//! diagnostics, drawn from a stream of their own (as the configuration is),
-//! each proved with one explainer per state and checked by the reference
-//! rules (`turbowl_reference::check_proof`). A missing or wrong proof fails
-//! the iteration with its replay line. Proofs are checked without
-//! `equality` and `literal-values` (ticket 01 of `docs/tickets/explain/`;
-//! ticket 02 adds them): an iteration with either on explains a one-thread
-//! reasoner of its input with both off; one with both off explains its own
-//! state, and its one-thread and all-cores reasoners must give the same
-//! proofs.
+//! incremental test's last state): up to 8 inferred triples and 8
+//! diagnostics (CHAOS_EXPLAINED sets another count), drawn from a stream of
+//! their own (as the configuration is), each proved with one explainer per
+//! state and checked by the reference rules
+//! (`turbowl_reference::check_proof`), in the iteration's own
+//! configuration. A missing or wrong proof fails the iteration with its
+//! replay line, and the all-cores reasoner's own explainer, asked the same
+//! goals in the same order, must give the same proofs as the one-thread
+//! reasoner's (a proof may depend on what an explainer's cache holds).
 //!
 //! Inputs whose reference closure would pass `MAX_CLOSURE` triples are
 //! skipped and counted: the reference has no representatives, so a large
@@ -156,14 +155,9 @@ fn parse_switches(names: &str) -> Result<Switches, String> {
 /// explain leaves the inputs, the splits and the configurations as they were.
 const EXPLANATIONS: u64 = 0xE8A1_A1E5_0F5E_ED05;
 
-/// The most inferred triples, and the most diagnostics, a state explains.
-const EXPLAINED: usize = 32;
-
-/// The configuration a state's proofs are checked in: its own, without
-/// `equality` and `literal-values` (ticket 01).
-fn explained_in(switches: Switches) -> Switches {
-    switches.off(Switch::Equality).off(Switch::LiteralValues)
-}
+/// The most inferred triples, and the most diagnostics, a state explains
+/// (CHAOS_EXPLAINED overrides it).
+const EXPLAINED: usize = 8;
 
 /// Up to `n` of `0..len`, drawn from `rng`, in increasing order.
 fn sample(rng: &mut Rng, len: usize, n: usize) -> Vec<usize> {
@@ -178,62 +172,39 @@ fn sample(rng: &mut Rng, len: usize, n: usize) -> Vec<usize> {
 }
 
 /// Explains up to [`EXPLAINED`] inferred triples and diagnostics of the
-/// final state of `twins`, whose base is `input`, and checks each proof, in
-/// the configuration [`explained_in`] gives: on `twins` when it is theirs
-/// (and the one-thread and the all-cores reasoner must give the same
-/// proofs), or else on a one-thread reasoner of `input` in it. Returns how
-/// many proofs were checked.
+/// final state of `twins`, whose base is `input`, and checks each proof;
+/// the all-cores reasoner's own explainer, asked in the same order, must
+/// give the same proofs. Returns how many proofs were checked.
 fn explain(input: &[Triple], twins: &Twins, switches: Switches, rng: &mut Rng) -> Result<usize, String> {
-    let explained = explained_in(switches);
-    if explained == switches {
-        return explain_state(input, &twins.one, Some(&twins.all), explained, "", rng);
-    }
-    let mut own = Reasoner::with_switches(explained);
-    own.set_threads(Threads::ONE);
-    own.insert(input.iter().map(Triple::as_ref));
-    reason(&mut own)?;
-    let context = format!(" (in the configuration {})", switches_name(explained));
-    explain_state(input, &own, None, explained, &context, rng)
-}
-
-/// [`explain`] on one state: `one`'s proofs checked, and equal to `all`'s.
-fn explain_state(
-    input: &[Triple],
-    one: &Reasoner,
-    all: Option<&Reasoner>,
-    switches: Switches,
-    context: &str,
-    rng: &mut Rng,
-) -> Result<usize, String> {
+    let (one, all) = (&twins.one, &twins.all);
     let base: HashSet<Triple> = input.iter().cloned().collect();
-    let one_explainer = one.explainer().map_err(|e| format!("{e}{context}"))?;
-    let all_explainer = all.map(Reasoner::explainer).transpose().map_err(|e| e.to_string())?;
+    let one_explainer = one.explainer().map_err(|e| e.to_string())?;
+    let all_explainer = all.explainer().map_err(|e| e.to_string())?;
     let inferred: Vec<Triple> = one.inferred().collect();
+    let diagnostics = one.diagnostics();
+    let n = env_or("CHAOS_EXPLAINED", EXPLAINED);
+    let triples = sample(rng, inferred.len(), n);
+    let found = sample(rng, diagnostics.len(), n);
     let mut checked = 0;
-    for i in sample(rng, inferred.len(), EXPLAINED) {
+    for i in triples {
         let t = &inferred[i];
         let Some(proof) = one_explainer.explain(t.as_ref()) else {
-            return Err(format!("no proof of the inferred {t}{context}"));
+            return Err(format!("no proof of the inferred {t}"));
         };
-        check_proof(&proof, &base, switches).map_err(|e| format!("the proof of {t}{context}: {e}"))?;
-        if let Some(all) = &all_explainer
-            && all.explain(t.as_ref()).as_ref() != Some(&proof)
-        {
+        check_proof(&proof, &base, switches).map_err(|e| format!("the proof of {t}: {e}"))?;
+        if all_explainer.explain(t.as_ref()).as_ref() != Some(&proof) {
             return Err(format!("the proof of {t} differs between one thread and all cores"));
         }
         checked += 1;
     }
-    let diagnostics = one.diagnostics();
-    for i in sample(rng, diagnostics.len(), EXPLAINED) {
+    for i in found {
         let d = &diagnostics[i];
         let Some(proof) = one_explainer.explain_diagnostic(d) else {
-            return Err(format!("no proof of the diagnostic {} {:?}{context}", d.code, d.terms));
+            return Err(format!("no proof of the diagnostic {} {:?}", d.code, d.terms));
         };
         check_proof(&proof, &base, switches)
-            .map_err(|e| format!("the proof of the diagnostic {} {:?}{context}: {e}", d.code, d.terms))?;
-        if let Some(all) = &all_explainer
-            && all.explain_diagnostic(d).as_ref() != Some(&proof)
-        {
+            .map_err(|e| format!("the proof of the diagnostic {} {:?}: {e}", d.code, d.terms))?;
+        if all_explainer.explain_diagnostic(d).as_ref() != Some(&proof) {
             return Err(format!(
                 "the proof of {} {:?} differs between one thread and all cores",
                 d.code, d.terms

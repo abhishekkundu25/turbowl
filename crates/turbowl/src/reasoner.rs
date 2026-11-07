@@ -703,6 +703,26 @@ impl Reasoner {
         self.base.len()
     }
 
+    /// The merged base's `(s, o)` pairs of predicate `p`, sorted (the
+    /// explainer's lookups; [`Reasoner::base_recent`] holds the rest).
+    pub(crate) fn base_pairs(&self, p: u32) -> &[[u32; 2]] {
+        self.base.merged.pairs_of(p)
+    }
+
+    /// The base triples added since the last merge, in no order.
+    pub(crate) fn base_recent(&self) -> impl Iterator<Item = [u32; 3]> + '_ {
+        self.base.recent.iter().copied()
+    }
+
+    /// Every base triple: the merged ones by predicate, then the recent.
+    pub(crate) fn base_triples(&self) -> impl Iterator<Item = [u32; 3]> + '_ {
+        self.base
+            .merged
+            .iter()
+            .flat_map(|(p, pairs)| pairs.iter().map(move |&[s, o]| [s, p, o]))
+            .chain(self.base.recent.iter().copied())
+    }
+
     /// The base, merged, by predicate, and the triples its hash set holds.
     #[cfg(test)]
     pub(crate) fn base_by_predicate(&self) -> (ByPredicate, usize) {
@@ -1352,6 +1372,16 @@ impl ByPredicate {
         let pairs = self.pairs();
         let end = self.starts.get(i + 1).map_or(pairs.len(), |next| next.1);
         pairs[self.starts[i].1..end].binary_search(&[s, o]).is_ok()
+    }
+
+    /// The pairs of predicate `p`, sorted (none when it has none).
+    fn pairs_of(&self, p: u32) -> &[[u32; 2]] {
+        let Ok(i) = self.starts.binary_search_by_key(&p, |&(q, _)| q) else {
+            return &[];
+        };
+        let pairs = self.pairs();
+        let end = self.starts.get(i + 1).map_or(pairs.len(), |next| next.1);
+        &pairs[self.starts[i].1..end]
     }
 
     /// Each predicate, the range of its pairs.

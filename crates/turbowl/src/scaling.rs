@@ -1594,6 +1594,61 @@ mod reasoner {
         );
     }
 
+    /// Explaining one inferred triple with a fresh explainer
+    /// (`Reasoner::explain`): its first use compiles the rule program and
+    /// builds only the lazy indexes the search needs, and the search reads
+    /// only what the goal reaches, so the time grows at most n log n with
+    /// the closure. Two goals of one shape at every size: an instance's
+    /// type through its class tree and a property's domain (Brick's shape),
+    /// and an alias of a clique's triple, whose proof is an eq-rep-s over
+    /// the chain from the alias that states it, n - 1 links long.
+    #[test]
+    fn scaling_explain() {
+        let _lock = lock();
+        let ty = oxrdf::vocab::rdf::TYPE;
+        let typed = Triple::new(
+            NamedNode::new_unchecked(format!("{EX}i0")),
+            ty,
+            NamedNode::new_unchecked(format!("{EX}Equipment")),
+        );
+        let reasoned = |text: String| {
+            let mut r = loaded(&text);
+            r.reason();
+            r
+        };
+        let bricks = sizes(4_096);
+        for &n in &bricks {
+            let r = reasoned(brick_like(n));
+            let proof = r.explain(typed.as_ref()).unwrap().expect("a proof");
+            assert!(proof.depth() >= 1, "n = {n}: {proof}");
+        }
+        linear(
+            "scaling_explain (Brick's shape)",
+            &bricks,
+            shared(move |n| reasoned(brick_like(n))),
+            |r: Rc<Reasoner>| r.explain(typed.as_ref()).unwrap().map(|p| p.steps().len()),
+        );
+        let alias = |n: usize| {
+            Triple::new(
+                NamedNode::new_unchecked(format!("{EX}a0")),
+                NamedNode::new_unchecked(format!("{EX}p0")),
+                NamedNode::new_unchecked(format!("{EX}v{}-0", n - 1)),
+            )
+        };
+        let cliques = sizes(64);
+        for &n in &cliques {
+            let r = reasoned(clique(n));
+            let proof = r.explain(alias(n).as_ref()).unwrap().expect("a proof");
+            assert_eq!(proof.leaves().count(), n, "n = {n}: the triple and n - 1 links");
+        }
+        linear(
+            "scaling_explain (an alias of a clique)",
+            &cliques,
+            shared(move |n| (reasoned(clique(n)), alias(n))),
+            |r: Rc<(Reasoner, Triple)>| r.0.explain(r.1.as_ref()).unwrap().map(|p| p.steps().len()),
+        );
+    }
+
     #[test]
     fn scaling_reasoner_incremental_addition() {
         let _lock = lock();
