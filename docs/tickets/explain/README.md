@@ -7,7 +7,7 @@ Spec: `docs/specs/explanations.md`. Background:
 |---|---|---|---|---|
 | 01 | [The explainer: interface, backward search, the checker](01-explain-core.md) | done (d865f3e) | — | new `crates/turbowl/src/explain.rs` and `src/explain/`, **`crates/turbowl/src/lib.rs`**, **`crates/turbowl/src/reasoner.rs`** (the explain methods and `pub(crate)` accessors), `crates/turbowl/src/error.rs`, `crates/turbowl/src/term.rs` (blank-node lookup), visibility only in `src/engine/` and `src/rules/`; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/src/{lib,evaluate,rules/mod}.rs` and new `src/proof.rs`; new `crates/oracle/tests/explain.rs`; `crates/reference/tests/chaos.rs`; `oracles/rules/` and the golden programs if a proof finds a program bug |
 | 02 | [Equality, literal values, and speed](02-explain-speed.md) | todo | 01 | `crates/turbowl/src/explain/`, `crates/turbowl/src/scaling.rs`, `crates/reference/src/proof.rs`, `crates/reference/tests/chaos.rs`, `crates/oracle/tests/explain.rs`, new `crates/bench/src/explain.rs`, **`crates/bench/src/main.rs`** |
-| 03 | [Explanations in the CLI and Python](03-explain-adapters.md) | todo | 01 | `crates/cli/` (with `Cargo.toml`), **`Cargo.lock`** (one dependency edge), `crates/python/` |
+| 03 | [Explanations in the CLI and Python](03-explain-adapters.md) | done (fb99694) | 01 | `crates/cli/` (with `Cargo.toml`), **`Cargo.lock`** (one dependency edge), `crates/python/` |
 | 04 | [Close-out](04-close-out.md) | todo | 01, 02, 03 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, the crate doc, `docs/verification/`, this README |
 
 ## How the lock files stay apart
@@ -61,3 +61,11 @@ Spec: `docs/specs/explanations.md`. Background:
     - chaos is 23% slower with proofs (budget 10%);
     - the cache is matched to its reasoner by counts;
     - the first use copies the whole store into three sorted orders.
+- 2026-11-07, ticket 03 as built:
+  - `oxrdf` and `oxttl` moved from the CLI's dev-dependencies to its
+    dependencies, so `Cargo.lock` is unchanged.
+  - `--summary-only` with `--explain-diagnostics` exits 64.
+  - JSON proofs carry `depth`.
+  - Python's `Proof` also has `goal`, `rule` and `premises`, and there is a
+    new `NotReasonedError`.
+  - A test-only native method, `explain_cache_held`.
