@@ -6,7 +6,7 @@ Spec: `docs/specs/explanations.md`. Background:
 | # | Ticket | Status | Blocked by | Files |
 |---|---|---|---|---|
 | 01 | [The explainer: interface, backward search, the checker](01-explain-core.md) | done (d865f3e) | — | new `crates/turbowl/src/explain.rs` and `src/explain/`, **`crates/turbowl/src/lib.rs`**, **`crates/turbowl/src/reasoner.rs`** (the explain methods and `pub(crate)` accessors), `crates/turbowl/src/error.rs`, `crates/turbowl/src/term.rs` (blank-node lookup), visibility only in `src/engine/` and `src/rules/`; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/src/{lib,evaluate,rules/mod}.rs` and new `src/proof.rs`; new `crates/oracle/tests/explain.rs`; `crates/reference/tests/chaos.rs`; `oracles/rules/` and the golden programs if a proof finds a program bug |
-| 02 | [Equality, literal values, and speed](02-explain-speed.md) | todo | 01 | `crates/turbowl/src/explain/`, `crates/turbowl/src/scaling.rs`, `crates/reference/src/proof.rs`, `crates/reference/tests/chaos.rs`, `crates/oracle/tests/explain.rs`, new `crates/bench/src/explain.rs`, **`crates/bench/src/main.rs`** |
+| 02 | [Equality, literal values, and speed](02-explain-speed.md) | done (6309f93) | 01 | `crates/turbowl/src/explain/`, `crates/turbowl/src/scaling.rs`, `crates/reference/src/proof.rs`, `crates/reference/tests/chaos.rs`, `crates/oracle/tests/explain.rs`, new `crates/bench/src/explain.rs`, **`crates/bench/src/main.rs`** |
 | 03 | [Explanations in the CLI and Python](03-explain-adapters.md) | done (fb99694) | 01 | `crates/cli/` (with `Cargo.toml`), **`Cargo.lock`** (one dependency edge), `crates/python/` |
 | 04 | [Close-out](04-close-out.md) | todo | 01, 02, 03 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, the crate doc, `docs/verification/`, this README |
 
@@ -69,3 +69,24 @@ Spec: `docs/specs/explanations.md`. Background:
   - Python's `Proof` also has `goal`, `rule` and `premises`, and there is a
     new `NotReasonedError`.
   - A test-only native method, `explain_cache_held`.
+- 2026-11-07, ticket 02 as built (sent back once, after review):
+  - **Gap, for the owner:** chaos with proofs takes 2.4 to 2.9 times as long
+    per shard (2,000 iterations: about 29 to 35 s without, 81 to 91 s with),
+    against the +10% budget. This is test time only: reasoning is
+    unchanged. The limiter is equality in closures where a vocabulary term
+    shares a class with individuals, which needs the wider search levels.
+    Closing it needs a cheaper complete method for those classes, or a new
+    budget. A 100,000-iteration shard will take about 2.5 times as long.
+  - Decided without the owner: chaos explains 8 triples and 8 diagnostics
+    per state (was 32 of each), every one compared with the all-cores
+    explainer's proof, asked in the same order. Fewer goals did not
+    help: the cost is a tail of slow goals, not their number.
+    `CHAOS_EXPLAINED` overrides the 8.
+  - The tail was cut: the worst goal went from 2.4 s to 0.58 s, and
+    `a_restarted_closure_is_explained_in_time` holds a reduced case.
+  - `turbowl::profile::explain_cache_bytes` is new and public, for the
+    bench. 04 names it in the crate doc.
+  - A sameAs chain is left-linear: its depth is its number of links.
+  - The bench's cold time includes the first triple's search.
+  - Every latency budget is met. The worst 99th percentile is sameas-clique's
+    0.79 ms, and claros-l's 1,000 diagnostics reach 1.46 ms.
