@@ -5,7 +5,7 @@ Spec: `docs/specs/explanations.md`. Background:
 
 | # | Ticket | Status | Blocked by | Files |
 |---|---|---|---|---|
-| 01 | [The explainer: interface, backward search, the checker](01-explain-core.md) | todo | — | new `crates/turbowl/src/explain.rs` and `src/explain/`, **`crates/turbowl/src/lib.rs`**, **`crates/turbowl/src/reasoner.rs`** (the explain methods and `pub(crate)` accessors), `crates/turbowl/src/error.rs`, `crates/turbowl/src/term.rs` (blank-node lookup), visibility only in `src/engine/` and `src/rules/`; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/src/{lib,evaluate,rules/mod}.rs` and new `src/proof.rs`; new `crates/oracle/tests/explain.rs`; `crates/reference/tests/chaos.rs`; `oracles/rules/` and the golden programs if a proof finds a program bug |
+| 01 | [The explainer: interface, backward search, the checker](01-explain-core.md) | done (d865f3e) | — | new `crates/turbowl/src/explain.rs` and `src/explain/`, **`crates/turbowl/src/lib.rs`**, **`crates/turbowl/src/reasoner.rs`** (the explain methods and `pub(crate)` accessors), `crates/turbowl/src/error.rs`, `crates/turbowl/src/term.rs` (blank-node lookup), visibility only in `src/engine/` and `src/rules/`; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/src/{lib,evaluate,rules/mod}.rs` and new `src/proof.rs`; new `crates/oracle/tests/explain.rs`; `crates/reference/tests/chaos.rs`; `oracles/rules/` and the golden programs if a proof finds a program bug |
 | 02 | [Equality, literal values, and speed](02-explain-speed.md) | todo | 01 | `crates/turbowl/src/explain/`, `crates/turbowl/src/scaling.rs`, `crates/reference/src/proof.rs`, `crates/reference/tests/chaos.rs`, `crates/oracle/tests/explain.rs`, new `crates/bench/src/explain.rs`, **`crates/bench/src/main.rs`** |
 | 03 | [Explanations in the CLI and Python](03-explain-adapters.md) | todo | 01 | `crates/cli/` (with `Cargo.toml`), **`Cargo.lock`** (one dependency edge), `crates/python/` |
 | 04 | [Close-out](04-close-out.md) | todo | 01, 02, 03 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, the crate doc, `docs/verification/`, this README |
@@ -47,3 +47,17 @@ Spec: `docs/specs/explanations.md`. Background:
   - The bench reports the cache's bytes rather than a peak it cannot
     separate, and cold time on its own.
   - The CLI gets `oxttl`.
+- 2026-11-07, ticket 01 as built:
+  - Chaos explains every iteration. One with `equality` or
+    `literal-values` on explains a one-thread reasoner of its input with
+    both off, until 02.
+  - Chaos also requires the one-thread and all-cores proofs to be equal.
+  - dt-type2 and dt-not-type were done in 01, through
+    `explain/literals.rls`.
+  - Iterative deepening and the cached instance graph were done in 01,
+    because without them chaos took 8 times as long.
+  - The new types `Step` and `Goal`.
+  - Left for 02:
+    - chaos is 23% slower with proofs (budget 10%);
+    - the cache is matched to its reasoner by counts;
+    - the first use copies the whole store into three sorted orders.
