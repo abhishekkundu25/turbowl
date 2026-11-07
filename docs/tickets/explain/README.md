@@ -8,7 +8,9 @@ Spec: `docs/specs/explanations.md`. Background:
 | 01 | [The explainer: interface, backward search, the checker](01-explain-core.md) | done (d865f3e) | — | new `crates/turbowl/src/explain.rs` and `src/explain/`, **`crates/turbowl/src/lib.rs`**, **`crates/turbowl/src/reasoner.rs`** (the explain methods and `pub(crate)` accessors), `crates/turbowl/src/error.rs`, `crates/turbowl/src/term.rs` (blank-node lookup), visibility only in `src/engine/` and `src/rules/`; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/src/{lib,evaluate,rules/mod}.rs` and new `src/proof.rs`; new `crates/oracle/tests/explain.rs`; `crates/reference/tests/chaos.rs`; `oracles/rules/` and the golden programs if a proof finds a program bug |
 | 02 | [Equality, literal values, and speed](02-explain-speed.md) | done (6309f93) | 01 | `crates/turbowl/src/explain/`, `crates/turbowl/src/scaling.rs`, `crates/reference/src/proof.rs`, `crates/reference/tests/chaos.rs`, `crates/oracle/tests/explain.rs`, new `crates/bench/src/explain.rs`, **`crates/bench/src/main.rs`** |
 | 03 | [Explanations in the CLI and Python](03-explain-adapters.md) | done (fb99694) | 01 | `crates/cli/` (with `Cargo.toml`), **`Cargo.lock`** (one dependency edge), `crates/python/` |
-| 04 | [Close-out](04-close-out.md) | todo | 01, 02, 03 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, the crate doc, `docs/verification/`, this README |
+| 04 | [Close-out](04-close-out.md) | done | 01, 02, 03 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, the crate doc, `docs/verification/`, this README |
+| 05 | [The deferred validation runs](05-deferred-validation.md) | todo | — | `docs/verification/`, `AGENTS.md` (chaos times) |
+| 06 | [Explanation speed in the complete configuration](06-complete-explain-speed.md) | todo (owner) | — | `crates/turbowl/src/explain/` |
 
 ## How the lock files stay apart
 
@@ -88,5 +90,18 @@ Spec: `docs/specs/explanations.md`. Background:
     bench. 04 names it in the crate doc.
   - A sameAs chain is left-linear: its depth is its number of links.
   - The bench's cold time includes the first triple's search.
-  - Every latency budget is met. The worst 99th percentile is sameas-clique's
-    0.79 ms, and claros-l's 1,000 diagnostics reach 1.46 ms.
+  - Every latency budget is met in the default configuration. The
+    close-out found the complete configuration's gaps (below).
+- 2026-11-07, the close-out (04):
+  - The explain latency bench hung on claros-l with `--complete`: one
+    triple's search ran for over 20 minutes (a class of 306 time spans
+    that 35,000 productions reach, joined once per member). Fixed in
+    3f8eabc, with a timed unit test and a third `scaling_explain` shape;
+    the same fix brought sameas-clique's p99 back from 39 ms to 0.6 ms (a
+    regression of 02's second round).
+  - The complete configuration misses the editor-size budget on Brick:
+    ticket 06.
+  - At the owner's request, the runs that need a quiet machine (load stayed
+    2.7 to 4 from other applications) moved to ticket 05: the latencies
+    at load under 1, lubm-50 at 10 runs per side, 100,000 chaos
+    iterations, and the slow oracle tier.

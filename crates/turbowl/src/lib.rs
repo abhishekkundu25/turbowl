@@ -136,9 +136,12 @@
 //! program (`oracles/rules/`, which every oracle holds equal to TurbOWL's
 //! rules) backwards over the closure, with the rules the switches leave
 //! on, and keeps the shallowest proof. Nothing is recorded while reasoning
-//! runs, so reasoning costs what it did. Not yet explained: a closure in
-//! which `owl:sameAs` made two terms one, and dt-eq's triples (switch
-//! `literal-values`); the explainer gives them `None` for now.
+//! runs, so reasoning costs what it did. Every configuration is explained,
+//! `equality` and `literal-values` included: a proof is written in the
+//! terms the user wrote, and a triple that holds through an `owl:sameAs`
+//! class gets the eq-rep step and the chain of sameAs links it rests on.
+//! The search reads the store's tables; the indexes it needs are built on
+//! first use and kept in the [`ExplainCache`], never in the reasoner.
 //!
 //! The interface gained these for the adapters, the CLI's `--explain` and
 //! Python's `Reasoner.explain`, and for the proof checks of the oracle and
@@ -154,6 +157,9 @@
 //! - [`Proof`], [`Step`], [`Statement`], [`Reason`] and [`Goal`].
 //! - [`Error::NotReasoned`]: there is no closure to explain while the base
 //!   or the switches changed since the last run.
+//! - [`profile::explain_cache_bytes`]: the bytes an [`ExplainCache`] holds,
+//!   for the bench's `--explain`, which cannot tell them apart from
+//!   reasoning in the process's peak memory.
 //!
 //! # Counters
 //!

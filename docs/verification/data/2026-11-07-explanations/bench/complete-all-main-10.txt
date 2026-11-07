@@ -1,0 +1,40 @@
+load average before: 2.60 2.07 1.86
+warning: load average over 1; the machine is not quiet and the numbers are noisy
+brick-small1 turbowl run 1/1 ... 5.9 ms
+brick-soda-hall turbowl run 1/1 ... 8.8 ms
+lubm-1 turbowl run 1/1 ... 16.9 ms
+lubm-50 turbowl run 1/1 ... 893.5 ms
+load average after: 2.71 2.10 1.88
+warning: load average over 1 after the runs
+
+TurbOWL bench: complete configuration, turbowl on all cores, 1 runs each; load average 2.60 2.07 1.86 before, 2.71 2.10 1.88 after
+ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.
+total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither.
+Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.
+x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).
+
+| scenario | engine | n | load ms | ms (median) | min | max | total ms | peak MB | closure | B/triple | x turbowl time | x turbowl total | x turbowl mem |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | turbowl | 1 | 8.8 | 5.9 | 5.9 | 5.9 | 14.7 | 7 | 47718 | 155 | 1.00 | 1.00 | 1.00 |
+| brick-soda-hall | turbowl | 1 | 11.1 | 8.8 | 8.8 | 8.8 | 20.0 | 15 | 82381 | 192 | 1.00 | 1.00 | 1.00 |
+| lubm-1 | turbowl | 1 | 13.0 | 16.9 | 16.9 | 16.9 | 29.9 | 51 | 225358 | 237 | 1.00 | 1.00 | 1.00 |
+| lubm-50 | turbowl | 1 | 780.8 | 893.5 | 893.5 | 893.5 | 1674.3 | 1552 | 12519479 | 130 | 1.00 | 1.00 | 1.00 |
+
+Breakdown (turbowl): bytes per closure triple, the peak and what the reasoner holds after the run
+(rest: canon, findings, diagnostics; not counted: peak - held). Times: medians of the full run's.
+
+| scenario | B/triple peak | dictionary | base | store | rest | not counted | rounds | rules ms | step ms | sort ms | changed ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| brick-small1 | 154.5 | 14.1 | 2.5 | 14.7 | 0.7 | 122.5 | 7 | 3.0 | 2.8 | 2.2 | 0.6 |
+| brick-soda-hall | 191.9 | 8.1 | 3.1 | 13.7 | 0.4 | 166.5 | 7 | 4.4 | 4.1 | 5.8 | 1.4 |
+| lubm-1 | 236.6 | 14.5 | 4.1 | 20.2 | 0.6 | 197.3 | 6 | 9.5 | 6.2 | 5.8 | 1.3 |
+| lubm-50 | 130.0 | 13.7 | 4.2 | 20.0 | 0.7 | 91.4 | 6 | 618.2 | 205.6 | 240.3 | 30.9 |
+
+Scaling: the fitted exponent of total time (load + reasoning, median) and of peak memory
+against the input triples, least squares on a log-log scale. 1 is linear.
+
+| family | engine | input triples | total ms | peak MB | time exponent | memory exponent | not fitted |
+|---|---|---|---|---|---:|---:|---|
+| lubm | turbowl | lubm-1 116513, lubm-50 6600957 | 30, 1674 | 51, 1552 | 1.00 | 0.85 |  |
+
+wrote /Users/abhishek/repos/turtle-reasoner/docs/verification/data/2026-11-07-explanations/bench/complete-all-main-10.json

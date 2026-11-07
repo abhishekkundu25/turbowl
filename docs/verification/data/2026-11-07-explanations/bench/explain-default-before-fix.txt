@@ -1,0 +1,17 @@
+load average before: 2.73 2.12 1.88
+brick-small1 ... done
+brick-soda-hall ... done
+lubm-1 ... done
+lubm-50 ... done
+sameas-clique ... done
+claros-l ... done
+load average after: 2.76 2.17 1.91
+explanations: default, one thread; 1000 inferred triples and up to 1000 diagnostics per scenario
+
+scenario              closure triples median ms    p99 ms    max ms   cold ms  diags  d median     d p99     d max  cache MB  missing
+brick-small1       26381 1000     0.008     0.701     0.742     0.305 0         -         -         -       5.2 0
+brick-soda-hall    57652 1000     0.047     1.287     1.374     0.027 0         -         -         -      13.8 0
+lubm-1             184086 1000     0.003     0.080     0.393     0.079 0         -         -         -       3.7 0
+lubm-50            10345697 1000     0.007     0.097     2.225     0.106 0         -         -         -       8.6 0
+sameas-clique      11000002 1000     0.318    37.833    56.781     1.712 0         -         -         -     162.1 0
+claros-l           91006354 1000     0.026     0.448    74.350    22.114 1000     0.763     1.456     2.615     167.1 0

@@ -4,6 +4,43 @@ What changed in each version of TurbOWL. Nothing has been published yet:
 the versions here are the repository's. The numbers come from the records
 in `docs/verification/`.
 
+## Unreleased: explanations
+
+Why a triple is in the closure, or why a diagnostic was reported, computed
+when asked for (`docs/specs/explanations.md`, tickets in
+`docs/tickets/explain/`, record `docs/verification/2026-11-07-explanations.md`).
+
+### Added
+
+- **`Reasoner::explain` and `Reasoner::explain_diagnostic`**, and
+  `Reasoner::explainer` for many questions over one closure: a `Proof`, a
+  DAG of `Step`s from base triples by the W3C rules the switches leave on,
+  with `leaves`, `depth` and an indented tree as `Display`. Every
+  configuration, `owl:sameAs` and literal values included; the proof is
+  in the user's terms.
+- **`ExplainCache`**: the explainer's indexes and found instances, owned
+  and `Send + Sync`, reused through `Reasoner::explainer_with` while the
+  reasoner does not change. `profile::explain_cache_bytes` measures it.
+- **`Error::NotReasoned`**: the base or the switches changed since the last
+  run, so there is no closure to explain.
+- **The CLI**: `--explain '<s> <p> <o>'` (repeatable) and
+  `--explain-diagnostics`, as trees after the report, and as objects in the
+  JSON and NDJSON reports.
+- **Python**: `Reasoner.explain`, `Reasoner.explain_diagnostic`, the
+  `Proof` class and `NotReasonedError`. The cache lives in the reasoner
+  between calls.
+- **`turbowl_reference::check_proof`**: replays each step with the
+  reference evaluator's rules over its premises alone. The oracle suite
+  explains every inferred triple and diagnostic of every minimal input,
+  and chaos explains 8 of each on every input; all are checked.
+- **`turbowl-bench --explain`** (latency, cold time, cache bytes) and the
+  scaling test `scaling_explain`.
+
+### Unchanged
+
+- Reasoning: nothing is recorded while it runs, and `engine/` and `rules/`
+  have no change. The record has the alternating bench against `main`.
+
 ## Unreleased: version 2, phase 2
 
 Speed: TurbOWL's own parsers, every core, snapshots, and the improvement

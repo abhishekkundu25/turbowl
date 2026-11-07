@@ -30,6 +30,11 @@ verification suite that judges it against several independent oracles.
      snapshot's 9.2 times against 10 and one-thread loading wait for the
      owner. Phase 3, removals (tickets 22 to 24), is planned and not started. Ticket 27, the
      full-size scoreboard race, is pending the owner.
+   - Explanations (`Reasoner::explain`, the CLI's `--explain`, Python's
+     `Reasoner.explain`): `docs/specs/explanations.md`, tickets in
+     `docs/tickets/explain/`, record
+     `docs/verification/2026-11-07-explanations.md`. Built on the
+     `explain` branch.
    - After version 1, **the improvement loop** (rate, find, change,
      evaluate, decide, record): `docs/specs/experiments.md`. This is how the
      project improves; its table is the history, and its last section says
@@ -56,7 +61,12 @@ verification suite that judges it against several independent oracles.
   family, registered one line each in `rules/mod.rs` with the switch it
   belongs to),
   `switch.rs` (the switches and their defaults), `snapshot.rs` (the
-  snapshot format, documented there), `diagnostics.rs`, `reasoner.rs`.
+  snapshot format, documented there), `diagnostics.rs`, `reasoner.rs`,
+  and `explain.rs` with `explain/` (proofs on demand: `program.rs` parses
+  `oracles/rules/` with `literals.rls` and `values.rls`, `closure.rs`
+  reads the store's tables through lazy indexes, `search.rs` ranks and
+  searches backwards; reasoning records nothing for it, and `engine/` and
+  `rules/` know nothing of it).
 - Adapters: `crates/cli` (the `turbowl` binary; `--help` and the crate
   doc in `src/main.rs` define its report, the JSON fields and the exit
   codes 0, 1, 2 and 64), `crates/python` (the `turbowl` Python package:
@@ -107,10 +117,18 @@ cargo run --release -p turbowl-bench -- --list
 - Every chaos iteration also runs the core on one thread and on all cores
   (every round parallel) and compares the two: the summary, the closure in
   read order and the diagnostics.
+- Every chaos iteration also explains 8 inferred triples and 8 diagnostics
+  of its final state, checks each proof with
+  `turbowl_reference::check_proof`, and requires the all-cores reasoner's
+  explainer to give the same proofs. `CHAOS_EXPLAINED=0` turns this off,
+  to measure what it costs.
 - 100,000 chaos iterations: run each of the four shard tests alone
-  (`--exact`) with `CHAOS_ITERS=100000`; each shard holds 50,000. A shard
-  takes about 35 to 42 minutes (phase 2's close-out: full shards about 35,
-  incremental ones about 42, the four side by side). The four can run in
+  (`--exact`) with `CHAOS_ITERS=100000`; each shard holds 50,000. Without
+  proofs a shard took about 35 to 42 minutes (phase 2's close-out: full
+  shards about 35, incremental ones about 42, the four side by side); the
+  proofs make it about 2.7 times as long (2,000 iterations: 31 s without,
+  83 s with). The 100,000 run with proofs is ticket 05 of
+  `docs/tickets/explain/`. The four can run in
   parallel from one built test binary.
 - The slow oracle tier runs with `ORACLE_SLOW=1`, one test at a time
   (`--exact`). The Brick variants and soda hall take under a minute each.

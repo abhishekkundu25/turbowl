@@ -167,6 +167,50 @@ A refused snapshot raises `turbowl.SnapshotError`. Parsing, reasoning,
 writing and snapshots release the GIL. The package's documentation is
 `help(turbowl)`.
 
+### Explanations
+
+TurbOWL can say why a triple is in the closure, or why a diagnostic was
+reported: a proof from base triples, one W3C rule per step.
+
+```sh
+turbowl model.ttl --explain '<http://example.org/a> <http://example.org/p> <http://example.org/c>'
+```
+
+```text
+<http://example.org/a> <http://example.org/p> <http://example.org/c>  [eq-rep-s]
+  <http://example.org/b> owl:sameAs <http://example.org/a>  [eq-sym]
+    <http://example.org/a> owl:sameAs <http://example.org/b>  [base]
+  <http://example.org/b> <http://example.org/p> <http://example.org/c>  [base]
+```
+
+```rust
+let proof = r.explain(triple.as_ref())?;        // Ok(None): not in the closure
+let explainer = r.explainer()?;                 // one explainer for many questions
+```
+
+```python
+proof = r.explain(EX.rex, RDF.type, EX.Animal)  # None when not in the closure
+print(proof)                                    # the tree above
+proof.leaves()                                  # the base triples it rests on
+```
+
+- **Nothing is recorded while reasoning.** A proof is computed when asked
+  for: the explainer runs the declarative rule program (`oracles/rules/`)
+  backwards over the closure and keeps a shallowest proof. Reasoning's
+  time and memory are what they were.
+- **Every configuration**, `owl:sameAs` and literal values included. A
+  proof is written in the user's terms, not the representatives the store
+  keeps.
+- **Checked.** Every proof the tests produce is replayed by the reference
+  evaluator's rules (`turbowl_reference::check_proof`): on every minimal
+  input of the oracle suite, and on every chaos input.
+- `--explain-diagnostics` adds the proof of each diagnostic; the JSON and
+  NDJSON reports carry proofs as objects (`turbowl --help`). Asking after
+  a change without reasoning again is `Error::NotReasoned` in Rust and
+  `turbowl.NotReasonedError` in Python.
+- One shallow proof per question. All proofs, minimal sets of axioms
+  (justifications) and "why not?" are not done.
+
 ## The rules and the switches
 
 Every rule belongs to the always-on core or to exactly one switch, a named
