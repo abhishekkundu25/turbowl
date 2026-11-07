@@ -32,7 +32,14 @@
 //! ([`turbowl::Reasoner::save_snapshot`], [`turbowl::Reasoner::from_snapshot`]);
 //! a refused one raises `SnapshotError`.
 //!
-//! Parsing, reasoning, writing and snapshots release the GIL.
+//! Explanations ([`turbowl::Explainer`]) take their terms converted as
+//! above, once, and return a proof as plain tuples, its terms built as the
+//! reads build them; the Python half wraps them in `Proof` and `Step`. The
+//! explainer's indexes ([`turbowl::ExplainCache`]) are kept between calls
+//! and dropped by every method that changes the reasoner. A change since
+//! the last run raises `NotReasonedError`.
+//!
+//! Parsing, reasoning, writing, snapshots and explaining release the GIL.
 
 use oxrdf::{BlankNode, Literal, NamedNode, NamedOrBlankNode, Term, Triple};
 use pyo3::call::PyCallArgs;
@@ -44,7 +51,7 @@ use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PySequence, PyString, PyTup
 use rustc_hash::FxHashMap;
 use std::io::Write as _;
 use std::path::PathBuf;
-use turbowl::{Error, Format, Severity, Switch, Switches};
+use turbowl::{Diagnostic, Error, ExplainCache, Format, Goal, Proof, Reason, Severity, Switch, Switches};
 
 const XSD_STRING: &str = "http://www.w3.org/2001/XMLSchema#string";
 
@@ -63,6 +70,9 @@ fn native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[derive(Debug)]
 struct NativeReasoner {
     inner: turbowl::Reasoner,
+    /// The explainer's indexes, kept while the reasoner does not change:
+    /// every `&mut self` method drops them.
+    cache: Option<ExplainCache>,
 }
 
 #[pymethods]
@@ -84,6 +94,7 @@ impl NativeReasoner {
         };
         Ok(Self {
             inner: turbowl::Reasoner::with_switches(switches),
+            cache: None,
         })
     }
 
@@ -91,7 +102,7 @@ impl NativeReasoner {
     #[staticmethod]
     fn from_snapshot(py: Python<'_>, path: PathBuf) -> PyResult<Self> {
         py.detach(|| turbowl::Reasoner::from_snapshot(&path))
-            .map(|inner| Self { inner })
+            .map(|inner| Self { inner, cache: None })
             .map_err(|e| error(py, e))
     }
 
@@ -114,6 +125,7 @@ impl NativeReasoner {
 
     /// Adds a file's triples to the base; the format comes from its extension.
     fn load_file(&mut self, py: Python<'_>, path: PathBuf) -> PyResult<()> {
+        self.cache = None;
         let inner = &mut self.inner;
         py.detach(|| inner.load_file(&path)).map_err(|e| error(py, e))
     }
@@ -122,6 +134,7 @@ impl NativeReasoner {
     /// (`turtle`, `ntriples`, `n3`, `rdfxml`).
     #[pyo3(signature = (text, format, base_iri=None))]
     fn load_str(&mut self, py: Python<'_>, text: &str, format: &str, base_iri: Option<&str>) -> PyResult<()> {
+        self.cache = None;
         let format = format_named(py, format)?;
         let inner = &mut self.inner;
         py.detach(|| inner.load_str(text, format, base_iri))
@@ -130,6 +143,7 @@ impl NativeReasoner {
 
     /// Adds an iterable of `(subject, predicate, object)` rdflib triples.
     fn insert(&mut self, py: Python<'_>, triples: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.cache = None;
         let triples = from_python(triples)?;
         let inner = &mut self.inner;
         py.detach(|| inner.insert(triples.iter().map(Triple::as_ref)));
@@ -138,6 +152,7 @@ impl NativeReasoner {
 
     /// Removes an iterable of rdflib triples from the base.
     fn remove(&mut self, py: Python<'_>, triples: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.cache = None;
         let triples = from_python(triples)?;
         let inner = &mut self.inner;
         py.detach(|| inner.remove(triples.iter().map(Triple::as_ref)));
@@ -147,6 +162,7 @@ impl NativeReasoner {
     /// Makes the base exactly these rdflib triples; true when a base triple
     /// was removed.
     fn set_base(&mut self, py: Python<'_>, triples: &Bound<'_, PyAny>) -> PyResult<bool> {
+        self.cache = None;
         let triples = from_python(triples)?;
         let inner = &mut self.inner;
         Ok(py.detach(|| inner.set_base(triples.iter().map(Triple::as_ref))))
@@ -154,11 +170,13 @@ impl NativeReasoner {
 
     /// Empties the reasoner.
     fn clear(&mut self) {
+        self.cache = None;
         self.inner.clear();
     }
 
     /// Runs to the fixpoint: `(base, inferred, rounds, diagnostics)`.
     fn reason(&mut self, py: Python<'_>) -> (usize, usize, usize, usize) {
+        self.cache = None;
         let inner = &mut self.inner;
         let s = py.detach(|| inner.reason());
         (s.base, s.inferred, s.rounds, s.diagnostics)
@@ -178,20 +196,56 @@ impl NativeReasoner {
     /// severity is `"error"` or `"warning"`, terms a tuple of rdflib terms.
     fn diagnostics<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
         let mut to = ToPython::new(py)?;
-        let mut out = Vec::with_capacity(self.inner.diagnostics().len());
-        for d in self.inner.diagnostics() {
-            let severity = match d.severity {
-                Severity::Error => "error",
-                Severity::Warning => "warning",
-            };
-            let terms = d
-                .terms
-                .iter()
-                .map(|t| to.term(t.clone()))
-                .collect::<PyResult<Vec<_>>>()?;
-            out.push((d.code, severity, d.message.as_str(), PyTuple::new(py, terms)?));
-        }
+        let out = self
+            .inner
+            .diagnostics()
+            .iter()
+            .map(|d| diagnostic(&mut to, d))
+            .collect::<PyResult<Vec<_>>>()?;
         PyList::new(py, out)
+    }
+
+    /// The proof of a triple of the last run's closure, as [`proof`] gives
+    /// it, or `None` when the triple is not in the closure.
+    fn explain<'py>(
+        &mut self,
+        py: Python<'py>,
+        s: &Bound<'py, PyAny>,
+        p: &Bound<'py, PyAny>,
+        o: &Bound<'py, PyAny>,
+    ) -> PyResult<Option<Bound<'py, PyTuple>>> {
+        let rdflib = Rdflib::new(py)?;
+        let triple = Triple::new(subject(&rdflib, s)?, predicate(&rdflib, p)?, object(&rdflib, o)?);
+        let found = self.explaining(py, |_, explainer| explainer.explain(triple.as_ref()))?;
+        found.map(|proof| self::proof(py, &proof)).transpose()
+    }
+
+    /// The proof of a diagnostic of the last run, given by its code and its
+    /// terms, as [`proof`] gives it, or `None` when it is not reported.
+    fn explain_diagnostic<'py>(
+        &mut self,
+        py: Python<'py>,
+        code: &str,
+        terms: &Bound<'py, PyAny>,
+    ) -> PyResult<Option<Bound<'py, PyTuple>>> {
+        let rdflib = Rdflib::new(py)?;
+        let terms = terms
+            .try_iter()?
+            .map(|t| object(&rdflib, &t?))
+            .collect::<PyResult<Vec<Term>>>()?;
+        let found = self.explaining(py, |reasoner, explainer| {
+            let d = reasoner
+                .diagnostics()
+                .iter()
+                .find(|d| d.code == code && d.terms == terms)?;
+            explainer.explain_diagnostic(d)
+        })?;
+        found.map(|proof| self::proof(py, &proof)).transpose()
+    }
+
+    /// True while the explainer's indexes are kept (for the tests).
+    fn explain_cache_held(&self) -> bool {
+        self.cache.is_some()
     }
 
     /// The closure (or only the inferred triples) as text in a format with a
@@ -233,6 +287,89 @@ impl NativeReasoner {
         })
         .map_err(|e| error(py, e))
     }
+}
+
+impl NativeReasoner {
+    /// Runs `ask` on the reasoner and an explainer over its last run's
+    /// closure, without the GIL, with the kept indexes, and keeps them for
+    /// the next call.
+    fn explaining<T: Send>(
+        &mut self,
+        py: Python<'_>,
+        ask: impl FnOnce(&turbowl::Reasoner, &turbowl::Explainer<'_>) -> T + Send,
+    ) -> PyResult<T> {
+        let cache = self.cache.take().unwrap_or_default();
+        let inner = &self.inner;
+        let (found, cache) = py
+            .detach(|| {
+                let explainer = inner.explainer_with(cache)?;
+                let found = ask(inner, &explainer);
+                Ok((found, explainer.into_cache()))
+            })
+            .map_err(|e| error(py, e))?;
+        self.cache = Some(cache);
+        Ok(found)
+    }
+}
+
+/// A proof as the Python half's `Proof` reads it:
+/// `(steps, goal, rule, premises, depth, text)`. Each step is
+/// `((s, p, o), rule, premises)`, `rule` `None` for a base triple and
+/// `premises` a tuple of indexes of earlier steps. `goal` is `None` when
+/// the proof is of the last step's statement, or a diagnostic as
+/// `diagnostics` gives one; `rule` and `premises` are the goal's. `text` is
+/// the tree.
+fn proof<'py>(py: Python<'py>, proof: &Proof) -> PyResult<Bound<'py, PyTuple>> {
+    let mut to = ToPython::new(py)?;
+    let reason = |reason: &Reason| -> PyResult<(Option<&'static str>, Bound<'py, PyTuple>)> {
+        Ok(match reason {
+            Reason::Base => (None, PyTuple::empty(py)),
+            Reason::Rule { rule, premises } => (Some(*rule), PyTuple::new(py, premises)?),
+        })
+    };
+    let mut steps = Vec::with_capacity(proof.steps().len());
+    for step in proof.steps() {
+        let s = &step.statement;
+        let statement = PyTuple::new(
+            py,
+            [
+                to.term(s.subject.clone())?,
+                to.term(s.predicate.clone())?,
+                to.term(s.object.clone())?,
+            ],
+        )?;
+        let (rule, premises) = reason(&step.reason)?;
+        steps.push((statement, rule, premises).into_pyobject(py)?);
+    }
+    let goal = match proof.goal() {
+        Goal::Statement(_) => py.None().into_bound(py),
+        Goal::Diagnostic(d) => diagnostic(&mut to, d)?.into_any(),
+    };
+    let (rule, premises) = reason(proof.reason())?;
+    (
+        PyList::new(py, steps)?,
+        goal,
+        rule,
+        premises,
+        proof.depth(),
+        proof.to_string(),
+    )
+        .into_pyobject(py)
+}
+
+/// A diagnostic as `(code, severity, message, terms)`: severity is
+/// `"error"` or `"warning"`, terms a tuple of rdflib terms.
+fn diagnostic<'py>(to: &mut ToPython<'py>, d: &Diagnostic) -> PyResult<Bound<'py, PyTuple>> {
+    let severity = match d.severity {
+        Severity::Error => "error",
+        Severity::Warning => "warning",
+    };
+    let terms = d
+        .terms
+        .iter()
+        .map(|t| to.term(t.clone()))
+        .collect::<PyResult<Vec<_>>>()?;
+    (d.code, severity, d.message.as_str(), PyTuple::new(to.py, terms)?).into_pyobject(to.py)
 }
 
 /// `start`, with each switch a mapping names turned on (`True`) or off
@@ -325,8 +462,7 @@ fn error(py: Python<'_>, e: Error) -> PyErr {
         } => raise(py, "ParseError", (message, shown(path), line, column)),
         Error::UnknownFormat { path } => raise(py, "UnknownFormatError", (message, shown(Some(path)))),
         Error::Snapshot { path, message } => raise(py, "SnapshotError", (message, shown(path))),
-        // Asked for by an explanation (ticket 03 gives it its own class).
-        Error::NotReasoned => raise(py, "TurbowlError", (message,)),
+        Error::NotReasoned => raise(py, "NotReasonedError", (message,)),
     }
 }
 

@@ -66,7 +66,44 @@
 //!
 //! `--max-diagnostics N` lists at most N diagnostics. `--summary-only`
 //! writes no closure and lists no diagnostic: the report is the summary
-//! alone, on stdout.
+//! alone (and any `--explain` proof), on stdout.
+//!
+//! # Explanations
+//!
+//! `--explain '<s> <p> <o>'` asks why a triple is in the closure: its value
+//! is one N-Triples triple (the final ` .` may be left out), and the flag
+//! can be repeated. A blank node is named as the closure writes it
+//! (`_:b_1`). `--explain-diagnostics` asks the same of every listed
+//! diagnostic. The answer is a proof ([`turbowl::Proof`]): each step a
+//! triple and the W3C rule that concludes it from earlier steps, down to
+//! base triples. A triple outside the closure has none: the report says
+//! so, and the exit status does not change. A value that is not one
+//! N-Triples triple is a usage error (64).
+//!
+//! In `text`, the proofs follow the report, each after a blank line: the
+//! `--explain` triples in the order given, then the listed diagnostics, each
+//! as the indented tree [`turbowl::Proof`]'s `Display` writes (the goal
+//! first, each premise indented under the step that reads it). A triple
+//! without a proof is one line, `not in the closure: <s> <p> <o> .`.
+//!
+//! In `json` and `ndjson`:
+//!
+//! - PROOF: `{"depth": N, "steps": [STEP, ...]}`, the steps in order, each
+//!   premise before the steps that read it, the goal last. `depth` is the
+//!   most rule steps from the goal to a base triple.
+//! - STEP: `statement` (the triple, three N-Triples terms as in `terms`;
+//!   a generalized triple, whose subject may be a literal), `rule` (the W3C
+//!   rule, as `cax-sco`, or `null` for a base triple) and `premises` (the
+//!   indexes in `steps` of the steps it reads; a rule such as cls-thing has
+//!   none). The goal of a diagnostic's proof has `diagnostic` (its code) in
+//!   place of `statement`.
+//! - EXPLANATION: `triple` (the `--explain` triple, three N-Triples terms)
+//!   and `proof` (a PROOF, or `null` when the triple is not in the closure).
+//! - In `json`, `--explain` adds `"explanations": [EXPLANATION, ...]`, in
+//!   the order given. In `ndjson`, each EXPLANATION is a line with
+//!   `"type": "explanation"`, after the diagnostics, before the summary.
+//! - `--explain-diagnostics` adds `proof` (a PROOF, or `null`) to each
+//!   listed DIAGNOSTIC.
 //!
 //! # Exit status
 //!
@@ -75,14 +112,15 @@
 //! | 0 | Success. |
 //! | 1 | An input or output error, a parse error, or a snapshot refused. |
 //! | 2 | A diagnostic at or above `--fail-on` (default `error`); the closure and the report are still written. |
-//! | 64 | A usage error (an unknown option, a bad value, an unknown switch, no input and no `--load-snapshot`, an input whose extension names no format). |
+//! | 64 | A usage error (an unknown option, a bad value, an unknown switch, an `--explain` value that is not one N-Triples triple, no input and no `--load-snapshot`, an input whose extension names no format). |
 
+use oxrdf::{Term, Triple};
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
-use turbowl::{Diagnostic, Format, Reasoner, Severity, Summary, Switch, Switches};
+use turbowl::{Diagnostic, Format, Goal, Proof, Reason, Reasoner, Severity, Summary, Switch, Switches};
 
 /// The help, up to the switches (see [`help`]).
 const HELP_OPTIONS: &str = "\
@@ -106,7 +144,12 @@ Options:
                              error (default), warning or never
       --max-diagnostics <N>  List at most N diagnostics (the summary counts all)
       --summary-only         Write no closure and list no diagnostic: print
-                             only the summary, to stdout
+                             only the summary (and --explain), to stdout
+      --explain '<s> <p> <o>'
+                             Print why the triple, one N-Triples triple (blank
+                             nodes as the closure names them), is in the
+                             closure: its proof, after the report. Repeatable
+      --explain-diagnostics  Print the proof of every listed diagnostic
       --switch NAME=on|off   Turn the switch NAME on or off. Repeatable: the
                              flags apply in order, so a later one for the
                              same NAME wins
@@ -145,6 +188,23 @@ The report:
                \"switches\": [\"equality\", ...]}
                \"diagnostics\" counts every diagnostic, listed or not;
                \"switches\" names the switches that were on.
+
+Explanations:
+  A proof gives each step's triple and the W3C rule that concludes it from
+  earlier steps, down to base triples. In text, each proof follows the
+  report as an indented tree, the goal first; a triple outside the closure
+  is one line, \"not in the closure: ...\", and leaves the exit status as it
+  is. In json, --explain adds \"explanations\": [EXPLANATION, ...], and
+  --explain-diagnostics adds \"proof\" to each DIAGNOSTIC. In ndjson, each
+  EXPLANATION is a line with \"type\": \"explanation\", before the summary.
+
+  EXPLANATION {\"triple\": [\"<s>\", \"<p>\", \"<o>\"], \"proof\": PROOF or null}
+  PROOF       {\"depth\": N, \"steps\": [STEP, ...]}, the goal last
+  STEP        {\"statement\": [\"<s>\", \"<p>\", \"<o>\"],
+               \"rule\": \"cax-sco\" or null (a base triple),
+               \"premises\": [the indexes of the steps it reads]}
+               A diagnostic's goal has \"diagnostic\": \"cax-dw\" in place
+               of \"statement\".
 
 Exit status:
   0   Success.
@@ -265,6 +325,10 @@ struct Options {
     load_snapshot: Option<PathBuf>,
     /// `--save-snapshot`: save the state here after the run.
     save_snapshot: Option<PathBuf>,
+    /// Each `--explain` triple, in order.
+    explain: Vec<Triple>,
+    /// `--explain-diagnostics`.
+    explain_diagnostics: bool,
 }
 
 impl Options {
@@ -367,7 +431,8 @@ fn run(options: &Options) -> Result<ExitCode, String> {
         let all = reasoner.diagnostics();
         &all[..all.len().min(options.max_diagnostics)]
     };
-    let report = report(options.report, listed, &summary, reasoner.switches(), &timing);
+    let proofs = explain(&reasoner, options, listed)?;
+    let report = report(options.report, listed, &summary, reasoner.switches(), &timing, &proofs);
     let closure_on_stdout = options.output.is_none() && !options.summary_only;
     if closure_on_stdout {
         // stderr may be closed; the report is not worth failing the run for.
@@ -387,6 +452,34 @@ fn run(options: &Options) -> Result<ExitCode, String> {
             .any(|d| rank(d.severity) >= rank(threshold))
     });
     Ok(if fails { ExitCode::from(2) } else { ExitCode::SUCCESS })
+}
+
+/// The proofs the run was asked for: `None` where there is none.
+#[derive(Debug, Default)]
+struct Proofs<'a> {
+    /// Each `--explain` triple, with its proof.
+    triples: Vec<(&'a Triple, Option<Proof>)>,
+    /// With `--explain-diagnostics`, each listed diagnostic's proof, in
+    /// the order listed.
+    diagnostics: Option<Vec<Option<Proof>>>,
+}
+
+/// Explains what `options` asks, with one explainer over the closure.
+fn explain<'a>(reasoner: &Reasoner, options: &'a Options, listed: &[Diagnostic]) -> Result<Proofs<'a>, String> {
+    if options.explain.is_empty() && !options.explain_diagnostics {
+        return Ok(Proofs::default());
+    }
+    let explainer = reasoner.explainer().map_err(|e| e.to_string())?;
+    Ok(Proofs {
+        triples: options
+            .explain
+            .iter()
+            .map(|t| (t, explainer.explain(t.as_ref())))
+            .collect(),
+        diagnostics: options
+            .explain_diagnostics
+            .then(|| listed.iter().map(|d| explainer.explain_diagnostic(d)).collect()),
+    })
 }
 
 /// How long the stages took.
@@ -416,9 +509,27 @@ fn seconds(d: Duration) -> f64 {
     (d.as_secs_f64() * 1e6).round() / 1e6
 }
 
-/// The report: the listed diagnostics, then the summary.
-fn report(form: Report, listed: &[Diagnostic], summary: &Summary, switches: Switches, timing: &Timing) -> String {
+/// The report: the listed diagnostics, then the summary, then the proofs
+/// asked for (in `json`, beside them; in `ndjson`, before the summary).
+fn report(
+    form: Report,
+    listed: &[Diagnostic],
+    summary: &Summary,
+    switches: Switches,
+    timing: &Timing,
+    proofs: &Proofs<'_>,
+) -> String {
     let mut out = String::new();
+    // Each listed diagnostic as JSON, with its proof when asked.
+    let diagnostics = || {
+        listed.iter().enumerate().map(|(i, d)| {
+            let mut record = diagnostic_json(d);
+            if let Some(proofs) = &proofs.diagnostics {
+                record["proof"] = proofs[i].as_ref().map_or(serde_json::Value::Null, proof_json);
+            }
+            record
+        })
+    };
     match form {
         Report::Text => {
             for d in listed {
@@ -433,19 +544,46 @@ fn report(form: Report, listed: &[Diagnostic], summary: &Summary, switches: Swit
                 timing.load.as_secs_f64(),
                 timing.reason.as_secs_f64(),
             ));
+            for (triple, proof) in &proofs.triples {
+                out.push('\n');
+                match proof {
+                    Some(proof) => out.push_str(&proof.to_string()),
+                    None => out.push_str(&format!("not in the closure: {triple} .\n")),
+                }
+            }
+            for (d, proof) in listed.iter().zip(proofs.diagnostics.iter().flatten()) {
+                out.push('\n');
+                match proof {
+                    Some(proof) => out.push_str(&proof.to_string()),
+                    None => out.push_str(&format!(
+                        "no proof: {}[{}]: {}\n",
+                        severity_name(d.severity),
+                        d.code,
+                        d.message
+                    )),
+                }
+            }
         }
         Report::Json => {
-            let document = serde_json::json!({
+            let mut document = serde_json::json!({
                 "summary": summary_json(summary, switches, timing),
-                "diagnostics": listed.iter().map(diagnostic_json).collect::<Vec<_>>(),
+                "diagnostics": diagnostics().collect::<Vec<_>>(),
             });
+            if !proofs.triples.is_empty() {
+                document["explanations"] = proofs.triples.iter().map(explanation_json).collect();
+            }
             out.push_str(&document.to_string());
             out.push('\n');
         }
         Report::Ndjson => {
-            for d in listed {
-                let mut record = diagnostic_json(d);
+            for mut record in diagnostics() {
                 record["type"] = "diagnostic".into();
+                out.push_str(&record.to_string());
+                out.push('\n');
+            }
+            for explained in &proofs.triples {
+                let mut record = explanation_json(explained);
+                record["type"] = "explanation".into();
                 out.push_str(&record.to_string());
                 out.push('\n');
             }
@@ -465,6 +603,49 @@ fn diagnostic_json(d: &Diagnostic) -> serde_json::Value {
         "message": d.message,
         "terms": d.terms.iter().map(|t| t.to_string()).collect::<Vec<_>>(),
     })
+}
+
+/// An `--explain` triple and its proof.
+fn explanation_json((triple, proof): &(&Triple, Option<Proof>)) -> serde_json::Value {
+    let subject = Term::from(triple.subject.clone());
+    let predicate = Term::from(triple.predicate.clone());
+    serde_json::json!({
+        "triple": terms_json([&subject, &predicate, &triple.object]),
+        "proof": proof.as_ref().map_or(serde_json::Value::Null, proof_json),
+    })
+}
+
+/// A proof: its depth, and its steps, the goal last.
+fn proof_json(proof: &Proof) -> serde_json::Value {
+    let mut steps: Vec<serde_json::Value> = proof
+        .steps()
+        .iter()
+        .map(|step| {
+            let s = &step.statement;
+            let mut record = reason_json(&step.reason);
+            record["statement"] = terms_json([&s.subject, &s.predicate, &s.object]);
+            record
+        })
+        .collect();
+    if let Goal::Diagnostic(d) = proof.goal() {
+        let mut record = reason_json(proof.reason());
+        record["diagnostic"] = d.code.into();
+        steps.push(record);
+    }
+    serde_json::json!({"depth": proof.depth(), "steps": steps})
+}
+
+/// A step's `rule` (`null` for a base triple) and `premises`.
+fn reason_json(reason: &Reason) -> serde_json::Value {
+    match reason {
+        Reason::Base => serde_json::json!({"rule": null, "premises": []}),
+        Reason::Rule { rule, premises } => serde_json::json!({"rule": rule, "premises": premises}),
+    }
+}
+
+/// Three terms, each an N-Triples string.
+fn terms_json(terms: [&Term; 3]) -> serde_json::Value {
+    terms.iter().map(|t| t.to_string()).collect()
 }
 
 fn summary_json(summary: &Summary, switches: Switches, timing: &Timing) -> serde_json::Value {
@@ -495,6 +676,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
     let mut settings: Vec<(Switch, bool)> = Vec::new();
     let mut load_snapshot: Option<OsString> = None;
     let mut save_snapshot: Option<OsString> = None;
+    let mut explain = Vec::new();
+    let mut explain_diagnostics = false;
     let mut options_ended = false;
 
     while let Some(arg) = args.next() {
@@ -586,6 +769,8 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
                 once(save_snapshot.is_some())?;
                 save_snapshot = Some(value()?);
             }
+            "--explain" => explain.push(explain_triple(&value()?)?),
+            "--explain-diagnostics" => explain_diagnostics = flag(explain_diagnostics)?,
             _ => return Err(Usage(format!("unknown option '{name}'"))),
         }
     }
@@ -604,6 +789,11 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
     if summary_only && (output.is_some() || format.is_some() || inferred_only) {
         return Err(Usage(
             "--summary-only writes no closure: it takes no -o, --format or --inferred-only".into(),
+        ));
+    }
+    if summary_only && explain_diagnostics {
+        return Err(Usage(
+            "--summary-only lists no diagnostic: it takes no --explain-diagnostics".into(),
         ));
     }
     let output = output.filter(|o| o != "-").map(PathBuf::from);
@@ -630,7 +820,34 @@ fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, Usage> {
         settings,
         load_snapshot: load_snapshot.map(PathBuf::from),
         save_snapshot: save_snapshot.map(PathBuf::from),
+        explain,
+        explain_diagnostics,
     }))
+}
+
+/// An `--explain` value: one N-Triples triple, its final ` .` optional.
+fn explain_triple(value: &OsStr) -> Result<Triple, Usage> {
+    let shown = value.to_string_lossy();
+    let bad = |why: &str| {
+        Usage(format!(
+            "--explain takes one N-Triples triple, as '<s> <p> <o>', not '{shown}' ({why})"
+        ))
+    };
+    let text = value.to_str().ok_or_else(|| bad("not UTF-8"))?.trim();
+    let line = if text.ends_with('.') {
+        text.to_owned()
+    } else {
+        format!("{text} .")
+    };
+    let mut triples = oxttl::NTriplesParser::new().for_slice(line.as_bytes());
+    let triple = triples
+        .next()
+        .ok_or_else(|| bad("no triple"))?
+        .map_err(|e| bad(&e.to_string()))?;
+    match triples.next() {
+        None => Ok(triple),
+        Some(_) => Err(bad("more than one triple")),
+    }
 }
 
 /// A `--switch` value: `NAME=on` or `NAME=off`.

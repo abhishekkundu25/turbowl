@@ -782,6 +782,8 @@ fn help_and_version_exit_0() {
             "--switches",
             "--save-snapshot <PATH>",
             "--load-snapshot <PATH>",
+            "--explain '<s> <p> <o>'",
+            "--explain-diagnostics",
             "--version",
             "Exit status",
             "64",
@@ -957,4 +959,381 @@ fn a_refused_snapshot_exits_1() {
     assert_eq!(run.code, 1, "{run:?}");
     assert!(run.stderr.contains("no-such-dir"), "{run:?}");
     assert_eq!(run.stdout, "");
+}
+
+// Explanations.
+
+const TYPE: &str = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>";
+const SUB_CLASS_OF: &str = "<http://www.w3.org/2000/01/rdf-schema#subClassOf>";
+
+/// `ex:rex a ex:Animal`: cax-sco over the schema's subclass and the data's type.
+const REX_IS_AN_ANIMAL: &str =
+    "<http://example.org/rex> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Animal>";
+
+/// A triple the closure does not hold.
+const REX_IS_A_CAT: &str =
+    "<http://example.org/rex> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Cat>";
+
+/// The three N-Triples terms of a line written without its ` .`.
+fn three(triple: &str) -> serde_json::Value {
+    serde_json::json!(triple.splitn(3, ' ').collect::<Vec<_>>())
+}
+
+/// The library's proof of `triple` (an N-Triples line) over `inputs`.
+fn library_proof(inputs: &[PathBuf], triple: &str) -> Option<turbowl::Proof> {
+    let mut r = Reasoner::new();
+    for input in inputs {
+        r.load_file(input).unwrap();
+    }
+    r.reason();
+    let t = oxttl::NTriplesParser::new()
+        .for_slice(format!("{triple} .").as_bytes())
+        .next()
+        .unwrap()
+        .unwrap();
+    r.explain(t.as_ref()).unwrap()
+}
+
+/// Checks a PROOF object against the library's proof, step by step.
+fn check_proof_json(proof: &serde_json::Value, expected: &turbowl::Proof) {
+    let steps = proof["steps"].as_array().unwrap();
+    let diagnostic = matches!(expected.goal(), turbowl::Goal::Diagnostic(_));
+    assert_eq!(steps.len(), expected.steps().len() + usize::from(diagnostic), "{proof}");
+    assert_eq!(proof["depth"], expected.depth());
+    for (step, want) in steps.iter().zip(expected.steps()) {
+        let s = &want.statement;
+        let terms: Vec<String> = [&s.subject, &s.predicate, &s.object]
+            .iter()
+            .map(|t| t.to_string())
+            .collect();
+        assert_eq!(step["statement"], serde_json::json!(terms));
+        match &want.reason {
+            turbowl::Reason::Base => {
+                assert_eq!(step["rule"], serde_json::Value::Null);
+                assert_eq!(step["premises"], serde_json::json!([]));
+            }
+            turbowl::Reason::Rule { rule, premises } => {
+                assert_eq!(step["rule"], *rule);
+                assert_eq!(step["premises"], serde_json::json!(premises));
+            }
+        }
+    }
+    // Every premise comes before the step that reads it.
+    for (i, step) in steps.iter().enumerate() {
+        for p in step["premises"].as_array().unwrap() {
+            assert!(p.as_u64().unwrap() < i as u64, "{proof}");
+        }
+    }
+}
+
+#[test]
+fn explain_prints_the_proof_tree_after_the_report() {
+    let dir = fixtures("explain-text");
+    let out = arg(&dir.join("closure.ttl"));
+    let inputs = [dir.join("schema.ttl"), dir.join("data.nt")];
+    let run = turbowl(&[
+        &arg(&inputs[0]),
+        &arg(&inputs[1]),
+        "-o",
+        &out,
+        "--explain",
+        REX_IS_AN_ANIMAL,
+    ]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let (report, proof) = run.stdout.split_once("\n\n").expect("a blank line before the proof");
+    assert!(report.contains(" base, "), "the summary first: {run:?}");
+    let expected = library_proof(&inputs, REX_IS_AN_ANIMAL).expect("a proof");
+    assert_eq!(proof, expected.to_string(), "the Display tree");
+    let lines: Vec<&str> = proof.lines().collect();
+    assert_eq!(
+        lines,
+        [
+            "<http://example.org/rex> rdf:type <http://example.org/Animal>  [cax-sco]",
+            "  <http://example.org/Dog> rdfs:subClassOf <http://example.org/Animal>  [base]",
+            "  <http://example.org/rex> rdf:type <http://example.org/Dog>  [base]",
+        ]
+    );
+
+    // The trailing " ." may be given; each --explain gives one proof, in order.
+    let bob = "<http://example.org/bob> <http://example.org/knows> <http://example.org/ann> .";
+    let run = turbowl(&[
+        &arg(&inputs[0]),
+        &arg(&inputs[1]),
+        "--summary-only",
+        "--explain",
+        bob,
+        &format!("--explain={REX_IS_AN_ANIMAL}"),
+    ]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let blocks: Vec<&str> = run.stdout.split("\n\n").collect();
+    assert_eq!(blocks.len(), 3, "{run:?}");
+    assert!(
+        blocks[1]
+            .starts_with("<http://example.org/bob> <http://example.org/knows> <http://example.org/ann>  [prp-symp]"),
+        "{run:?}"
+    );
+    assert!(
+        blocks[2].starts_with("<http://example.org/rex> rdf:type <http://example.org/Animal>  [cax-sco]"),
+        "{run:?}"
+    );
+}
+
+#[test]
+fn explain_in_json_and_ndjson_gives_the_steps_the_goal_last() {
+    let dir = fixtures("explain-json");
+    let out = arg(&dir.join("closure.ttl"));
+    let inputs = [dir.join("schema.ttl"), dir.join("data.nt")];
+    let expected = library_proof(&inputs, REX_IS_AN_ANIMAL).expect("a proof");
+    let base = [
+        &arg(&inputs[0]),
+        &arg(&inputs[1]),
+        "-o",
+        &out,
+        "--explain",
+        REX_IS_AN_ANIMAL,
+    ];
+
+    let mut args = base.to_vec();
+    args.extend(["--diagnostics", "json"]);
+    let run = turbowl(&args);
+    assert_eq!(run.code, 0, "{run:?}");
+    let doc = json(&run.stdout);
+    let explanations = doc["explanations"].as_array().unwrap();
+    assert_eq!(explanations.len(), 1);
+    assert_eq!(explanations[0]["triple"], three(REX_IS_AN_ANIMAL));
+    let proof = &explanations[0]["proof"];
+    check_proof_json(proof, &expected);
+    let steps = proof["steps"].as_array().unwrap();
+    let goal = steps.last().unwrap();
+    assert_eq!(goal["statement"], three(REX_IS_AN_ANIMAL), "the goal last");
+    assert_eq!(goal["rule"], "cax-sco");
+    let premises: Vec<&serde_json::Value> = goal["premises"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| &steps[p.as_u64().unwrap() as usize]["statement"])
+        .collect();
+    assert!(premises.contains(&&three(&format!(
+        "<http://example.org/Dog> {SUB_CLASS_OF} <http://example.org/Animal>"
+    ))));
+    assert!(premises.contains(&&three(&format!(
+        "<http://example.org/rex> {TYPE} <http://example.org/Dog>"
+    ))));
+    assert!(doc["diagnostics"].as_array().unwrap().is_empty());
+
+    let mut args = base.to_vec();
+    args.extend(["--diagnostics", "ndjson"]);
+    let run = turbowl(&args);
+    let records: Vec<serde_json::Value> = run.stdout.lines().map(json).collect();
+    assert_eq!(records.len(), 2, "{run:?}");
+    assert_eq!(records[0]["type"], "explanation");
+    assert_eq!(records[0]["triple"], three(REX_IS_AN_ANIMAL));
+    check_proof_json(&records[0]["proof"], &expected);
+    assert_eq!(records[1]["type"], "summary", "the summary last");
+
+    // Without --explain, the report has no explanations.
+    let run = turbowl(&[&arg(&inputs[0]), &arg(&inputs[1]), "-o", &out, "--diagnostics", "json"]);
+    assert!(json(&run.stdout).get("explanations").is_none(), "{run:?}");
+}
+
+#[test]
+fn explain_names_blank_nodes_as_the_closure_writes_them() {
+    let dir = fixtures("explain-blank");
+    // Two documents with a `_:x` each: two blank nodes, each typed by the schema.
+    let blanks = ["blanks1.ttl", "blanks2.ttl"].map(|name| dir.join(name));
+    for (path, n) in blanks.iter().zip(1..) {
+        std::fs::write(
+            path,
+            format!("_:x a <http://example.org/Dog> ; <http://example.org/n> {n} .\n"),
+        )
+        .unwrap();
+    }
+    let inputs = [dir.join("schema.ttl"), blanks[0].clone(), blanks[1].clone()];
+    let mut args: Vec<String> = inputs.iter().map(|p| arg(p)).collect();
+    args.extend(["--format".into(), "nt".into(), "--inferred-only".into()]);
+    let closure = parsed(&turbowl(&args).stdout, Format::NTriples);
+    let typed: Vec<&String> = closure
+        .iter()
+        .filter(|t| t.starts_with("_:") && t.ends_with(&format!("{TYPE} <http://example.org/Animal>")))
+        .collect();
+    assert_eq!(typed.len(), 2, "{closure:?}");
+
+    for triple in typed {
+        let blank = triple.split(' ').next().unwrap();
+        let mut args: Vec<String> = inputs.iter().map(|p| arg(p)).collect();
+        args.extend(["--summary-only", "--diagnostics", "json", "--explain", triple].map(String::from));
+        let run = turbowl(&args);
+        assert_eq!(run.code, 0, "{run:?}");
+        let proof = &json(&run.stdout)["explanations"][0]["proof"];
+        check_proof_json(proof, &library_proof(&inputs, triple).expect("a proof"));
+        let leaves: Vec<&serde_json::Value> = proof["steps"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|s| s["rule"].is_null())
+            .map(|s| &s["statement"])
+            .collect();
+        assert!(
+            leaves.contains(&&three(&format!("{blank} {TYPE} <http://example.org/Dog>"))),
+            "the leaf names the same blank node: {proof}"
+        );
+    }
+}
+
+#[test]
+fn a_triple_not_in_the_closure_is_reported_and_keeps_the_exit_status() {
+    let dir = fixtures("explain-missing");
+    let schema = arg(&dir.join("schema.ttl"));
+    let data = arg(&dir.join("data.nt"));
+    let bad = arg(&dir.join("bad.ttl"));
+
+    let run = turbowl(&[&schema, &data, "--summary-only", "--explain", REX_IS_A_CAT]);
+    assert_eq!(run.code, 0, "{run:?}");
+    assert!(
+        run.stdout
+            .ends_with(&format!("\n\nnot in the closure: {REX_IS_A_CAT} .\n")),
+        "{run:?}"
+    );
+
+    let run = turbowl(&[
+        &schema,
+        &data,
+        "--summary-only",
+        "--diagnostics",
+        "json",
+        "--explain",
+        REX_IS_A_CAT,
+    ]);
+    assert_eq!(run.code, 0, "{run:?}");
+    let doc = json(&run.stdout);
+    assert_eq!(doc["explanations"][0]["triple"], three(REX_IS_A_CAT));
+    assert_eq!(doc["explanations"][0]["proof"], serde_json::Value::Null);
+
+    let run = turbowl(&[
+        &schema,
+        &data,
+        "--summary-only",
+        "--diagnostics",
+        "ndjson",
+        "--explain",
+        REX_IS_A_CAT,
+    ]);
+    let records: Vec<serde_json::Value> = run.stdout.lines().map(json).collect();
+    assert_eq!(records[0]["type"], "explanation");
+    assert_eq!(records[0]["proof"], serde_json::Value::Null);
+
+    // With diagnostics, the exit status is still --fail-on's.
+    let run = turbowl(&[&bad, "--summary-only", "--explain", REX_IS_A_CAT]);
+    assert_eq!(run.code, 2, "{run:?}");
+    let run = turbowl(&[&bad, "--summary-only", "--fail-on", "never", "--explain", REX_IS_A_CAT]);
+    assert_eq!(run.code, 0, "{run:?}");
+}
+
+#[test]
+fn explain_diagnostics_proves_each_listed_diagnostic() {
+    let dir = fixtures("explain-diagnostics");
+    let input = dir.join("bad.ttl");
+    let out = arg(&dir.join("closure.ttl"));
+    let mut r = Reasoner::new();
+    r.load_file(&input).unwrap();
+    r.reason();
+    let expected: Vec<turbowl::Proof> = r
+        .diagnostics()
+        .iter()
+        .map(|d| r.explain_diagnostic(d).unwrap().expect("a proof"))
+        .collect();
+    assert_eq!(expected.len(), 2);
+
+    let run = turbowl(&[&arg(&input), "-o", &out, "--explain-diagnostics"]);
+    assert_eq!(run.code, 2, "the exit status is --fail-on's: {run:?}");
+    let blocks: Vec<&str> = run.stdout.split("\n\n").collect();
+    assert_eq!(blocks.len(), 3, "{run:?}");
+    assert!(blocks[0].starts_with("error[cax-dw]: "), "the report first: {run:?}");
+    assert_eq!(format!("{}\n", blocks[1]), expected[0].to_string());
+    assert_eq!(blocks[2], expected[1].to_string());
+    assert!(blocks[1].lines().next().unwrap().ends_with("  [cax-dw]"), "{run:?}");
+    assert_eq!(
+        blocks[1].lines().filter(|l| l.ends_with("  [base]")).count(),
+        3,
+        "{run:?}"
+    );
+
+    let run = turbowl(&[
+        &arg(&input),
+        "-o",
+        &out,
+        "--explain-diagnostics",
+        "--diagnostics",
+        "json",
+    ]);
+    let doc = json(&run.stdout);
+    let listed = doc["diagnostics"].as_array().unwrap();
+    assert_eq!(listed.len(), 2);
+    for (d, expected) in listed.iter().zip(&expected) {
+        check_proof_json(&d["proof"], expected);
+        let goal = d["proof"]["steps"].as_array().unwrap().last().unwrap().clone();
+        assert_eq!(goal["diagnostic"], d["code"], "the diagnostic's goal last");
+        assert!(goal.get("statement").is_none());
+    }
+    let goal = listed[0]["proof"]["steps"].as_array().unwrap().last().unwrap().clone();
+    assert_eq!(goal["rule"], "cax-dw");
+    assert_eq!(goal["premises"], serde_json::json!([0, 1, 2]));
+
+    // ndjson: each diagnostic line carries its proof; --max-diagnostics
+    // limits what is proved as what is listed.
+    let run = turbowl(&[
+        &arg(&input),
+        "-o",
+        &out,
+        "--explain-diagnostics",
+        "--diagnostics",
+        "ndjson",
+        "--max-diagnostics",
+        "1",
+    ]);
+    let records: Vec<serde_json::Value> = run.stdout.lines().map(json).collect();
+    assert_eq!(records.len(), 2, "{run:?}");
+    assert_eq!(records[0]["type"], "diagnostic");
+    check_proof_json(&records[0]["proof"], &expected[0]);
+    assert_eq!(records[1]["type"], "summary");
+
+    // Without the flag, no diagnostic carries a proof.
+    let run = turbowl(&[&arg(&input), "-o", &out, "--diagnostics", "json"]);
+    assert!(json(&run.stdout)["diagnostics"][0].get("proof").is_none(), "{run:?}");
+}
+
+#[test]
+fn a_malformed_explain_value_exits_64() {
+    let dir = fixtures("explain-usage");
+    let schema = arg(&dir.join("schema.ttl"));
+    let cases: Vec<Vec<&str>> = vec![
+        vec![&schema, "--explain"],
+        vec![&schema, "--explain", ""],
+        vec![&schema, "--explain", "nonsense"],
+        vec![&schema, "--explain", "<http://example.org/a> <http://example.org/b>"],
+        vec![&schema, "--explain", "<a> <b> <c>"],
+        vec![
+            &schema,
+            "--explain",
+            "\"x\" <http://example.org/b> <http://example.org/c>",
+        ],
+        vec![&schema, "--explain", "ex:a ex:b ex:c"],
+        vec![
+            &schema,
+            "--explain",
+            "<http://example.org/a> <http://example.org/b> <http://example.org/c> . <http://example.org/a> <http://example.org/b> <http://example.org/d> .",
+        ],
+        vec![&schema, "--explain-diagnostics", "--explain-diagnostics"],
+        vec![&schema, "--explain-diagnostics=yes"],
+        vec![&schema, "--summary-only", "--explain-diagnostics"],
+    ];
+    for args in cases {
+        let run = turbowl(&args);
+        assert_eq!(run.code, 64, "{args:?}: {run:?}");
+        assert!(run.stderr.starts_with("turbowl: "), "{args:?}: {run:?}");
+        assert!(run.stderr.contains("--help"), "{args:?}: {run:?}");
+        assert_eq!(run.stdout, "", "{args:?}");
+    }
+    let run = turbowl(&[&schema, "--explain", "nonsense"]);
+    assert!(run.stderr.contains("--explain takes one N-Triples triple"), "{run:?}");
 }

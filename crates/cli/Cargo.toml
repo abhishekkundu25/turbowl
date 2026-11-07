@@ -15,12 +15,14 @@ path = "src/main.rs"
 turbowl.workspace = true
 # The json and ndjson reports: escaping done right, already in the lock.
 serde_json = "1"
+# --explain's value: one N-Triples triple, parsed by oxttl into an oxrdf
+# triple. Both already in the lock through turbowl.
+oxrdf.workspace = true
+oxttl.workspace = true
 
 [dev-dependencies]
-oxrdf.workspace = true
 # The tests parse the command's output in every format, to compare it with
 # the library's closure as sets.
-oxttl.workspace = true
 oxrdfxml.workspace = true
 
 [lints]

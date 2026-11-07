@@ -91,21 +91,40 @@ Snapshots
     A snapshot of another TurbOWL version, or a damaged one, raises
     :class:`SnapshotError`.
 
+Explanations
+    :meth:`Reasoner.explain` tells why a triple is in the closure, and
+    :meth:`Reasoner.explain_diagnostic` why a diagnostic is reported, as a
+    :class:`Proof`: each :class:`Step` a statement and the W3C rule that
+    concludes it from earlier steps, down to base triples::
+
+        proof = r.explain(EX.rex, RDF.type, EX.Animal)
+        proof.steps[-1].rule      # "cax-sco": the goal is the last step
+        proof.leaves()            # the base triples it rests on
+        print(proof)              # an indented tree, the goal first
+
+    A triple outside the closure, or a diagnostic not reported, gives
+    ``None``. A proof is of the last run's closure: after a change, until
+    :meth:`Reasoner.reason` runs again, asking raises
+    :class:`NotReasonedError`. The reasoner keeps what the first proof
+    builds (its indexes) for the next ones, until it changes.
+
 Errors
     :class:`TurbowlError` is the base of every exception raised here:
     :class:`ParseError` (with the line and column), :class:`FileError` (an
-    ``OSError``), :class:`UnknownFormatError`, :class:`TermError` and
-    :class:`SnapshotError`. Data problems are not exceptions: they are
+    ``OSError``), :class:`UnknownFormatError`, :class:`TermError`,
+    :class:`SnapshotError` and :class:`NotReasonedError` (a
+    ``RuntimeError``). Data problems are not exceptions: they are
     diagnostics.
 
 Threads
-    Parsing, reasoning, writing and snapshots release the GIL. A reasoner is used by
-    one thread at a time; a call while another thread's call runs raises
-    ``RuntimeError``.
+    Parsing, reasoning, writing, snapshots and explaining release the GIL. A
+    reasoner is used by one thread at a time; a call while another thread's
+    call runs raises ``RuntimeError``.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 import os
 from collections.abc import Iterable, Mapping
@@ -116,7 +135,15 @@ from rdflib import Graph
 from rdflib.term import BNode, Literal, Node, URIRef
 
 from turbowl import _native
-from turbowl._errors import FileError, ParseError, SnapshotError, TermError, TurbowlError, UnknownFormatError
+from turbowl._errors import (
+    FileError,
+    NotReasonedError,
+    ParseError,
+    SnapshotError,
+    TermError,
+    TurbowlError,
+    UnknownFormatError,
+)
 
 Triple = tuple[Union[URIRef, BNode], URIRef, Union[URIRef, BNode, Literal]]
 """A triple as TurbOWL returns it."""
@@ -127,10 +154,14 @@ Triples = Union[Graph, Iterable[tuple[Node, Node, Node]]]
 __all__ = [
     "Diagnostic",
     "FileError",
+    "NotReasonedError",
     "ParseError",
+    "Proof",
     "Reasoner",
     "Severity",
     "SnapshotError",
+    "Statement",
+    "Step",
     "Summary",
     "TermError",
     "Triple",
@@ -255,6 +286,93 @@ class Diagnostic:
     severity: Severity
     message: str
     terms: tuple[Node, ...]
+
+
+def _diagnostic(native: tuple[str, str, str, tuple[Node, ...]]) -> Diagnostic:
+    code, severity, message, terms = native
+    return Diagnostic(code=code, severity=Severity(severity), message=message, terms=terms)
+
+
+Statement = tuple[Node, Node, Node]
+"""A statement of a proof: a generalized triple, whose subject may be a
+literal (as ``rdfs:range`` types a literal object)."""
+
+
+@dataclass(frozen=True)
+class Step:
+    """One step of a :class:`Proof`: a statement and why it holds.
+
+    Attributes:
+        statement: The ``(subject, predicate, object)`` it holds, rdflib
+            terms as :meth:`Reasoner.triples` returns them.
+        rule: The W3C rule that concludes it (``"cax-sco"``,
+            ``"prp-trp"``, ...), or ``None`` for a base triple (loaded or
+            inserted).
+        premises: The indexes in :attr:`Proof.steps` of the steps the rule
+            reads, each before this one. Empty for a base triple, and for a
+            rule with no premises (cls-thing, prp-ap, ...).
+    """
+
+    statement: Statement
+    rule: str | None
+    premises: tuple[int, ...]
+
+    @property
+    def base(self) -> bool:
+        """True for a base triple."""
+        return self.rule is None
+
+
+@dataclass(frozen=True)
+class Proof:
+    """Why a triple is in the closure, or why a diagnostic is reported:
+    steps down to base triples (:meth:`Reasoner.explain`,
+    :meth:`Reasoner.explain_diagnostic`).
+
+    The steps are in order, each premise before the steps that read it, and
+    each statement once, so a subproof read twice is not repeated. ``str()``
+    gives the proof as an indented tree, the goal first.
+
+    Attributes:
+        steps: The steps. For a triple's proof, the goal is the last.
+        goal: The triple proved (the last step's statement), or the
+            :class:`Diagnostic` proved, which is not a step.
+        rule: The rule that concludes the goal, or ``None`` when the goal
+            is a base triple.
+        premises: The goal's premises, as indexes in :attr:`steps`.
+        depth: The most rule steps on a path from the goal to a base
+            triple: 0 for a base triple, 1 for a rule over base triples.
+    """
+
+    steps: tuple[Step, ...]
+    goal: Statement | Diagnostic
+    rule: str | None
+    premises: tuple[int, ...]
+    depth: int
+    _text: str = dataclasses.field(repr=False, compare=False)
+
+    def leaves(self) -> list[Statement]:
+        """The base triples the proof rests on, each once, in step order."""
+        return [step.statement for step in self.steps if step.base]
+
+    def __str__(self) -> str:
+        return self._text
+
+
+def _proof(native) -> Proof | None:
+    """A proof from the native module's tuples."""
+    if native is None:
+        return None
+    steps, goal, rule, premises, depth, text = native
+    steps = tuple(Step(statement=statement, rule=r, premises=p) for statement, r, p in steps)
+    return Proof(
+        steps=steps,
+        goal=steps[-1].statement if goal is None else _diagnostic(goal),
+        rule=rule,
+        premises=premises,
+        depth=depth,
+        _text=text,
+    )
 
 
 class Reasoner:
@@ -431,10 +549,39 @@ class Reasoner:
 
     def diagnostics(self) -> list[Diagnostic]:
         """The diagnostics of the last run, each reported once."""
-        return [
-            Diagnostic(code=code, severity=Severity(severity), message=message, terms=terms)
-            for code, severity, message, terms in self._native.diagnostics()
-        ]
+        return [_diagnostic(d) for d in self._native.diagnostics()]
+
+    def explain(self, subject: Node, predicate: Node, object: Node) -> Proof | None:
+        """Why a triple is in the closure of the last run: its :class:`Proof`
+        from base triples, by the rules the switches leave on, or ``None``
+        when the triple is not in the closure.
+
+        The terms are rdflib terms, as for :meth:`insert`. A blank node is
+        named as the reads return it: ``BNode("b_1")`` for a loaded
+        document's ``_:b`` (see the module doc).
+
+        The first proof builds indexes over the closure, which the reasoner
+        keeps for the next proofs until it changes.
+
+        Raises:
+            NotReasonedError: The reasoner changed since its last run.
+            TypeError: A term is not an rdflib term.
+            TermError: A term RDF does not allow there (a literal subject, a
+                predicate that is not a ``URIRef``, ...).
+        """
+        return _proof(self._native.explain(subject, predicate, object))
+
+    def explain_diagnostic(self, diagnostic: Diagnostic) -> Proof | None:
+        """Why a diagnostic of the last run is reported: its :class:`Proof`,
+        whose goal is the diagnostic and whose steps prove the rule's
+        premises, or ``None`` when no diagnostic of the last run has its
+        code and terms.
+
+        Raises:
+            NotReasonedError: The reasoner changed since its last run.
+            TypeError: A term is not an rdflib term.
+        """
+        return _proof(self._native.explain_diagnostic(diagnostic.code, diagnostic.terms))
 
     def serialize(self, format: str = "turtle", inferred_only: bool = False) -> str:
         """The closure (or only the inferred triples) as text.
