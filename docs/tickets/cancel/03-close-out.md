@@ -1,6 +1,6 @@
 # 03: Close-out
 
-Status: todo. Blocked by: 01, 02.
+Status: done. Blocked by: 01, 02.
 
 - `README.md` (a short Cancellation part in the library and Python
   sections), `CHANGELOG.md` (Unreleased: cancellation), the crate doc

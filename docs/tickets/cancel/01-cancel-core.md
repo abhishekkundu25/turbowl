@@ -1,6 +1,6 @@
 # 01: Cancelling a run and a proof search
 
-Status: todo. Blocked by: none.
+Status: done. Blocked by: none.
 
 - `Cancel` (`new`, `cancel`, `is_cancelled`, `Clone` shares it, `Send + Sync`,
   `Default`) and `profile::cancel_after(checks)`, a handle that trips itself

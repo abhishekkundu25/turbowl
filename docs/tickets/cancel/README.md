@@ -6,7 +6,8 @@ Spec: `docs/specs/cancellation.md`. Lock files are in **bold**.
 |---|---|---|---|---|
 | 01 | [Cancelling a run and a proof search](01-cancel-core.md) | done | — | **`crates/turbowl/src/lib.rs`**, `crates/turbowl/src/reasoner.rs`, `crates/turbowl/src/error.rs`, new `crates/turbowl/src/cancel.rs`, `crates/turbowl/src/profile.rs`, `crates/turbowl/src/engine/store.rs` (additive), `crates/turbowl/src/explain.rs` and `src/explain/search.rs`, their tests; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/tests/chaos.rs` |
 | 02 | [Cancellation in Python](02-cancel-python.md) | done | 01 | `crates/python/` |
-| 03 | [Close-out](03-close-out.md) | todo | 01, 02 | `README.md`, `CHANGELOG.md`, the crate doc, `docs/verification/`, this README |
+| 03 | [Close-out](03-close-out.md) | done | 01, 02 | `README.md`, `CHANGELOG.md`, the crate doc, `docs/verification/`, this README |
+| 04 | [The deferred runs](04-deferred-runs.md) | todo | a quiet machine | `docs/verification/` |
 
 ## Waves
 
@@ -56,3 +57,8 @@ One ticket at a time: 01, 02, 03. 02 reads 01's interface; 03 measures both.
   - `reason()` runs the same path without a handle (the spec said "with a
     handle nobody trips"); the docs say so.
   - CONTEXT.md gained **Cancel**.
+- 2026-11-08, the close-out (03): the machine never went quiet (load 4 to
+  52 from another project's Python jobs), so the bench against `main`, the
+  chaos time with and without cancels, and Python's per-call cost moved to
+  ticket 04, as explanations' ticket 05 did. The chaos time measured under
+  load is in the record, inconclusive.

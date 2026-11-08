@@ -1,6 +1,6 @@
 # 02: Cancellation in Python
 
-Status: todo. Blocked by: 01.
+Status: done. Blocked by: 01.
 
 - `turbowl.Cancel` (`cancel()`, `cancelled`), wrapping the Rust handle.
 - `reason(cancel=None)`, `explain(s, p, o, cancel=None)` and

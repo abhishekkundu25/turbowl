@@ -211,6 +211,31 @@ proof.leaves()                                  # the base triples it rests on
 - One shallow proof per question. All proofs, minimal sets of axioms
   (justifications) and "why not?" are not done.
 
+### Cancellation
+
+A run or a proof search can be stopped from another thread: an editor
+cancels the run of the last keystroke when the next one comes.
+
+```rust
+let cancel = turbowl::Cancel::new();            // give a clone to the other thread
+match r.reason_cancellable(&cancel) {
+    Err(turbowl::Error::Cancelled) => {}        // no partial result
+    done => { done?; }
+}
+```
+
+```python
+cancel = turbowl.Cancel()                       # cancel.cancel() from any thread
+r.reason(cancel=cancel)                         # raises turbowl.CancelledError
+```
+
+- A run checks the handle before each round, a search between its steps.
+  Python's Ctrl+C stops both too and raises `KeyboardInterrupt`.
+- A cancelled run keeps no partial result: no closure and no diagnostics
+  until the next run, which is a full one. A cancelled search keeps the
+  explainer's indexes.
+- `reason()` is unchanged: it runs the same path without a handle.
+
 ## The rules and the switches
 
 Every rule belongs to the always-on core or to exactly one switch, a named

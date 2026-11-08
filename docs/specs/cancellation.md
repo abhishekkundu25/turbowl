@@ -1,6 +1,6 @@
 # Cancellation: stopping a run or a proof halfway
 
-Status: planned 2026-11-08, branch `cancel`. Tickets: `docs/tickets/cancel/`
+Status: built 2026-11-08, branch `cancel`. Tickets: `docs/tickets/cancel/`
 (01 to 03).
 
 ## Problem Statement

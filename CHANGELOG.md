@@ -4,6 +4,32 @@ What changed in each version of TurbOWL. Nothing has been published yet:
 the versions here are the repository's. The numbers come from the records
 in `docs/verification/`.
 
+## Unreleased: cancellation
+
+A run or a proof search can be stopped halfway (`docs/specs/cancellation.md`,
+tickets in `docs/tickets/cancel/`, record
+`docs/verification/2026-11-08-cancellation.md`).
+
+### Added
+
+- **`Cancel`**, a handle any thread can trip, and
+  **`Reasoner::reason_cancellable`**, **`Explainer::explain_cancellable`**
+  and **`Explainer::explain_diagnostic_cancellable`**, which stop with
+  **`Error::Cancelled`**. A run checks before each round, a search between
+  its steps. A cancelled run keeps no partial result; a cancelled search
+  keeps the explainer's indexes.
+- **`profile::cancel_after`**: a handle that trips itself at its n-th check,
+  for chaos and the tests.
+- **Python**: `turbowl.Cancel`, `cancel=` on `reason`, `explain` and
+  `explain_diagnostic`, `turbowl.CancelledError`, and Ctrl+C, which stops a
+  run or a search and raises `KeyboardInterrupt`.
+- **Chaos** cancels one run and one proof search per iteration
+  (`CHAOS_CANCEL=0` turns it off).
+
+### Unchanged
+
+- `Reasoner::reason`, `Explainer::explain` and the CLI.
+
 ## Unreleased: RDF 1.2 triple terms
 
 TurbOWL builds against an oxrdf with its `rdf-12` feature, as turtle-lsp

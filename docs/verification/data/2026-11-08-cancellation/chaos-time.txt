@@ -1,0 +1,6 @@
+full_runs_match_the_reference_1, CHAOS_ITERS=1000, alternating, 2026-11-08 08:28-08:31, load 7.7 to 13.5 (another project's jobs)
+CHAOS_CANCEL=0  75.71 s
+CHAOS_CANCEL=1  74.72 s
+CHAOS_CANCEL=0  44.29 s
+CHAOS_CANCEL=1  55.70 s
+Inconclusive: the spread between rounds (75 against 44 s) is larger than any difference between the sides.
