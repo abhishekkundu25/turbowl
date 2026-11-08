@@ -5,7 +5,7 @@ Spec: `docs/specs/cancellation.md`. Lock files are in **bold**.
 | # | Ticket | Status | Blocked by | Files |
 |---|---|---|---|---|
 | 01 | [Cancelling a run and a proof search](01-cancel-core.md) | done | — | **`crates/turbowl/src/lib.rs`**, `crates/turbowl/src/reasoner.rs`, `crates/turbowl/src/error.rs`, new `crates/turbowl/src/cancel.rs`, `crates/turbowl/src/profile.rs`, `crates/turbowl/src/engine/store.rs` (additive), `crates/turbowl/src/explain.rs` and `src/explain/search.rs`, their tests; the `error()` arm in `crates/python/src/lib.rs`; `crates/reference/tests/chaos.rs` |
-| 02 | [Cancellation in Python](02-cancel-python.md) | todo | 01 | `crates/python/` |
+| 02 | [Cancellation in Python](02-cancel-python.md) | done | 01 | `crates/python/` |
 | 03 | [Close-out](03-close-out.md) | todo | 01, 02 | `README.md`, `CHANGELOG.md`, the crate doc, `docs/verification/`, this README |
 
 ## Waves
@@ -28,3 +28,13 @@ One ticket at a time: 01, 02, 03. 02 reads 01's interface; 03 measures both.
     matches the all-cores one. The 400-iteration run cancelled 655 runs.
   - `CancelledError` waits for 02: until then `Error::Cancelled` raises
     `TurbowlError` in Python.
+- 2026-11-08, ticket 02 as built:
+  - Each `reason`, `explain` and `explain_diagnostic` call runs on a worker
+    thread (8 MiB stack), so that the calling thread can look at Python's
+    signals. A one-step `explain` from Python takes about 20 µs a call
+    (measured on a loaded machine, not compared with `main`).
+  - Ctrl+C trips the handle given (or the call's own), waits for the worker,
+    keeps the explainer's indexes, and raises `KeyboardInterrupt`.
+  - A `cancel` that is not a `turbowl.Cancel` raises `TypeError`.
+  - `CancelledError` is a `TurbowlError` and a `RuntimeError`, as
+    `NotReasonedError` is.

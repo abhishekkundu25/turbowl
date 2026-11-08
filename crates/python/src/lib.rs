@@ -40,6 +40,12 @@
 //! the last run raises `NotReasonedError`.
 //!
 //! Parsing, reasoning, writing, snapshots and explaining release the GIL.
+//!
+//! Reasoning and explaining can be cancelled ([`turbowl::Cancel`], which
+//! `NativeCancel` wraps): they run on a worker thread while the calling
+//! thread looks at Python's signals every 20 ms ([`interruptible`]), so
+//! Ctrl+C stops them too and raises `KeyboardInterrupt`. A cancelled call
+//! raises `CancelledError`.
 
 use oxrdf::{BlankNode, Literal, NamedNode, NamedOrBlankNode, Term, Triple};
 use pyo3::call::PyCallArgs;
@@ -51,7 +57,9 @@ use pyo3::types::{PyBool, PyDict, PyList, PyMapping, PySequence, PyString, PyTup
 use rustc_hash::FxHashMap;
 use std::io::Write as _;
 use std::path::PathBuf;
-use turbowl::{Diagnostic, Error, ExplainCache, Format, Goal, Proof, Reason, Severity, Switch, Switches};
+use std::sync::mpsc;
+use std::time::Duration;
+use turbowl::{Cancel, Diagnostic, Error, ExplainCache, Format, Goal, Proof, Reason, Severity, Switch, Switches};
 
 const XSD_STRING: &str = "http://www.w3.org/2001/XMLSchema#string";
 
@@ -60,8 +68,92 @@ const XSD_STRING: &str = "http://www.w3.org/2001/XMLSchema#string";
 #[pyo3(name = "_native")]
 fn native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<NativeReasoner>()?;
+    m.add_class::<NativeCancel>()?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
+}
+
+/// The cancel handle behind `turbowl.Cancel`.
+#[pyclass(module = "turbowl._native", frozen)]
+#[derive(Debug, Default)]
+struct NativeCancel(Cancel);
+
+#[pymethods]
+impl NativeCancel {
+    /// A handle nobody has tripped.
+    #[new]
+    fn new() -> Self {
+        Self::default()
+    }
+
+    /// Trips the handle: the calls it was given stop at their next check.
+    fn cancel(&self) {
+        self.0.cancel();
+    }
+
+    /// True once tripped.
+    fn cancelled(&self) -> bool {
+        self.0.is_cancelled()
+    }
+}
+
+/// The handle a call runs with: the one given, or one of its own for
+/// Ctrl+C.
+fn handle(cancel: Option<&Bound<'_, NativeCancel>>) -> Cancel {
+    cancel.map(|c| c.get().0.clone()).unwrap_or_default()
+}
+
+/// How long the calling thread waits between two looks at Python's signals.
+const SIGNALS_EVERY: Duration = Duration::from_millis(20);
+
+/// The worker thread's stack: a main thread's on macOS and Linux.
+const STACK: usize = 8 << 20;
+
+/// Runs `work` on a worker thread without the GIL, while this thread looks
+/// at Python's signals every [`SIGNALS_EVERY`]. A signal whose handler
+/// raises (Ctrl+C: `KeyboardInterrupt`) trips `cancel`, and its exception
+/// comes back beside what `work` returned once it stopped. A panic in
+/// `work` goes on in this thread.
+fn interruptible<T: Send>(
+    py: Python<'_>,
+    cancel: &Cancel,
+    work: impl FnOnce() -> T + Send,
+) -> PyResult<(T, Option<PyErr>)> {
+    std::thread::scope(|s| {
+        let (done, mut finished) = mpsc::channel::<()>();
+        let worker = std::thread::Builder::new()
+            .name("turbowl".to_owned())
+            .stack_size(STACK)
+            .spawn_scoped(s, move || {
+                let out = work();
+                let _ = done.send(());
+                out
+            })
+            .map_err(|e| raise(py, "TurbowlError", (format!("cannot start a thread: {e}"),)))?;
+        let mut signal = None;
+        loop {
+            // The receiver moves in and out: it is not `Sync`, so the
+            // closure cannot borrow it.
+            let (back, waited) = py.detach(move || {
+                let waited = finished.recv_timeout(SIGNALS_EVERY);
+                (finished, waited)
+            });
+            finished = back;
+            if !matches!(waited, Err(mpsc::RecvTimeoutError::Timeout)) {
+                break;
+            }
+            if signal.is_none()
+                && let Err(e) = py.check_signals()
+            {
+                cancel.cancel();
+                signal = Some(e);
+            }
+        }
+        match worker.join() {
+            Ok(out) => Ok((out, signal)),
+            Err(panic) => std::panic::resume_unwind(panic),
+        }
+    })
 }
 
 /// The reasoner behind `turbowl.Reasoner`. Its methods take and return
@@ -174,12 +266,23 @@ impl NativeReasoner {
         self.inner.clear();
     }
 
-    /// Runs to the fixpoint: `(base, inferred, rounds, diagnostics)`.
-    fn reason(&mut self, py: Python<'_>) -> (usize, usize, usize, usize) {
+    /// Runs to the fixpoint: `(base, inferred, rounds, diagnostics)`. A
+    /// cancelled run keeps no partial result.
+    #[pyo3(signature = (cancel=None))]
+    fn reason(
+        &mut self,
+        py: Python<'_>,
+        cancel: Option<&Bound<'_, NativeCancel>>,
+    ) -> PyResult<(usize, usize, usize, usize)> {
         self.cache = None;
+        let cancel = handle(cancel);
         let inner = &mut self.inner;
-        let s = py.detach(|| inner.reason());
-        (s.base, s.inferred, s.rounds, s.diagnostics)
+        let (done, signal) = interruptible(py, &cancel, || inner.reason_cancellable(&cancel))?;
+        if let Some(e) = signal {
+            return Err(e);
+        }
+        let s = done.map_err(|e| error(py, e))?;
+        Ok((s.base, s.inferred, s.rounds, s.diagnostics))
     }
 
     /// The closure as a list of rdflib triples.
@@ -207,38 +310,47 @@ impl NativeReasoner {
 
     /// The proof of a triple of the last run's closure, as [`proof`] gives
     /// it, or `None` when the triple is not in the closure.
+    #[pyo3(signature = (s, p, o, cancel=None))]
     fn explain<'py>(
         &mut self,
         py: Python<'py>,
         s: &Bound<'py, PyAny>,
         p: &Bound<'py, PyAny>,
         o: &Bound<'py, PyAny>,
+        cancel: Option<&Bound<'py, NativeCancel>>,
     ) -> PyResult<Option<Bound<'py, PyTuple>>> {
         let rdflib = Rdflib::new(py)?;
         let triple = Triple::new(subject(&rdflib, s)?, predicate(&rdflib, p)?, object(&rdflib, o)?);
-        let found = self.explaining(py, |_, explainer| explainer.explain(triple.as_ref()))?;
+        let found = self.explaining(py, &handle(cancel), |_, explainer, cancel| {
+            explainer.explain_cancellable(triple.as_ref(), cancel)
+        })?;
         found.map(|proof| self::proof(py, &proof)).transpose()
     }
 
     /// The proof of a diagnostic of the last run, given by its code and its
     /// terms, as [`proof`] gives it, or `None` when it is not reported.
+    #[pyo3(signature = (code, terms, cancel=None))]
     fn explain_diagnostic<'py>(
         &mut self,
         py: Python<'py>,
         code: &str,
         terms: &Bound<'py, PyAny>,
+        cancel: Option<&Bound<'py, NativeCancel>>,
     ) -> PyResult<Option<Bound<'py, PyTuple>>> {
         let rdflib = Rdflib::new(py)?;
         let terms = terms
             .try_iter()?
             .map(|t| object(&rdflib, &t?))
             .collect::<PyResult<Vec<Term>>>()?;
-        let found = self.explaining(py, |reasoner, explainer| {
-            let d = reasoner
+        let found = self.explaining(py, &handle(cancel), |reasoner, explainer, cancel| {
+            match reasoner
                 .diagnostics()
                 .iter()
-                .find(|d| d.code == code && d.terms == terms)?;
-            explainer.explain_diagnostic(d)
+                .find(|d| d.code == code && d.terms == terms)
+            {
+                Some(d) => explainer.explain_diagnostic_cancellable(d, cancel),
+                None => Ok(None),
+            }
         })?;
         found.map(|proof| self::proof(py, &proof)).transpose()
     }
@@ -291,24 +403,27 @@ impl NativeReasoner {
 
 impl NativeReasoner {
     /// Runs `ask` on the reasoner and an explainer over its last run's
-    /// closure, without the GIL, with the kept indexes, and keeps them for
-    /// the next call.
+    /// closure, without the GIL ([`interruptible`]), with the kept indexes,
+    /// and keeps them for the next call, a cancelled one's too.
     fn explaining<T: Send>(
         &mut self,
         py: Python<'_>,
-        ask: impl FnOnce(&turbowl::Reasoner, &turbowl::Explainer<'_>) -> T + Send,
-    ) -> PyResult<T> {
+        cancel: &Cancel,
+        ask: impl FnOnce(&turbowl::Reasoner, &turbowl::Explainer<'_>, &Cancel) -> Result<Option<T>, Error> + Send,
+    ) -> PyResult<Option<T>> {
         let cache = self.cache.take().unwrap_or_default();
         let inner = &self.inner;
-        let (found, cache) = py
-            .detach(|| {
-                let explainer = inner.explainer_with(cache)?;
-                let found = ask(inner, &explainer);
-                Ok((found, explainer.into_cache()))
-            })
-            .map_err(|e| error(py, e))?;
+        let (done, signal) = interruptible(py, cancel, || {
+            let explainer = inner.explainer_with(cache)?;
+            let found = ask(inner, &explainer, cancel);
+            Ok::<_, Error>((found, explainer.into_cache()))
+        })?;
+        let (found, cache) = done.map_err(|e| error(py, e))?;
         self.cache = Some(cache);
-        Ok(found)
+        if let Some(e) = signal {
+            return Err(e);
+        }
+        found.map_err(|e| error(py, e))
     }
 }
 
@@ -463,7 +578,7 @@ fn error(py: Python<'_>, e: Error) -> PyErr {
         Error::UnknownFormat { path } => raise(py, "UnknownFormatError", (message, shown(Some(path)))),
         Error::Snapshot { path, message } => raise(py, "SnapshotError", (message, shown(path))),
         Error::NotReasoned => raise(py, "NotReasonedError", (message,)),
-        Error::Cancelled => raise(py, "TurbowlError", (message,)),
+        Error::Cancelled => raise(py, "CancelledError", (message,)),
     }
 }
 

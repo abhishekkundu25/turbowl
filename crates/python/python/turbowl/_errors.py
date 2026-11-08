@@ -2,8 +2,8 @@
 
 Reasoning itself does not fail: problems in the data are diagnostics, not
 exceptions. Exceptions come from reading and writing documents, from terms
-that RDF does not allow, and from asking for a proof of a closure that is
-out of date.
+that RDF does not allow, from asking for a proof of a closure that is out
+of date, and from a cancelled call.
 """
 
 from __future__ import annotations
@@ -99,4 +99,11 @@ class NotReasonedError(TurbowlError, RuntimeError):
     """A proof was asked for while the reasoner has changed since its last
     run: there is no closure to explain until :meth:`Reasoner.reason` runs
     again.
+    """
+
+
+class CancelledError(TurbowlError, RuntimeError):
+    """A call was stopped by its :class:`turbowl.Cancel`. A cancelled
+    :meth:`Reasoner.reason` keeps no partial result: the reasoner is as
+    loaded and not yet reasoned until the next run.
     """

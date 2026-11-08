@@ -108,12 +108,31 @@ Explanations
     :class:`NotReasonedError`. The reasoner keeps what the first proof
     builds (its indexes) for the next ones, until it changes.
 
+Cancellation
+    :meth:`Reasoner.reason`, :meth:`Reasoner.explain` and
+    :meth:`Reasoner.explain_diagnostic` take a :class:`Cancel`, which any
+    thread can trip; the call then stops and raises :class:`CancelledError`.
+    A run checks it before each round, a proof search between its steps.
+    Ctrl+C stops them too, and raises ``KeyboardInterrupt``::
+
+        cancel = turbowl.Cancel()
+        threading.Timer(0.5, cancel.cancel).start()
+        try:
+            r.reason(cancel=cancel)
+        except turbowl.CancelledError:
+            ...  # no partial result: reason() again when ready
+
+    A cancelled run keeps no partial result: the reasoner is as loaded and
+    not yet reasoned (no closure, no diagnostics) until the next run, which
+    is a full one. A cancelled proof keeps the indexes. A handle stays
+    tripped: use one per call.
+
 Errors
     :class:`TurbowlError` is the base of every exception raised here:
     :class:`ParseError` (with the line and column), :class:`FileError` (an
     ``OSError``), :class:`UnknownFormatError`, :class:`TermError`,
-    :class:`SnapshotError` and :class:`NotReasonedError` (a
-    ``RuntimeError``). Data problems are not exceptions: they are
+    :class:`SnapshotError`, :class:`NotReasonedError` and
+    :class:`CancelledError` (each a ``RuntimeError``). Data problems are not exceptions: they are
     diagnostics.
 
 Threads
@@ -136,6 +155,7 @@ from rdflib.term import BNode, Literal, Node, URIRef
 
 from turbowl import _native
 from turbowl._errors import (
+    CancelledError,
     FileError,
     NotReasonedError,
     ParseError,
@@ -152,6 +172,8 @@ Triples = Union[Graph, Iterable[tuple[Node, Node, Node]]]
 """What the methods that take triples accept: a graph, or an iterable of triples."""
 
 __all__ = [
+    "Cancel",
+    "CancelledError",
     "Diagnostic",
     "FileError",
     "NotReasonedError",
@@ -375,6 +397,41 @@ def _proof(native) -> Proof | None:
     )
 
 
+class Cancel:
+    """A handle that stops a call it is given (:meth:`Reasoner.reason`,
+    :meth:`Reasoner.explain`, :meth:`Reasoner.explain_diagnostic`) from any
+    thread: the call raises :class:`CancelledError`. It stays tripped, so
+    use one per call.
+    """
+
+    __slots__ = ("_native",)
+
+    def __init__(self) -> None:
+        """A handle nobody has tripped."""
+        self._native = _native.NativeCancel()
+
+    def cancel(self) -> None:
+        """Trips the handle: the calls it was given stop at their next
+        check (a run's next round, a search's next step)."""
+        self._native.cancel()
+
+    @property
+    def cancelled(self) -> bool:
+        """True once :meth:`cancel` was called."""
+        return self._native.cancelled()
+
+    def __repr__(self) -> str:
+        return f"Cancel(cancelled={self.cancelled})"
+
+
+def _cancel(cancel: Cancel | None) -> _native.NativeCancel | None:
+    if cancel is None:
+        return None
+    if not isinstance(cancel, Cancel):
+        raise TypeError(f"cancel must be a turbowl.Cancel, not {type(cancel).__name__}")
+    return cancel._native
+
+
 class Reasoner:
     """An OWL 2 RL reasoner over an in-memory graph.
 
@@ -521,10 +578,19 @@ class Reasoner:
         the same switches."""
         self._native.clear()
 
-    def reason(self) -> Summary:
+    def reason(self, cancel: Cancel | None = None) -> Summary:
         """Runs to the fixpoint, in full or over what changed since the last
-        run, and returns what it did."""
-        base, inferred, rounds, diagnostics = self._native.reason()
+        run, and returns what it did.
+
+        ``cancel`` stops it before its next round (see the module doc); so
+        does Ctrl+C. A cancelled run keeps no partial result: until the
+        next run, the reasoner has no closure and no diagnostics.
+
+        Raises:
+            CancelledError: ``cancel`` was tripped.
+            KeyboardInterrupt: Ctrl+C.
+        """
+        base, inferred, rounds, diagnostics = self._native.reason(_cancel(cancel))
         return Summary(base=base, inferred=inferred, rounds=rounds, diagnostics=diagnostics)
 
     def triples(self) -> list[Triple]:
@@ -551,7 +617,7 @@ class Reasoner:
         """The diagnostics of the last run, each reported once."""
         return [_diagnostic(d) for d in self._native.diagnostics()]
 
-    def explain(self, subject: Node, predicate: Node, object: Node) -> Proof | None:
+    def explain(self, subject: Node, predicate: Node, object: Node, cancel: Cancel | None = None) -> Proof | None:
         """Why a triple is in the closure of the last run: its :class:`Proof`
         from base triples, by the rules the switches leave on, or ``None``
         when the triple is not in the closure.
@@ -561,27 +627,34 @@ class Reasoner:
         document's ``_:b`` (see the module doc).
 
         The first proof builds indexes over the closure, which the reasoner
-        keeps for the next proofs until it changes.
+        keeps for the next proofs until it changes. ``cancel`` (or Ctrl+C)
+        stops the search between its steps; the indexes are kept.
 
         Raises:
             NotReasonedError: The reasoner changed since its last run.
+            CancelledError: ``cancel`` was tripped.
+            KeyboardInterrupt: Ctrl+C.
             TypeError: A term is not an rdflib term.
             TermError: A term RDF does not allow there (a literal subject, a
                 predicate that is not a ``URIRef``, ...).
         """
-        return _proof(self._native.explain(subject, predicate, object))
+        return _proof(self._native.explain(subject, predicate, object, _cancel(cancel)))
 
-    def explain_diagnostic(self, diagnostic: Diagnostic) -> Proof | None:
+    def explain_diagnostic(self, diagnostic: Diagnostic, cancel: Cancel | None = None) -> Proof | None:
         """Why a diagnostic of the last run is reported: its :class:`Proof`,
         whose goal is the diagnostic and whose steps prove the rule's
         premises, or ``None`` when no diagnostic of the last run has its
         code and terms.
 
+        ``cancel`` (or Ctrl+C) stops the search, as for :meth:`explain`.
+
         Raises:
             NotReasonedError: The reasoner changed since its last run.
+            CancelledError: ``cancel`` was tripped.
+            KeyboardInterrupt: Ctrl+C.
             TypeError: A term is not an rdflib term.
         """
-        return _proof(self._native.explain_diagnostic(diagnostic.code, diagnostic.terms))
+        return _proof(self._native.explain_diagnostic(diagnostic.code, diagnostic.terms, _cancel(cancel)))
 
     def serialize(self, format: str = "turtle", inferred_only: bool = False) -> str:
         """The closure (or only the inferred triples) as text.
