@@ -161,6 +161,41 @@
 //!   for the bench's `--explain`, which cannot tell them apart from
 //!   reasoning in the process's peak memory.
 //!
+//! # Cancellation
+//!
+//! A [`Cancel`] stops a run or a proof search from any thread:
+//! [`Reasoner::reason_cancellable`] checks it before each round, and
+//! [`Explainer::explain_cancellable`] and
+//! [`Explainer::explain_diagnostic_cancellable`] between the search's
+//! steps; a tripped handle gives [`Error::Cancelled`]. [`Reasoner::reason`]
+//! runs the same path without a handle. A cancelled run keeps no
+//! partial result: the reasoner is as loaded and not yet reasoned (no
+//! closure, no diagnostics, [`Error::NotReasoned`] from the explainer), and
+//! the next run is a full one. A cancelled search keeps the explainer's
+//! indexes. A round, an index build and a ranking of the whole search graph
+//! are not interrupted.
+//!
+//! ```
+//! use turbowl::{Cancel, Error, Format, Reasoner};
+//! let mut r = Reasoner::new();
+//! r.load_str("<http://example.org/a> <http://example.org/p> <http://example.org/b> .", Format::NTriples, None).unwrap();
+//! let cancel = Cancel::new();
+//! cancel.cancel(); // from another thread, as an editor does on the next keystroke
+//! assert!(matches!(r.reason_cancellable(&cancel), Err(Error::Cancelled)));
+//! assert_eq!(r.triples().count(), 0);
+//! r.reason();
+//! ```
+//!
+//! The interface gained these for an editor's event loop (turtle-lsp) and
+//! Python's `cancel=` and Ctrl+C:
+//!
+//! - [`Cancel`], [`Reasoner::reason_cancellable`],
+//!   [`Explainer::explain_cancellable`] and
+//!   [`Explainer::explain_diagnostic_cancellable`].
+//! - [`Error::Cancelled`].
+//! - [`profile::cancel_after`]: a handle that trips itself at its n-th
+//!   check, for chaos and the tests.
+//!
 //! # Counters
 //!
 //! [`Reasoner::profile`] tells what the last run did and what the reasoner

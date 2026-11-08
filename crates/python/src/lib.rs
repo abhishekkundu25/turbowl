@@ -418,12 +418,15 @@ impl NativeReasoner {
             let found = ask(inner, &explainer, cancel);
             Ok::<_, Error>((found, explainer.into_cache()))
         })?;
-        let (found, cache) = done.map_err(|e| error(py, e))?;
-        self.cache = Some(cache);
+        // Ctrl+C wins over any other error: its signal was consumed.
+        let done = done.map(|(found, cache)| {
+            self.cache = Some(cache);
+            found
+        });
         if let Some(e) = signal {
             return Err(e);
         }
-        found.map_err(|e| error(py, e))
+        done.and_then(|found| found).map_err(|e| error(py, e))
     }
 }
 

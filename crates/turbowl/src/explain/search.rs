@@ -500,9 +500,9 @@ impl<'a> Search<'a> {
         }
     }
 
-    /// True once the cancel handle has tripped (checked once per call
-    /// until then).
-    fn halted(&mut self) -> bool {
+    /// Checks the cancel handle (one counted check, until it trips) and
+    /// records in `halted` that it tripped. True once it has.
+    fn check_cancel(&mut self) -> bool {
         if !self.halted {
             self.halted = self.world.cancel.is_some_and(Cancel::check);
         }
@@ -566,6 +566,9 @@ impl<'a> Search<'a> {
     fn deepen(&mut self, rel: RelId, tuple: Tuple, goal: u32) -> Option<Built> {
         let mut bound = 0u32;
         loop {
+            if self.check_cancel() {
+                return None;
+            }
             let cut = loop {
                 let (expanded, cut) = self.frontier(goal, bound);
                 if self.halted {
@@ -722,7 +725,7 @@ impl<'a> Search<'a> {
     /// for the outer run, so that nesting stops there.
     fn run_nested(&mut self) {
         let mut facts = Vec::new();
-        while !self.halted()
+        while !self.check_cancel()
             && let Some(item) = self.calls.pop_front().or_else(|| self.queue.pop_front())
         {
             if let Item::Fact(_) = item {
@@ -736,7 +739,7 @@ impl<'a> Search<'a> {
     }
 
     fn run(&mut self) {
-        while !self.halted()
+        while !self.check_cancel()
             && let Some(item) = self.calls.pop_front().or_else(|| self.queue.pop_front())
         {
             self.queued.remove(&item);

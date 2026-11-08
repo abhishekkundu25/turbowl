@@ -96,6 +96,17 @@ fn cancel_at_every_check(switches: Switches, base: &[&str], prepare: impl Fn() -
     unreachable!()
 }
 
+/// A reasoner of `TEXT`, reasoned, then `more` loaded.
+fn prepared(more: &[&str]) -> Reasoner {
+    let mut r = Reasoner::new();
+    load(&mut r, TEXT);
+    r.reason();
+    for text in more {
+        load(&mut r, text);
+    }
+    r
+}
+
 #[test]
 fn a_tripped_handle_changes_nothing() {
     let mut r = Reasoner::new();
@@ -106,13 +117,37 @@ fn a_tripped_handle_changes_nothing() {
     let fresh = r.reason();
     let reasoned = state(&r);
 
+    // With additions queued (an incremental run to do) or after a removal
+    // (a full run to do), the reads still show the last run, and the run
+    // after is the one there was to do.
+    let removed = Triple::new(ex("x"), ex("p"), ex("y"));
+    for prepare in [
+        &(|| {
+            let mut r = prepared(&[]);
+            load(&mut r, MORE);
+            r
+        }) as &dyn Fn() -> Reasoner,
+        &|| {
+            let mut r = prepared(&[]);
+            r.remove([removed.as_ref()]);
+            r
+        },
+    ] {
+        let mut expected = prepare();
+        let shown = state(&expected);
+        let expected = (expected.reason(), state(&expected));
+        let mut r = prepare();
+        assert!(matches!(r.reason_cancellable(&cancel), Err(Error::Cancelled)));
+        assert!(state(&r) == shown, "the reads still show the last run");
+        assert!(
+            matches!(r.explainer(), Err(Error::NotReasoned)),
+            "the base changed and was not reasoned"
+        );
+        assert_eq!(r.reason(), expected.0, "the run there was to do");
+        assert!(state(&r) == expected.1);
+    }
+
     // A reasoned closure stays reasoned and explained.
-    load(&mut r, MORE);
-    assert!(matches!(r.reason_cancellable(&cancel), Err(Error::Cancelled)));
-    assert!(
-        matches!(r.explainer(), Err(Error::NotReasoned)),
-        "the base changed and was not reasoned"
-    );
     let mut again = Reasoner::new();
     load(&mut again, TEXT);
     assert_eq!(again.reason(), fresh);
@@ -239,19 +274,32 @@ fn a_proof_search_cancelled_at_any_check_gives_the_proof_next_time() {
         let diagnostic = r.diagnostics().first().expect("cax-dw").clone();
         let fresh_diagnostic = r.explain_diagnostic(&diagnostic).unwrap().expect("reported");
 
+        // The bytes of the indexes alone: an explainer that built them (a
+        // triple looked up, outside the closure) and searched nothing.
+        // Known terms, so that the lookup builds the indexes.
+        let outside = Triple::new(ex("C0"), oxrdf::vocab::rdf::TYPE, ex("D"));
+        let indexes = {
+            let explainer = r.explainer().unwrap();
+            assert!(explainer.explain(outside.as_ref()).is_none());
+            profile::explain_cache_bytes(&explainer.into_cache())
+        };
+        assert!(indexes > 0);
         let mut cancelled = 0;
         for k in checks() {
             let explainer = r.explainer().unwrap();
             match explainer.explain_cancellable(goal, &profile::cancel_after(k)) {
                 Err(Error::Cancelled) => {
                     cancelled += 1;
-                    assert_eq!(explainer.explain(goal).as_ref(), Some(&fresh), "check {k}");
+                    // The indexes are kept: the cache holds at least what one that
+                    // searched nothing holds (a search builds more of them).
                     let cache = explainer.into_cache();
+                    let bytes = profile::explain_cache_bytes(&cache);
                     assert!(
-                        profile::explain_cache_bytes(&cache) > 0,
-                        "check {k}: the indexes are kept"
+                        bytes >= indexes,
+                        "check {k}: {bytes} bytes, the indexes alone {indexes}"
                     );
                     let again = r.explainer_with(cache).unwrap();
+                    assert_eq!(again.explain(goal).as_ref(), Some(&fresh), "check {k}");
                     assert_eq!(again.explain_diagnostic(&diagnostic).as_ref(), Some(&fresh_diagnostic));
                 }
                 Ok(proof) => {
@@ -290,10 +338,54 @@ fn a_proof_search_cancelled_at_any_check_gives_the_proof_next_time() {
             explainer.explain_cancellable(goal, &tripped),
             Err(Error::Cancelled)
         ));
-        let outside = Triple::new(ex("x"), oxrdf::vocab::rdf::TYPE, ex("nothing"));
         assert!(matches!(
             explainer.explain_cancellable(outside.as_ref(), &Cancel::new()),
             Ok(None)
         ));
     }
+}
+
+/// A proof search cancelled from another thread stops within 10 ms.
+#[test]
+fn a_cancel_from_another_thread_stops_a_search_within_10_ms() {
+    // A chain of existentials: the proof of the last class is as deep as
+    // the chain, and its search long.
+    let n = 12000;
+    let mut text = String::from("ex:x0 a ex:R0 .\n");
+    for i in 0..n {
+        let j = i + 1;
+        text.push_str(&format!(
+            "ex:x{j} ex:p ex:x{i} . ex:R{j} owl:someValuesFrom ex:R{i} ; owl:onProperty ex:p .\n"
+        ));
+    }
+    let mut r = Reasoner::new();
+    load(&mut r, &text);
+    r.reason();
+    let goal = Triple::new(ex(&format!("x{n}")), oxrdf::vocab::rdf::TYPE, ex(&format!("R{n}")));
+    let outside = Triple::new(ex("x0"), oxrdf::vocab::rdf::TYPE, ex("R1"));
+    // Each explainer builds its indexes first, so that the times are the
+    // search's alone.
+    let explainer = r.explainer().unwrap();
+    assert!(explainer.explain(outside.as_ref()).is_none());
+    let start = Instant::now();
+    assert!(explainer.explain(goal.as_ref()).is_some());
+    let whole = start.elapsed();
+    assert!(whole > Duration::from_millis(30), "a long search: {whole:?}");
+
+    let explainer = r.explainer().unwrap();
+    assert!(explainer.explain(outside.as_ref()).is_none());
+    let cancel = Cancel::new();
+    let (result, late) = std::thread::scope(|s| {
+        let trip = cancel.clone();
+        let tripped = s.spawn(move || {
+            std::thread::sleep(whole / 3);
+            trip.cancel();
+            Instant::now()
+        });
+        let result = explainer.explain_cancellable(goal.as_ref(), &cancel);
+        let returned = Instant::now();
+        (result, returned.saturating_duration_since(tripped.join().unwrap()))
+    });
+    assert!(matches!(result, Err(Error::Cancelled)), "{result:?}");
+    assert!(late <= Duration::from_millis(10), "returned {late:?} after the cancel");
 }

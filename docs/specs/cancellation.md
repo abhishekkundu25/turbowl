@@ -20,8 +20,8 @@ or a search given one checks it as it goes and stops with
 `Error::Cancelled`.
 
 - `Reasoner::reason_cancellable(&mut self, &Cancel) -> Result<Summary, Error>`
-  checks the handle before each round. `reason()` runs the same path with a
-  handle nobody trips, and keeps its signature.
+  checks the handle before each round. `reason()` runs the same path without
+  a handle, and keeps its signature.
 - A cancelled run keeps **no partial result**: the reasoner is as loaded and
   not yet reasoned. The base is kept; the closure and the diagnostics are
   empty; the next run is a full one; an explainer gives

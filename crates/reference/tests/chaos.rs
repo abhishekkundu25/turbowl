@@ -183,10 +183,17 @@ impl Cancels {
             return None;
         }
         let mut rng = Rng::at(seed ^ CANCELS, i);
+        // Early checks (most runs take a few rounds) and late ones: below
+        // `small`, or below 8 times it, one time in two each.
+        fn check(rng: &mut Rng, small: usize) -> usize {
+            let below = if rng.one_in(2) { small } else { small * 8 };
+            rng.below(below)
+        }
+        let run = rng.below(runs);
         Some(Cancels {
-            run: rng.below(runs),
-            run_check: rng.below(8),
-            search_check: rng.below(64),
+            run,
+            run_check: check(&mut rng, 8),
+            search_check: check(&mut rng, 512),
         })
     }
 }
@@ -228,13 +235,19 @@ fn explain(
     let triples = sample(rng, inferred.len(), n);
     let found = sample(rng, diagnostics.len(), n);
     let mut checked = 0;
-    // The first goal, cancelled halfway: the search graph is dropped, back
-    // to the empty one the first goal starts from.
-    if let (Some(c), Some(&i)) = (cancels, triples.first()) {
-        let t = &inferred[i];
-        match one_explainer.explain_cancellable(t.as_ref(), &profile::cancel_after(c.search_check)) {
+    // The first goal (a triple's, or with none a diagnostic's), cancelled
+    // halfway: the search graph is dropped, back to the empty one the first
+    // goal starts from.
+    if let Some(c) = cancels {
+        let cancel = profile::cancel_after(c.search_check);
+        let searched = match (triples.first(), found.first()) {
+            (Some(&i), _) => one_explainer.explain_cancellable(inferred[i].as_ref(), &cancel),
+            (None, Some(&i)) => one_explainer.explain_diagnostic_cancellable(&diagnostics[i], &cancel),
+            (None, None) => Ok(None),
+        };
+        match searched {
             Ok(_) | Err(Error::Cancelled) => {}
-            Err(e) => return Err(format!("a cancelled search for {t}: {e}")),
+            Err(e) => return Err(format!("a cancelled search: {e}")),
         }
     }
     for i in triples {
@@ -269,8 +282,8 @@ fn explain(
 /// What one iteration did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Done {
-    /// Compared, with this many proofs checked and runs cancelled.
-    Compared(usize, usize),
+    /// Compared.
+    Compared { proofs: usize, cancelled: usize },
     /// The reference closure would pass `MAX_CLOSURE`.
     TooLarge,
 }
@@ -572,7 +585,10 @@ fn run(
         match catch_unwind(AssertUnwindSafe(|| {
             check(&input, switches, &mut rng, &mut explanations, &cancels)
         })) {
-            Ok(Ok(Done::Compared(checked, stopped))) => {
+            Ok(Ok(Done::Compared {
+                proofs: checked,
+                cancelled: stopped,
+            })) => {
                 proofs += checked;
                 cancelled += stopped;
                 let name = switches_name(switches);
@@ -620,7 +636,10 @@ fn full(
         return Err(format!("one full run:\n{diff}"));
     }
     let proofs = explain(input, &twins, switches, explanations, cancels)?;
-    Ok(Done::Compared(proofs, stopped))
+    Ok(Done::Compared {
+        proofs,
+        cancelled: stopped,
+    })
 }
 
 /// Batches of insertions, then a removal, then the removed triples put
@@ -676,7 +695,10 @@ fn incremental(
         return Err(format!("after putting the removed triples back:\n{diff}"));
     }
     let proofs = explain(input, &twins, switches, explanations, cancels)?;
-    Ok(Done::Compared(proofs, stopped))
+    Ok(Done::Compared {
+        proofs,
+        cancelled: stopped,
+    })
 }
 
 const FULL_SEED: u64 = 0x5EED_0005;

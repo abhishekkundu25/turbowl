@@ -253,8 +253,7 @@ impl Reasoner {
         let terms = new_dictionary();
         let threads = Threads::default();
         let workers = threads.workers();
-        let mut closure = Store::new();
-        closure.set_workers(workers.clone());
+        let closure = empty_store(&workers);
         Self {
             families,
             switches,
@@ -460,7 +459,8 @@ impl Reasoner {
         self.workers = workers;
     }
 
-    /// Runs to the fixpoint: in full, or over what changed since the last run.
+    /// Runs to the fixpoint: in full, or over what changed since the last
+    /// run. It is [`Reasoner::reason_cancellable`] without a handle.
     pub fn reason(&mut self) -> Summary {
         self.reason_until(None).expect("a run nobody cancels ends")
     }
@@ -511,8 +511,7 @@ impl Reasoner {
     /// Drops what a cancelled run left: the reasoner is as loaded and not
     /// yet reasoned, and the next run is a full one.
     fn discard(&mut self) {
-        self.closure = Store::new();
-        self.closure.set_workers(self.workers.clone());
+        self.closure = empty_store(&self.workers);
         self.rdf = 0;
         self.same_as_itself.clear();
         self.same_as_itself_rdf = 0;
@@ -1065,6 +1064,13 @@ impl Reasoner {
         let predicate = NamedNode::new_unchecked(self.terms.iri(TermId(p))?);
         Some(Triple::new(subject, predicate, self.terms.to_oxrdf(TermId(o))))
     }
+}
+
+/// An empty store that runs on `workers`.
+fn empty_store(workers: &Workers) -> Store {
+    let mut store = Store::new();
+    store.set_workers(workers.clone());
+    store
 }
 
 /// A new dictionary: the vocabulary, then the literals the rules name, at

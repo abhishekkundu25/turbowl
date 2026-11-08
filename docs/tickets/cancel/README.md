@@ -38,3 +38,21 @@ One ticket at a time: 01, 02, 03. 02 reads 01's interface; 03 measures both.
   - A `cancel` that is not a `turbowl.Cancel` raises `TypeError`.
   - `CancelledError` is a `TurbowlError` and a `RuntimeError`, as
     `NotReasonedError` is.
+- 2026-11-08, after the review (two fresh Opus reviewers, standards and
+  spec):
+  - Fixed: a Ctrl+C during a Python `explain` that failed for another
+    reason was dropped; the Python doc called `SnapshotError` a
+    `RuntimeError`; the deepening loop now checks the handle itself.
+  - Tests added or sharpened: a search cancelled from another thread
+    stops within 10 ms; a tripped handle with an incremental or a full run
+    to do leaves the reads as they were and the run after is the one there
+    was to do; the indexes kept after a cancelled search are measured
+    against an explainer that searched nothing.
+  - Chaos now draws a run's check below 8 or below 64, and a search's below
+    512 or below 4,096, so late cancels happen too; with no inferred triple
+    it cancels a diagnostic's search. 400 iterations: 365 runs cancelled.
+  - The tests are in `crates/turbowl/tests/cancel.rs`, not beside the
+    reasoner's and the explainer's: they use only the public interface.
+  - `reason()` runs the same path without a handle (the spec said "with a
+    handle nobody trips"); the docs say so.
+  - CONTEXT.md gained **Cancel**.

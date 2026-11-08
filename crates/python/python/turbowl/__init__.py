@@ -131,7 +131,7 @@ Errors
     :class:`TurbowlError` is the base of every exception raised here:
     :class:`ParseError` (with the line and column), :class:`FileError` (an
     ``OSError``), :class:`UnknownFormatError`, :class:`TermError`,
-    :class:`SnapshotError`, :class:`NotReasonedError` and
+    :class:`SnapshotError`, and :class:`NotReasonedError` and
     :class:`CancelledError` (each a ``RuntimeError``). Data problems are not exceptions: they are
     diagnostics.
 
@@ -425,6 +425,7 @@ class Cancel:
 
 
 def _cancel(cancel: Cancel | None) -> _native.NativeCancel | None:
+    """The native handle of ``cancel``, checked to be a :class:`Cancel`."""
     if cancel is None:
         return None
     if not isinstance(cancel, Cancel):
