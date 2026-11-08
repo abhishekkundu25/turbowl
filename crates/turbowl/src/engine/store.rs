@@ -453,12 +453,25 @@ impl Store {
     /// Runs `rules` round after round until a round derives nothing new.
     /// Returns the rounds in which `rules` ran. Called again after more
     /// inserts, it continues semi-naively from the stored state.
-    pub(crate) fn run(&mut self, mut rules: impl FnMut(&mut Round<'_>)) -> usize {
+    pub(crate) fn run(&mut self, rules: impl FnMut(&mut Round<'_>)) -> usize {
+        self.run_until(|| false, rules).expect("a run nobody stops ends")
+    }
+
+    /// [`Store::run`], asking `stop` before each round: `None` when it said
+    /// to stop, and the store is then only fit to be dropped.
+    pub(crate) fn run_until(
+        &mut self,
+        mut stop: impl FnMut() -> bool,
+        mut rules: impl FnMut(&mut Round<'_>),
+    ) -> Option<usize> {
         debug_assert!(!self.restarted, "a store that stopped for a restart is not run again");
         self.steps.clear();
         let mut pending = std::mem::take(&mut self.pending);
         let mut rounds = 0;
         while self.step(&mut pending) {
+            if stop() {
+                return None;
+            }
             rounds += 1;
             self.rounds += 1;
             let parallel = self.workers.engage(self.delta);
@@ -476,7 +489,7 @@ impl Store {
         // given back, so that a stored closure does not keep it.
         debug_assert!(pending.is_empty());
         self.pending = Pending::default();
-        rounds
+        Some(rounds)
     }
 
     /// Applies a round's output and advances every active table. True when

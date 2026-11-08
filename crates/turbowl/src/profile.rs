@@ -216,6 +216,14 @@ pub fn explain_cache_bytes(cache: &crate::ExplainCache) -> usize {
     cache.bytes()
 }
 
+/// A cancel handle that trips itself at its `checks`-th check (0: the
+/// first): a run checks once before each round, a proof search between its
+/// steps. For chaos and the tests, so that a cancel at a given round needs
+/// no thread and no clock.
+pub fn cancel_after(checks: usize) -> crate::Cancel {
+    crate::Cancel::after(checks)
+}
+
 /// The bytes a vector of `T` holds: its capacity.
 pub(crate) fn vec_bytes<T>(v: &Vec<T>) -> usize {
     v.capacity() * size_of::<T>()

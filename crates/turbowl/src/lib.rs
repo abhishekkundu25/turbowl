@@ -201,6 +201,7 @@
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.
 
+mod cancel;
 mod diagnostics;
 mod engine;
 mod error;
@@ -217,6 +218,7 @@ mod switch;
 mod term;
 mod threads;
 
+pub use cancel::Cancel;
 pub use diagnostics::{Diagnostic, Severity};
 pub use error::Error;
 pub use explain::{ExplainCache, Explainer, Goal, Proof, Reason, Statement, Step};

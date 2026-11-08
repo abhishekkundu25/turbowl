@@ -55,7 +55,7 @@ mod tests;
 use crate::reasoner::Reasoner;
 use crate::rules::datatype;
 use crate::term::{Dictionary, DocId, TermId};
-use crate::{Diagnostic, Switches};
+use crate::{Cancel, Diagnostic, Error, Switches};
 use closure::{Closure, Indexes};
 use oxrdf::{Literal, NamedNode, Term, TermRef, TripleRef};
 use program::{Compiled, MAX_ARITY, T, UNLISTED};
@@ -379,23 +379,78 @@ impl<'r> Explainer<'r> {
     /// the switches leave on. `None` when the triple is not in the closure.
     /// Blank nodes are named as the reads write them ([`Reasoner::triples`]).
     pub fn explain(&self, triple: TripleRef<'_>) -> Option<Proof> {
+        self.explain_until(triple, None).expect("a search nobody cancels ends")
+    }
+
+    /// [`Explainer::explain`], stopped by `cancel`: it is checked between
+    /// the search's steps. A cancelled search drops what it built and keeps
+    /// the indexes, so the next question is answered as if nothing had been
+    /// cancelled. An index build is not interrupted.
+    ///
+    /// # Errors
+    /// [`Error::Cancelled`] when `cancel` was tripped.
+    pub fn explain_cancellable(&self, triple: TripleRef<'_>, cancel: &Cancel) -> Result<Option<Proof>, Error> {
+        self.explain_until(triple, Some(cancel))
+    }
+
+    fn explain_until(&self, triple: TripleRef<'_>, cancel: Option<&Cancel>) -> Result<Option<Proof>, Error> {
+        if cancel.is_some_and(Cancel::is_cancelled) {
+            return Err(Error::Cancelled);
+        }
         let terms = self.reasoner.terms();
-        let t = [
-            id_of(terms, triple.subject.into())?,
-            terms.get_iri(triple.predicate.as_str())?.0,
-            id_of(terms, triple.object)?,
-        ];
+        let (Some(s), Some(p), Some(o)) = (
+            id_of(terms, triple.subject.into()),
+            terms.get_iri(triple.predicate.as_str()),
+            id_of(terms, triple.object),
+        ) else {
+            return Ok(None);
+        };
+        let t = [s, p.0, o];
         let parts = self.parts();
         if !self.closure(parts).contains(t) {
-            return None;
+            return Ok(None);
         }
-        let built = self.prove(parts, T, [t[0], t[1], t[2], 0])?;
-        Some(self.proof(built, None))
+        let built = self.prove(parts, T, [t[0], t[1], t[2], 0], cancel)?;
+        Ok(built.map(|b| self.proof(b, None)))
     }
 
     /// The proof of a diagnostic of the last run: the rule that reports it
     /// and the proofs of its premises. `None` when it is not reported.
     pub fn explain_diagnostic(&self, diagnostic: &Diagnostic) -> Option<Proof> {
+        self.explain_diagnostic_until(diagnostic, None)
+            .expect("a search nobody cancels ends")
+    }
+
+    /// [`Explainer::explain_diagnostic`], stopped by `cancel`, as
+    /// [`Explainer::explain_cancellable`] is.
+    ///
+    /// # Errors
+    /// [`Error::Cancelled`] when `cancel` was tripped.
+    pub fn explain_diagnostic_cancellable(
+        &self,
+        diagnostic: &Diagnostic,
+        cancel: &Cancel,
+    ) -> Result<Option<Proof>, Error> {
+        self.explain_diagnostic_until(diagnostic, Some(cancel))
+    }
+
+    fn explain_diagnostic_until(
+        &self,
+        diagnostic: &Diagnostic,
+        cancel: Option<&Cancel>,
+    ) -> Result<Option<Proof>, Error> {
+        if cancel.is_some_and(Cancel::is_cancelled) {
+            return Err(Error::Cancelled);
+        }
+        let Some((rel, tuple)) = self.goal_of(diagnostic) else {
+            return Ok(None);
+        };
+        let built = self.prove(self.parts(), rel, tuple, cancel)?;
+        Ok(built.map(|b| self.proof(b, Some(diagnostic))))
+    }
+
+    /// The finding a reported diagnostic is, as a goal of the program.
+    fn goal_of(&self, diagnostic: &Diagnostic) -> Option<(program::RelId, [u32; MAX_ARITY])> {
         if !self.reasoner.diagnostics().contains(diagnostic) {
             return None;
         }
@@ -413,8 +468,7 @@ impl<'r> Explainer<'r> {
         for (slot, term) in tuple.iter_mut().zip(&diagnostic.terms) {
             *slot = id_of(terms, term.as_ref())?;
         }
-        let built = self.prove(parts, rel, tuple)?;
-        Some(self.proof(built, Some(diagnostic)))
+        Some((rel, tuple))
     }
 
     /// The search for one goal, over the graph earlier goals left, and its
@@ -422,8 +476,14 @@ impl<'r> Explainer<'r> {
     /// that gives a proof the closure does not hold (a cache from another
     /// state that matched its key) is dropped, and the search runs again
     /// on a fresh one. A search that panicked leaves a graph that may lack
-    /// instances: it is dropped too.
-    fn prove(&self, parts: &Parts, rel: program::RelId, tuple: [u32; MAX_ARITY]) -> Option<Built> {
+    /// instances: it is dropped too, and so is one that `cancel` stopped.
+    fn prove(
+        &self,
+        parts: &Parts,
+        rel: program::RelId,
+        tuple: [u32; MAX_ARITY],
+        cancel: Option<&Cancel>,
+    ) -> Result<Option<Built>, Error> {
         let mut graph = self.cache.graph.lock().unwrap_or_else(|poisoned| {
             let mut g = poisoned.into_inner();
             *g = Graph::default();
@@ -433,15 +493,22 @@ impl<'r> Explainer<'r> {
             program: &parts.program,
             closure: self.closure(parts),
             rule_literals: &parts.rule_literals,
+            cancel,
         };
-        let built = Search::new(world, &mut graph).prove(rel, tuple);
+        let search = |graph: &mut Graph| {
+            let built = Search::new(world, graph).prove(rel, tuple);
+            if cancel.is_some_and(Cancel::is_cancelled) {
+                *graph = Graph::default();
+                return Err(Error::Cancelled);
+            }
+            Ok(built)
+        };
+        let built = search(&mut graph)?;
         if built.as_ref().is_none_or(|b| self.holds(parts, b)) {
-            return built;
+            return Ok(built);
         }
         *graph = Graph::default();
-        Search::new(world, &mut graph)
-            .prove(rel, tuple)
-            .filter(|b| self.holds(parts, b))
+        Ok(search(&mut graph)?.filter(|b| self.holds(parts, b)))
     }
 
     /// True when every step of `built` holds of the reasoner: a base step

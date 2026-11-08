@@ -463,6 +463,7 @@ fn error(py: Python<'_>, e: Error) -> PyErr {
         Error::UnknownFormat { path } => raise(py, "UnknownFormatError", (message, shown(Some(path)))),
         Error::Snapshot { path, message } => raise(py, "SnapshotError", (message, shown(path))),
         Error::NotReasoned => raise(py, "NotReasonedError", (message,)),
+        Error::Cancelled => raise(py, "TurbowlError", (message,)),
     }
 }
 

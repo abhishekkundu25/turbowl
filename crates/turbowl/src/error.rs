@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-/// An input or output failure. Reasoning itself does not fail: data problems are diagnostics.
+/// An input or output failure, or a cancel. Reasoning itself does not fail: data problems are diagnostics.
 #[derive(Debug)]
 pub enum Error {
     /// Reading or writing a file failed.
@@ -39,6 +39,8 @@ pub enum Error {
     /// closure to explain until [`Reasoner::reason`](crate::Reasoner::reason)
     /// runs ([`Reasoner::explainer`](crate::Reasoner::explainer)).
     NotReasoned,
+    /// The run or the proof search was cancelled ([`Cancel`](crate::Cancel)).
+    Cancelled,
 }
 
 impl fmt::Display for Error {
@@ -60,6 +62,7 @@ impl fmt::Display for Error {
             } => write!(f, "{}{line}:{column}: {message}", at(path)),
             Error::Snapshot { path, message } => write!(f, "{}{message}", at(path)),
             Error::NotReasoned => write!(f, "the reasoner changed since its last run: reason() first"),
+            Error::Cancelled => write!(f, "cancelled"),
             Error::UnknownFormat { path } => write!(
                 f,
                 "{}: unknown format (use .ttl, .nt, .n3, .rdf or .owl)",

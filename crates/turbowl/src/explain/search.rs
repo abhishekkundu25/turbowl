@@ -111,6 +111,7 @@
 
 use super::closure::{Closure, Flow, Free};
 use super::program::{Arg, Body, Builtin, Compiled, EqRules, Kind, MAX_ARITY, NONE, RelId, T, UNLISTED};
+use crate::Cancel;
 use crate::engine::Members;
 use crate::rules::datatype::map::{Datatype, Reading, Value, value_of};
 use crate::term::{Term, TermId, vocab};
@@ -166,6 +167,8 @@ pub(crate) struct World<'a> {
     pub(crate) closure: Closure<'a>,
     /// The literals the rules name (`datatype::RULE_LITERALS`).
     pub(crate) rule_literals: &'a [u32],
+    /// Checked between the search's steps ([`Search::halted`]).
+    pub(crate) cancel: Option<&'a Cancel>,
 }
 
 impl World<'_> {
@@ -454,6 +457,9 @@ pub(crate) struct Search<'a> {
     work: usize,
     /// The links [`Item::Class`] concluded (see [`Search::solve`]).
     linked: usize,
+    /// The cancel handle tripped: the search stops, and its graph is only
+    /// fit to be dropped.
+    halted: bool,
 }
 
 /// A step of a proof in term ids: a closure triple, its rule (`None`: a
@@ -490,7 +496,17 @@ impl<'a> Search<'a> {
             pin: false,
             work: 0,
             linked: 0,
+            halted: false,
         }
+    }
+
+    /// True once the cancel handle has tripped (checked once per call
+    /// until then).
+    fn halted(&mut self) -> bool {
+        if !self.halted {
+            self.halted = self.world.cancel.is_some_and(Cancel::check);
+        }
+        self.halted
     }
 
     /// Explains the fact `tuple` of `rel` (a closure triple the closure
@@ -518,6 +534,9 @@ impl<'a> Search<'a> {
             .and_then(|(_, ranks)| ranks.rank.get(goal as usize).copied().flatten())
         {
             let (expanded, _) = self.frontier(goal, r.saturating_sub(1));
+            if self.halted {
+                return None;
+            }
             if !expanded && self.g.len() == at {
                 let (_, ranks) = self.g.whole.take().expect("kept");
                 let built = self.build(goal, &ranks);
@@ -527,6 +546,10 @@ impl<'a> Search<'a> {
         }
         let start = self.g.len();
         let built = self.deepen(rel, tuple, goal);
+        // A fallback's search halted too, with its own flag.
+        if self.halted || self.world.cancel.is_some_and(Cancel::is_cancelled) {
+            return None;
+        }
         // A goal that explained nothing new in a fallback's graph: the next
         // ones likely will not either, and ranking the whole graph once
         // serves them all. (A fallback joins every member of a class, so
@@ -545,6 +568,9 @@ impl<'a> Search<'a> {
         loop {
             let cut = loop {
                 let (expanded, cut) = self.frontier(goal, bound);
+                if self.halted {
+                    return None;
+                }
                 if !expanded {
                     break cut;
                 }
@@ -644,6 +670,9 @@ impl<'a> Search<'a> {
                 node.generic |= self.generic;
                 self.enqueue(Item::Fact(n));
                 self.run();
+                if self.halted {
+                    return (false, false);
+                }
                 fit(self.g);
                 expanded = true;
             }
@@ -693,7 +722,9 @@ impl<'a> Search<'a> {
     /// for the outer run, so that nesting stops there.
     fn run_nested(&mut self) {
         let mut facts = Vec::new();
-        while let Some(item) = self.calls.pop_front().or_else(|| self.queue.pop_front()) {
+        while !self.halted()
+            && let Some(item) = self.calls.pop_front().or_else(|| self.queue.pop_front())
+        {
             if let Item::Fact(_) = item {
                 facts.push(item);
                 continue;
@@ -705,7 +736,9 @@ impl<'a> Search<'a> {
     }
 
     fn run(&mut self) {
-        while let Some(item) = self.calls.pop_front().or_else(|| self.queue.pop_front()) {
+        while !self.halted()
+            && let Some(item) = self.calls.pop_front().or_else(|| self.queue.pop_front())
+        {
             self.queued.remove(&item);
             self.evaluate(item);
         }

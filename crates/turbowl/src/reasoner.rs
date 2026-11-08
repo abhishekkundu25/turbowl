@@ -126,7 +126,7 @@ use crate::rules::equality::{self, Weights};
 use crate::rules::{Context, FAMILIES, Family, Finding, datatype, trivial};
 use crate::snapshot::{self, Restored, Saved};
 use crate::term::{Dictionary, DocId, Kind, TermId, vocab};
-use crate::{Diagnostic, Switch, Switches, Threads};
+use crate::{Cancel, Diagnostic, Switch, Switches, Threads};
 use oxrdf::{NamedNode, NamedOrBlankNode, Triple, TripleRef};
 use rustc_hash::FxHashSet;
 use std::borrow::Cow;
@@ -462,23 +462,64 @@ impl Reasoner {
 
     /// Runs to the fixpoint: in full, or over what changed since the last run.
     pub fn reason(&mut self) -> Summary {
+        self.reason_until(None).expect("a run nobody cancels ends")
+    }
+
+    /// [`Reasoner::reason`], stopped by `cancel`: it is checked before each
+    /// round, so a cancel takes effect when the current round ends.
+    ///
+    /// A cancelled run keeps no partial result: the reasoner is as loaded
+    /// and not yet reasoned. The base is kept, the closure and the
+    /// diagnostics are empty, the next run is a full one, and
+    /// [`Reasoner::explainer`] gives [`Error::NotReasoned`]. A handle
+    /// tripped before the call changes nothing.
+    ///
+    /// # Errors
+    /// [`Error::Cancelled`] when `cancel` was tripped.
+    pub fn reason_cancellable(&mut self, cancel: &Cancel) -> Result<Summary, Error> {
+        self.reason_until(Some(cancel)).ok_or(Error::Cancelled)
+    }
+
+    /// [`Reasoner::reason_cancellable`]; `None` when cancelled.
+    fn reason_until(&mut self, cancel: Option<&Cancel>) -> Option<Summary> {
+        if cancel.is_some_and(Cancel::is_cancelled) {
+            return None;
+        }
         let rounds = match self.state {
             State::Current => {
                 self.counters.clear();
-                0
+                Some(0)
             }
-            State::Added => self.run(false),
-            State::Full => self.run(true),
+            State::Added => self.run(false, cancel),
+            State::Full => self.run(true, cancel),
+        };
+        let Some(rounds) = rounds else {
+            self.discard();
+            return None;
         };
         self.state = State::Current;
         let base = self.base.len();
         debug_assert!(self.rdf >= base, "the closure holds the base");
-        Summary {
+        Some(Summary {
             base,
             inferred: self.rdf.saturating_sub(base) + self.same_as_itself_rdf,
             rounds,
             diagnostics: self.diagnostics.len(),
-        }
+        })
+    }
+
+    /// Drops what a cancelled run left: the reasoner is as loaded and not
+    /// yet reasoned, and the next run is a full one.
+    fn discard(&mut self) {
+        self.closure = Store::new();
+        self.closure.set_workers(self.workers.clone());
+        self.rdf = 0;
+        self.same_as_itself.clear();
+        self.same_as_itself_rdf = 0;
+        self.findings.clear();
+        self.diagnostics.clear();
+        self.counters.clear();
+        self.state = State::Full;
     }
 
     /// The closure: base and inferred triples. Generalized triples (a
@@ -857,8 +898,9 @@ impl Reasoner {
 
     /// Runs the rule table to the fixpoint: from the base and the facts in a
     /// fresh store (`full`), or from what was queued; again from the base
-    /// after each restart. Returns the rounds.
-    fn run(&mut self, full: bool) -> usize {
+    /// after each restart. Returns the rounds; `None` when `cancel` stopped
+    /// it, and the store is then only fit to be dropped.
+    fn run(&mut self, full: bool, cancel: Option<&Cancel>) -> Option<usize> {
         let families: Vec<&'static Family> = self.families.iter().filter(|f| f.is_on(self.switches)).collect();
         self.counters = Counters::new(&families);
         let mut start = full.then(equality::canon);
@@ -873,12 +915,15 @@ impl Reasoner {
             if let Some(canon) = start.take() {
                 self.start(&families, canon);
             }
-            rounds += self.rounds(&families, &mut found);
+            rounds += self.rounds(&families, &mut found, cancel)?;
             if !self.closure.restarted() {
                 break;
             }
             restarted = true;
             start = Some(std::mem::take(&mut self.closure).into_canon());
+        }
+        if cancel.is_some_and(Cancel::check) {
+            return None;
         }
         let merged = restarted || self.closure.canon().merges() != merges;
         if merged {
@@ -912,7 +957,7 @@ impl Reasoner {
             self.findings.dedup();
             self.diagnostics = diagnostics(&self.findings, canon, &self.terms);
         }
-        rounds
+        Some(rounds)
     }
 
     /// A fresh store with `canon`'s classes, holding the facts of
@@ -941,8 +986,13 @@ impl Reasoner {
 
     /// Runs `families` (those that are on) on the store to its fixpoint (or
     /// to a restart), pushing the findings to `found` and the counters.
-    /// Returns the rounds.
-    fn rounds(&mut self, families: &[&'static Family], found: &mut Vec<Finding>) -> usize {
+    /// Returns the rounds; `None` when `cancel` stopped it.
+    fn rounds(
+        &mut self,
+        families: &[&'static Family],
+        found: &mut Vec<Finding>,
+        cancel: Option<&Cancel>,
+    ) -> Option<usize> {
         let Self {
             terms,
             switches,
@@ -965,7 +1015,8 @@ impl Reasoner {
                 ns: 0,
             })
             .collect();
-        let rounds = closure.run(|round| {
+        let stop = || cancel.is_some_and(Cancel::check);
+        let rounds = closure.run_until(stop, |round| {
             let start = Clock::now();
             let (tuples, triples) = delta(round, terms, &weights);
             counters.delta.push(tuples);

@@ -41,6 +41,14 @@
 //! goals in the same order, must give the same proofs as the one-thread
 //! reasoner's (a proof may depend on what an explainer's cache holds).
 //!
+//! Each iteration also cancels (CHAOS_CANCEL=0 turns it off, to measure
+//! it): one of its runs is first cancelled at a check drawn from a stream of
+//! its own, on both reasoners alike, which must leave no closure and no
+//! diagnostics; the run that follows is compared as any other. The first
+//! goal explained is first cancelled halfway too: the one-thread
+//! explainer's proofs must still equal the all-cores explainer's, which was
+//! never cancelled.
+//!
 //! Inputs whose reference closure would pass `MAX_CLOSURE` triples are
 //! skipped and counted: the reference has no representatives, so a large
 //! `owl:sameAs` clique is beyond it. Every other input is compared, those
@@ -55,7 +63,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use turbowl::{Reasoner, Summary, Switch, Switches, Threads};
+use turbowl::{Error, Reasoner, Summary, Switch, Switches, Threads, profile};
 use turbowl_reference::{Diagnostics, Rng, check_proof, evaluate_within, generate, to_ntriples};
 
 /// The largest reference closure an iteration is compared on.
@@ -155,6 +163,34 @@ fn parse_switches(names: &str) -> Result<Switches, String> {
 /// explain leaves the inputs, the splits and the configurations as they were.
 const EXPLANATIONS: u64 = 0xE8A1_A1E5_0F5E_ED05;
 
+/// The cancels leave the inputs, the splits, the configurations and the
+/// explained goals as they were.
+const CANCELS: u64 = 0xCA9C_E15E_0F5E_ED05;
+
+/// The cancels of one iteration: the run cancelled first (its index among
+/// the iteration's runs) and the checks at which its run and its first
+/// search stop. `None` with CHAOS_CANCEL=0.
+#[derive(Debug, Clone, Copy)]
+struct Cancels {
+    run: usize,
+    run_check: usize,
+    search_check: usize,
+}
+
+impl Cancels {
+    fn of(seed: u64, i: usize, runs: usize) -> Option<Cancels> {
+        if env_or("CHAOS_CANCEL", 1u8) == 0 {
+            return None;
+        }
+        let mut rng = Rng::at(seed ^ CANCELS, i);
+        Some(Cancels {
+            run: rng.below(runs),
+            run_check: rng.below(8),
+            search_check: rng.below(64),
+        })
+    }
+}
+
 /// The most inferred triples, and the most diagnostics, a state explains
 /// (CHAOS_EXPLAINED overrides it).
 const EXPLAINED: usize = 8;
@@ -175,7 +211,13 @@ fn sample(rng: &mut Rng, len: usize, n: usize) -> Vec<usize> {
 /// final state of `twins`, whose base is `input`, and checks each proof;
 /// the all-cores reasoner's own explainer, asked in the same order, must
 /// give the same proofs. Returns how many proofs were checked.
-fn explain(input: &[Triple], twins: &Twins, switches: Switches, rng: &mut Rng) -> Result<usize, String> {
+fn explain(
+    input: &[Triple],
+    twins: &Twins,
+    switches: Switches,
+    rng: &mut Rng,
+    cancels: Option<Cancels>,
+) -> Result<usize, String> {
     let (one, all) = (&twins.one, &twins.all);
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let one_explainer = one.explainer().map_err(|e| e.to_string())?;
@@ -186,6 +228,15 @@ fn explain(input: &[Triple], twins: &Twins, switches: Switches, rng: &mut Rng) -
     let triples = sample(rng, inferred.len(), n);
     let found = sample(rng, diagnostics.len(), n);
     let mut checked = 0;
+    // The first goal, cancelled halfway: the search graph is dropped, back
+    // to the empty one the first goal starts from.
+    if let (Some(c), Some(&i)) = (cancels, triples.first()) {
+        let t = &inferred[i];
+        match one_explainer.explain_cancellable(t.as_ref(), &profile::cancel_after(c.search_check)) {
+            Ok(_) | Err(Error::Cancelled) => {}
+            Err(e) => return Err(format!("a cancelled search for {t}: {e}")),
+        }
+    }
     for i in triples {
         let t = &inferred[i];
         let Some(proof) = one_explainer.explain(t.as_ref()) else {
@@ -218,8 +269,8 @@ fn explain(input: &[Triple], twins: &Twins, switches: Switches, rng: &mut Rng) -
 /// What one iteration did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Done {
-    /// Compared, with this many proofs checked.
-    Compared(usize),
+    /// Compared, with this many proofs checked and runs cancelled.
+    Compared(usize, usize),
     /// The reference closure would pass `MAX_CLOSURE`.
     TooLarge,
 }
@@ -283,6 +334,32 @@ impl Twins {
         for r in [&mut self.one, &mut self.all] {
             r.remove(triples.iter().map(|t| t.as_ref()));
         }
+    }
+
+    /// Runs both with a handle that stops them at check `k`: a cancelled run
+    /// leaves no closure and no diagnostics, and both must stop alike.
+    /// Returns 1 when they stopped, 0 when they ran to the end.
+    fn cancel_at(&mut self, k: usize) -> Result<usize, String> {
+        let mut stopped = Vec::new();
+        for r in [&mut self.one, &mut self.all] {
+            match r.reason_cancellable(&profile::cancel_after(k)) {
+                Ok(_) => stopped.push(false),
+                Err(Error::Cancelled) => {
+                    if r.triples().next().is_some() || !r.diagnostics().is_empty() {
+                        return Err(format!("a run cancelled at check {k} left a partial result"));
+                    }
+                    stopped.push(true);
+                }
+                Err(e) => return Err(format!("a run cancelled at check {k}: {e}")),
+            }
+        }
+        if stopped[0] != stopped[1] {
+            return Err(format!(
+                "at check {k}, one thread stopped: {}, all cores: {}",
+                stopped[0], stopped[1]
+            ));
+        }
+        Ok(usize::from(stopped[0]))
     }
 
     /// Runs both, and checks that they agree exactly: the summary, then the
@@ -472,13 +549,14 @@ fn run(
     kind: &'static str,
     default_seed: u64,
     k: usize,
-    check: impl Fn(&[Triple], Switches, &mut Rng, &mut Rng) -> Result<Done, String>,
+    check: impl Fn(&[Triple], Switches, &mut Rng, &mut Rng, &dyn Fn(usize) -> Option<Cancels>) -> Result<Done, String>,
 ) {
     let seed = env_or("CHAOS_SEED", default_seed);
     let iters = env_or("CHAOS_ITERS", 400usize);
     let mut watchdog = Watchdog::new(kind);
     // Compared iterations by configuration: default, complete or random.
-    let (mut too_large, mut proofs, mut compared) = (0, 0, std::collections::BTreeMap::<String, usize>::new());
+    let (mut too_large, mut proofs, mut cancelled) = (0, 0, 0);
+    let mut compared = std::collections::BTreeMap::<String, usize>::new();
     for i in iterations(iters, k) {
         let (input, mut rng) = input_of(seed, i);
         let switches = configuration_of(seed, i);
@@ -490,11 +568,13 @@ fn run(
         };
         watchdog.start(at, &input);
         let mut explanations = Rng::at(seed ^ EXPLANATIONS, i);
+        let cancels = |runs: usize| Cancels::of(seed, i, runs);
         match catch_unwind(AssertUnwindSafe(|| {
-            check(&input, switches, &mut rng, &mut explanations)
+            check(&input, switches, &mut rng, &mut explanations, &cancels)
         })) {
-            Ok(Ok(Done::Compared(checked))) => {
+            Ok(Ok(Done::Compared(checked, stopped))) => {
                 proofs += checked;
+                cancelled += stopped;
                 let name = switches_name(switches);
                 let label = match name.as_str() {
                     "default" | "complete" => name,
@@ -512,30 +592,47 @@ fn run(
     }
     let total: usize = compared.values().sum();
     say(&format!(
-        "{kind} shard {k}: {total} compared ({compared:?}), {proofs} proofs checked; not compared: {too_large} too large for the reference"
+        "{kind} shard {k}: {total} compared ({compared:?}), {proofs} proofs checked, {cancelled} runs cancelled; not compared: {too_large} too large for the reference"
     ));
 }
 
 /// One full run equals the reference, and its proofs are valid.
-fn full(input: &[Triple], switches: Switches, _rng: &mut Rng, explanations: &mut Rng) -> Result<Done, String> {
+fn full(
+    input: &[Triple],
+    switches: Switches,
+    _rng: &mut Rng,
+    explanations: &mut Rng,
+    cancels: &dyn Fn(usize) -> Option<Cancels>,
+) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let Some(expected) = reference(&base, switches) else {
         return Ok(Done::TooLarge);
     };
+    let cancels = cancels(1);
     let mut twins = Twins::new(switches);
     twins.insert(&input.iter().collect::<Vec<_>>());
+    let stopped = match cancels {
+        Some(c) => twins.cancel_at(c.run_check)?,
+        None => 0,
+    };
     twins.reason()?;
     if let Some(diff) = difference(&expected, &core_state(&twins.one)) {
         return Err(format!("one full run:\n{diff}"));
     }
-    let proofs = explain(input, &twins, switches, explanations)?;
-    Ok(Done::Compared(proofs))
+    let proofs = explain(input, &twins, switches, explanations, cancels)?;
+    Ok(Done::Compared(proofs, stopped))
 }
 
 /// Batches of insertions, then a removal, then the removed triples put
 /// back, each followed by `reason()`, equal a full evaluation of the base;
 /// the last state's proofs are valid.
-fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng, explanations: &mut Rng) -> Result<Done, String> {
+fn incremental(
+    input: &[Triple],
+    switches: Switches,
+    rng: &mut Rng,
+    explanations: &mut Rng,
+    cancels: &dyn Fn(usize) -> Option<Cancels>,
+) -> Result<Done, String> {
     let base: HashSet<Triple> = input.iter().cloned().collect();
     let batches = 1 + rng.below(4);
     let mut split: Vec<Vec<&Triple>> = vec![Vec::new(); batches];
@@ -548,9 +645,17 @@ fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng, explanations
     let (Some(whole), Some(after_removal)) = (reference(&base, switches), reference(&kept, switches)) else {
         return Ok(Done::TooLarge);
     };
+    // The runs: one per batch, after the removal, after putting it back.
+    let cancels = cancels(batches + 2);
+    let cancel = |twins: &mut Twins, run: usize| match cancels {
+        Some(c) if c.run == run => twins.cancel_at(c.run_check),
+        _ => Ok(0),
+    };
+    let mut stopped = 0;
     let mut twins = Twins::new(switches);
-    for batch in &split {
+    for (run, batch) in split.iter().enumerate() {
         twins.insert(batch);
+        stopped += cancel(&mut twins, run)?;
         twins.reason()?;
     }
     if let Some(diff) = difference(&whole, &core_state(&twins.one)) {
@@ -558,18 +663,20 @@ fn incremental(input: &[Triple], switches: Switches, rng: &mut Rng, explanations
         return Err(format!("inserted in batches of {sizes:?}:\n{diff}"));
     }
     twins.remove(&removed);
+    stopped += cancel(&mut twins, batches)?;
     twins.reason()?;
     if let Some(diff) = difference(&after_removal, &core_state(&twins.one)) {
         let lines: Vec<String> = removed.iter().map(|t| format!("    {t} .")).collect();
         return Err(format!("after removing:\n{}\n{diff}", lines.join("\n")));
     }
     twins.insert(&removed);
+    stopped += cancel(&mut twins, batches + 1)?;
     twins.reason()?;
     if let Some(diff) = difference(&whole, &core_state(&twins.one)) {
         return Err(format!("after putting the removed triples back:\n{diff}"));
     }
-    let proofs = explain(input, &twins, switches, explanations)?;
-    Ok(Done::Compared(proofs))
+    let proofs = explain(input, &twins, switches, explanations, cancels)?;
+    Ok(Done::Compared(proofs, stopped))
 }
 
 const FULL_SEED: u64 = 0x5EED_0005;
