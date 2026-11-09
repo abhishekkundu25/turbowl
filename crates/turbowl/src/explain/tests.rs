@@ -54,12 +54,13 @@ fn statement(t: &Triple) -> Statement {
 /// every base step a base triple of `r` and every rule step a triple of its
 /// closure (generalized ones aside), and the goal last.
 fn well_formed(r: &Reasoner, proof: &Proof) {
-    let base: Vec<Statement> = r
+    let inferred: std::collections::HashSet<Triple> = r.inferred().collect();
+    let base: std::collections::HashSet<Statement> = r
         .triples()
-        .filter(|t| r.inferred().all(|i| i != *t))
+        .filter(|t| !inferred.contains(t))
         .map(|t| statement(&t))
         .collect();
-    let closure: Vec<Statement> = r.triples().map(|t| statement(&t)).collect();
+    let closure: std::collections::HashSet<Statement> = r.triples().map(|t| statement(&t)).collect();
     let mut seen = std::collections::HashSet::new();
     for (i, step) in proof.steps().iter().enumerate() {
         assert!(seen.insert(&step.statement), "{:?} twice in\n{proof}", step.statement);
@@ -294,6 +295,54 @@ fn a_list_folds_into_the_step_that_reads_it() {
     let proof = explain(&r, &triple("ex:a", "ex:uncle", "ex:c"));
     assert_eq!(rules(&proof).last(), Some(&"prp-spo2"));
     assert_eq!(proof.leaves().count(), 7, "{proof}");
+}
+
+/// A long list folds into its step in time: each cell's helper once, not
+/// a copy of its tail per cell. With 32,000 members both proofs take about
+/// 0.3 s (release, an M-series Mac); they took 17 s and 55 s, and up to
+/// 8 GB, when each cell copied its tail.
+#[test]
+fn a_long_list_is_explained_in_time() {
+    let n = 32_000;
+    let members: String = (0..n).map(|i| format!("ex:K{i} ")).collect();
+    let start = std::time::Instant::now();
+
+    // cls-uni over the last member of a union: the step reads every cell.
+    let r = reasoned(
+        &format!("ex:U owl:unionOf ( {members}) . ex:x a ex:K{} .", n - 1),
+        Switches::default(),
+    );
+    let proof = explain(&r, &triple("ex:x", "rdf:type", "ex:U"));
+    assert_eq!(rules(&proof).last(), Some(&"cls-uni"));
+    let Reason::Rule { premises, .. } = proof.reason() else {
+        panic!()
+    };
+    // U unionOf the list, each cell's first and rest, and x's typing.
+    assert_eq!(premises.len(), 2 * n + 2);
+    assert_eq!(proof.leaves().count(), 2 * n + 2);
+
+    // cax-adc over the members of an AllDisjointClasses: the root reads
+    // every cell.
+    let r = reasoned(
+        &format!("[] a owl:AllDisjointClasses ; owl:members ( {members}) . ex:x a ex:K0 , ex:K1 ."),
+        Switches::default(),
+    );
+    let diagnostic = r.diagnostics().first().expect("cax-adc").clone();
+    let proof = r.explain_diagnostic(&diagnostic).unwrap().expect("a proof");
+    well_formed(&r, &proof);
+    assert_eq!(proof.goal(), Goal::Diagnostic(&diagnostic));
+    let Reason::Rule { rule, premises } = proof.reason() else {
+        panic!()
+    };
+    assert_eq!(*rule, "cax-adc");
+    assert_eq!(premises.len(), proof.steps().len());
+    assert!(proof.steps().len() > 2 * n, "{} steps", proof.steps().len());
+
+    assert!(
+        start.elapsed() < std::time::Duration::from_secs(5),
+        "{:?}",
+        start.elapsed()
+    );
 }
 
 #[test]

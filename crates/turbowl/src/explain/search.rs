@@ -167,7 +167,8 @@ pub(crate) struct World<'a> {
     pub(crate) closure: Closure<'a>,
     /// The literals the rules name (`datatype::RULE_LITERALS`).
     pub(crate) rule_literals: &'a [u32],
-    /// Checked between the search's steps ([`Search::halted`]).
+    /// Checked between the search's steps ([`Search::halted`]) and while a
+    /// proof is built ([`Checks`]).
     pub(crate) cancel: Option<&'a Cancel>,
 }
 
@@ -541,7 +542,7 @@ impl<'a> Search<'a> {
                 let (_, ranks) = self.g.whole.take().expect("kept");
                 let built = self.build(goal, &ranks);
                 self.g.whole = Some((at, ranks));
-                return Some(built);
+                return built;
             }
         }
         let start = self.g.len();
@@ -581,12 +582,12 @@ impl<'a> Search<'a> {
             let ranks = self.ranks(goal, bound);
             let rank = ranks.rank[0];
             if rank.is_some_and(|r| r <= bound + 1) {
-                return Some(self.build(goal, &ranks));
+                return self.build(goal, &ranks);
             }
             if !cut {
                 let ranks = self.ranks(goal, u32::MAX);
                 if ranks.rank[0].is_some() {
-                    return Some(self.build(goal, &ranks));
+                    return self.build(goal, &ranks);
                 }
                 if self.eq_rules || self.world.program.eq.is_none() || self.world.closure.is_flat() {
                     return None;
@@ -1838,75 +1839,56 @@ impl<'a> Search<'a> {
 
     /// The closure triples instance `i`'s premises stand for: its triples,
     /// and for each helper, the triples of its kept instance, recursively,
-    /// each once, in order.
-    fn folded(&self, i: usize, kept: &Ranks, memo: &mut FxHashMap<u32, Vec<u32>>) -> Vec<u32> {
+    /// each once, in order. Depth first, a helper met again adding nothing
+    /// (the kept instances are acyclic, so its triples are all out already):
+    /// a long list's cells, a long chain of helpers, are walked once, not
+    /// copied from each cell's tail. `None` when the cancel handle tripped.
+    fn folded(&self, i: usize, kept: &Ranks, checks: &mut Checks<'_>) -> Option<Vec<u32>> {
         let mut out = Vec::new();
+        // The triples and the helpers met.
         let mut seen = FxHashSet::default();
-        for &p in &self.g.instances[i].premises {
-            if self.g.nodes[p as usize].rel == T {
-                if seen.insert(p) {
-                    out.push(p);
-                }
+        let mut stack = vec![self.g.instances[i].premises.iter()];
+        while let Some(top) = stack.last_mut() {
+            let Some(&p) = top.next() else {
+                stack.pop();
+                continue;
+            };
+            if !seen.insert(p) {
                 continue;
             }
-            for t in self.helper(p, kept, memo) {
-                if seen.insert(t) {
-                    out.push(t);
-                }
+            if self.g.nodes[p as usize].rel == T {
+                out.push(p);
+                continue;
             }
+            if checks.tick() {
+                return None;
+            }
+            let h = self.g.kept(kept, p).expect("a premise is ranked");
+            stack.push(self.g.instances[h].premises.iter());
         }
-        out
+        Some(out)
     }
 
-    /// The closure triples a helper fact's kept instance stands for, by
-    /// post-order over the helpers (a long list's cells are a long chain).
-    fn helper(&self, h: u32, kept: &Ranks, memo: &mut FxHashMap<u32, Vec<u32>>) -> Vec<u32> {
-        let mut stack = vec![(h, false)];
-        while let Some((x, expanded)) = stack.pop() {
-            if memo.contains_key(&x) {
-                continue;
-            }
-            let i = self.g.kept(kept, x).expect("a premise is ranked");
-            let premises = &self.g.instances[i].premises;
-            if !expanded {
-                stack.push((x, true));
-                for &p in premises {
-                    if self.g.nodes[p as usize].rel != T && !memo.contains_key(&p) {
-                        stack.push((p, false));
-                    }
-                }
-                continue;
-            }
-            let mut out = Vec::new();
-            let mut seen = FxHashSet::default();
-            for &p in premises {
-                let part: Vec<u32> = if self.g.nodes[p as usize].rel == T {
-                    vec![p]
-                } else {
-                    memo[&p].clone()
-                };
-                for t in part {
-                    if seen.insert(t) {
-                        out.push(t);
-                    }
-                }
-            }
-            memo.insert(x, out);
-        }
-        memo[&h].clone()
+    /// The proof of `goal` from the kept instances ([`Search::built`]), or
+    /// `None` when the cancel handle tripped, which halts the search.
+    fn build(&mut self, goal: u32, kept: &Ranks) -> Option<Built> {
+        let built = self.built(goal, kept);
+        self.halted |= built.is_none();
+        built
     }
 
     /// The proof of `goal` from the kept instances: the closure triples in
     /// post-order (each premise before the steps that read it), the goal
-    /// last, or the finding's root apart.
-    fn build(&self, goal: u32, kept: &Ranks) -> Built {
-        let mut memo = FxHashMap::default();
+    /// last, or the finding's root apart. `None` when the cancel handle
+    /// tripped: a proof through a long list has many steps.
+    fn built(&self, goal: u32, kept: &Ranks) -> Option<Built> {
+        let mut checks = Checks::new(self.world.cancel);
         let mut index: FxHashMap<u32, usize> = FxHashMap::default();
         let mut steps: Vec<RawStep> = Vec::new();
         let mut children: FxHashMap<u32, Vec<u32>> = FxHashMap::default();
         let finding = self.g.nodes[goal as usize].rel != T;
         let roots: Vec<u32> = if finding {
-            self.folded(self.g.kept(kept, goal).expect("ranked"), kept, &mut memo)
+            self.folded(self.g.kept(kept, goal).expect("ranked"), kept, &mut checks)?
         } else {
             vec![goal]
         };
@@ -1916,13 +1898,20 @@ impl<'a> Search<'a> {
                 if index.contains_key(&x) {
                     continue;
                 }
-                let premises = children
-                    .entry(x)
-                    .or_insert_with(|| match self.g.kept(kept, x) {
-                        Some(i) => self.folded(i, kept, &mut memo),
-                        None => Vec::new(),
-                    })
-                    .clone();
+                if checks.tick() {
+                    return None;
+                }
+                let premises = match children.get(&x) {
+                    Some(premises) => premises.clone(),
+                    None => {
+                        let premises = match self.g.kept(kept, x) {
+                            Some(i) => self.folded(i, kept, &mut checks)?,
+                            None => Vec::new(),
+                        };
+                        children.insert(x, premises.clone());
+                        premises
+                    }
+                };
                 if !expanded {
                     stack.push((x, true));
                     stack.extend(
@@ -1955,7 +1944,34 @@ impl<'a> Search<'a> {
                 .expect("a finding's rule has a name");
             (rule, roots.iter().map(|p| index[p]).collect())
         });
-        Built { steps, root }
+        Some(Built { steps, root })
+    }
+}
+
+/// The work a proof's building does between two checks of the cancel
+/// handle ([`Checks`]): a helper unfolded or a step visited.
+const BUILD_CHECK: u32 = 1024;
+
+/// Checks the cancel handle while a proof is built, once per
+/// [`BUILD_CHECK`] units of work.
+struct Checks<'a> {
+    cancel: Option<&'a Cancel>,
+    work: u32,
+}
+
+impl<'a> Checks<'a> {
+    fn new(cancel: Option<&'a Cancel>) -> Self {
+        Self { cancel, work: 0 }
+    }
+
+    /// Counts a unit of work: true when the handle tripped.
+    fn tick(&mut self) -> bool {
+        self.work += 1;
+        if self.work < BUILD_CHECK {
+            return false;
+        }
+        self.work = 0;
+        self.cancel.is_some_and(Cancel::check)
     }
 }
 

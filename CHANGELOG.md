@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.2 — 2026-11-10
+
+### Fixed
+
+- **Proofs through long lists.** A proof step that reads a list folds
+  the list's cells into its premises. Each cell copied the premises of
+  the whole tail, so a list of n members cost time and memory in n², and
+  this ran after the search's last check of the cancel handle. With
+  32,000 members, explaining a cax-adc diagnostic over
+  `owl:AllDisjointClasses` took 17 s and 8.9 GB, and a cls-uni step over
+  `owl:unionOf` 55 s, past any deadline. Each cell is now unfolded once:
+  the same proofs take 0.09 s and 0.12 s and at most 140 MB, and every
+  proof is as before. `Explainer::explain_cancellable` and
+  `explain_diagnostic_cancellable` also check the handle while they
+  build the proof.
+
 ## 0.2.1 — 2026-11-10
 
 ### Added

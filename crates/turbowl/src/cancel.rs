@@ -12,8 +12,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 /// [`Cancel::with_check`] also trips itself when its function says so,
 /// which needs no second thread: a deadline in a browser, for one.
 ///
-/// A run checks it before each round, and a search between its steps, so a
-/// cancel takes effect when the current round or step ends.
+/// A run checks it before each round, and a search between its steps and
+/// while it builds the proof, so a cancel takes effect when the current
+/// round or step ends.
 ///
 /// [`Reasoner::reason_cancellable`]: crate::Reasoner::reason_cancellable
 /// [`Explainer::explain_cancellable`]: crate::Explainer::explain_cancellable

@@ -383,9 +383,10 @@ impl<'r> Explainer<'r> {
     }
 
     /// [`Explainer::explain`], stopped by `cancel`: it is checked between
-    /// the search's steps. A cancelled search drops what it built and keeps
-    /// the indexes, so the next question is answered as if nothing had been
-    /// cancelled. An index build is not interrupted.
+    /// the search's steps and while the proof is built. A cancelled search
+    /// drops what it built and keeps the indexes, so the next question is
+    /// answered as if nothing had been cancelled. An index build is not
+    /// interrupted.
     ///
     /// # Errors
     /// [`Error::Cancelled`] when `cancel` was tripped.
