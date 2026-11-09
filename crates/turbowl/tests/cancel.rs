@@ -421,3 +421,73 @@ fn a_deadline_stops_a_long_search() {
         "returned after {elapsed:?}, the limit {limit:?}"
     );
 }
+
+/// `ex:K0 … ex:K{n-1}`, the members of a list.
+fn members(n: usize) -> String {
+    (0..n).map(|i| format!("ex:K{i} ")).collect()
+}
+
+/// Runs `explain` under a handle with a deadline `limit` from now: it is
+/// cancelled, and returns soon after the deadline.
+fn stopped_at(limit: Duration, explain: impl FnOnce(&Cancel) -> Result<Option<turbowl::Proof>, Error>) {
+    let start = Instant::now();
+    let deadline = start + limit;
+    let cancel = Cancel::with_check(move || Instant::now() >= deadline);
+    let result = explain(&cancel);
+    let elapsed = start.elapsed();
+    assert!(
+        matches!(result, Err(Error::Cancelled)),
+        "{:?} after {elapsed:?}",
+        result.map(|p| p.map(|p| p.steps().len()))
+    );
+    assert!(cancel.is_cancelled());
+    // Generous: the work between two checks, and the drop of the search's
+    // graph after the cancel, on a loaded machine.
+    assert!(
+        elapsed <= limit + Duration::from_secs(1),
+        "returned after {elapsed:?}, the limit {limit:?}"
+    );
+}
+
+/// A proof through a long list stops at the deadline, while it is searched
+/// and while it is built: its steps fold the list's cells into the step
+/// that reads them. Built once, without a deadline, the proof of a list of
+/// 32,000 members takes about 0.15 s (release, an M-series Mac); it took
+/// 17 s and 8 GB, unchecked, when each cell copied its tail.
+#[test]
+fn a_deadline_stops_a_proof_through_a_long_list() {
+    let n = 32_000;
+    let limit = Duration::from_millis(10);
+    // cax-adc over the members of an AllDisjointClasses, and cls-uni over
+    // the last member of a union.
+    let disjoint = format!(
+        "[] a owl:AllDisjointClasses ; owl:members ( {} ) . ex:x a ex:K0 , ex:K1 .",
+        members(n)
+    );
+    let union = format!("ex:U owl:unionOf ( {} ) . ex:x a ex:K{} .", members(n), n - 1);
+    let goal = Triple::new(ex("x"), oxrdf::vocab::rdf::TYPE, ex("U"));
+    for (text, finding) in [(disjoint, true), (union, false)] {
+        let mut r = Reasoner::new();
+        load(&mut r, &text);
+        r.reason();
+        let diagnostic = r.diagnostics().first().cloned();
+        assert_eq!(diagnostic.is_some(), finding, "{:?}", r.diagnostics());
+        let explain = |explainer: &turbowl::Explainer<'_>, cancel: &Cancel| match &diagnostic {
+            Some(d) => explainer.explain_diagnostic_cancellable(d, cancel),
+            None => explainer.explain_cancellable(goal.as_ref(), cancel),
+        };
+        // Searched: the deadline passes while the list is read.
+        let explainer = r.explainer().unwrap();
+        stopped_at(limit, |cancel| explain(&explainer, cancel));
+        // Built: an explainer that found the proof already searches
+        // nothing (about 25 ms, all building, on the development machine),
+        // and a deadline a fifth of that passes while the proof is built.
+        let explainer = r.explainer().unwrap();
+        let proof = explain(&explainer, &Cancel::new()).unwrap().expect("a proof");
+        assert!(proof.steps().len() > 2 * n, "{} steps", proof.steps().len());
+        let start = Instant::now();
+        assert_eq!(explain(&explainer, &Cancel::new()).unwrap(), Some(proof));
+        let built = start.elapsed();
+        stopped_at(built / 5, |cancel| explain(&explainer, cancel));
+    }
+}

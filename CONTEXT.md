@@ -46,7 +46,7 @@ leverage, locality) follow the codebase-design vocabulary.
   another term.
 - **Cancel**: a handle a caller trips, from any thread, to stop a run or a
   proof search at its next check (a run checks before each round, a search
-  between its steps). A handle can also trip itself at a check when a
+  between its steps and while it builds the proof). A handle can also trip itself at a check when a
   function the caller gives says so, as a deadline does. A cancelled run
   keeps no partial result: the reasoner is as loaded and not yet reasoned.
 - **Rule set**: the W3C OWL 2 RL rules TurbOWL implements. Version 1 has

@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "turbowl"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "oxiri",
  "oxrdf",
@@ -398,7 +398,7 @@ dependencies = [
 
 [[package]]
 name = "turbowl-bench"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "libc",
  "oxrdf",
@@ -411,7 +411,7 @@ dependencies = [
 
 [[package]]
 name = "turbowl-cli"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "oxrdf",
  "oxrdfxml",
@@ -422,7 +422,7 @@ dependencies = [
 
 [[package]]
 name = "turbowl-oracle"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "oxrdf",
  "oxrdfxml",
@@ -433,7 +433,7 @@ dependencies = [
 
 [[package]]
 name = "turbowl-python"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "oxrdf",
  "pyo3",
@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "turbowl-reference"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "oxrdf",
  "turbowl",

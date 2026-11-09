@@ -169,7 +169,7 @@
 //! browser): [`Reasoner::reason_cancellable`] checks it before each round, and
 //! [`Explainer::explain_cancellable`] and
 //! [`Explainer::explain_diagnostic_cancellable`] between the search's
-//! steps; a tripped handle gives [`Error::Cancelled`]. [`Reasoner::reason`]
+//! steps and while the proof is built; a tripped handle gives [`Error::Cancelled`]. [`Reasoner::reason`]
 //! runs the same path without a handle. A cancelled run keeps no
 //! partial result: the reasoner is as loaded and not yet reasoned (no
 //! closure, no diagnostics, [`Error::NotReasoned`] from the explainer), and

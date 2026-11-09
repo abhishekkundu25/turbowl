@@ -112,7 +112,8 @@ Cancellation
     :meth:`Reasoner.reason`, :meth:`Reasoner.explain` and
     :meth:`Reasoner.explain_diagnostic` take a :class:`Cancel`, which any
     thread can trip; the call then stops and raises :class:`CancelledError`.
-    A run checks it before each round, a proof search between its steps.
+    A run checks it before each round, a proof search between its steps
+    and while it builds the proof.
     Ctrl+C stops them too, and raises ``KeyboardInterrupt``::
 
         cancel = turbowl.Cancel()
@@ -629,7 +630,8 @@ class Reasoner:
 
         The first proof builds indexes over the closure, which the reasoner
         keeps for the next proofs until it changes. ``cancel`` (or Ctrl+C)
-        stops the search between its steps; the indexes are kept.
+        stops the search between its steps and while it builds the proof;
+        the indexes are kept.
 
         Raises:
             NotReasonedError: The reasoner changed since its last run.
