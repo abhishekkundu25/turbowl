@@ -6,10 +6,7 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/benchmark-dark.svg">
-    <img alt="Total time on one thread: the fastest other engine takes 6.7 to 26 times as long as TurbOWL on six Brick and LUBM scenarios" src="assets/benchmark-light.svg" width="760">
-  </picture>
+  <img alt="Total time on the same W3C OWL 2 RL rules: on one thread, the fastest of Nemo, Soufflé and VLog takes 6.7 to 26 times as long as TurbOWL on six Brick and LUBM scenarios" src="assets/benchmark.svg" width="800">
 </p>
 
 # TurbOWL
@@ -30,26 +27,31 @@ TurbOWL is not on crates.io or PyPI yet.
 Total time, loading and reasoning, in the default configuration, median
 of 3 runs. Every engine runs the same W3C OWL 2 RL rules, and every
 closure is checked against TurbOWL's. The last column is how many times
-as long the fastest other engine takes as TurbOWL on one thread.
+as long the fastest open-source engine takes as TurbOWL on one thread.
 
-| Scenario | TurbOWL, one thread | TurbOWL, all cores | Fastest other | Ratio |
-|---|---:|---:|---|---:|
-| brick-small1 | 11.5 ms | 10.9 ms | Soufflé, 100 ms | 8.7× |
-| brick-soda-hall | 16.1 ms | 15.7 ms | Soufflé, 200 ms | 12× |
-| brick-buildings | 158 ms | 93.7 ms | VLog, 4.14 s | 26× |
-| lubm-1 | 29.7 ms | 19.0 ms | Soufflé, 200 ms | 6.7× |
-| lubm-10 | 380 ms | 170 ms | Soufflé, 2.63 s | 6.9× |
-| lubm-50 | 2.02 s | 892 ms | Soufflé, 15.8 s | 7.8× |
+| Scenario | Triples, input → closure | TurbOWL, one thread | TurbOWL, all cores | Fastest open-source engine | Ratio |
+|---|---:|---:|---:|---|---:|
+| brick-small1 | 14,817 → 26,381 | 11.5 ms | 10.9 ms | Soufflé, 100 ms | 8.7× |
+| brick-soda-hall | 18,577 → 57,652 | 16.1 ms | 15.7 ms | Soufflé, 200 ms | 12× |
+| brick-buildings | 203,066 → 1,255,681 | 158 ms | 93.7 ms | VLog, 4.14 s | 26× |
+| lubm-1 | 116,017 → 184,086 | 29.7 ms | 19.0 ms | Soufflé, 200 ms | 6.7× |
+| lubm-10 | 1,284,780 → 2,024,317 | 380 ms | 170 ms | Soufflé, 2.63 s | 6.9× |
+| lubm-50 | 6,572,384 → 10,345,697 | 2.02 s | 892 ms | Soufflé, 15.8 s | 7.8× |
 
-The engines it is measured against are Nemo 0.10.1, Soufflé 2.5 and VLog
-1.3.7. They are general rule engines: each runs any Datalog program you
-give it, and we use Nemo as one of TurbOWL's oracles. TurbOWL runs one
-fixed rule set and is built around it, which is where most of the gap
-comes from. Every engine that finished gave the same closure size as
-TurbOWL.
+The engines it is measured against are the open-source Nemo 0.10.1,
+Soufflé 2.5 and VLog 1.3.7. They are general rule engines: each runs any
+Datalog program you give it, and we use Nemo as one of TurbOWL's oracles.
+TurbOWL runs one fixed rule set and is built around it, which is where
+most of the gap comes from. Every engine that finished gave the same
+closure size as TurbOWL. RDFox, a commercial reasoner, could not be run
+here, so it is not in these numbers.
+
+We wrote each engine's rule program from the W3C rules. Tuned by their
+authors, they may be faster. Corrections are welcome.
 
 - With every rule on (the complete configuration, one run), the fastest
-  other engine takes 10.6 to 28 times as long as TurbOWL on one thread.
+  open-source engine takes 10.6 to 28 times as long as TurbOWL on one
+  thread.
 - On lubm-50, the peak is 46.6 bytes per closure triple on one thread and
   53.0 on all cores. A saved snapshot of the reasoned state loads in
   0.10 s, against 0.92 s to parse and reason.
@@ -59,14 +61,19 @@ TurbOWL.
 
 How the numbers were taken, including what favours the other engines:
 
-- The machine was busy, at a 1-minute load average of 3 to 5. Each gap
-  above is many times the spread between runs.
-- The other engines ran on one thread: Nemo has no thread option, and
-  Soufflé's build is single-threaded. The all-cores column is TurbOWL's
-  alone, and the ratios use TurbOWL's one-thread time.
+- The other engines read a converted copy of the input, written once
+  before any run: every literal and blank node becomes an IRI, as plain
+  N-Triples or tab-separated text. TurbOWL parses the original Turtle, N3
+  and RDF/XML files.
+- Nemo has no thread option and Soufflé's build is single-threaded, so
+  both ran on one thread. VLog's thread count could not be set through
+  Rulewerk, which runs it. The all-cores column is TurbOWL's alone, and
+  the ratios use TurbOWL's one-thread time.
 - VLog's time is its own report, which leaves out the JVM's start, so
   every ratio against VLog favours VLog. Soufflé's program is compiled
   beforehand, untimed, and its time includes writing the closure.
+- The machine was busy, at a 1-minute load average of 3 to 5. Each gap
+  above is many times the spread between runs.
 - A run that went past 16 GB was stopped. In the complete configuration
   VLog reached that cap on brick-buildings, lubm-1 and lubm-10.
 - Loading is most of TurbOWL's total on lubm-50: 80% on one thread, 89% on
