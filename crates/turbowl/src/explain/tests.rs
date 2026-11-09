@@ -652,8 +652,9 @@ fn a_stale_cache_gives_no_wrong_proof() {
 /// "plain"` is a link of a class that ends up holding `rdf:type` and most
 /// terms, literals of different values among them. Its eq-diff1
 /// diagnostics on `"a"` need the program's eq-* rules (the last level of
-/// the search): each took over a second in chaos, and the ten take about
-/// half a second here with one explainer.
+/// the search): each took over a second in chaos, so the ten took over
+/// 10 s; with one explainer they take about 3.2 s (release, an M-series Mac)
+/// and about 6.7 s on a GitHub Actions runner.
 #[test]
 fn a_restarted_closure_is_explained_in_time() {
     const INPUT: &str = r##"<http://example.org/C0> <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://example.org/C2> .
@@ -729,9 +730,10 @@ _:x2 <http://example.org/d2> "a" .
             .unwrap_or_else(|| panic!("no proof of {d:?}"));
         well_formed(&r, &proof);
     }
-    // About 0.5 s (release, an M-series Mac at load 3, 2026-11-07).
+    // About 3.2 s (release, an M-series Mac at load 3, 2026-11-10) and
+    // 6.7 s on a GitHub Actions runner. Each took over a second before.
     assert!(
-        start.elapsed() < std::time::Duration::from_secs(5),
+        start.elapsed() < std::time::Duration::from_secs(10),
         "{:?}",
         start.elapsed()
     );
