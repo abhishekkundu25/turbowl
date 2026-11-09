@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "turbowl"
 description = "A fast OWL 2 RL reasoner, with rdflib graphs and terms in and out"
 requires-python = ">=3.10"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 dynamic = ["version"]
 dependencies = ["rdflib>=7.6,<8"]
 
