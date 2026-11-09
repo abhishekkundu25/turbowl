@@ -4,7 +4,7 @@ Date: 2026-11-07. Branch `explain`, tickets in `docs/tickets/explain/`,
 spec `docs/specs/explanations.md`. Apple M6, 12 cores, 32 GB, macOS 27.0.
 Raw data: `docs/verification/data/2026-11-07-explanations/`.
 
-Some runs that need a quiet machine are not in this record. The owner
+Some runs that need a quiet machine are not in this record. The maintainer
 moved them to ticket 05 (`docs/tickets/explain/05-deferred-validation.md`):
 the explain latencies at load under 1, lubm-50 at 10 runs per side,
 100,000 chaos iterations and the slow oracle tier.
@@ -142,11 +142,11 @@ class with individuals and literals: those goals need the wider search
 levels. Fewer goals do not help much (one goal per kind already doubles
 the time), because the cost is a tail of slow goals. Closing the gap
 needs a cheaper complete method for such classes, or a new budget: the
-owner's decision.
+maintainer's decision.
 
-## Decisions taken without the owner
+## Decisions taken without the maintainer
 
-The owner said to assume what fits the goal and record it here.
+The maintainer said to assume what fits the goal and record it here.
 
 1. Chaos explains 8 triples and 8 diagnostics per state, not 32 of each.
    Every one is compared with the all-cores explainer's proof, asked in the
@@ -170,9 +170,9 @@ The owner said to assume what fits the goal and record it here.
 10. The complete configuration's Brick gap is a follow-up (ticket 06), not
     fixed in this close-out.
 
-At the owner's request: the quiet-machine runs moved to ticket 05.
+At the maintainer's request: the quiet-machine runs moved to ticket 05.
 
-## Open for the owner
+## Open for the maintainer
 
 - The chaos budget: accept about 2.7 times as long, or fund a cheaper
   method (above).

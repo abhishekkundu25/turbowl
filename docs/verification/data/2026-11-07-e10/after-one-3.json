@@ -6,7 +6,7 @@
     "configuration": "default",
     "cores": 12,
     "cpu": "Apple M6",
-    "data_dir": "/private/var/folders/1p/n26rbn9j6sv40m9r38m24gdr0000gn/T/slices/turtle-reasoner/e10-index-in-job/data",
+    "data_dir": "<repo>/data",
     "date": "2026-11-06T20:43:27Z",
     "dirty": true,
     "load_after": [
@@ -46,8 +46,8 @@
     {
       "engine": "turbowl",
       "inputs": [
-        "/private/var/folders/1p/n26rbn9j6sv40m9r38m24gdr0000gn/T/slices/turtle-reasoner/e10-index-in-job/target/bench-data/univ-bench.ttl",
-        "/private/var/folders/1p/n26rbn9j6sv40m9r38m24gdr0000gn/T/slices/turtle-reasoner/e10-index-in-job/target/bench-data/lubm-v1-50.ttl"
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
       ],
       "message": null,
       "runs": [

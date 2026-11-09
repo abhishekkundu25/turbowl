@@ -1,14 +1,15 @@
-//! The oracle faults (`CONTEXT.md`): places where an oracle is wrong and the
-//! W3C OWL 2 RL rules are not. Each has an id, a test below showing that the
-//! other oracles agree with the W3C rule, and a filter that removes exactly
-//! the affected triples or findings before a closure is compared with the
-//! faulty oracle's. There are no other filters (ADR 0004).
+//! The oracle faults (`CONTEXT.md`): places where an oracle departs from the
+//! W3C text, the OWL 2 RL rules and the datatype definitions they rest on.
+//! Each has an id, a test below showing that the other oracles agree with the
+//! W3C rule, and a filter that removes exactly the affected triples or
+//! findings before a closure is compared with that oracle's. There are no
+//! other filters (ADR 0004).
 //!
-//! All fifteen are faults of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo,
+//! All fifteen are differences of OWL-RL (owlrl 7.6.2 on rdflib 7.6.0). Nemo,
 //! HermiT and the W3C tests have none so far. Where OWL-RL only derives or
 //! reports more than the W3C rules (F8, F11, F13, F14, and parts of F9 and
-//! F10), containment never sees it: the fault is listed with its test and
-//! filters nothing.
+//! F10), containment never sees it: the difference is listed with its test
+//! and filters nothing.
 
 use crate::{Closure, Finding, Input};
 use oxrdf::vocab::{rdf, rdfs, xsd};
@@ -16,7 +17,7 @@ use oxrdf::{NamedNodeRef, NamedOrBlankNode, Term};
 use std::collections::{HashMap, HashSet};
 use turbowl::{Switch, Switches};
 
-/// A known fault of an oracle.
+/// A known difference of an oracle from the W3C text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Fault {
     /// OWL-RL's scm-sco and scm-spo never derive `c rdfs:subClassOf c` or
@@ -40,7 +41,7 @@ pub enum Fault {
     /// OWL-RL's dt-not-type rejects zeros, INF, NaN and rounded numerals of
     /// `xsd:double` and `xsd:float`.
     F8,
-    /// OWL-RL's dt-not-type has the wrong lexical spaces for booleans,
+    /// OWL-RL's dt-not-type has different lexical spaces for booleans,
     /// binaries, the XML name types, `xsd:normalizedString` and `xsd:anyURI`.
     F9,
     /// OWL-RL's dt-not-type reads `xsd:dateTime` with `time.strptime`.
@@ -79,12 +80,12 @@ impl Fault {
         Self::F15,
     ];
 
-    /// The oracle at fault, as the triangulation table names it.
+    /// The oracle with this difference, as the triangulation table names it.
     pub fn oracle(self) -> &'static str {
         "OWL-RL"
     }
 
-    /// What the oracle does wrong, and what the W3C rule says instead.
+    /// What the oracle does, and what the W3C rule says instead.
     pub fn description(self) -> &'static str {
         match self {
             Self::F1 => {
@@ -216,7 +217,7 @@ impl Fault {
         }
     }
 
-    /// What the comparison with the faulty oracle does about it.
+    /// What the comparison with that oracle does about it.
     pub fn handling(self) -> &'static str {
         match self {
             Self::F1 => {
@@ -268,7 +269,7 @@ impl Fault {
     }
 
     /// True when the fault shows between a closure (`ours`, the one judged)
-    /// and the faulty oracle's (`theirs`) on this input.
+    /// and that oracle's (`theirs`) on this input.
     pub fn shows(self, input: &Input, ours: &Closure, theirs: &Closure) -> bool {
         match self {
             Self::F1 => {
@@ -743,7 +744,7 @@ fn has_cyclic_list(input: &Input) -> bool {
     })
 }
 
-/// Each fault's test: the faulty oracle disagrees with the W3C rule, and the
+/// Each fault's test: the oracle with the difference disagrees with the W3C rule, and the
 /// other oracles (Nemo, HermiT, the W3C tests) agree with it. An oracle that
 /// is not installed is skipped (with `CI=true`, the test fails).
 #[cfg(test)]

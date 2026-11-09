@@ -6,7 +6,7 @@
     "configuration": "default",
     "cores": 12,
     "cpu": "Apple M6",
-    "data_dir": "/Users/abhishek/repos/turtle-reasoner/data",
+    "data_dir": "<repo>/data",
     "date": "2026-11-07T05:04:47Z",
     "dirty": true,
     "load_after": [
@@ -46,8 +46,8 @@
     {
       "engine": "turbowl",
       "inputs": [
-        "/Users/abhishek/repos/turtle-reasoner/data/reasonable/example_models/ontologies/Brick.n3",
-        "/Users/abhishek/repos/turtle-reasoner/data/reasonable/example_models/small1.n3"
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/small1.n3"
       ],
       "message": null,
       "runs": [
@@ -374,8 +374,8 @@
     {
       "engine": "turbowl",
       "inputs": [
-        "/Users/abhishek/repos/turtle-reasoner/data/reasonable/example_models/ontologies/Brick.n3",
-        "/Users/abhishek/repos/turtle-reasoner/data/reasonable/example_models/soda_hall.n3"
+        "<repo>/data/reasonable/example_models/ontologies/Brick.n3",
+        "<repo>/data/reasonable/example_models/soda_hall.n3"
       ],
       "message": null,
       "runs": [
@@ -702,8 +702,8 @@
     {
       "engine": "turbowl",
       "inputs": [
-        "/Users/abhishek/repos/turtle-reasoner/target/bench-data/univ-bench.ttl",
-        "/Users/abhishek/repos/turtle-reasoner/target/bench-data/lubm-v1-1.ttl"
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-1.ttl"
       ],
       "message": null,
       "runs": [
@@ -1007,8 +1007,8 @@
     {
       "engine": "turbowl",
       "inputs": [
-        "/Users/abhishek/repos/turtle-reasoner/target/bench-data/univ-bench.ttl",
-        "/Users/abhishek/repos/turtle-reasoner/target/bench-data/lubm-v1-50.ttl"
+        "<repo>/target/bench-data/univ-bench.ttl",
+        "<repo>/target/bench-data/lubm-v1-50.ttl"
       ],
       "message": null,
       "runs": [

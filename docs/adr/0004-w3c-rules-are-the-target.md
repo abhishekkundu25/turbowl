@@ -26,7 +26,7 @@ the W3C rules agree with each other: Nemo running the W3C rule forms
 understood OWL-RL faults, and HermiT entails every inferred subsumption on
 Brick.
 
-The owner's goal is performance. Compatibility with `reasonable` costs
+The maintainer's goal is performance. Compatibility with `reasonable` costs
 scope (a second profile, its message texts, its CLI and Python shapes) and
 buys nothing toward it.
 

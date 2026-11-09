@@ -3,7 +3,7 @@ set -u
 OUT=<e10>/out
 mkdir -p $OUT
 B=<e10>/before/target/release/turbowl-bench
-A=/private/var/folders/1p/n26rbn9j6sv40m9r38m24gdr0000gn/T/slices/turtle-reasoner/e10-index-in-job/target/release/turbowl-bench
+A=<repo>/target/release/turbowl-bench
 run() { # side bin threads i
   echo "$1 $3 $4 $(sysctl -n vm.loadavg)" >> $OUT/load.txt
   "$2" --engines turbowl --runs 1 --only lubm-50 --threads $3 --json $OUT/$1-$3-$4.json > $OUT/$1-$3-$4.txt 2>&1

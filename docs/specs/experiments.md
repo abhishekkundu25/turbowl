@@ -6,32 +6,32 @@ after version 1 goes through it, and every iteration is recorded here.
 
 ## The loop
 
-Each iteration runs these six steps, in order, with different agents for
+Each iteration runs these six steps, in order, with different people for
 rating and for changing, so that nobody grades their own work.
 
 ```
         ┌──────────────────────────────────────────────────────────┐
         ▼                                                          │
   1. RATE ──► 2. FIND ──► 3. CHANGE ──► 4. EVALUATE ──► 5. DECIDE ──► 6. RECORD
-  reviewer    reviewer    implementer   verification    orchestrator   table row,
+  reviewer    reviewer    implementer   verification    maintainer     table row,
   scores the  proposes    applies one   suite + bench   keeps or       next round
   current     ranked      proposal in   on the change   reverts        starts from
   version     changes     a worktree    vs. Baseline    against rules  the kept
                                                                        version
 ```
 
-1. **Rate.** A fresh reviewer agent reads the code, the last verification
+1. **Rate.** A fresh reviewer reads the code, the last verification
    record and this table, and scores the current version on the rubric
    below. It does not see the implementer's notes.
 2. **Find.** The same reviewer proposes up to five changes, each with a
    hypothesis ("leapjoin for prp-spo2 cuts Brick time by 30% because ..."),
    the expected effect on the rubric, the files it touches, and the risk.
-   It ranks them by expected gain per effort. The orchestrator picks the top
+   It ranks them by expected gain per effort. The maintainer picks the top
    one that is not a repeat of a reverted experiment (unless the reviewer
    says what is different this time).
-3. **Change.** An implementer agent, in its own worktree, makes only that
+3. **Change.** An implementer, in their own worktree, makes only that
    change, with tests. It does not tune the benchmark or the oracles.
-4. **Evaluate.** The orchestrator runs the full verification (every oracle,
+4. **Evaluate.** The maintainer runs the full verification (every oracle,
    chaos, incremental, W3C) and the scoreboard's benchmark on the change and
    on the Baseline (the kept version), on a quiet machine, and writes a
    verification record (`docs/verification/<date>-e<NN>.md`).
@@ -72,7 +72,7 @@ sentence on the weakest dimension, and that guides the next find step.
   revert.
 - Numbers come from the scoreboard's benchmark (`crates/bench`) with nothing
   else running, 5 runs or more, median and spread, with what bounds the
-  number named (`explain-the-number`).
+  number named.
 - A reverted experiment stays in the table with what was learned.
 - A change to an oracle, a filter or a budget is its own iteration, with the
   reason, and the reviewer of the next round checks it.
@@ -92,8 +92,8 @@ sentence on the weakest dimension, and that guides the next find step.
 | 6 | 2026-11-06 | Incremental speed (phase 3's); within phase 2, all-cores memory: 58.3 B per closure triple at the median against 50 | The parallel merge and filter write into one vector by disjoint ranges, not pieces joined by `concat` (branch `exp/e06-one-vector-merge`) | The all-cores peak falls in a step's change phase, where the pieces and their joined copy are alive together: 20 to 30 MB less | lubm-50, all cores, 10 single runs per side alternating, load 3.1 to 5.6: median peak 601.9 → 594.4 MB, middle halves 600.9 to 602.5 and 591.0 to 596.4; reasoning unchanged. The probe: live bytes never pass 461 MB (the budget is 517.3); the footprint ends about 200 MB above them, memory the allocator keeps after large short-lived allocations (`docs/verification/2026-11-06-e06.md`) | 58 → 58 | Reverted: 7.5 MB, under the 10 MB bar |
 | 7 | 2026-11-07 | Incremental speed (phase 3's); within phase 2, the all-cores footprint (58.2 B per closure triple at the median against 50) and speed-up (3.94 against 5) | Object indexes flipped into one exact vector and sorted in place on the workers, with no buffer and no deduplication (`f4fc0dd`) | The first index builds grow the footprint 27.8 MB for a 9.1 MB index: building in place should save 10 to 30 MB of peak and 3 to 6 ms | lubm-50, all cores, 10 alternating single runs per side, load 2.2 to 3.2: median peak 601.0 → 580.7 MB, middle halves 600.5 to 602.1 and 580.3 to 582.0; largest 602.9 → 588.2 MB. Implementer's pairs: reasoning 102.1 → 98.2 ms (4.1 times one thread). One thread unchanged at 46.4 B per triple. Editor-size A/B within the spread (`docs/verification/2026-11-07-e07.md`) | 58 → 58 | Kept |
 | 8 | 2026-11-07 | Incremental speed (phase 3's); within phase 2, the all-cores footprint: 580.7 MB at the median against 517.3 | The base as sorted pairs by predicate in one flat vector, built in the parse buffer (`b654de6`); snapshots at format version 2 | The base holds 12 bytes a triple; pairs by predicate hold 8: 26.3 MB less held, 18 to 26 MB off the peak | lubm-50, all cores, 10 alternating single runs per side, load about 3: median peak 581.5 → 544.2 MB, middle halves 580.5 to 582.3 and 542.9 to 547.2, largest 583.5 → 548.3. One thread 46.9 → 46.6 B per triple. Reasoning on one thread 407 → 395 ms on lubm-50 (`docs/verification/2026-11-07-e08.md`) | 58 → 58 | Kept |
-| 9 | 2026-11-07 | (iteration 8's rating) | During a large full run on several threads, the dictionary drops its lookup table and rebuilds it in id order at the next change (`fb500d8`, reverted by `38df2c3`; branch `exp/e09-dict-drop`); the owner accepted the first change's wait | The table is 33.6 MB, all resident: 20 to 30 MB off the peak | On top of iteration 8, lubm-50 on all cores, 10 alternating single runs per side: median peak 543.8 → 536.3 MB, middle halves apart, largest 547.1 → 539.5. Alone, before iteration 8, it gave 45 MB: the two overlap, since both free memory the parallel steps reuse. One thread unchanged. The first change after a large parallel run waits about 28 ms (`docs/verification/2026-11-07-e09.md`) | 58 → 58 | Reverted: 7.5 MB on top of iteration 8, under the 10 MB bar, for a wait and a rebuild path |
-| 10 | 2026-11-07 | Incremental speed (phase 3's); within phase 2, the all-cores speed-up: 3.6 to 4.1 against 5 (the memory gap now accepted by the owner) | A first object index built inside its table's job, beside its sort (branch `exp/e10-index-in-job`) | 9.5 ms of first index builds run on the caller's thread before the jobs start: 3 to 5 ms off all-cores reasoning | lubm-50, 10 alternating single runs per side on all cores, load 1.7 to 2.0: reasoning median 94.4 → 92.7 ms, middle halves overlapping; ratio 4.10 → 4.17. `rdf:type`'s job, its index now built after its sort, sets the step (`docs/verification/2026-11-07-e10.md`) | 58 → 58 | Reverted: within the noise |
+| 9 | 2026-11-07 | (iteration 8's rating) | During a large full run on several threads, the dictionary drops its lookup table and rebuilds it in id order at the next change (`fb500d8`, reverted by `38df2c3`; branch `exp/e09-dict-drop`); the maintainer accepted the first change's wait | The table is 33.6 MB, all resident: 20 to 30 MB off the peak | On top of iteration 8, lubm-50 on all cores, 10 alternating single runs per side: median peak 543.8 → 536.3 MB, middle halves apart, largest 547.1 → 539.5. Alone, before iteration 8, it gave 45 MB: the two overlap, since both free memory the parallel steps reuse. One thread unchanged. The first change after a large parallel run waits about 28 ms (`docs/verification/2026-11-07-e09.md`) | 58 → 58 | Reverted: 7.5 MB on top of iteration 8, under the 10 MB bar, for a wait and a rebuild path |
+| 10 | 2026-11-07 | Incremental speed (phase 3's); within phase 2, the all-cores speed-up: 3.6 to 4.1 against 5 (the memory gap now accepted by the maintainer) | A first object index built inside its table's job, beside its sort (branch `exp/e10-index-in-job`) | 9.5 ms of first index builds run on the caller's thread before the jobs start: 3 to 5 ms off all-cores reasoning | lubm-50, 10 alternating single runs per side on all cores, load 1.7 to 2.0: reasoning median 94.4 → 92.7 ms, middle halves overlapping; ratio 4.10 → 4.17. `rdf:type`'s job, its index now built after its sort, sets the step (`docs/verification/2026-11-07-e10.md`) | 58 → 58 | Reverted: within the noise |
 | 11 | 2026-11-07 | (iteration 10's rating: the code had not changed) | One split per property rule over all its axioms, instead of one per axiom: counted first, not built | Round 1's property family gains nothing on all cores because its splits are many and small: 3 to 4 ms | The count refuted it: 24 large splits in 604 chunks. On all cores the family does about 34 ms of CPU against 8.3 on one thread: writing pairs costs twice as much, and each chunk sorts its output. Round 1 nearly saturates 12 cores (6 of them Efficiency) (`docs/verification/2026-11-07-e11.md`) | 58 → 58 | Not built: the reading was wrong |
 
 ### Iteration 0: the rating
@@ -647,7 +647,7 @@ phase 1's. Bytes below are millions of bytes.
   higher: all cores is the default thread mode, and its footprint misses
   the budget by 84.6 MB at the median. The papers put VLog at about 12.
   It moves to 8 when the all-cores median of 10 alternating runs is under
-  50 bytes per closure triple by the measure the owner names (the question
+  50 bytes per closure triple by the measure the maintainer names (the question
   below).
 - **Architecture: 7/10.** Unchanged: the code is the one iteration 6
   rated. `reasoner.rs` has 2,203 lines, with the document key inside. Five
@@ -679,7 +679,7 @@ median, while the program's own bytes stay 56.7 MB under it, so what the
 budget measures decides the next step. After it comes all-cores reasoning
 at 3.94 times one thread against 5.
 
-**A question for the owner.** The memory budget allows 50 bytes per
+**A question for the maintainer.** The memory budget allows 50 bytes per
 closure triple on lubm-50 (517.3 MB). Which peak does it limit? One choice
 is the process's peak footprint. The bench records it for every engine,
 and it counts freed memory that the allocator keeps: 601.9 MB on all cores
@@ -694,7 +694,7 @@ memory record, as the program's own demand; name the platform in the
 budget (macOS, its system allocator, all cores), since the footprint
 depends on the allocator's policy; and count only what the library does,
 so that no allocator choice and no call that returns memory, in the bench
-or the CLI, counts toward the budget. If the owner picks the bytes in use
+or the CLI, counts toward the budget. If the maintainer picks the bytes in use
 instead, the budget is met in both thread modes, the bench needs a
 counting allocator for TurbOWL's runs to report it, and the all-cores
 speed-up becomes the one open budget.
@@ -703,10 +703,10 @@ speed-up becomes the one open budget.
 
 The `v2` branch at `b08bb40`, whose code is `f4fc0dd`: the code iteration
 7 rated, plus iteration 7's change (object indexes sorted in place on the
-workers) and the owner's answer on the memory budget (`8a904fa`). Rated
+workers) and the maintainer's answer on the memory budget (`8a904fa`). Rated
 from the code, the seven loop records (`docs/verification/2026-11-06-e01.md`
 to `-e06.md` and `2026-11-07-e07.md`) and iteration 7's runs, read run by
-run: the orchestrator's 10 alternating all-cores runs per side on lubm-50
+run: the maintainer's 10 alternating all-cores runs per side on lubm-50
 (`data/2026-11-07-e07/e07-allpeak-*.json`), the implementer's 10 pairs at
 load 1.7 to 2.2, and the implementer's probe, 3 runs per side. No loop
 record ran on a quiet machine, and the scoreboard is still phase 1's.
@@ -749,11 +749,11 @@ Bytes below are millions of bytes.
   and one removal 1.9 ms, against a full run of 2.3 to 2.7 ms on
   brick-small1 (e05's A/B). A removal still runs again from the base.
 - **Memory: 7/10.** Better by about 20 MB at the median, not by a point.
-  On all cores, the orchestrator's 10 runs on `f4fc0dd` peak at 580 to
+  On all cores, the maintainer's 10 runs on `f4fc0dd` peak at 580 to
   588.2 MB, median 580.7 MB, middle half 580.3 to 582.0 MB (56.1 bytes per
   closure triple), against a median of 601.0 MB on the Baseline (e07). The
   implementer's 10 give a median of 581.3 MB, range 579.6 to 583.1. The
-  budget now names its measure (`v2-2-speed.md`, the owner, 2026-11-06):
+  budget now names its measure (`v2-2-speed.md`, the maintainer, 2026-11-06):
   the process's footprint, and the largest of 10 alternating all-cores
   runs must stay under 517.3 MB. The median misses it by 63.4 MB and the
   largest run by 70.9 MB. One thread peaks at 480 MB (46.4 bytes; e07),
@@ -793,7 +793,7 @@ still runs again from the base until phase 3's DRed; inside phase 2 it is
 memory on all cores, 70.9 MB over the budget by the largest run, and the
 candidates below cut held bytes first because they convert best.
 
-**The owner's budget change** (`8a904fa`), checked as the rules ask for a
+**The maintainer's budget change** (`8a904fa`), checked as the rules ask for a
 change to a budget. It takes the measure the last rating recommended, the
 process's footprint, with the three additions: the bytes in use recorded
 beside it, the platform named, and no allocator choice or memory-return
@@ -913,7 +913,7 @@ still runs again from the base until phase 3's DRed; inside phase 2 it is
 memory on all cores, 30 MB over the budget by the largest run, which only a
 held cut of about 40 MB can close in one change (see the open candidates).
 
-## For the next agent
+## For the next contributor
 
 To continue the loop cold: read `AGENTS.md`, then this file from the top,
 then the newest file in `docs/verification/`. Start at step 1 with a fresh
@@ -922,7 +922,7 @@ are listed below; a new reviewer may reuse or replace them.
 
 ### Open candidates
 
-Added after iteration 11 (the orchestrator, from its counts; not yet rated):
+Added after iteration 11 (the maintainer, from the counts; not yet rated):
 - Skip `Pending::compact`'s per-chunk sort for outputs that come out unsorted (prp-rng, prp-inv), leaving them to the step's sort: 10 to 19 ms of CPU out of round 1's saturated pool on all cores, part of it moved to the step. Measure the round and the step together.
 - Count the datatype family's splits before changing it: in round 1 it spends 45 to 50 ms of CPU on all cores against 22 on one thread, with 13 of its 29 splits inline.
 - Read a family's all-cores time with care: it includes other families' chunks that its waiting thread ran.
@@ -940,7 +940,7 @@ Where the budgets stand on lubm-50 (bytes are millions of bytes, from each
 run's `peak_rss_bytes`):
 
 - **Memory on all cores:** the largest of 10 alternating runs must stay
-  under 517.3 MB (50 bytes per closure triple; the owner, 2026-11-06). On
+  under 517.3 MB (50 bytes per closure triple; the maintainer, 2026-11-06). On
   `b654de6`, e08's 10 runs have a median of 544.2 MB, a middle half of
   542.9 to 547.2 MB and a largest run of 548.3 MB. e09's 10 Baseline runs
   have a median of 543.8 MB and a largest run of 547.1 MB (load 2.8 to
@@ -953,14 +953,14 @@ run's `peak_rss_bytes`):
   better median. Every one-thread gain raises the bar. The machine's 12
   cores are 2 Super, 4 Performance and 6 Efficiency cores.
 - **Loading:** 0.80 s on all cores and 1.51 s on one thread, against a bar
-  of 1.30 s. Met on all cores. The owner decides whether the bar holds for
+  of 1.30 s. Met on all cores. The maintainer decides whether the bar holds for
   one thread too.
 - **Total time:** 0.90 s on all cores and about 1.9 s on one thread,
   against version 1's 4.66 s on lubm-50. Met there. The data-size
   scenarios have not run since phase 1.
 
 **Can the open candidates close the 30 MB? The reviewer's answer, for the
-owner.** Not the small ones. The churn cuts (candidates 3 and 6, and
+maintainer.** Not the small ones. The churn cuts (candidates 3 and 6, and
 iteration 6's one-vector merge) are worth 5 to 20 MB each by the measured
 conversion. They overlap with each other and with the freed room that
 iteration 8 left, and each one risks the 10 MB bar. Three or four of them
@@ -975,7 +975,7 @@ changes. Candidate 4 changes the store's pair type in 18 files and gives
 relations a shared form. Candidate 5 changes every reader of an IRI's text
 and the snapshot format. The reviewer's view: the 30 MB, 5.8% of the
 budget, is reachable only through one of these two, and candidate 4 may
-fall short. The owner should hear this before the next memory iteration
+fall short. The maintainer should hear this before the next memory iteration
 runs, and decide whether a 5.8% miss is worth a large structural change
 now. The speed candidates do not depend on that answer, so iteration 10
 runs one of them.
@@ -1167,7 +1167,7 @@ largest of 10 sat 2 to 8 MB above its median. So:
      expected); the all-cores peak by the protocol above, which must not
      rise by more than its spread.
    - Why first: it is the smallest change with a measured target, it has
-     low risk, and it needs no decision from the owner while the owner
+     low risk, and it needs no decision from the maintainer while the maintainer
      weighs the memory answer above.
 
 2. **Run each property-family rule as one split over all its axioms.**
@@ -1275,7 +1275,7 @@ largest of 10 sat 2 to 8 MB above its median. So:
      incremental scenarios; the probe's growth at the run's start.
    - Why fourth: by gain per effort it comes after candidate 3. But it is
      one of the two listed changes that can close the memory budget alone.
-     Run it after the owner has heard the answer above.
+     Run it after the maintainer has heard the answer above.
 
 5. **Split IRIs into a namespace and a local name in the dictionary.**
    Memory in both modes, a held cut made while loading. Moved up from "Not
@@ -1329,7 +1329,7 @@ Still open, ranked after these five:
    thread, with FxHash and SipHash (`reasoner.rs`). XXH64, already in
    `snapshot.rs`, run with two seeds in blocks, would cut about 0.3 s from
    both modes (an estimate). On one thread it would bring loading (1.51 s)
-   under the 1.30 s bar, if the owner reads the budget for both modes.
+   under the 1.30 s bar, if the maintainer reads the budget for both modes.
    Measure with P0's load breakdown and load time on lubm-10 and lubm-50.
 9. **Sort the parsed base on the workers** (iteration 1's candidate 5).
    Since iteration 8, `ByPredicate::from_triples` sorts the 6.6 million
@@ -1342,7 +1342,7 @@ Not ranked here, and why:
 
 - **Return free memory to the system from the library**, or **choose
   another global allocator** (mimalloc, jemalloc) in the bench or the CLI.
-  The owner's budget excludes both: neither counts toward it. A library
+  The maintainer's budget excludes both: neither counts toward it. A library
   can neither choose its embedder's allocator nor trim the embedder's
   heap; the call needs `unsafe` in a core that has none, acts on the whole
   process, and does nothing under another allocator, on wasm32 or on musl.
@@ -1382,10 +1382,10 @@ Not ranked here, and why:
   then read an entry and the arena to compare a term, so the dictionary
   merge, 110 to 150 ms on lubm-50, would get slower, and the gain sits near
   the 10 MB bar.
-- **E2, E8 and E1** (the owner's first picks, research §10) act on Brick's
+- **E2, E8 and E1** (the maintainer's first picks, research §10) act on Brick's
   class hierarchy. No phase 2 budget is open on Brick, and LUBM's
   hierarchy is shallow. They come after the memory and all-cores budgets,
-  or first if the owner keeps that order.
+  or first if the maintainer keeps that order.
 - **E7** (CSR for `rdf:type`'s object index): P0 puts that index at
   30.2 MB, 2.9 bytes per closure triple. A CSR of 4-byte subjects with
   offsets per class would hold about 15 MB less (an estimate, about 11 MB

@@ -262,7 +262,7 @@ fn main() -> ExitCode {
             };
             println!("  {:<10} {:<8} {fetched}", e.name(), tool.version);
         }
-        println!("  graphdb    not run: GraphDB Free needs a licence by e-mail, which the owner has not obtained");
+        println!("  graphdb    not run: GraphDB Free needs a licence by e-mail, which the maintainer has not obtained");
         return ExitCode::SUCCESS;
     }
     if let Some((old, new)) = &args.compare {
@@ -951,7 +951,7 @@ fn print_table(rows: &[Row], args: &Args, before: Option<[f64; 3]>, after: Optio
     );
     println!("ms: reasoning of a full run; for incremental-*, the median of one run's per-change times.");
     println!(
-        "total: load + reasoning. A competitor's times are its own report (Souffle's, its wall clock); its process start is in neither."
+        "total: load + reasoning. A competitor's times are its own report, without its process start; Souffle's is its wall clock, process start and output writing included."
     );
     println!("Souffle and VLog do not split loading from reasoning: their ms is blank, their total is the one number.");
     println!("x turbowl: over turbowl's median time, total and largest peak (over 1: slower or larger).");

@@ -22,7 +22,7 @@ Spec: `docs/specs/v1.md`. After these, the improvement loop
 
 ## Waves
 
-1. **01** alone (the orchestrator): every later ticket builds on its interface.
+1. **01** alone (the maintainer): every later ticket builds on its interface.
 2. **02, 03, 04, 05, 06** together: disjoint folders. 04, 05 and 06 build against the stub interface and are judged once 10 lands.
 3. **07, 08, 09, 10** together: each rule family is its own file, registered in `rules/mod.rs` before the wave, so no two slices share a file.
 4. **11, 12, 13** together: equality touches the engine's new `canon.rs` and its own rule file; CLI and Python are separate crates.
@@ -48,7 +48,7 @@ Departures from the plan, as they happen.
 - **05.** `reasonable` reports `RDFS.DATATYPE_RANGE` for any IRI or blank
   object of a property with an IRI range (`term_in_datatype_space`,
   `lib/src/reasoner.rs:2397`). No D covers it, so the reference copies
-  it; the owner decides whether it becomes D11. D6 is wider than its row
+  it; the maintainer decides whether it becomes D11. D6 is wider than its row
   says (literal subjects have visible effects through sameAs and
   diagnostics), and D5 also covers one list per class and ignoring
   derived list triples. Chaos against the stub passes and prints
@@ -66,7 +66,7 @@ Departures from the plan, as they happen.
   the other data inputs run with `ORACLE_SLOW=1`, one test at a time.
   Disagreements outside D1 to D10 are listed in `KNOWN`: the
   `DATATYPE_RANGE` bug (as in 05) and one intersection list per class.
-  The owner decides whether they become D11 and D12, and whether the
+  The maintainer decides whether they become D11 and D12, and whether the
   `owl-rl` profile keeps the container-membership axioms, which are not
   OWL 2 RL. Ticket 09 emits `Diagnostic::terms` in the order documented
   on `Finding`.
@@ -101,7 +101,7 @@ Departures from the plan, as they happen.
   counts tuples per family and round; 11 follows ADR 0003's amendment for
   `sameAs` on vocabulary terms. The spec's 18.7 s sentence was reasonable
   0.2.6's README log from 2023; 0.5.0-a1 takes about 13 ms on that input.
-- **Scaling tests (owner's request).** Eighteen `scaling_*` tests in
+- **Scaling tests (maintainer's request).** Eighteen `scaling_*` tests in
   `crates/turbowl/src/scaling.rs` fit how time grows with size
   (dictionary, I/O, relations, joins, variables, store), and the bench fits
   exponents across lubm-1/10/50. They found two super-linear costs in the
@@ -171,12 +171,12 @@ Departures from the plan, as they happen.
   to Nemo's, and an incremental addition at about 30% of a full run against
   the 10% budget (fixed per-round costs: lists, restrictions and tables
   read again each round). The quiet-machine numbers belong to ticket 14.
-- **Renamed: TurbOWL.** The owner chose the name TurbOWL (`turbowl`) on
+- **Renamed: TurbOWL.** The maintainer chose the name TurbOWL (`turbowl`) on
   2026-11-05, before wave 4. The core crate is `crates/turbowl`
   (`use turbowl::…`), the binary `turbowl`, the packages `turbowl-cli`,
   `turbowl-python`, `turbowl-oracle`, `turbowl-reference` and
   `turbowl-bench`, and the repository `github.com/abhishekkundu25/turbowl`
-  (private and empty until the owner pushes). The bench's results files
+  (private and empty until the maintainer pushes). The bench's results files
   are schema 4; `--compare` reads an older file's `turtle-reasoner`
   engine as `turbowl`.
 - **Wave 3, recorded.** `docs/verification/2026-11-05-wave-3.md` holds
@@ -270,7 +270,7 @@ Departures from the plan, as they happen.
 - **14.** Version 1 closed on 2026-11-06, without a quiet machine.
   - The Baseline (`docs/verification/2026-11-06-v1.md`) ran at `f9e3625`
     with TurbOWL and Nemo, 5 runs on every default scenario, at a 1-minute
-    load average of 1.1 to 2.3, by the owner's choice. The spread between
+    load average of 1.1 to 2.3, by the maintainer's choice. The spread between
     runs stays under 7% for TurbOWL and under 4% for Nemo. Nemo's
     reasoning takes 38 to 97 times as long. All 26 `scaling_*` tests pass,
     the highest at 1.18, and the LUBM time exponent is 1.01.

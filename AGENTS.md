@@ -10,7 +10,7 @@ independent oracles.
 - Status: each spec in `docs/specs/` has its tickets in
   `docs/tickets/<name>/` (the README holds the status table and the
   departures) and its record in `docs/verification/`, which ends with what
-  is open for the owner.
+  is open for the maintainer.
 - Improving: the loop in `docs/specs/experiments.md`.
 
 ## Boundaries
@@ -60,8 +60,8 @@ timeout 120 cargo test --release --locked -p turbowl-cli
 - Never `#[ignore]` a test or exempt a check.
 - One change per experiment, recorded in `docs/specs/experiments.md`,
   including the reverted ones.
-- Commits carry the owner's name only: no AI attribution and no co-author
+- Commits carry the maintainer's name only, with no co-author
   lines.
-- Nothing is published (crates.io, PyPI, GitHub) without the owner's
+- Nothing is published (crates.io, PyPI, GitHub) without the maintainer's
   approval.
 - Fixtures use neutral names (`ex:`, `http://example.org/`).

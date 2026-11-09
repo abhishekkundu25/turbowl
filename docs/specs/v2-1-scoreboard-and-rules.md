@@ -7,8 +7,8 @@ Facts about the competitors and datasets: `docs/research/competitors-2026-11.md`
 Starting point: version 1 at `f9e3625` (`docs/specs/v1.md`), whose
 quiet-machine numbers version 1's ticket 14 records as the Baseline.
 
-Version 2 makes TurbOWL the best OWL 2 RL reasoner. Phase 1 makes that
-claim measurable and fair. Phase 2 (`docs/specs/v2-2-speed.md`) works to
+Version 2 aims to make TurbOWL lead the OWL 2 RL reasoners that can be
+measured here. Phase 1 makes that claim measurable and fair. Phase 2 (`docs/specs/v2-2-speed.md`) works to
 lead the scoreboard. Phase 3 (`docs/specs/v2-3-removals.md`) makes removals
 incremental.
 
@@ -78,7 +78,7 @@ The measurement turns them off:
 - `identity` slowed uobm-010-u by 26% and claros-l by 6%. It costs nothing
   measurable on the editor-size scenarios.
 
-The machine was not quiet (load average about 2), by the owner's choice.
+The machine was not quiet (load average about 2), by the maintainer's choice.
 The gaps are many times the spread between runs. The defaults therefore
 give less than owlrl and GraphDB do (user story 16): no key merges and no
 schema subsumptions. Each group comes back with one switch.
@@ -115,15 +115,15 @@ The switches
 
 The scoreboard
 
-23. As the owner, I want TurbOWL measured against VLog, Soufflé and Nemo on the same inputs, so that "the best" is a measured claim.
-24. As the owner, I want every engine to run the same W3C rules and its closure checked against TurbOWL's, so that no engine wins by doing less work.
-25. As the owner, I want a second table where each engine uses its own OWL mode, so that users see the product they would actually run.
-26. As the owner, I want the public datasets of the RDFox, VLog and Nemo papers (the official LUBM generator, UOBM, Claros, ChEMBL, Reactome, a DBpedia subset) as scenarios, so that results compare with the literature.
-27. As the owner, I want RDFox compared through its published results, only on the same dataset with the same fact counts and scaled through a bridge engine run here, and labelled an estimate, so that the comparison is honest without a licence.
-28. As the owner, I want every axis reported: reasoning time, total time, time per incremental change and peak memory, single-threaded and on all cores, in the default and the complete configuration.
-29. As the owner, I want the scoreboard to say who leads each axis on each scenario, and where TurbOWL does not, so that the claim is never stretched.
-30. As the owner, I want no benchmark run to pass 16 GB of memory, so that my other work keeps running; a run that would is stopped and recorded.
-31. As the owner, I want the big scenarios to run only when asked, so that they run rarely.
+23. As the maintainer, I want TurbOWL measured against VLog, Soufflé and Nemo on the same inputs, so that "the best" is a measured claim.
+24. As the maintainer, I want every engine to run the same W3C rules and its closure checked against TurbOWL's, so that no engine wins by doing less work.
+25. As the maintainer, I want a second table where each engine uses its own OWL mode, so that users see the product they would actually run.
+26. As the maintainer, I want the public datasets of the RDFox, VLog and Nemo papers (the official LUBM generator, UOBM, Claros, ChEMBL, Reactome, a DBpedia subset) as scenarios, so that results compare with the literature.
+27. As the maintainer, I want RDFox compared through its published results, only on the same dataset with the same fact counts and scaled through a bridge engine run here, and labelled an estimate, so that the comparison is honest without a licence.
+28. As the maintainer, I want every axis reported: reasoning time, total time, time per incremental change and peak memory, single-threaded and on all cores, in the default and the complete configuration.
+29. As the maintainer, I want the scoreboard to say who leads each axis on each scenario, and where TurbOWL does not, so that the claim is never stretched.
+30. As the maintainer, I want no benchmark run to pass 16 GB of memory, so that my other work keeps running; a run that would is stopped and recorded.
+31. As the maintainer, I want the big scenarios to run only when asked, so that they run rarely.
 32. As a maintainer, I want each competitor fetched and pinned by version and checksum into `tools/`, with no system install, so that a run can be reproduced.
 33. As a maintainer, I want a competitor that is not installed reported as skipped, as the oracles are, so that a partial machine still runs the rest.
 34. As a maintainer, I want `reasonable` gone from the code and the dependency tree, so that nothing measures against it by accident.
@@ -135,7 +135,7 @@ Verification
 37. As a maintainer, I want chaos to draw each iteration's configuration from its seed, so that random configurations meet random inputs.
 38. As a maintainer, I want the generator to produce keys, cardinality restrictions, enumerations, negative assertions, all-different and all-disjoint axioms and literals of every datatype, so that chaos reaches every new rule.
 39. As a maintainer, I want one source for the rule program that every Datalog engine runs, translated per engine, so that the Nemo, Soufflé and VLog programs cannot drift apart.
-40. As a future agent, I want each switch group to live in its own files across the core, the reference evaluator, the generator, the minimal inputs and the rule program, so that rule tickets run in parallel without conflicts.
+40. As a future contributor, I want each switch group to live in its own files across the core, the reference evaluator, the generator, the minimal inputs and the rule program, so that rule tickets run in parallel without conflicts.
 
 ## Implementation Decisions
 
@@ -273,7 +273,7 @@ Correctness (gates):
 - The W3C OWL 2 RL suite passes at least 101 of its 119 runnable cases in
   the complete configuration, every case Nemo passes among them. Each case
   that fails is listed with the reason it is beyond the rules. (The first
-  draft said 113; the owner set 101 on 2026-11-06, once every rule had
+  draft said 113; the maintainer set 101 on 2026-11-06, once every rule had
   landed: Nemo and OWL-RL fail the other 18 too. The close-out found that
   15 of them expect a conclusion no OWL 2 RL rule derives, and 3 fail on
   how the test runner reads a case: an import it does not load, and
@@ -313,7 +313,7 @@ Build:
   engine experiments (phase 2).
 - Incremental removal (phase 3).
 - Running RDFox; publishing any number (crates.io, PyPI, GitHub, a report)
-  without the owner's approval.
+  without the maintainer's approval.
 - A Protégé plugin, explanations, OWL 2 EL, QL or full OWL 2.
 - Web-size data (more than 16 GB for any engine).
 - Rules outside the W3C OWL 2 RL tables (SWRL, user rules, SHACL).
@@ -334,33 +334,33 @@ Build:
 
 ## Principles
 
-- **subtract-before-you-add**: `reasonable` goes before any competitor
+- **Subtract before you add**: `reasonable` goes before any competitor
   arrives (ticket 01); the contradiction rules leave `datatype.rs` before
   new checks are added (ticket 02).
-- **migrate-callers-then-delete-legacy-apis**: the `prp-spo2` cargo feature
+- **Migrate callers then delete legacy APIs**: the `prp-spo2` cargo feature
   is deleted when `property-chains` replaces it (ticket 02).
-- **redesign-from-first-principles**: families are regrouped around the
+- **Redesign from first principles**: families are regrouped around the
   switches, as if switches had been there from the start (ticket 02).
-- **foundational-thinking**, **model-the-domain**, **type-system-discipline**:
+- **Foundational thinking**, **Model the domain**, **Type system discipline**:
   `Switch` and `Switches` are types, each rule belongs to exactly one group,
   and an unknown switch name cannot compile (ticket 02); the datatype map
   is one table that every datatype rule reads (ticket 09).
-- **boundary-discipline**: switch names are parsed once, at the CLI and
+- **Boundary discipline**: switch names are parsed once, at the CLI and
   Python boundaries (ticket 11); dataset and tool downloads are checked by
   checksum at fetch time (tickets 12, 13).
-- **separate-before-serializing-shared-state**: every switch group has its
+- **Separate before serializing shared state**: every switch group has its
   own files in each crate, created by tickets 02 and 04, so rule tickets
   never edit the same file (tickets 05 to 10).
-- **build-the-lever**: one rule source emitted for Nemo, Soufflé and VLog
+- **Build the lever**: one rule source emitted for Nemo, Soufflé and VLog
   (ticket 03).
-- **encode-lessons-in-structure**: each configuration is verified by
+- **Encode lessons in structure**: each configuration is verified by
   construction, since Nemo and the reference are composed from the same
   groups (tickets 03, 04).
-- **make-operations-idempotent**: the fetch scripts and the dataset
+- **Make operations idempotent**: the fetch scripts and the dataset
   generator converge to the same files when rerun, and resume after a
   crash (tickets 12, 13).
-- **explain-the-number**: every scoreboard number carries its run count,
+- **Explain the number**: every scoreboard number carries its run count,
   spread, configuration, thread count and limiter; every published estimate
   its source, bridge and fact counts (tickets 14, 15).
-- **outcome-oriented-execution**: three phases with a close-out each; a
+- **Outcome oriented execution**: three phases with a close-out each; a
   rule group may be empty between the seam ticket and its rule ticket.

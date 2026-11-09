@@ -51,13 +51,13 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
 7. As an editor author, I want small incremental changes to stay sequential, so that keystrokes never wait on a thread pool.
 8. As a browser developer, I want the WebAssembly build to keep working single-threaded, so that the browser path never breaks.
 9. As a user, I want the parsers to reject the same malformed documents as before, with errors that name the line and column, so that speed costs no diagnostics.
-10. As the owner, I want every speed change measured against the Baseline and kept only when it wins, so that the code only gets faster.
-11. As the owner, I want each experiment's number to name what limits it, so that I know why it is not twice as good.
-12. As the owner, I want `unsafe` code only in small audited hot spots with a measured gain and tests, so that speed does not cost safety elsewhere.
-13. As the owner, I want the scoreboard rerun at the end of the phase, so that I see where TurbOWL now leads.
+10. As the maintainer, I want every speed change measured against the Baseline and kept only when it wins, so that the code only gets faster.
+11. As the maintainer, I want each experiment's number to name what limits it, so that I know why it is not twice as good.
+12. As the maintainer, I want `unsafe` code only in small audited hot spots with a measured gain and tests, so that speed does not cost safety elsewhere.
+13. As the maintainer, I want the scoreboard rerun at the end of the phase, so that I see where TurbOWL now leads.
 14. As a maintainer, I want parsing, the dictionary, the snapshot and the parallel rounds covered by `scaling_*` tests, so that none of them grows worse than n log n.
-15. As a future agent, I want each experiment recorded in the loop's table, kept or reverted, so that the next round starts from what was learned.
-16. As the owner, I want peak memory per triple halved, so that LUBM-1K runs under the 16 GB cap and TurbOWL can be compared with RDFox's published numbers on it.
+15. As a future contributor, I want each experiment recorded in the loop's table, kept or reverted, so that the next round starts from what was learned.
+16. As the maintainer, I want peak memory per triple halved, so that LUBM-1K runs under the 16 GB cap and TurbOWL can be compared with RDFox's published numbers on it.
 
 ## Implementation Decisions
 
@@ -116,8 +116,8 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
 - Reasoning on lubm-50 with 8 or more cores is at least 5 times as fast
   as with one (RDFox reached 5.2 to 7.4 times on 8 threads, AAAI 2014), and
   single-threaded reasoning is no slower than before the parallel change.
-  Raised from twice by the owner on 2026-11-06.
-  On 2026-11-07 the owner accepted a gap: after loop iterations 7 to 11,
+  Raised from twice by the maintainer on 2026-11-06.
+  On 2026-11-07 the maintainer accepted a gap: after loop iterations 7 to 11,
   lubm-50 reasons about 4.1 to 4.2 times as fast on all 12 cores as on one
   (about 387 against 93 ms). Iteration 11 found the limit: round 1 nearly
   saturates the pool, 6 of whose 12 cores are Efficiency cores, and the
@@ -127,16 +127,16 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
   faster than parsing and reasoning it.
 - Peak memory on lubm-50 is at most 50 bytes per closure triple (RDFox
   uses 37 to 51), so that LUBM-1K L (182.4 M triples) fits in about 9 GB.
-  Lowered from 85 by the owner on 2026-11-06.
+  Lowered from 85 by the maintainer on 2026-11-06.
   The measure is the process's peak footprint, as the bench records it for
-  every engine, on one thread and on all cores (the owner, 2026-11-06),
+  every engine, on one thread and on all cores (the maintainer, 2026-11-06),
   not only the bytes the reasoner holds: memory it freed and the allocator
   keeps counts. On all cores the largest of 10 alternating runs must stay
   under 517.3 MB. The bytes in use are recorded beside it. The platform is
   named with each number (here macOS, the system allocator), and no
   allocator choice or memory-return call made by the bench or the CLI
   counts toward it.
-  On 2026-11-07 the owner accepted a gap on all cores: after loop
+  On 2026-11-07 the maintainer accepted a gap on all cores: after loop
   iterations 1 to 9, lubm-50's largest all-cores run peaks at about 547 MB
   (52.9 bytes per closure triple), 30 MB (5.8%) over, while one thread
   meets the budget at about 46.7. The remaining candidates were small and
@@ -153,7 +153,7 @@ published numbers, needs about 27 GB and does not fit under the 16 GB cap
 - GPUs, distributed reasoning, and SIMD beyond auto-vectorisation unless
   an experiment measures a gain.
 - New rules or switches (phase 1 owns them).
-- Publishing numbers without the owner's approval.
+- Publishing numbers without the maintainer's approval.
 
 ## Further Notes
 
@@ -165,19 +165,19 @@ is not a legal opinion.
 
 ## Principles
 
-- **exhaust-the-design-space**: the parallel round has no precedent here;
+- **Exhaust the design space**: the parallel round has no precedent here;
   ticket 17 sketches at least two designs (per-family buffers against
   per-table partitioning) before building one.
-- **migrate-callers-then-delete-legacy-apis**: the hot path stops using
+- **Migrate callers then delete legacy APIs**: the hot path stops using
   Oxigraph's N-Triples and Turtle parsers outright (ticket 16).
-- **foundational-thinking**: the dictionary and the snapshot format are
+- **Foundational thinking**: the dictionary and the snapshot format are
   data structures first (tickets 16, 19).
-- **make-operations-idempotent**: saving a snapshot writes a temporary file
+- **Make operations idempotent**: saving a snapshot writes a temporary file
   and renames it, so a crash never leaves half a snapshot (ticket 19).
-- **separate-before-serializing-shared-state**: parallel families write to
+- **Separate before serializing shared state**: parallel families write to
   their own buffers, and parsing threads to their own term tables
   (tickets 17, 18).
-- **explain-the-number**: every experiment and budget names its run count,
+- **Explain the number**: every experiment and budget names its run count,
   spread and limiter (tickets 20, 21).
-- **boundary-discipline**: the parsers validate at the input edge, and the
+- **Boundary discipline**: the parsers validate at the input edge, and the
   engine trusts term ids (ticket 16).

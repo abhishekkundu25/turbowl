@@ -7,7 +7,7 @@ Each competitor is fetched and pinned into `tools/` by version and checksum, wit
 - **VLog** through Rulewerk's published jars, whose VLog libraries are universal (x86_64 and arm64), on the fetched JRE. VLog has no prebuilt arm64 command line, and its source build does not pass on CMake 4.
 - **Soufflé** 2.5 from the Homebrew bottle, unpacked into `tools/`. It is single-threaded on Apple silicon: upstream turns OpenMP off there because of crash issue #2476.
 - **Nemo**, already fetched.
-- **GraphDB Free** only if the owner obtains a licence, which comes by e-mail. It is capped at one core, and its numbers are not published without Graphwise's written consent.
+- **GraphDB Free** only if the maintainer obtains a licence, which comes by e-mail. It is capped at one core, and its numbers are not published without Graphwise's written consent.
 
 RDFox and Stardog are not run (§1, §5). Jena's OWL rules predate OWL 2 RL, so it does not enter the same-rules race.
 

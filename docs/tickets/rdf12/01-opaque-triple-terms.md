@@ -37,6 +37,6 @@ the term it is (`Statement` already holds `oxrdf::Term`).
 - [ ] `timeout 120 cargo test --release --locked -p turbowl` and
       `-p turbowl-oracle` pass, with and without `rdf-12`.
 - [ ] The reasoning benchmark is unchanged with `rdf-12` off (the
-      orchestrator measures it on a quiet machine; the slice does not run
+      maintainer measures it on a quiet machine; the slice does not run
       it).
 - [x] `CHANGELOG.md` has the entry.

@@ -6,6 +6,10 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+documentation = "https://docs.rs/turbowl"
+readme = "../../README.md"
+keywords = ["owl", "reasoner", "rdf", "semantic-web", "datalog"]
+categories = ["science", "wasm"]
 
 [features]
 default = ["io", "parallel"]

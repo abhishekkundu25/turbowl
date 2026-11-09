@@ -16,5 +16,5 @@ another project's jobs.
 
 ## Acceptance
 - [ ] Reasoning times and peak memory within `main`'s spread, or each one outside named with what limits it.
-- [ ] Chaos with cancels at most 10% longer, or the gap recorded for the owner.
+- [ ] Chaos with cancels at most 10% longer, or the gap recorded for the maintainer.
 - [ ] The numbers added to `docs/verification/2026-11-08-cancellation.md` and its data folder.

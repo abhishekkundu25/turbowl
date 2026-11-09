@@ -57,7 +57,7 @@ today.
 17. As a user of switches, I want proofs to use only the rules the switches leave on, so that a proof never cites a rule that did not run.
 18. As a user, I want lists (`owl:intersectionOf`, `owl:hasKey`, `owl:propertyChainAxiom`, `owl:AllDifferent`) shown as the list triples a step reads, not as helper relations.
 19. As a user, I want explaining to leave the reasoner unchanged, so that I can explain and keep editing.
-20. As the owner, I want reasoning speed and memory unchanged by this feature, so that the scoreboard claim stands.
+20. As the maintainer, I want reasoning speed and memory unchanged by this feature, so that the scoreboard claim stands.
 21. As a maintainer, I want every proof checked by code that shares nothing with the explainer, so that a wrong proof fails a test.
 22. As a maintainer, I want chaos to explain triples and diagnostics of every input and check each proof, so that a missing or wrong proof is found.
 23. As a maintainer, I want every inferred triple of every minimal input explained and checked, so that each W3C rule has a proof test.
@@ -206,21 +206,21 @@ today.
 
 ## Principles
 
-- **foundational-thinking**: the proof types (`Proof`, `Statement`,
+- **Foundational thinking**: the proof types (`Proof`, `Statement`,
   `Reason`) and the parsed rule program come first in ticket 01; the
   search and every adapter read them.
-- **model-the-domain**: a proof is a DAG with typed reasons, not a string;
+- **Model the domain**: a proof is a DAG with typed reasons, not a string;
   the rule program is data the search walks, not 78 hand-written backward
   rules.
-- **type-system-discipline**: `Reason::Base` against `Reason::Rule`, the
+- **Type system discipline**: `Reason::Base` against `Reason::Rule`, the
   root-only diagnostic, `Error::NotReasoned` instead of a stale answer.
-- **boundary-discipline**: the CLI parses `--explain`'s triple once, as
+- **Boundary discipline**: the CLI parses `--explain`'s triple once, as
   N-Triples, and Python converts its terms once; the explainer trusts its
   input.
-- **explain-the-number**: each latency names the scenario, the sample, the
+- **Explain the number**: each latency names the scenario, the sample, the
   spread and what bounds it (search or lookups); "reasoning unchanged" is
   shown by alternating runs, not one.
-- **build-the-lever**: the proof checker is the lever. Every proof any
+- **Build the lever**: the proof checker is the lever. Every proof any
   test produces goes through it, so correctness is one rerunnable check.
-- **experience-first**: the `Display` tree and the CLI output are written
+- **Experience first**: the `Display` tree and the CLI output are written
   for a person reading a terminal; proofs fold helper relations away.
