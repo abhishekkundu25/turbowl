@@ -1,0 +1,31 @@
+[
+  {
+    "name": "python-sync",
+    "command": [
+      "timeout",
+      "120",
+      "uv",
+      "sync",
+      "--offline",
+      "--python",
+      "/opt/homebrew/bin/python3.14",
+      "--reinstall-package",
+      "turbowl"
+    ],
+    "exit_code": 0,
+    "seconds": 24.244
+  },
+  {
+    "name": "python-pytest",
+    "command": [
+      "timeout",
+      "120",
+      "uv",
+      "run",
+      "--offline",
+      "pytest"
+    ],
+    "exit_code": 0,
+    "seconds": 26.356
+  }
+]

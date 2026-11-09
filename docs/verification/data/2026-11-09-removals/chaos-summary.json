@@ -1,0 +1,84 @@
+{
+  "iterations_per_kind": 400,
+  "shards_per_kind": 2,
+  "rows": [
+    {
+      "kind": "full",
+      "shard": 0,
+      "compared": 198,
+      "configurations": {
+        "complete": 69,
+        "default": 73,
+        "random": 56
+      },
+      "proofs": 2766,
+      "cancelled": 102,
+      "too_large": 2
+    },
+    {
+      "kind": "full",
+      "shard": 1,
+      "compared": 199,
+      "configurations": {
+        "complete": 65,
+        "default": 69,
+        "random": 65
+      },
+      "proofs": 2788,
+      "cancelled": 94,
+      "too_large": 1
+    },
+    {
+      "kind": "incremental",
+      "shard": 0,
+      "compared": 199,
+      "configurations": {
+        "complete": 60,
+        "default": 59,
+        "random": 80
+      },
+      "proofs": 2746,
+      "cancelled": 91,
+      "too_large": 1
+    },
+    {
+      "kind": "incremental",
+      "shard": 1,
+      "compared": 200,
+      "configurations": {
+        "complete": 71,
+        "default": 59,
+        "random": 70
+      },
+      "proofs": 2817,
+      "cancelled": 80,
+      "too_large": 0
+    },
+    {
+      "kind": "removal",
+      "shard": 0,
+      "compared": 198,
+      "configurations": {
+        "complete": 56,
+        "default": 73,
+        "random": 69
+      },
+      "proofs": 2424,
+      "cancelled": 84,
+      "too_large": 2
+    },
+    {
+      "kind": "removal",
+      "shard": 1,
+      "compared": 196,
+      "configurations": {
+        "complete": 68,
+        "default": 65,
+        "random": 63
+      },
+      "proofs": 2407,
+      "cancelled": 80,
+      "too_large": 4
+    }
+  ]
+}

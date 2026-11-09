@@ -1,0 +1,11 @@
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 9.43s
+     Running tests/data_brick.rs (target/release/deps/data_brick-552a2b7cdc67c026)
+
+running 4 tests
+test brick_small1_owl ... ok
+test brick_small1_owl_rdfs ... ok
+test brick_small1_rdfs ... ok
+test brick_small1 ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.87s

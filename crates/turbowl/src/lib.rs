@@ -235,6 +235,8 @@
 //!
 //! Everything else (term ids, the dictionary, relations, the engine, the
 //! rule families) is internal: see `CONTEXT.md` for the words.
+//! `profile::Deletion` exposes maintenance counts and fallback reasons for
+//! the benchmark adapter alongside the existing reasoning counters.
 
 mod cancel;
 mod diagnostics;

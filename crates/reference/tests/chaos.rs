@@ -703,6 +703,70 @@ fn incremental(
 
 const FULL_SEED: u64 = 0x5EED_0005;
 const INCREMENTAL_SEED: u64 = 0x5EED_0105;
+const REMOVAL_SEED: u64 = 0x5EED_0205;
+
+fn removals(
+    input: &[Triple],
+    switches: Switches,
+    rng: &mut Rng,
+    explanations: &mut Rng,
+    cancels: &dyn Fn(usize) -> Option<Cancels>,
+) -> Result<Done, String> {
+    let mut base: HashSet<Triple> = input.iter().cloned().collect();
+    let Some(whole) = reference(&base, switches) else {
+        return Ok(Done::TooLarge);
+    };
+    let mut twins = Twins::new(switches);
+    twins.insert(&input.iter().collect::<Vec<_>>());
+    twins.reason()?;
+    if let Some(diff) = difference(&whole, &core_state(&twins.one)) {
+        return Err(diff);
+    }
+    let cancel = cancels(9);
+    let mut stopped = 0;
+    for step in 0..8 {
+        let mut ordered: Vec<_> = base.iter().cloned().collect();
+        ordered.sort_by_cached_key(ToString::to_string);
+        let mut gone = Vec::new();
+        for _ in 0..1 + rng.below(4) {
+            if ordered.is_empty() {
+                break;
+            }
+            gone.push(ordered.remove(rng.below(ordered.len())));
+        }
+        twins.remove(&gone.iter().collect::<Vec<_>>());
+        for t in &gone {
+            base.remove(t);
+        }
+        if let Some(c) = cancel.filter(|c| c.run == step + 1) {
+            stopped += twins.cancel_at(c.run_check)?;
+        }
+        twins.reason()?;
+        let Some(expected) = reference(&base, switches) else {
+            return Ok(Done::TooLarge);
+        };
+        if let Some(diff) = difference(&expected, &core_state(&twins.one)) {
+            return Err(format!("removal step {step}, removed {gone:?}:\n{diff}"));
+        }
+    }
+    let mut final_input: Vec<_> = base.into_iter().collect();
+    final_input.sort_by_cached_key(ToString::to_string);
+    let proofs = explain(&final_input, &twins, switches, explanations, cancel)?;
+    Ok(Done::Compared {
+        proofs,
+        cancelled: stopped,
+    })
+}
+
+#[test]
+fn removal_runs_match_a_full_run_0() {
+    run("removal", REMOVAL_SEED, 0, removals);
+}
+
+#[test]
+fn removal_runs_match_a_full_run_1() {
+    run("removal", REMOVAL_SEED, 1, removals);
+}
 
 #[test]
 fn full_runs_match_the_reference_0() {

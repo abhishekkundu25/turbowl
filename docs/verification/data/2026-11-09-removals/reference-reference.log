@@ -1,0 +1,32 @@
+   Compiling turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+    Finished `release` profile [optimized] target(s) in 5.96s
+     Running tests/reference.rs (target/release/deps/reference-724e9eb5af50d686)
+
+running 25 tests
+test empty_input_gives_the_two_seeds ... ok
+test disjoint_classes_fire_once_in_the_stated_direction ... ok
+test complement_fires ... ok
+test all_disjoint_over_a_list_whose_cells_are_all_equal ... ok
+test equality_rules ... ok
+test class_rules ... ok
+test ill_typed_literals ... ok
+test inconsistencies ... ok
+test container_membership_derives_nothing ... ok
+test chains_of_length_five ... ok
+test inverse_functional_needs_a_shared_object ... ok
+test lists_need_a_first_in_every_cell_and_stop_at_nil ... ok
+test literals_made_equal_share_their_triples ... ok
+test literals_outside_a_datatype_range ... ok
+test same_as_is_reflexive_on_its_nodes_only ... ok
+test rules_outside_the_set_add_nothing ... ok
+test property_rules ... ok
+test property_chains_compose_in_order ... ok
+test subjects_are_not_typed_thing ... ok
+test the_test_parser_reads_lists_literals_and_shorthand ... ok
+test the_closure_holds_the_input_and_no_literal_subject ... ok
+test generator_makes_vocabulary_terms_equal ... ok
+test generator_is_deterministic_and_reaches_a_fixpoint ... ok
+test a_switch_off_turns_its_rules_off ... ok
+test generator_exercises_every_rule ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.73s

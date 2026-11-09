@@ -1,0 +1,234 @@
+{
+  "unchanged": {
+    "runs": 11,
+    "median_us": 0.001917,
+    "min_us": 0.001833,
+    "max_us": 0.002083,
+    "rounds": [
+      0
+    ],
+    "base": [
+      14818
+    ],
+    "closure": [
+      26431
+    ],
+    "step_median_us": 0.0,
+    "families": {
+      "class": {
+        "median_us": 0.0,
+        "emitted": [
+          0
+        ]
+      },
+      "property": {
+        "median_us": 0.0,
+        "emitted": [
+          0
+        ]
+      },
+      "property-chains": {
+        "median_us": 0.0,
+        "emitted": [
+          0
+        ]
+      },
+      "checks": {
+        "median_us": 0.0,
+        "emitted": [
+          0
+        ]
+      },
+      "datatype": {
+        "median_us": 0.0,
+        "emitted": [
+          0
+        ]
+      },
+      "equality": {
+        "median_us": 0.0,
+        "emitted": [
+          0
+        ]
+      }
+    },
+    "all_closures_checked": true,
+    "diagnostics": [
+      0
+    ]
+  },
+  "insert_one": {
+    "runs": 11,
+    "median_us": 889.916,
+    "min_us": 878.458,
+    "max_us": 1254.541,
+    "rounds": [
+      5
+    ],
+    "base": [
+      14818
+    ],
+    "closure": [
+      26431
+    ],
+    "step_median_us": 9.916,
+    "families": {
+      "class": {
+        "median_us": 870.46,
+        "emitted": [
+          118
+        ]
+      },
+      "property": {
+        "median_us": 2.374,
+        "emitted": [
+          27
+        ]
+      },
+      "property-chains": {
+        "median_us": 0.083,
+        "emitted": [
+          0
+        ]
+      },
+      "checks": {
+        "median_us": 4.125,
+        "emitted": [
+          0
+        ]
+      },
+      "datatype": {
+        "median_us": 0.709,
+        "emitted": [
+          0
+        ]
+      },
+      "equality": {
+        "median_us": 0.084,
+        "emitted": [
+          0
+        ]
+      }
+    },
+    "all_closures_checked": true,
+    "diagnostics": [
+      0
+    ]
+  },
+  "delete_one": {
+    "runs": 11,
+    "median_us": 1995.9169999999997,
+    "min_us": 1963.4589999999998,
+    "max_us": 2209.792,
+    "rounds": [
+      7
+    ],
+    "base": [
+      14817
+    ],
+    "closure": [
+      26381
+    ],
+    "step_median_us": 715.331,
+    "families": {
+      "class": {
+        "median_us": 1063.415,
+        "emitted": [
+          29846
+        ]
+      },
+      "property": {
+        "median_us": 35.041,
+        "emitted": [
+          17799
+        ]
+      },
+      "property-chains": {
+        "median_us": 0.124,
+        "emitted": [
+          0
+        ]
+      },
+      "checks": {
+        "median_us": 98.294,
+        "emitted": [
+          0
+        ]
+      },
+      "datatype": {
+        "median_us": 45.043,
+        "emitted": [
+          0
+        ]
+      },
+      "equality": {
+        "median_us": 0.124,
+        "emitted": [
+          0
+        ]
+      }
+    },
+    "all_closures_checked": true,
+    "diagnostics": [
+      0
+    ]
+  },
+  "full_run": {
+    "runs": 11,
+    "median_us": 2047.208,
+    "min_us": 1999.541,
+    "max_us": 2181.5,
+    "rounds": [
+      7
+    ],
+    "base": [
+      14817
+    ],
+    "closure": [
+      26381
+    ],
+    "step_median_us": 739.874,
+    "families": {
+      "class": {
+        "median_us": 1089.082,
+        "emitted": [
+          29846
+        ]
+      },
+      "property": {
+        "median_us": 37.418,
+        "emitted": [
+          17799
+        ]
+      },
+      "property-chains": {
+        "median_us": 0.292,
+        "emitted": [
+          0
+        ]
+      },
+      "checks": {
+        "median_us": 99.501,
+        "emitted": [
+          0
+        ]
+      },
+      "datatype": {
+        "median_us": 46.625,
+        "emitted": [
+          0
+        ]
+      },
+      "equality": {
+        "median_us": 0.125,
+        "emitted": [
+          0
+        ]
+      }
+    },
+    "all_closures_checked": true,
+    "diagnostics": [
+      0
+    ]
+  }
+}

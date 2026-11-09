@@ -1,0 +1,9 @@
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 9.54s
+     Running tests/data_buildings.rs (target/release/deps/data_buildings-b16b1b056b3a32f3)
+
+running 2 tests
+test building_models ... ok
+test brick_soda_hall ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

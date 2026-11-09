@@ -265,6 +265,10 @@ fn characteristics(round: &mut Round<'_>) {
         } else {
             join_count(os, so)
         };
+        if round.is_deleting() && derivations > so.len() {
+            round.abort_deletion();
+            return;
+        }
         if derivations > so.len() {
             transitive_closure(&so.all(), |x, z| round.emit(x, p, z));
         } else if recent {

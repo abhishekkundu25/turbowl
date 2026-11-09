@@ -1397,3 +1397,38 @@ Not ranked here, and why:
 - **The dictionary merge** runs on one thread, 110 to 150 ms on lubm-50
   (ticket 18's log). A sharded dictionary that keeps first-seen ids would
   run it in parallel, for more effort than candidate 8 and a similar gain.
+
+
+## Phase 3 deletion experiments, 2026-11-09
+
+These are the implementation probes for tickets 22 and 23, based on
+`83b356e`, on `feat/incremental-deletions`. Raw files are in
+`docs/verification/data/2026-11-09-removals/`. The owner authorized the
+small comparison at the current load, so timings are approximate. No
+benchmark ran beside our builds or tests. These probes do not replace the
+phase 3 scoreboard or acceptance runs.
+
+| Probe | Change and question | Evidence and decision |
+|---|---|---|
+| D0 | Measure the existing removal path against unchanged, insertion and fresh full reasoning. | The separate `2026-11-09-deletion-cost.md` record has 11 checked samples per case. Deletion median 1.996 ms, full 2.047 ms. It confirms that the old deletion path recomputes the closure. |
+| D1 | Replay native families over deleted deltas, then make a naive rederivation pass. | `first-maintenance.json`: deletion median 3.839 ms, full 2.157 ms. The class family dominates. Rejected as the empty-canon fast path; retained as conservative maintenance for unaffected equality classes. |
+| D2 | Query the shared rule program for dependent heads and survivor support. | `indexed-maintenance.json` and its stderr show bounded helper evaluation falling back. Retain the architecture, revise helper evaluation before judging speed. |
+| D3 | Estimate indexed atom cardinalities to choose joins. | `indexed-estimates.json` and `indexed-fallback-probe.json` still reach the query limit. Estimates remain, but they do not resolve the helper work alone. |
+| D4 | Table recursive helper queries to their positive fixpoint. | `tabled-helpers.json` still reaches the work bound on the Brick deletion. Retain for sound recursive evaluation; performance remains open. |
+| D5 | Specialize list helper queries with native list code. | `native-list-queries.json` still falls back. Reverted the specialization and deleted its temporary module. |
+| D6 | Build missing object indexes locally for maintenance queries. | `lazy-object-indexes.json` still falls back. Retain bounded indexes to avoid repeated object scans. |
+| D7 | Reuse completed helper calls rather than recomputing previous tables. | `completed-helper-calls.json` still falls back. The diagnostic trace records 49,263 steps in allTypes and 28,367 in listCell, out of the 100,000-step limit. Retain reuse and investigate unnecessary helper conclusions. |
+| D8 | Batch a changed subject's inferred types and prune helper calls whose first ordinary-triple conclusions are all affected or protected. | `projected-typing-batches.json`: deletion median 1.029 ms, full 2.071 ms; all closures checked, no fallback. Retained. This combined candidate was measured together, so the separate contribution of batching and projections is unmeasured. |
+| D9 | Give backward goals shallow and deep search budgets within a run-wide bound, with bounded proof-only object indexes. | The clean `proof-budget-probe.json` measured 1.101 ms for deletion and 2.148 ms for full reasoning. It still overdeleted 71 facts and queued 13 repair seeds, exactly as D8. No work reduction established; reverted the added tuning and proof indexes for simplicity. The small timing difference across loads does not establish a regression. |
+
+D2 through D7 include temporary profiling probes. Their elapsed times are
+diagnostic only and must not be cited as clean performance comparisons.
+The trace identified charged logical work; it did not measure isolated
+CPU time per rule. The final source contains no tracing instrumentation.
+
+The current bounds are safety heuristics, not tuned crossover estimates:
+pending removals at most `clamp(base / 8, 16, 4096)`, affected facts at most
+`max(closure / 4, 64)`, 100,000 query steps per phase, and 1,024 backward
+steps per run with depth 64 and at most 16 candidates per atom. Exceeding a
+maintenance bound uses full reasoning. Backward exhaustion merely declines
+to preserve a fact; DRed still establishes the correct result.

@@ -1,0 +1,9 @@
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running tests/chaos.rs (target/release/deps/chaos-be0cfa59dc90ad84)
+
+running 1 test
+full shard 1: 199 compared ({"complete": 65, "default": 69, "random": 65}), 2788 proofs checked, 94 runs cancelled; not compared: 1 too large for the reference
+full slowest iterations: 336 (4.89s), 357 (1.92s), 360 (1.91s), 340 (1.85s), 250 (1.40s)
+test full_runs_match_the_reference_1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 25.11s

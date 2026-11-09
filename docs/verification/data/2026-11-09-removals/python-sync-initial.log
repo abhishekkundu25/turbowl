@@ -1,0 +1,8 @@
+Resolved 13 packages in 8ms
+   Building turbowl @ file:///Users/abhishek/repos/turtle-reasoner/crates/python
+error: Failed to build `turbowl @ file:///Users/abhishek/repos/turtle-reasoner/crates/python`
+  cause: Failed to resolve requirements from `build-system.requires`
+  cause: No solution found when resolving: `maturin>=1.9.4, <2`
+  cause: Because maturin was not found in the cache and you require maturin>=1.9.4,<2, we can conclude that your requirements are unsatisfiable.
+
+hint: Packages were unavailable because the network was disabled. When the network is disabled, registry packages may only be read from the cache.

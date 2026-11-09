@@ -301,12 +301,12 @@ fn the_refusals_say_why() {
     );
 
     // A snapshot of version 1 (the base as triples), and of a later one.
-    for version in [1u32, 3] {
+    for version in [1u32, 2, VERSION + 1] {
         let mut other = saved.clone();
         other[8..12].copy_from_slice(&version.to_le_bytes());
         assert_eq!(
             refusal(&other),
-            format!("the snapshot has format version {version}; this TurbOWL reads version 2")
+            format!("the snapshot has format version {version}; this TurbOWL reads version {VERSION}")
         );
     }
 

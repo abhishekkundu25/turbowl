@@ -1,0 +1,7 @@
+   Compiling turbowl-python v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/python)
+    Finished `release` profile [optimized] target(s) in 11.60s
+     Running unittests src/lib.rs (target/release/deps/turbowl_python-a5277e9a360b071a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

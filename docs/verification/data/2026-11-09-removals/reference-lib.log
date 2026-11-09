@@ -1,0 +1,31 @@
+   Compiling turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+    Finished `release` profile [optimized] target(s) in 13.29s
+     Running unittests src/lib.rs (target/release/deps/turbowl_reference-1d41aa380e6182f4)
+
+running 24 tests
+test datatype::tests::big_numbers ... ok
+test datatype::tests::xml_checks_tags ... ok
+test datatype::tests::literals_outside_the_map_and_language_strings ... ok
+test datatype::tests::values_are_identical_by_value ... ok
+test datatype::tests::value_spaces_hold_the_integer_subtypes_inside_the_decimals ... ok
+test generate::tests::version_1_shapes_keep_their_places ... ok
+test generate::tests::new_shapes_draw_from_their_files_own_stream ... ok
+test proof::tests::a_cycle_fails ... ok
+test proof::tests::a_leaf_that_is_not_base_fails ... ok
+test proof::tests::a_diagnostic_root_is_judged_by_its_rule ... ok
+test proof::tests::a_missing_premise_fails ... ok
+test datatype::tests::edge_cases_of_every_datatype ... ok
+test proof::tests::a_valid_proof_passes ... ok
+test proof::tests::a_wrong_rule_name_fails ... ok
+test proof::tests::two_rules_on_one_premise_set_both_pass ... ok
+test proof::tests::a_proof_from_the_core_passes ... ok
+test proof::tests::a_dt_diff_proof_reads_the_unlisted_predicate ... ok
+test generate::tests::the_first_300_seeds_give_version_1_inputs ... ok
+test generate::core::tests::the_first_300_seeds_exercise_cls_oo ... ok
+test generate::datatypes::tests::inputs_reach_every_datatype_and_both_halves ... ok
+test generate::checks::tests::the_first_300_seeds_reach_every_new_rule ... ok
+test generate::trivial::tests::the_first_300_seeds_exercise_every_trivial_rule ... ok
+test generate::literal_values::tests::the_first_300_seeds_exercise_dt_eq_dt_diff_and_dt_type2 ... ok
+test generate::identity::tests::the_first_300_seeds_exercise_every_identity_rule ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 39.67s

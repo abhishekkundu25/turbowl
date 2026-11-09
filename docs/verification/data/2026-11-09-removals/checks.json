@@ -1,0 +1,466 @@
+[
+  {
+    "name": "release-build",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0,
+    "seconds": 9.355
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "exit_code": 0,
+    "seconds": 0.279
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "clippy",
+      "--release",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "seconds": 1.746
+  },
+  {
+    "name": "wasm",
+    "command": [
+      "timeout",
+      "120",
+      "scripts/check-wasm.sh",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0,
+    "seconds": 6.201
+  },
+  {
+    "name": "oracle-lib",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--lib"
+    ],
+    "exit_code": 0,
+    "seconds": 0.645
+  },
+  {
+    "name": "oracle-programs",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "programs"
+    ],
+    "exit_code": 0,
+    "seconds": 8.91
+  },
+  {
+    "name": "oracle-minimal",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "minimal"
+    ],
+    "exit_code": 0,
+    "seconds": 43.414
+  },
+  {
+    "name": "oracle-snapshot",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "snapshot"
+    ],
+    "exit_code": 0,
+    "seconds": 13.343
+  },
+  {
+    "name": "oracle-explain",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "explain"
+    ],
+    "exit_code": 0,
+    "seconds": 11.985
+  },
+  {
+    "name": "oracle-data_brick",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "data_brick"
+    ],
+    "exit_code": 0,
+    "seconds": 23.378
+  },
+  {
+    "name": "oracle-data_buildings",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "data_buildings"
+    ],
+    "exit_code": 0,
+    "seconds": 9.619
+  },
+  {
+    "name": "oracle-w3c",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "w3c"
+    ],
+    "exit_code": 0,
+    "seconds": 28.837
+  },
+  {
+    "name": "oracle-reference_equals_nemo_on_the_minimal_inputs",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "reference",
+      "--",
+      "reference_equals_nemo_on_the_minimal_inputs",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "seconds": 20.218
+  },
+  {
+    "name": "oracle-reference_equals_nemo_on_generated_inputs",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "reference",
+      "--",
+      "reference_equals_nemo_on_generated_inputs",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "seconds": 51.288
+  },
+  {
+    "name": "oracle-reference_equals_nemo_with_checks_off",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "reference",
+      "--",
+      "reference_equals_nemo_with_checks_off",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "seconds": 0.624
+  },
+  {
+    "name": "reference-lib",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--lib"
+    ],
+    "exit_code": 0,
+    "seconds": 53.401
+  },
+  {
+    "name": "reference-reference",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "reference"
+    ],
+    "exit_code": 0,
+    "seconds": 24.777
+  },
+  {
+    "name": "reference-rdf12",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "rdf12"
+    ],
+    "exit_code": 0,
+    "seconds": 2.404
+  },
+  {
+    "name": "chaos-full_runs_match_the_reference_0",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "full_runs_match_the_reference_0",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 18.085
+  },
+  {
+    "name": "chaos-full_runs_match_the_reference_1",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "full_runs_match_the_reference_1",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 25.187
+  },
+  {
+    "name": "chaos-incremental_runs_match_a_full_run_0",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "incremental_runs_match_a_full_run_0",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 16.903
+  },
+  {
+    "name": "chaos-incremental_runs_match_a_full_run_1",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "incremental_runs_match_a_full_run_1",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 16.023
+  },
+  {
+    "name": "chaos-removal_runs_match_a_full_run_0",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "removal_runs_match_a_full_run_0",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 36.751
+  },
+  {
+    "name": "chaos-removal_runs_match_a_full_run_1",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "removal_runs_match_a_full_run_1",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 35.265
+  },
+  {
+    "name": "cli",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-cli"
+    ],
+    "exit_code": 0,
+    "seconds": 11.249
+  }
+]

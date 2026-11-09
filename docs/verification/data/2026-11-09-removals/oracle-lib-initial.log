@@ -1,0 +1,155 @@
+   Compiling turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 14.54s
+     Running unittests src/lib.rs (target/release/deps/turbowl_oracle-a4143e79327d52b8)
+
+running 37 tests
+test cases::tests::expands_prefixes_outside_strings ... ok
+test cases::tests::expectations_are_checked_where_the_group_is_on ... ok
+test cases::tests::every_case_is_of_its_files_group ... ok
+test closure::tests::reads_terms_from_text ... ok
+test cases::trivial::tests::derives_knows_the_heads_of_the_groups_rules ... ok
+test cases::tests::an_exact_closure_leaves_out_the_trivial_groups_triples ... ok
+test cases::tests::every_case_parses ... ok
+test differences::tests::f11_owlrl_parses_xml_literals_as_documents ... FAILED
+test differences::tests::f10_owlrl_reads_date_times_with_strptime ... FAILED
+test differences::tests::f14_owlrl_cardinalities_compare_python_values ... FAILED
+test differences::tests::f13_owlrl_prp_key_skips_the_last_property ... FAILED
+test differences::tests::f3_owlrl_accepts_padded_integers ... FAILED
+test differences::tests::f5_owlrl_ignores_range_typed_literals ... FAILED
+test differences::tests::finds_cyclic_lists ... ok
+test differences::tests::the_lexical_filters_select_no_well_typed_form ... ok
+test hermit::tests::an_input_equating_reserved_iris_is_not_judged ... ok
+test differences::tests::f8_owlrl_rejects_double_and_float_values ... FAILED
+test hermit::tests::reads_a_taxonomy ... ok
+test input::tests::the_literals_the_rules_name_have_fixed_iris ... ok
+test nemo::tests::splits_csv ... ok
+test programs::tests::reads_statements_and_their_comments ... ok
+test programs::tests::refuses_what_it_cannot_translate ... ok
+test programs::tests::souffle_names_singletons_and_spells_constants ... ok
+test programs::tests::the_core_comes_first_then_the_switches_in_order ... ok
+test programs::tests::two_variables_compared ... ok
+test w3c::tests::matches_blank_nodes ... ok
+test differences::tests::f9_owlrl_misreads_other_lexical_spaces ... FAILED
+test differences::tests::f7_owlrl_reads_numbers_with_python ... FAILED
+test differences::tests::f1_owlrl_scm_sco_skips_reflexive_subclass ... FAILED
+test differences::tests::f12_rdflib_rewrites_tokens_and_normalized_strings ... FAILED
+test differences::tests::f4_owlrl_fails_on_a_cyclic_list ... FAILED
+test differences::tests::f2_owlrl_cls_com_names_the_class ... FAILED
+test differences::tests::f1_owlrl_scm_spo_skips_reflexive_subproperty ... FAILED
+test differences::tests::f1_reaches_the_aliases_of_sub_class_of ... FAILED
+test differences::tests::f6_owlrl_misses_list_positions ... FAILED
+test differences::tests::f15_owlrl_skips_dt_eq_and_dt_diff_and_narrows_dt_type2 ... FAILED
+test hermit::tests::only_subsumptions_between_declared_terms_are_judged ... ok
+
+failures:
+
+---- differences::tests::f11_owlrl_parses_xml_literals_as_documents stdout ----
+
+thread 'differences::tests::f11_owlrl_parses_xml_literals_as_documents' (158153141) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f10_owlrl_reads_date_times_with_strptime stdout ----
+
+thread 'differences::tests::f10_owlrl_reads_date_times_with_strptime' (158153140) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- differences::tests::f14_owlrl_cardinalities_compare_python_values stdout ----
+
+thread 'differences::tests::f14_owlrl_cardinalities_compare_python_values' (158153144) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f13_owlrl_prp_key_skips_the_last_property stdout ----
+
+thread 'differences::tests::f13_owlrl_prp_key_skips_the_last_property' (158153143) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f3_owlrl_accepts_padded_integers stdout ----
+
+thread 'differences::tests::f3_owlrl_accepts_padded_integers' (158153166) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f5_owlrl_ignores_range_typed_literals stdout ----
+
+thread 'differences::tests::f5_owlrl_ignores_range_typed_literals' (158153234) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f8_owlrl_rejects_double_and_float_values stdout ----
+
+thread 'differences::tests::f8_owlrl_rejects_double_and_float_values' (158153246) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f9_owlrl_misreads_other_lexical_spaces stdout ----
+
+thread 'differences::tests::f9_owlrl_misreads_other_lexical_spaces' (158153249) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f7_owlrl_reads_numbers_with_python stdout ----
+
+thread 'differences::tests::f7_owlrl_reads_numbers_with_python' (158153239) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f1_owlrl_scm_sco_skips_reflexive_subclass stdout ----
+
+thread 'differences::tests::f1_owlrl_scm_sco_skips_reflexive_subclass' (158153146) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f12_rdflib_rewrites_tokens_and_normalized_strings stdout ----
+
+thread 'differences::tests::f12_rdflib_rewrites_tokens_and_normalized_strings' (158153142) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f4_owlrl_fails_on_a_cyclic_list stdout ----
+
+thread 'differences::tests::f4_owlrl_fails_on_a_cyclic_list' (158153184) panicked at crates/oracle/src/differences.rs:1043:9:
+OWL-RL now runs on a cyclic list: F4 is gone (Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)"))
+
+---- differences::tests::f2_owlrl_cls_com_names_the_class stdout ----
+
+thread 'differences::tests::f2_owlrl_cls_com_names_the_class' (158153161) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f1_owlrl_scm_spo_skips_reflexive_subproperty stdout ----
+
+thread 'differences::tests::f1_owlrl_scm_spo_skips_reflexive_subproperty' (158153147) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f1_reaches_the_aliases_of_sub_class_of stdout ----
+
+thread 'differences::tests::f1_reaches_the_aliases_of_sub_class_of' (158153150) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f6_owlrl_misses_list_positions stdout ----
+
+thread 'differences::tests::f6_owlrl_misses_list_positions' (158153235) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+---- differences::tests::f15_owlrl_skips_dt_eq_and_dt_diff_and_narrows_dt_type2 stdout ----
+
+thread 'differences::tests::f15_owlrl_skips_dt_eq_and_dt_diff_and_narrows_dt_type2' (158153145) panicked at crates/oracle/src/differences.rs:799:22:
+OWL-RL: Failed("OWL-RL: exit status: 2: error: Failed to initialize cache at `/Users/abhishek/.cache/uv`\n  cause: failed to open file `/Users/abhishek/.cache/uv/sdists-v9/.git`: Operation not permitted (os error 1)")
+
+
+failures:
+    differences::tests::f10_owlrl_reads_date_times_with_strptime
+    differences::tests::f11_owlrl_parses_xml_literals_as_documents
+    differences::tests::f12_rdflib_rewrites_tokens_and_normalized_strings
+    differences::tests::f13_owlrl_prp_key_skips_the_last_property
+    differences::tests::f14_owlrl_cardinalities_compare_python_values
+    differences::tests::f15_owlrl_skips_dt_eq_and_dt_diff_and_narrows_dt_type2
+    differences::tests::f1_owlrl_scm_sco_skips_reflexive_subclass
+    differences::tests::f1_owlrl_scm_spo_skips_reflexive_subproperty
+    differences::tests::f1_reaches_the_aliases_of_sub_class_of
+    differences::tests::f2_owlrl_cls_com_names_the_class
+    differences::tests::f3_owlrl_accepts_padded_integers
+    differences::tests::f4_owlrl_fails_on_a_cyclic_list
+    differences::tests::f5_owlrl_ignores_range_typed_literals
+    differences::tests::f6_owlrl_misses_list_positions
+    differences::tests::f7_owlrl_reads_numbers_with_python
+    differences::tests::f8_owlrl_rejects_double_and_float_values
+    differences::tests::f9_owlrl_misreads_other_lexical_spaces
+
+test result: FAILED. 20 passed; 17 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `-p turbowl-oracle --lib`

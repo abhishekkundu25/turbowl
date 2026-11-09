@@ -47,7 +47,7 @@
 //! runs again.
 
 mod closure;
-mod program;
+use crate::rules::program;
 mod search;
 #[cfg(all(test, feature = "io"))]
 mod tests;

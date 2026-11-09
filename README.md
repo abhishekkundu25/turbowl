@@ -23,8 +23,9 @@ and a reference evaluator), never by one reasoner.
 at `f9e3625`) implements 39 of the 78 rules. Version 2's phase 1 adds the
 other 39, the switches and the scoreboard. Phase 2 adds speed: TurbOWL's
 own parsers, every core, snapshots and the improvement loop. Both phases
-are closed, with the gaps listed below. Phase 3, removals, is planned and
-not started, at the owner's request.
+are closed, with the gaps listed below. Phase 3 adds incremental deletion
+maintenance; its coverage and validation gaps are tracked in
+[`docs/verification/2026-11-09-removals.md`](docs/verification/2026-11-09-removals.md).
 Nothing is published: there is no crate on crates.io and no package on
 PyPI. See `CHANGELOG.md`.
 
