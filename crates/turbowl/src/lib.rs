@@ -163,8 +163,10 @@
 //!
 //! # Cancellation
 //!
-//! A [`Cancel`] stops a run or a proof search from any thread:
-//! [`Reasoner::reason_cancellable`] checks it before each round, and
+//! A [`Cancel`] stops a run or a proof search from any thread, or, made
+//! with [`Cancel::with_check`], when a function the caller gives says so
+//! (a deadline, where there is no second thread to trip it, as in a
+//! browser): [`Reasoner::reason_cancellable`] checks it before each round, and
 //! [`Explainer::explain_cancellable`] and
 //! [`Explainer::explain_diagnostic_cancellable`] between the search's
 //! steps; a tripped handle gives [`Error::Cancelled`]. [`Reasoner::reason`]
@@ -193,6 +195,9 @@
 //!   [`Explainer::explain_cancellable`] and
 //!   [`Explainer::explain_diagnostic_cancellable`].
 //! - [`Error::Cancelled`].
+//! - [`Cancel::with_check`]: a handle that trips when its function says so,
+//!   for a time limit in turtle-lsp, which runs in a browser without
+//!   threads. The caller supplies the clock; TurbOWL keeps none.
 //! - [`profile::cancel_after`]: a handle that trips itself at its n-th
 //!   check, for chaos and the tests.
 //!
