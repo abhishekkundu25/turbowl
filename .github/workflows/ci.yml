@@ -21,7 +21,11 @@ jobs:
         run: cargo fmt --check
       - name: Clippy
         run: cargo clippy --release --locked -p turbowl -p turbowl-cli --all-targets -- -D warnings
+      # Timing tests (scaling_*, *_in_time) measure the machine, so they
+      # run alone, one at a time, as AGENTS.md says for a loaded machine.
       - name: Test
-        run: cargo test --release --locked -p turbowl -p turbowl-cli
+        run: cargo test --release --locked -p turbowl -p turbowl-cli -- --skip scaling_ --skip _in_time
+      - name: Timing tests, one at a time
+        run: cargo test --release --locked -p turbowl --lib -- scaling_ _in_time --test-threads=1
       - name: WebAssembly build
         run: scripts/check-wasm.sh
