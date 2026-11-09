@@ -1,4 +1,5 @@
-//! The rule program the explainer runs backwards: `oracles/rules/*.rls`,
+//! The rule program shared by backward maintenance and explanations:
+//! `oracles/rules/*.rls`,
 //! the W3C rules that Nemo, Soufflé and VLog run (and that every oracle
 //! holds equal to TurbOWL's), read with `include_str!` and parsed here,
 //! plus `literals.rls`, what that program leaves to the oracle crate
@@ -27,7 +28,7 @@
 //! dropped with the `valueOf` rules. `values.rls` states dt-diff as the
 //! reference evaluator does: a generalized triple `lt1 unlisted lt2` between
 //! two literals of different values, whose predicate
-//! ([`UNLISTED`](super::UNLISTED)) is the reference's unlisted
+//! ([`UNLISTED`]) is the reference's unlisted
 //! `owl:differentFrom`, carried by eq-rep-s and eq-rep-o like any triple,
 //! and read by eq-diff1 as `owl:differentFrom` is.
 //!

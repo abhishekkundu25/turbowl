@@ -1,0 +1,133 @@
+{
+  "unchanged": {
+    "samples": 11,
+    "median_ms": 2.7919999999999997e-06,
+    "min_ms": 2.666e-06,
+    "max_ms": 3.042e-06,
+    "first_warmup_ms": 3.667e-06,
+    "all_closures_checked": true,
+    "deletion": {
+      "fallback": null,
+      "overdeleted": 0,
+      "removed": 0,
+      "restored": 0
+    },
+    "deltas": [],
+    "median_round_ms": 0.0,
+    "median_store_step_ms": 0.0,
+    "median_unattributed_ms": null,
+    "median_family_ms": {
+      "class": 0.0,
+      "property": 0.0,
+      "property-chains": 0.0,
+      "checks": 0.0,
+      "datatype": 0.0,
+      "equality": 0.0
+    }
+  },
+  "insert_one": {
+    "samples": 11,
+    "median_ms": 0.918,
+    "min_ms": 0.913708,
+    "max_ms": 0.950208,
+    "first_warmup_ms": 0.982375,
+    "all_closures_checked": true,
+    "deletion": {
+      "fallback": null,
+      "overdeleted": 0,
+      "removed": 0,
+      "restored": 0
+    },
+    "deltas": [
+      1,
+      10,
+      7,
+      6,
+      26
+    ],
+    "median_round_ms": 0.907292,
+    "median_store_step_ms": 0.009708,
+    "median_unattributed_ms": 0.001208,
+    "median_family_ms": {
+      "class": 0.898751,
+      "property": 0.002333,
+      "property-chains": 8.3e-05,
+      "checks": 0.00425,
+      "datatype": 0.000751,
+      "equality": 8.3e-05
+    }
+  },
+  "delete_one": {
+    "samples": 11,
+    "median_ms": 1.100875,
+    "min_ms": 1.093792,
+    "max_ms": 1.217083,
+    "first_warmup_ms": 1.409625,
+    "all_closures_checked": true,
+    "deletion": {
+      "fallback": null,
+      "overdeleted": 71,
+      "removed": 1,
+      "restored": 13
+    },
+    "deltas": [
+      38,
+      6,
+      21,
+      3,
+      3,
+      71,
+      13,
+      3,
+      3,
+      2
+    ],
+    "median_round_ms": 0.999207,
+    "median_store_step_ms": 0.005624,
+    "median_unattributed_ms": 0.097874,
+    "median_family_ms": {
+      "class": 0.454874,
+      "property": 0.00175,
+      "property-chains": 4.2e-05,
+      "checks": 0.0025,
+      "datatype": 0.000458,
+      "equality": 4.1e-05
+    }
+  },
+  "full_run": {
+    "samples": 11,
+    "median_ms": 2.147708,
+    "min_ms": 2.104958,
+    "max_ms": 2.410792,
+    "first_warmup_ms": 2.160083,
+    "all_closures_checked": true,
+    "deletion": {
+      "fallback": null,
+      "overdeleted": 0,
+      "removed": 0,
+      "restored": 0
+    },
+    "deltas": [
+      14819,
+      2946,
+      2586,
+      4231,
+      1624,
+      173,
+      2
+    ],
+    "median_round_ms": 1.357875,
+    "median_store_step_ms": 0.773539,
+    "median_unattributed_ms": 0.017748,
+    "median_family_ms": {
+      "class": 1.1385,
+      "property": 0.039417,
+      "property-chains": 0.000332,
+      "checks": 0.104167,
+      "datatype": 0.047458,
+      "equality": 8.4e-05
+    }
+  },
+  "deletion_fraction_of_full": 0.5125813192482405,
+  "speedup_vs_full": 1.950909957987964
+}

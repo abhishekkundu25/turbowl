@@ -1,0 +1,33 @@
+{
+  "started_utc": "2026-11-09T00:38:19.466314+00:00",
+  "commit": "83b356edde2eab0809a562275d4ec9d18af139f2",
+  "branch": "feat/incremental-deletions",
+  "source_state": "working tree, final implementation",
+  "sources_sha256": "e44e7e10d9a70c39a8784afa5f97ec4eb1cc7e3e147f52a43fed834ecb9a5292",
+  "benchmark_source_sha256": "ddc72a7d47f9d0e2b815ecccc66a53ffa254eb3802e87364e8ea1c1adcd3c460",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "logical_cpus": 12,
+  "load_before": [
+    2.9931640625,
+    2.8720703125,
+    2.60302734375
+  ],
+  "load_exception": "Owner authorized the small comparison with approximate timings under current load.",
+  "command": [
+    "timeout",
+    "120",
+    "target/release/examples/deletion_cost"
+  ],
+  "input_sha256": {
+    "data/reasonable/example_models/ontologies/Brick.n3": "a88e1b19f31b26568c4d3f345f5d505cebed66aeedc71ca7d77a370f87e9f91d",
+    "data/reasonable/example_models/small1.n3": "224f209c225da803b0048bcb59c952b35512952648d5664cd33b2daaa2b9a29a"
+  },
+  "finished_utc": "2026-11-09T00:38:20.849462+00:00",
+  "load_after": [
+    2.9931640625,
+    2.8720703125,
+    2.60302734375
+  ],
+  "exit_code": 0
+}

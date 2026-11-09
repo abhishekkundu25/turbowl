@@ -1,0 +1,181 @@
+[
+  {
+    "name": "final-fmt",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "exit_code": 0,
+    "seconds": 0.267
+  },
+  {
+    "name": "final-clippy",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "clippy",
+      "--release",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "seconds": 0.207
+  },
+  {
+    "name": "chaos-shards_cover_every_iteration_once",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "shards_cover_every_iteration_once",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "seconds": 0.092
+  },
+  {
+    "name": "chaos-configurations_are_drawn_from_the_seed_and_replay",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "configurations_are_drawn_from_the_seed_and_replay",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "seconds": 0.038
+  },
+  {
+    "name": "chaos-watchdog_reports_a_stuck_iteration",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "watchdog_reports_a_stuck_iteration",
+      "--exact"
+    ],
+    "exit_code": 0,
+    "seconds": 0.144
+  },
+  {
+    "name": "turbowl-oracle-doctests",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--doc"
+    ],
+    "exit_code": 0,
+    "seconds": 0.104
+  },
+  {
+    "name": "turbowl-reference-doctests",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--doc"
+    ],
+    "exit_code": 0,
+    "seconds": 2.36
+  },
+  {
+    "name": "bench-tests",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-bench"
+    ],
+    "exit_code": 0,
+    "seconds": 24.789
+  },
+  {
+    "name": "python-rust-tests",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-python",
+      "--lib"
+    ],
+    "exit_code": 0,
+    "seconds": 11.984
+  },
+  {
+    "name": "deletion-benchmark-build",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-bench",
+      "--example",
+      "deletion_cost"
+    ],
+    "exit_code": 0,
+    "seconds": 0.092
+  }
+]

@@ -1,0 +1,9 @@
+    Finished `release` profile [optimized] target(s) in 0.03s
+     Running tests/chaos.rs (target/release/deps/chaos-be0cfa59dc90ad84)
+
+running 1 test
+incremental shard 1: 200 compared ({"complete": 71, "default": 59, "random": 70}), 2817 proofs checked, 80 runs cancelled; not compared: 0 too large for the reference
+incremental slowest iterations: 378 (4.32s), 342 (2.20s), 379 (1.45s), 388 (637.32ms), 305 (389.48ms)
+test incremental_runs_match_a_full_run_1 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 16.06s

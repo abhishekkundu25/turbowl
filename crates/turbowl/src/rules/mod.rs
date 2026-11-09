@@ -76,13 +76,16 @@
 //! (cls-thing, cls-nothing1). The reasoner inserts them at the start of
 //! every full run, as inferred triples, so they hold even for an empty base.
 
+pub(crate) mod backward;
 pub(crate) mod checks;
 pub(crate) mod class;
 pub(crate) mod datatype;
 pub(crate) mod equality;
 pub(crate) mod identity;
 pub(crate) mod literal_values;
+pub(crate) mod program;
 pub(crate) mod property;
+pub(crate) mod query;
 pub(crate) mod schema;
 #[cfg(test)]
 pub(crate) mod testing;

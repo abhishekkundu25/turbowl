@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.2.0, pluggy-1.7.0
+rootdir: /Users/abhishek/repos/turtle-reasoner/crates/python
+configfile: pyproject.toml
+testpaths: tests
+collected 815 items
+
+tests/test_cancel.py ......                                              [  0%]
+tests/test_errors.py .................................                   [  4%]
+tests/test_explain.py ......................                             [  7%]
+tests/test_minimal.py .................................................. [ 13%]
+........................................................................ [ 22%]
+........................................................................ [ 31%]
+........................................................................ [ 40%]
+........................................................................ [ 48%]
+........................................................................ [ 57%]
+........................................................................ [ 66%]
+........................................................................ [ 75%]
+..................................................................       [ 83%]
+tests/test_reasoner.py ................................................. [ 89%]
+.........                                                                [ 90%]
+tests/test_snapshot.py .......                                           [ 91%]
+tests/test_switches.py ...........................                       [ 94%]
+tests/test_terms.py ..........................................           [100%]
+
+=============================== warnings summary ===============================
+tests/test_minimal.py::test_inserting_the_triples_gives_the_rust_closure[dt-not-type-map-default]
+tests/test_minimal.py::test_inserting_the_triples_gives_the_rust_closure[dt-not-type-map-complete]
+tests/test_minimal.py::test_inserting_a_graph_gives_the_rust_closure_as_a_graph[dt-not-type-map-default]
+tests/test_minimal.py::test_inserting_a_graph_gives_the_rust_closure_as_a_graph[dt-not-type-map-complete]
+tests/test_minimal.py::test_two_incremental_batches_give_the_rust_closure[dt-not-type-map-default]
+tests/test_minimal.py::test_two_incremental_batches_give_the_rust_closure[dt-not-type-map-complete]
+  /Users/abhishek/repos/turtle-reasoner/crates/python/.venv/lib/python3.14/site-packages/rdflib/term.py:1862: UserWarning: Parsing weird boolean, 'yes' does not map to True or False
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 815 passed, 6 warnings in 29.38s =======================

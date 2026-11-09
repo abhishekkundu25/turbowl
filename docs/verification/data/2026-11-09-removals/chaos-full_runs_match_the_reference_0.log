@@ -1,0 +1,10 @@
+   Compiling turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+    Finished `release` profile [optimized] target(s) in 10.66s
+     Running tests/chaos.rs (target/release/deps/chaos-be0cfa59dc90ad84)
+
+running 1 test
+full shard 0: 198 compared ({"complete": 69, "default": 73, "random": 56}), 2766 proofs checked, 102 runs cancelled; not compared: 2 too large for the reference
+full slowest iterations: 198 (927.81ms), 11 (570.27ms), 164 (287.26ms), 93 (274.89ms), 91 (267.72ms)
+test full_runs_match_the_reference_0 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 7.35s

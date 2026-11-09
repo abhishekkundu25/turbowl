@@ -45,14 +45,16 @@
 //!
 //! # Runs
 //!
-//! [`Reasoner::reason`] does one of three things:
+//! [`Reasoner::reason`] does one of four things:
 //!
 //! - nothing, when the base has not changed since the last run (0 rounds);
 //! - after additions only, an incremental run: the new base triples were
 //!   queued into the stored closure as they came, and [`Store::run`] joins
 //!   them semi-naively against it; the findings of earlier runs stay;
-//! - after any removal (and on the first run, after [`Reasoner::clear`],
-//!   and after a change of switches), a full run: a fresh store with no
+//! - after small supported deletions, overdeletion and grounded
+//!   rederivation from the surviving closure;
+//! - on the first run, after [`Reasoner::clear`], after a change of switches,
+//!   or when deletion maintenance falls back, a full run: a fresh store with no
 //!   terms equal, the facts of every family that is on (inferred, never
 //!   base; an empty base gets them too), then the base.
 //!
@@ -119,6 +121,7 @@
 //! and what loading checks are in `snapshot.rs`.
 
 use crate::Error;
+mod removals;
 use crate::engine::{Canon, Round, Store, Workers};
 use crate::explain::{ExplainCache, Explainer, Proof};
 use crate::profile::{self, Clock, Memory, Parts, Profile, Step};
@@ -187,6 +190,7 @@ pub struct Reasoner {
     /// queued for the next run (unless that run is a full one).
     closure: Store,
     state: State,
+    removed: Vec<[u32; 3]>,
     /// The RDF triples of the stored closure once expanded (base and
     /// inferred).
     rdf: usize,
@@ -220,7 +224,9 @@ pub(crate) enum State {
     Current,
     /// Base triples were added (and queued in the closure): an incremental run.
     Added,
-    /// A run from the base: first, after a removal, after `clear`, or after
+    /// Base triples were removed; the last closure is kept until maintenance.
+    Removed,
+    /// A run from the base: first, after a fallback, after `clear`, or after
     /// a change of switches.
     Full,
 }
@@ -263,6 +269,7 @@ impl Reasoner {
             base: Base::default(),
             closure,
             state: State::Full,
+            removed: Vec::new(),
             rdf: 0,
             same_as_itself: Vec::new(),
             same_as_itself_rdf: 0,
@@ -375,17 +382,22 @@ impl Reasoner {
     }
 
     /// Removes triples from the base (blank nodes named as by `insert`).
-    /// Triples that are not base triples are ignored; when one was removed,
-    /// the next run is a full one.
+    /// Triples that are not base triples are ignored. The next run maintains
+    /// small supported deletions, or falls back to full reasoning.
     pub fn remove<'a>(&mut self, triples: impl IntoIterator<Item = TripleRef<'a>>) {
-        let gone: Vec<[u32; 3]> = triples.into_iter().filter_map(|t| self.lookup(t)).collect();
-        if self.base.remove(gone) > 0 {
-            self.restart();
+        let mut gone: Vec<[u32; 3]> = triples.into_iter().filter_map(|t| self.lookup(t)).collect();
+        gone.retain(|t| self.base.contains(t));
+        gone.sort_unstable();
+        gone.dedup();
+        if !gone.is_empty() {
+            self.base.remove(gone.clone());
+            self.queue_removals(gone);
         }
     }
 
     /// Makes the base exactly `triples` (blank nodes named as by `insert`).
-    /// True when a base triple was removed, so the next run is a full one.
+    /// True when a base triple was removed. Pure deletions may be maintained;
+    /// a replacement that both adds and removes triples runs in full.
     /// An unchanged base costs nothing: the next run takes no rounds; a base
     /// that only grew runs incrementally.
     pub fn set_base<'a>(&mut self, triples: impl IntoIterator<Item = TripleRef<'a>>) -> bool {
@@ -402,8 +414,12 @@ impl Reasoner {
                 false
             }
             None => {
+                let gone = added(&new, old);
                 self.base.replace(new);
-                self.restart();
+                match gone {
+                    Some(gone) => self.queue_removals(gone),
+                    None => self.restart(),
+                }
                 true
             }
         }
@@ -422,6 +438,7 @@ impl Reasoner {
         if switches != self.switches {
             self.switches = switches;
             self.state = State::Full;
+            self.removed.clear();
         }
     }
 
@@ -491,6 +508,7 @@ impl Reasoner {
                 Some(0)
             }
             State::Added => self.run(false, cancel),
+            State::Removed => self.run(false, cancel),
             State::Full => self.run(true, cancel),
         };
         let Some(rounds) = rounds else {
@@ -519,6 +537,7 @@ impl Reasoner {
         self.diagnostics.clear();
         self.counters.clear();
         self.state = State::Full;
+        self.removed.clear();
     }
 
     /// The closure: base and inferred triples. Generalized triples (a
@@ -681,6 +700,7 @@ impl Reasoner {
         Saved {
             switches: self.switches,
             state: self.state,
+            removed: &self.removed,
             terms: &self.terms,
             base: self.base.sorted_all(),
             closure: &self.closure,
@@ -702,6 +722,7 @@ impl Reasoner {
         out.closure = r.closure;
         out.closure.set_workers(out.workers.clone());
         out.state = r.state;
+        out.removed = r.removed;
         out.rdf = r.rdf;
         out.same_as_itself = r.same_as_itself;
         out.same_as_itself_rdf = r.same_as_itself_rdf;
@@ -798,6 +819,7 @@ impl Reasoner {
             })
             .collect();
         Profile {
+            deletion: self.counters.deletion.clone(),
             families: c.families.clone(),
             rounds,
             steps: c.steps.clone(),
@@ -849,7 +871,10 @@ impl Reasoner {
             canon: canon.bytes(),
             findings,
             diagnostics: profile::diagnostic_bytes(&self.diagnostics),
-            other: profile::vec_bytes(&self.same_as_itself) + loaded + self.counters.bytes(),
+            other: profile::vec_bytes(&self.same_as_itself)
+                + profile::vec_bytes(&self.removed)
+                + loaded
+                + self.counters.bytes(),
         }
     }
 
@@ -884,6 +909,10 @@ impl Reasoner {
         if new.is_empty() || self.state == State::Full {
             return;
         }
+        if self.state == State::Removed {
+            self.restart();
+            return;
+        }
         self.closure.extend(new.iter().map(|&[s, p, o]| (s, p, o)));
         self.state = State::Added;
     }
@@ -891,6 +920,7 @@ impl Reasoner {
     /// A base triple was removed: the next run starts from the base.
     fn restart(&mut self) {
         self.state = State::Full;
+        self.removed.clear();
         #[cfg(feature = "io")]
         self.loaded.clear();
     }
@@ -902,6 +932,12 @@ impl Reasoner {
     fn run(&mut self, full: bool, cancel: Option<&Cancel>) -> Option<usize> {
         let families: Vec<&'static Family> = self.families.iter().filter(|f| f.is_on(self.switches)).collect();
         self.counters = Counters::new(&families);
+        let maintained = !self.removed.is_empty() && self.maintain_removals(&families, cancel)?;
+        if cancel.is_some_and(Cancel::is_cancelled) {
+            return None;
+        }
+        let full = full || (self.state == State::Removed && !maintained);
+        self.removed.clear();
         let mut start = full.then(equality::canon);
         if full {
             self.findings.clear();
@@ -909,7 +945,7 @@ impl Reasoner {
         let merges = if full { 0 } else { self.closure.canon().merges() };
         let mut restarted = false;
         let mut found = Vec::new();
-        let mut rounds = 0;
+        let mut rounds = self.counters.delta.len();
         loop {
             if let Some(canon) = start.take() {
                 self.start(&families, canon);
@@ -946,7 +982,7 @@ impl Reasoner {
                 .map(|&r| weights.of(&self.terms, r, same, r))
                 .sum();
         }
-        if full || merged || !found.is_empty() {
+        if full || maintained || merged || !found.is_empty() {
             self.findings.append(&mut found);
             let canon = self.closure.canon();
             for f in &mut self.findings {
@@ -1424,7 +1460,7 @@ impl ByPredicate {
         self.ids.extend_from_slice(pairs.as_flattened());
     }
 
-    fn contains(&self, &[s, p, o]: &[u32; 3]) -> bool {
+    pub(crate) fn contains(&self, &[s, p, o]: &[u32; 3]) -> bool {
         let Ok(i) = self.starts.binary_search_by_key(&p, |&(q, _)| q) else {
             return false;
         };
@@ -1672,6 +1708,7 @@ fn by_predicate(&[s, p, o]: &[u32; 3]) -> (u32, u32, u32) {
 /// that cost a push each; [`Reasoner::profile`] gives them out by round.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Counters {
+    pub(crate) deletion: profile::Deletion,
     /// The names of the families that ran (those the switches left on), in
     /// table order.
     pub(crate) families: Vec<&'static str>,
@@ -1703,6 +1740,7 @@ impl Counters {
     }
 
     fn clear(&mut self) {
+        self.deletion = profile::Deletion::default();
         self.delta.clear();
         self.emitted.clear();
         self.family_ns.clear();
@@ -2247,11 +2285,7 @@ mod tests {
 
         r.remove(parse("ex:b ex:anc ex:c .").iter().map(Triple::as_ref));
         let s = r.reason();
-        assert_eq!(
-            r.counters().delta[0],
-            2 + 1,
-            "a full run starts from the base and the facts"
-        );
+        assert_eq!(r.counters().delta[0], 1, "maintenance starts from the deleted fact");
         assert_eq!((s.base, s.inferred), (2, 1));
         assert_eq!(
             lines(r.triples()),
@@ -2286,9 +2320,17 @@ mod tests {
         assert_eq!(r.counters().delta[0], 1);
         assert_eq!(grown.base, first.base + 1);
 
-        // A base that lost a triple runs in full.
+        // A base that lost a triple returns to the same result.
         assert!(r.set_base(triples.iter().map(Triple::as_ref)));
-        assert_eq!(r.reason(), first);
+        let reduced = r.reason();
+        assert_eq!(
+            reduced,
+            Summary {
+                rounds: reduced.rounds,
+                ..first
+            }
+        );
+        assert_eq!(r.counters().delta[0], 1);
     }
 
     #[test]

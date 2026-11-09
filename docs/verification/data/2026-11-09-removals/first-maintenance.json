@@ -1,0 +1,1949 @@
+{
+  "closure_with_probe": 26431,
+  "closure_without_probe": 26381,
+  "configuration": "default",
+  "probe_fact": "<http://example.org/deletion-bench/sensor> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://brickschema.org/schema/1.1/Brick#Air_Temperature_Sensor>",
+  "runs_per_case": 11,
+  "samples": [
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 874334
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2374
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4541
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 751
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 893791.0,
+      "rounds": 5,
+      "run": 1,
+      "step_ns": 9292
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1741751
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 45458
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 125
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 144584
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 48375
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 4015541.0,
+      "rounds": 8,
+      "run": 1,
+      "step_ns": 2708
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1206374
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 95000
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 250
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 104877
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 62040
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 168
+        }
+      ],
+      "ns_per_call": 2330292.0,
+      "rounds": 7,
+      "run": 1,
+      "step_ns": 805832
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.416,
+      "rounds": 0,
+      "run": 1,
+      "step_ns": 0
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1644543
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 38084
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 292
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 136208
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45874
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 167
+        }
+      ],
+      "ns_per_call": 3814709.0,
+      "rounds": 8,
+      "run": 2,
+      "step_ns": 1500
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1091042
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 37456
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 293
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 103750
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 46542
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 2087708.0000000002,
+      "rounds": 7,
+      "run": 2,
+      "step_ns": 764459
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.542,
+      "rounds": 0,
+      "run": 2,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 918249
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2375
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 84
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4292
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 709
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 41
+        }
+      ],
+      "ns_per_call": 939167.0,
+      "rounds": 5,
+      "run": 2,
+      "step_ns": 10625
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1138627
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 37709
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 415
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 107541
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47833
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 126
+        }
+      ],
+      "ns_per_call": 2157917.0,
+      "rounds": 7,
+      "run": 3,
+      "step_ns": 781334
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.625,
+      "rounds": 0,
+      "run": 3,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 865709
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2126
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 125
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3917
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 624
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 887291.0,
+      "rounds": 5,
+      "run": 3,
+      "step_ns": 12416
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1650166
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37459
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 207
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 142249
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 49750
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 126
+        }
+      ],
+      "ns_per_call": 3839000.0,
+      "rounds": 8,
+      "run": 3,
+      "step_ns": 1250
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.708,
+      "rounds": 0,
+      "run": 4,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 904207
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2209
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 41
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3875
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 584
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 923166.0,
+      "rounds": 5,
+      "run": 4,
+      "step_ns": 9542
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1669167
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 38166
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 209
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 141917
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45667
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 3841584.0,
+      "rounds": 8,
+      "run": 4,
+      "step_ns": 1417
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1142876
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 38127
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 290
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 104000
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47335
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 2156667.0,
+      "rounds": 7,
+      "run": 4,
+      "step_ns": 778374
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 902249
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2168
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3959
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 666
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 921167.0,
+      "rounds": 5,
+      "run": 5,
+      "step_ns": 9334
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1649708
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37918
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 208
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 141958
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47044
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 165
+        }
+      ],
+      "ns_per_call": 3810750.0,
+      "rounds": 8,
+      "run": 5,
+      "step_ns": 1250
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1119250
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 44625
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 208
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 103459
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47502
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 375
+        }
+      ],
+      "ns_per_call": 2114042.0,
+      "rounds": 7,
+      "run": 5,
+      "step_ns": 754207
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.583,
+      "rounds": 0,
+      "run": 5,
+      "step_ns": 0
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1659375
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37708
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 293
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 144624
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 48122
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 84
+        }
+      ],
+      "ns_per_call": 3837042.0,
+      "rounds": 8,
+      "run": 6,
+      "step_ns": 1291
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1127417
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 37293
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 250
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 110624
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 50458
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 84
+        }
+      ],
+      "ns_per_call": 2128000.0,
+      "rounds": 7,
+      "run": 6,
+      "step_ns": 758541
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.459,
+      "rounds": 0,
+      "run": 6,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 908457
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2208
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3917
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 750
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 927125.0,
+      "rounds": 5,
+      "run": 6,
+      "step_ns": 9416
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1135585
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 37916
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 167
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 103749
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47208
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2141167.0,
+      "rounds": 7,
+      "run": 7,
+      "step_ns": 770544
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.375,
+      "rounds": 0,
+      "run": 7,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 911500
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2460
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 126
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4334
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 667
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 930958.0,
+      "rounds": 5,
+      "run": 7,
+      "step_ns": 9542
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1619084
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37333
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 248
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 141418
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47501
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 82
+        }
+      ],
+      "ns_per_call": 3752458.0,
+      "rounds": 8,
+      "run": 7,
+      "step_ns": 1208
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.5,
+      "rounds": 0,
+      "run": 8,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 925833
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2207
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4040
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 708
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 41
+        }
+      ],
+      "ns_per_call": 944750.0,
+      "rounds": 5,
+      "run": 8,
+      "step_ns": 9332
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1660460
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37124
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 208
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 145416
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 49999
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 126
+        }
+      ],
+      "ns_per_call": 3893583.0,
+      "rounds": 8,
+      "run": 8,
+      "step_ns": 1417
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1100626
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 35959
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 166
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 99500
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45709
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 2082375.0,
+      "rounds": 7,
+      "run": 8,
+      "step_ns": 755957
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 902959
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2167
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4167
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 667
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 922083.0,
+      "rounds": 5,
+      "run": 9,
+      "step_ns": 9749
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1679834
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 38918
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 457
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 133625
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 52751
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 250
+        }
+      ],
+      "ns_per_call": 3868125.0,
+      "rounds": 8,
+      "run": 9,
+      "step_ns": 1667
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1169293
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 39623
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 375
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 108249
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47499
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 250
+        }
+      ],
+      "ns_per_call": 2199667.0,
+      "rounds": 7,
+      "run": 9,
+      "step_ns": 786875
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.625,
+      "rounds": 0,
+      "run": 9,
+      "step_ns": 0
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1685501
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37585
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 249
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 142624
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 49374
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 126
+        }
+      ],
+      "ns_per_call": 3871708.0,
+      "rounds": 8,
+      "run": 10,
+      "step_ns": 1499
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1186169
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 40418
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 291
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 106791
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 48958
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 291
+        }
+      ],
+      "ns_per_call": 2233625.0,
+      "rounds": 7,
+      "run": 10,
+      "step_ns": 799499
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.5,
+      "rounds": 0,
+      "run": 10,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 908709
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2292
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 166
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4292
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 667
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 928958.0,
+      "rounds": 5,
+      "run": 10,
+      "step_ns": 10292
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1149333
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 39333
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 107208
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47333
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 290
+        }
+      ],
+      "ns_per_call": 2165792.0,
+      "rounds": 7,
+      "run": 11,
+      "step_ns": 775501
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.584,
+      "rounds": 0,
+      "run": 11,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 900417
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2291
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4083
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 666
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 919333.0,
+      "rounds": 5,
+      "run": 11,
+      "step_ns": 9250
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29968,
+          "name": "class",
+          "ns": 1650958
+        },
+        {
+          "emitted": 17822,
+          "name": "property",
+          "ns": 37668
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 250
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 141875
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 48332
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 167
+        }
+      ],
+      "ns_per_call": 3826709.0,
+      "rounds": 8,
+      "run": 11,
+      "step_ns": 1542
+    }
+  ],
+  "scenario": "Brick + small1",
+  "threads": 1,
+  "timing": "mutation + reason; loading, initial reasoning and checks excluded",
+  "warmups_per_case": 1
+}

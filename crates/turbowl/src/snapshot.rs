@@ -8,7 +8,7 @@
 //! then do what they would have done on the saved reasoner. Saving the
 //! loaded reasoner gives the same bytes.
 //!
-//! # The format, version 2
+//! # The format, version 3
 //!
 //! Integers are little-endian: an *id* is a `u32` term id, a *count* a
 //! `u64`. A *string8* is a `u8` byte length then UTF-8; a *string16* the
@@ -17,7 +17,7 @@
 //! | Bytes | Field |
 //! |---|---|
 //! | 8 | magic: `89 54 75 72 62 4F 57 4C` (`\x89TurbOWL`; the high first byte catches a transfer as text) |
-//! | 4 | `u32` format version: 2 |
+//! | 4 | `u32` format version: 3 |
 //! | 8 | `u64` length of the whole snapshot, in bytes, checksum included |
 //! | 2 + n | string16: the producer, `turbowl <version>` |
 //! | ... | the sections below, in this order, each a 4-byte ASCII tag, a `u64` payload length, then the payload |
@@ -28,7 +28,8 @@
 //! - `CONF`, the configuration: a `u8` count of the switches that are on,
 //!   then each one's name as a string8 ([`Switch::name`]); a `u8` state:
 //!   0 the closure is the base's, 1 base triples were added since the last
-//!   run (an incremental run is due), 2 a full run is due.
+//!   run (an incremental run is due), 2 a full run is due, 3 base triples
+//!   were removed and deletion maintenance is due.
 //! - `TERM`, the dictionary: a `u32` count of the documents loaded (the
 //!   blank-node scopes handed out); a count of terms; a count of text bytes;
 //!   then each term in id order: a `u8` kind (0 an IRI, 1 a blank node, 2 a
@@ -59,8 +60,10 @@
 //!   and the ids of the representatives eq-ref adds `r owl:sameAs r` for.
 //! - `FIND`, the findings: a count, then each one, in order: its code as a
 //!   string8, a count and the ids of its terms.
-//! - `QUEU`, the triples queued for the incremental run that is due: a
-//!   count, then `[s, p, o]` ids, in the order they were queued.
+//! - `QUEU`, the triples queued for addition in state 1 or deletion in
+//!   state 3: a count, then `[s, p, o]` ids, in the order they were queued.
+//!   Deletions are distinct triples absent from the current base whose
+//!   canonical images belong to the previous closure.
 //! - `DOCS`, the documents loaded (the keys of "the same document again"):
 //!   a `u128` probe, the key of an empty Turtle document; a count, then
 //!   each `u128` key, strictly ascending.
@@ -93,8 +96,8 @@
 //!    object index holding exactly the pairs by subject, flipped (the same
 //!    count, and the same order-free 64-bit fingerprint of the set).
 //! 7. The findings' codes known (the W3C rules that conclude `false`).
-//! 8. The state: triples queued exactly when an incremental run is due; the
-//!    RDF count at least the base when no full run is due.
+//! 8. The state: additions or deletions queued exactly when their run is
+//!    due; the RDF count at least the base when no full run is due.
 //!
 //! A term's text is not parsed again: an IRI or a language tag is taken as
 //! written, as [`Reasoner::insert`](crate::Reasoner::insert) takes an
@@ -165,7 +168,7 @@ use std::io::{self, Write};
 pub(crate) const MAGIC: [u8; 8] = *b"\x89TurbOWL";
 
 /// The format version this build writes and reads.
-pub(crate) const VERSION: u32 = 2;
+pub(crate) const VERSION: u32 = 3;
 
 /// Who wrote a snapshot: this build's name and version.
 const PRODUCER: &str = concat!("turbowl ", env!("CARGO_PKG_VERSION"));
@@ -264,6 +267,7 @@ impl Section {
 pub(crate) struct Saved<'a> {
     pub(crate) switches: Switches,
     pub(crate) state: State,
+    pub(crate) removed: &'a [[u32; 3]],
     pub(crate) terms: &'a Dictionary,
     /// Merged, by predicate.
     pub(crate) base: Cow<'a, ByPredicate>,
@@ -285,6 +289,7 @@ pub(crate) struct Saved<'a> {
 pub(crate) struct Restored {
     pub(crate) switches: Switches,
     pub(crate) state: State,
+    pub(crate) removed: Vec<[u32; 3]>,
     pub(crate) terms: Dictionary,
     pub(crate) base: ByPredicate,
     /// With the queued triples queued.
@@ -546,6 +551,7 @@ fn encode(s: &mut impl Sink, section: Section, saved: &Saved<'_>) -> io::Result<
             // queued in this one is never read.
             let queued: Vec<[u32; 3]> = match saved.state {
                 State::Added => saved.closure.queued().map(|(s, p, o)| [s, p, o]).collect(),
+                State::Removed => saved.removed.to_vec(),
                 State::Current | State::Full => Vec::new(),
             };
             s.count(queued.len())?;
@@ -567,6 +573,7 @@ fn state_code(state: State) -> u8 {
         State::Current => 0,
         State::Added => 1,
         State::Full => 2,
+        State::Removed => 3,
     }
 }
 
@@ -774,7 +781,7 @@ fn restore(
     rest.end()?;
 
     // The state, against what the sections hold.
-    if (state == State::Added) != !queued.is_empty() {
+    if matches!(state, State::Added | State::Removed) != !queued.is_empty() {
         return Err(format!(
             "{} triples are queued, and the state says an incremental run is {}due",
             queued.len(),
@@ -782,7 +789,7 @@ fn restore(
         ));
     }
     let counted = match state {
-        State::Current => Some(rdf),
+        State::Current | State::Removed => Some(rdf),
         State::Added => Some(rdf.saturating_add(queued.len())),
         State::Full => None,
     };
@@ -791,11 +798,24 @@ fn restore(
             "the closure stands for {rdf} RDF triples, fewer than the {base_len} base triples"
         ));
     }
-    closure.extend(queued.iter().map(|&[s, p, o]| (s, p, o)));
+    let removed = if state == State::Removed {
+        let mut seen = rustc_hash::FxHashSet::default();
+        for t in &queued {
+            let [s, p, o] = t.map(|id| closure.canon().find(id));
+            if base.contains(t) || !closure.contains(s, p, o) || !seen.insert(*t) {
+                return Err("pending deletions must be distinct old closure triples absent from the base".into());
+            }
+        }
+        queued
+    } else {
+        closure.extend(queued.iter().map(|&[s, p, o]| (s, p, o)));
+        Vec::new()
+    };
 
     Ok(Restored {
         switches,
         state,
+        removed,
         terms,
         base,
         closure,
@@ -826,6 +846,7 @@ fn read_conf(r: &mut Reader<'_>) -> Result<(Switches, State), String> {
         0 => State::Current,
         1 => State::Added,
         2 => State::Full,
+        3 => State::Removed,
         other => return Err(r.bad(format!("an unknown state {other}"))),
     };
     Ok((switches, state))

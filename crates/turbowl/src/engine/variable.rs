@@ -217,6 +217,31 @@ impl<T: Ord + Copy> Variable<T> {
         self.recent.contains(x) || self.stable.iter().any(|b| b.contains(x))
     }
 
+    pub(crate) fn remove(&mut self, gone: &[T]) -> usize {
+        debug_assert!(self.to_add.is_empty());
+        self.changed();
+        let before = self.len();
+        for batch in &mut self.stable {
+            let mut kept = std::mem::take(batch).into_vec();
+            retain_absent(&mut kept, gone);
+            *batch = Relation::from_sorted(kept);
+        }
+        self.stable.retain(|batch| !batch.is_empty());
+        self.retier();
+        before - self.len()
+    }
+
+    pub(crate) fn select_recent(&mut self, selected: Vec<T>) {
+        let selected = Relation::from_vec(selected);
+        let removed = self.remove(&selected);
+        debug_assert_eq!(removed, selected.len());
+        self.recent = selected;
+    }
+
+    pub(crate) fn all_recent(&mut self) {
+        self.recent = std::mem::take(self).complete();
+    }
+
     /// True when a round is pending: queued tuples, or a `recent` part that
     /// the next `changed` must move to `stable`.
     pub(crate) fn is_active(&self) -> bool {
@@ -254,6 +279,13 @@ impl<T: Ord + Copy> Variable<T> {
         }
         self.stable.retain(|b| !b.is_empty());
         // Removing tuples can break the size tiering; re-merge from the back.
+        self.retier();
+        let count = moved.len();
+        self.extend(moved);
+        count
+    }
+
+    fn retier(&mut self) {
         let mut tiers: Vec<Relation<T>> = Vec::with_capacity(self.stable.len());
         for batch in self.stable.drain(..) {
             let mut batch = batch;
@@ -263,9 +295,6 @@ impl<T: Ord + Copy> Variable<T> {
             tiers.push(batch);
         }
         self.stable = tiers;
-        let count = moved.len();
-        self.extend(moved);
-        count
     }
 
     /// Every tuple, after running to a fixpoint (`to_add` must be empty).

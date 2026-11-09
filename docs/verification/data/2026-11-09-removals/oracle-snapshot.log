@@ -1,0 +1,10 @@
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 10.05s
+     Running tests/snapshot.rs (target/release/deps/snapshot-6cdfa749373e41ba)
+
+running 3 tests
+test a_round_trip_keeps_every_minimal_input ... ok
+test changes_after_a_load_equal_the_changes_without_it ... ok
+test a_round_trip_keeps_brick ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s

@@ -1,6 +1,7 @@
 # Version 2, phase 3: removals that cost what they change
 
-Status: planned; starts when phase 2 closes (ticket 21). Tickets:
+Status: implemented on 2026-11-09, acceptance open, on
+`feat/incremental-deletions`; phase 2 is closed. Tickets:
 `docs/tickets/v2/` (22 to 24). Background:
 `docs/research/sota-algorithms-2026-11.md` §5 (DRed, B/F, FBF and counting,
 with their published numbers and fit with this engine).
@@ -39,16 +40,87 @@ FBF); TurbOWL does not.
 
 ## Implementation Decisions
 
+### Execution contract, 2026-11-09
+
+The owner requested specification and implementation after the small
+deletion benchmark in `docs/verification/2026-11-09-deletion-cost.md`.
+This specification and tickets 22 to 24 are the local tracker.
+
+- Keep the public signatures of `remove`, `set_base`, `reason`, snapshots,
+  cancellation and explanations. Closure and diagnostic reads between a
+  mutation and `reason` continue to show the previous result. Removing an absent or inferred-only
+  triple is a no-op. Duplicate removals count once.
+- Queue actual base deletions until reasoning. Repeated deletions are
+  combined. A pure-deletion `set_base` uses the same maintenance path.
+  Changes mixed with pending additions, switch changes and large batches
+  may use full reasoning; their result remains identical.
+- Run DRed against the old closure with deleted tuples as the delta.
+  Protect remaining base triples and active families' axiom facts.
+  Delete the affected tuples, rederive surviving consequences, then
+  continue ordinary forward reasoning. Cycles cannot support themselves.
+- Add bounded backward checks before overdeleting a consequence. A proof
+  must reach remaining base triples or axiom facts. A failed or exhausted
+  check is inconclusive and proceeds through DRed. The search keeps
+  checked and proved facts; it never uses the explainer or records proofs
+  during ordinary forward reasoning.
+- A typing change may conservatively overdelete the subject's inferred
+  types together, protecting its remaining base types and axiom facts.
+  Static projections of helper-rule heads identify the first ordinary
+  triples each helper can conclude. Skip a helper evaluation only when
+  every such possible old triple is already affected or protected.
+  Projections stop at ordinary triples, whose consequences are processed
+  through the deletion delta. Equality conclusions are never skipped by
+  this optimization. Head-directed rederivation against the survivors
+  restores any extra types still supported by the final base.
+- Share the rule-program parser between explanations and maintenance in
+  the rules layer. Backward checks initially use ordinary triple rules;
+  rules needing helper relations may conservatively use DRed.
+- Any affected equality class or vocabulary-class change uses full
+  reasoning. Initially, configurations with `trivial` or `literal-values`
+  enabled also use full reasoning: their implicit term-presence rules
+  require additional deletion handling. This is an explicit coverage gap,
+  not an exemption from correctness checks.
+- When old findings are empty, positivity proves a deletion cannot create
+  one. Otherwise recompute diagnostic findings after a maintained deletion.
+  Selective finding maintenance remains a performance gap.
+- Cancellation discards partial maintenance just as it discards partial
+  forward reasoning. A cancelled result leaves the final base loaded and
+  the next run full. A pre-tripped handle changes nothing.
+- Snapshots preserve pending deletions explicitly; an incompatible format
+  is refused. A pending deletion invalidates an explanation cache just as
+  any other mutation does. The next completed run can be explained and
+  checked through the existing public interface.
+- Choose and document a bounded full-run threshold using measurements;
+  check the total pending batch, not only each individual removal.
+
+Additional user stories:
+
+9. As a caller, I want absent, duplicate and inferred-only removals handled safely, so that retries do not change the result.
+10. As an editor author, I want replacing the base to handle deletions correctly, so that updating a document uses the same semantics as individual changes.
+11. As a user, I want cancellation during a deletion update to recover safely, so that stopping stale work cannot corrupt the next result.
+12. As a caller, I want a saved pending update to resume correctly, so that snapshots preserve unprocessed changes.
+13. As a user, I want explanations after deletion to use the remaining facts, so that deleted statements do not appear as supporting evidence.
+14. As a caller, I want reads to remain stable until reasoning finishes, so that a pending change cannot expose a partial answer.
+
+Implementation proceeds through public-seam regression tests, the engine
+operations and DRed, bounded backward checks, then lifecycle integration
+and independent verification. Record every departure and unmet budget in
+the ticket README and close-out record. No issue tracker is configured;
+`/setup-engineering-workflows` can configure an external tracker later.
+
 - **DRed in the engine**:
-  - Overdeletion runs the rule families forward over a store whose recent
-    parts hold the deleted tuples, against the old closure.
-  - Rederivation runs one naive round of the families over the survivors
-    and keeps only overdeleted tuples that come back.
+  - With no equality classes, overdeletion queries the shared rule program
+    against the old closure and rederivation checks affected heads against
+    the survivors. Helper relations use tabled positive fixpoints.
+  - With unaffected equality classes, overdeletion replays the native
+    families over deleted recent tuples. Rederivation runs one naive round
+    over the survivors and keeps only overdeleted tuples that come back.
   - Insertion then continues semi-naively, as an addition does.
 - **FBF** adds a per-family check: "does this tuple have a derivation from
   current tuples?", with a set of checked and proved tuples (AIJ 2019 §7).
   It is the second ticket.
-- **Findings** are recomputed for the affected part only.
+- **Findings** are recomputed when they were nonempty. Selective finding
+  maintenance remains open.
 - **Equality**: a removal that touches a class of two or more members, or a
   constant's class, runs in full until a later experiment.
 

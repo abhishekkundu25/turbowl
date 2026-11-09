@@ -1,8 +1,13 @@
 # 23: Removals: FBF
 
-Status: todo. Blocked by: 22.
+Status: implemented; scaling, large-input performance and extended chaos
+acceptance remain open. Record: `docs/verification/2026-11-09-removals.md`.
 
-Before a tuple is overdeleted, a bounded backward search per family looks for another proof of it from current tuples, keeping a set of checked and of proved tuples (AIJ 2019 §7). The full-run threshold is measured again.
+Before overdeleting a tuple, bounded backward search over the shared
+ordinary-triple rules looks for another proof grounded in the remaining
+base or axioms. It keeps checked and proved tuples. Helper rules and
+exhausted searches proceed conservatively through DRed. The whole run has
+a 1,024-step work bound. Full-run threshold tuning is still open.
 
 ## Acceptance
 - [ ] The chaos removal shard and the incremental shards pass 100,000 iterations each.

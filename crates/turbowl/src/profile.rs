@@ -34,27 +34,45 @@ use std::mem::size_of;
 /// rounds and steps of every attempt, in order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Profile {
+    /// The last run's deletion maintenance, for the benchmark adapter.
+    pub deletion: Deletion,
     /// The rule families that ran (those the switches leave on), in table
     /// order: the order of [`Round::emitted`] and [`Round::family_ns`].
     pub families: Vec<&'static str>,
-    /// One per round, in order.
+    /// One per forward round or deletion-query pass, in order. Query passes
+    /// report wall time and candidate counts; native family counters are zero.
     pub rounds: Vec<Round>,
     /// One per step, in order. A step applies what came before it (the
     /// run's input, or a round's output) and ends with the next round's
-    /// delta. Each attempt of a run has one step more than rounds: its last
-    /// step finds nothing new, or stops the attempt for a restart.
+    /// delta. Forward evaluation has one step more than rounds: its last
+    /// step finds nothing new, or stops the attempt for a restart. Deletion
+    /// queries do not advance store steps.
     pub steps: Vec<Step>,
     /// The bytes the reasoner holds, computed when the profile is read.
     pub memory: Memory,
 }
 
-/// One round: every family that is on, run once over the store.
+/// Work done to maintain a closure after base facts were removed.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Deletion {
+    /// Base triples considered for deletion maintenance in this run.
+    pub removed: usize,
+    /// Closure triples tentatively retracted.
+    pub overdeleted: usize,
+    /// Retracted triples queued for rederivation.
+    pub restored: usize,
+    /// Why maintenance used full reasoning instead, when it did.
+    pub fallback: Option<&'static str>,
+}
+
+/// One forward round or deletion-query pass.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Round {
     /// The tuples new in the store when the round starts (each table's
     /// recent part, by subject): the first round's input is the run's, a
     /// later round's is what the step before it found new. A tuple that an
-    /// `owl:sameAs` merge rewrote is new again.
+    /// `owl:sameAs` merge rewrote is new again. During deletion queries this
+    /// counts the candidate facts being processed.
     pub delta: usize,
     /// The tuples each family emitted, duplicates and known tuples
     /// included (its rule instances), in [`Profile::families`] order.

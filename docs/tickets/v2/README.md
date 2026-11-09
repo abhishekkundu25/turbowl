@@ -31,8 +31,8 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 20 | [The improvement loop](20-improvement-loop.md) | done (two gaps accepted) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
 | 21 | [Close-out: phase 2](21-close-out-phase-2.md) | done (gaps listed) | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
 | 27 | [The full-size scoreboard race](27-full-scoreboard-race.md) | todo, pending the owner | 21 | `docs/verification/` (the scoreboard record) |
-| 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
-| 23 | [Removals: FBF](23-fbf.md) | todo | 22 | as for 22 |
+| 22 | [Removals: DRed](22-dred.md) | implemented; acceptance open | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
+| 23 | [Removals: FBF](23-fbf.md) | implemented; acceptance open | 22 | as for 22 |
 | 24 | [Close-out: phase 3 and the claim](24-close-out-phase-3.md) | todo | 22, 23 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
 
 ## How the lock files stay apart
@@ -550,3 +550,23 @@ Departures from the plan, as they happen.
     parsing and reasoning got faster since. The snapshot is now
     285 MB, against ticket 19's 312 MB at format version 1. It waits for
     the owner, as does one-thread loading (1.52 s against 1.31 s).
+
+- **22 and 23, 2026-11-09.** Incremental removals implemented on
+  `feat/incremental-deletions`. The shared rule parser moved from the
+  explainer into `rules/`; maintenance records no explanation provenance.
+  Indexed dependent queries and survivor checks replaced the first native
+  DRed design for closures with no equality classes. Bounded backward
+  proofs protect supported facts. Snapshot format 3 preserves pending
+  deletions. Public regressions cover lifecycle behavior and the two
+  reduced correctness failures. See
+  `docs/verification/2026-11-09-removals.md` for checks and measurements.
+  Departures and open acceptance:
+  - `trivial` and `literal-values` configurations use full reasoning.
+  - Nonempty findings are recomputed globally. Empty findings need no
+    work on the positive, empty-canon path.
+  - Batch, affected-set and query limits are bounded heuristics; their
+    crossover has not been tuned on a workload sweep.
+  - The Brick 10% budget is not met. The lubm-50 deletion budget, constant
+    scaling, 100,000 iterations per chaos shard, and the removal scoreboard
+    close-out remain open. The exhaustive per-family alternate-proof and
+    cascade matrix also remains open. Phase 3 is not closed.

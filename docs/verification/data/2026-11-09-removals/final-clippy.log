@@ -1,0 +1,7 @@
+    Checking turbowl v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/turbowl)
+    Checking turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+    Checking turbowl-cli v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/cli)
+    Checking turbowl-python v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/python)
+    Checking turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Checking turbowl-bench v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/bench)
+    Finished `release` profile [optimized] target(s) in 1.65s

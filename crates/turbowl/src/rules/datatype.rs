@@ -60,7 +60,7 @@ mod lexical;
 pub(crate) mod map;
 
 use super::{Context, Finding};
-use crate::engine::{Pair, Round, Variable, gallop};
+use crate::engine::{Pair, Round, Store, Variable, gallop};
 use crate::term::{Dictionary, Kind, Term, TermId, vocab};
 use map::{Datatype, Reading, Value, value_of};
 
@@ -121,6 +121,16 @@ fn check_own(terms: &Dictionary, id: u32, found: &mut Vec<Finding>) {
             code: "dt-not-type",
             terms: vec![id, datatype.0],
         });
+    }
+}
+
+/// Maintenance keeps unaffected equality classes. Their literal members
+/// may no longer appear as representatives in the store's delta.
+pub(crate) fn recheck_class_literals(store: &Store, terms: &Dictionary, found: &mut Vec<Finding>) {
+    for (_, members) in store.canon().classes() {
+        for &member in members {
+            check_own(terms, member, found);
+        }
     }
 }
 

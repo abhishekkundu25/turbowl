@@ -1,0 +1,9 @@
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 8.82s
+     Running tests/w3c.rs (target/release/deps/w3c-e0a67bb9f3588fe3)
+
+running 2 tests
+test rdf_semantics_entailment_tests ... ok
+test owl2_rl_conformance_tests ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.95s

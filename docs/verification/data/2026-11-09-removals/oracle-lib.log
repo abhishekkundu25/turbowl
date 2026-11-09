@@ -1,0 +1,43 @@
+    Finished `release` profile [optimized] target(s) in 0.05s
+     Running unittests src/lib.rs (target/release/deps/turbowl_oracle-a4143e79327d52b8)
+
+running 37 tests
+test cases::tests::expectations_are_checked_where_the_group_is_on ... ok
+test cases::tests::every_case_is_of_its_files_group ... ok
+test cases::tests::expands_prefixes_outside_strings ... ok
+test closure::tests::reads_terms_from_text ... ok
+test cases::trivial::tests::derives_knows_the_heads_of_the_groups_rules ... ok
+test cases::tests::an_exact_closure_leaves_out_the_trivial_groups_triples ... ok
+test cases::tests::every_case_parses ... ok
+test differences::tests::f11_owlrl_parses_xml_literals_as_documents ... ok
+test differences::tests::f10_owlrl_reads_date_times_with_strptime ... ok
+test differences::tests::f4_owlrl_fails_on_a_cyclic_list ... ok
+test differences::tests::f2_owlrl_cls_com_names_the_class ... ok
+test differences::tests::f1_reaches_the_aliases_of_sub_class_of ... ok
+test differences::tests::f1_owlrl_scm_spo_skips_reflexive_subproperty ... ok
+test differences::tests::finds_cyclic_lists ... ok
+test differences::tests::the_lexical_filters_select_no_well_typed_form ... ok
+test hermit::tests::an_input_equating_reserved_iris_is_not_judged ... ok
+test differences::tests::f1_owlrl_scm_sco_skips_reflexive_subclass ... ok
+test hermit::tests::reads_a_taxonomy ... ok
+test input::tests::the_literals_the_rules_name_have_fixed_iris ... ok
+test nemo::tests::splits_csv ... ok
+test programs::tests::reads_statements_and_their_comments ... ok
+test programs::tests::refuses_what_it_cannot_translate ... ok
+test programs::tests::souffle_names_singletons_and_spells_constants ... ok
+test programs::tests::the_core_comes_first_then_the_switches_in_order ... ok
+test programs::tests::two_variables_compared ... ok
+test w3c::tests::matches_blank_nodes ... ok
+test differences::tests::f12_rdflib_rewrites_tokens_and_normalized_strings ... ok
+test differences::tests::f15_owlrl_skips_dt_eq_and_dt_diff_and_narrows_dt_type2 ... ok
+test differences::tests::f13_owlrl_prp_key_skips_the_last_property ... ok
+test differences::tests::f3_owlrl_accepts_padded_integers ... ok
+test differences::tests::f14_owlrl_cardinalities_compare_python_values ... ok
+test differences::tests::f8_owlrl_rejects_double_and_float_values ... ok
+test differences::tests::f7_owlrl_reads_numbers_with_python ... ok
+test differences::tests::f9_owlrl_misreads_other_lexical_spaces ... ok
+test differences::tests::f6_owlrl_misses_list_positions ... ok
+test differences::tests::f5_owlrl_ignores_range_typed_literals ... ok
+test hermit::tests::only_subsumptions_between_declared_terms_are_judged ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s

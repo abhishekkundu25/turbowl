@@ -50,6 +50,8 @@ use super::variable::Variable;
 use crate::profile::{self, Clock, Parts, Step};
 use rustc_hash::FxHashMap;
 
+mod deletion;
+
 /// A `(subject, object)` pair, or `(object, subject)` in an object index.
 pub(crate) type Pair = (u32, u32);
 
@@ -114,6 +116,7 @@ pub(crate) struct Pending {
     by_object: Vec<u32>,
     /// Pairs of ids to make equal, in the order the rules asked.
     merges: Vec<(u32, u32)>,
+    aborted: bool,
 }
 
 /// One predicate's pairs in a [`Pending`].
@@ -167,6 +170,7 @@ impl Pending {
         self.pushed += other.pushed;
         self.by_object.extend(other.by_object);
         self.merges.extend(other.merges);
+        self.aborted |= other.aborted;
     }
 
     /// Queues `batch`, pairs of predicate `p`, moved, not copied.
@@ -226,6 +230,7 @@ impl Pending {
     fn clear(&mut self) {
         self.take();
         self.merges.clear();
+        self.aborted = false;
     }
 
     /// Every pair held, as `(s, p, o)`: slot by slot, in the order the
@@ -296,6 +301,7 @@ pub(crate) struct Store {
     /// The pairs [`Store::fill`] queued in the tables, for the next step's
     /// count of its pairs ([`Step::pairs`]).
     filled: usize,
+    deleting: bool,
     /// Rounds and steps that ran in parallel.
     #[cfg(test)]
     engaged: usize,
@@ -913,6 +919,14 @@ pub(crate) struct Round<'a> {
 }
 
 impl<'a> Round<'a> {
+    pub(crate) fn abort_deletion(&mut self) {
+        self.pending.aborted = true;
+    }
+
+    pub(crate) fn is_deleting(&self) -> bool {
+        self.store.deleting
+    }
+
     /// The store, read-only for this round.
     pub(crate) fn store(&self) -> &'a Store {
         self.store

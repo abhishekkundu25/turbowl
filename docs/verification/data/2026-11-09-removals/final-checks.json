@@ -1,0 +1,199 @@
+[
+  {
+    "name": "release-build",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0,
+    "seconds": 9.336
+  },
+  {
+    "name": "fmt",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "exit_code": 0,
+    "seconds": 0.256
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "clippy",
+      "--release",
+      "--locked",
+      "--offline",
+      "--workspace",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0,
+    "seconds": 1.708
+  },
+  {
+    "name": "wasm",
+    "command": [
+      "timeout",
+      "120",
+      "scripts/check-wasm.sh",
+      "--locked",
+      "--offline"
+    ],
+    "exit_code": 0,
+    "seconds": 6.18
+  },
+  {
+    "name": "oracle-snapshot",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-oracle",
+      "--test",
+      "snapshot"
+    ],
+    "exit_code": 0,
+    "seconds": 15.444
+  },
+  {
+    "name": "chaos-incremental_runs_match_a_full_run_0",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "incremental_runs_match_a_full_run_0",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 30.375
+  },
+  {
+    "name": "chaos-incremental_runs_match_a_full_run_1",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "incremental_runs_match_a_full_run_1",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 16.13
+  },
+  {
+    "name": "chaos-removal_runs_match_a_full_run_0",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "removal_runs_match_a_full_run_0",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 37.492
+  },
+  {
+    "name": "chaos-removal_runs_match_a_full_run_1",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-reference",
+      "--test",
+      "chaos",
+      "--",
+      "removal_runs_match_a_full_run_1",
+      "--exact",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 35.677
+  },
+  {
+    "name": "cli",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "test",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-cli"
+    ],
+    "exit_code": 0,
+    "seconds": 12.049
+  },
+  {
+    "name": "deletion-benchmark-build",
+    "command": [
+      "timeout",
+      "120",
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "--offline",
+      "-p",
+      "turbowl-bench",
+      "--example",
+      "deletion_cost"
+    ],
+    "exit_code": 0,
+    "seconds": 18.046
+  }
+]

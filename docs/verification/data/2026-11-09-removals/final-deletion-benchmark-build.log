@@ -1,0 +1,5 @@
+   Compiling turbowl v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/turbowl)
+   Compiling turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+   Compiling turbowl-bench v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/bench)
+    Finished `release` profile [optimized] target(s) in 18.01s

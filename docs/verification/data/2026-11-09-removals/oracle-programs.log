@@ -1,0 +1,14 @@
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 8.30s
+     Running tests/programs.rs (target/release/deps/programs-3ff9e80b65639a44)
+
+running 7 tests
+test the_w3c_reports_map_names_every_rule ... ok
+test every_rule_of_the_switch_table_is_in_exactly_one_group_file ... ok
+test every_group_has_its_file_everywhere ... ok
+test vlog_programs_equal_the_golden_ones ... ok
+test a_configurations_program_lists_its_codes_and_rules ... ok
+test souffle_programs_equal_the_golden_ones ... ok
+test nemo_runs_the_complete_configuration ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s

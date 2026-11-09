@@ -1,0 +1,8 @@
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+    Finished `release` profile [optimized] target(s) in 8.45s
+     Running tests/minimal.rs (target/release/deps/minimal-a6cacb949df9e0b2)
+
+running 1 test
+test oracles_agree_on_the_minimal_inputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 34.57s

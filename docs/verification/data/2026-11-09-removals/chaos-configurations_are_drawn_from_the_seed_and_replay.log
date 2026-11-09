@@ -1,0 +1,7 @@
+    Finished `release` profile [optimized] target(s) in 0.01s
+     Running tests/chaos.rs (target/release/deps/chaos-be0cfa59dc90ad84)
+
+running 1 test
+test configurations_are_drawn_from_the_seed_and_replay ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s

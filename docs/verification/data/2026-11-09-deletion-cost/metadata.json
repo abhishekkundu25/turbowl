@@ -1,0 +1,23 @@
+{
+  "started_utc": "2026-11-08T23:03:57.731294+00:00",
+  "commit": "83b356edde2eab0809a562275d4ec9d18af139f2",
+  "branch": "feat/incremental-deletions",
+  "benchmark_source_sha256": "e41f49f15fbfe2ffd939e9f30b3e1180c9b527752b79fe2d04cafb770537a013",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+  "logical_cpus": 12,
+  "load_before": [
+    1.5927734375,
+    1.79833984375,
+    1.77099609375
+  ],
+  "load_exception": "Owner authorized approximate timings under current load.",
+  "command": "timeout 120 target/release/examples/deletion_cost",
+  "finished_utc": "2026-11-08T23:03:59.120794+00:00",
+  "load_after": [
+    1.5927734375,
+    1.79833984375,
+    1.77099609375
+  ],
+  "exit_code": 0
+}

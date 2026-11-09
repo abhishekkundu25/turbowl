@@ -1,0 +1,54 @@
+   Compiling turbowl v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/turbowl)
+   Compiling turbowl-reference v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/reference)
+   Compiling turbowl-oracle v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/oracle)
+   Compiling turbowl-bench v0.1.0 (/Users/abhishek/repos/turtle-reasoner/crates/bench)
+    Finished `release` profile [optimized] target(s) in 24.13s
+     Running unittests src/main.rs (target/release/deps/turbowl_bench-f9f641a82bfcc6c4)
+
+running 44 tests
+test compare::tests::flags_only_ranges_apart ... ok
+test convert::tests::splits_each_engines_rows ... ok
+test explain::tests::the_spread_is_by_nearest_rank ... ok
+test explain::tests::a_sample_is_seeded_and_bounded ... ok
+test nemo::tests::reads_the_short_report ... ok
+test published::tests::an_explained_difference_counts ... ok
+test profile::tests::a_profile_is_recorded_and_summarised ... ok
+test published::tests::counts_match_to_the_printed_precision ... ok
+test engine::tests::runs_this_reasoner_on_the_thread_mode ... ok
+test published::tests::estimates_when_all_three_hold ... ok
+test published::tests::refuses_threads_not_stated_or_many ... ok
+test published::tests::refuses_times_that_measure_different_work ... ok
+test published::tests::refuses_when_the_bridge_did_not_run ... ok
+test convert::tests::counts_a_closure ... ok
+test convert::tests::encodes_once_and_marks_the_literals ... ok
+test published::tests::refuses_when_the_counts_differ ... ok
+test published::tests::refuses_when_the_variant_does_not_match ... ok
+test published::tests::the_data_file_reads ... ok
+test report::tests::groups_by_thread_mode ... ok
+test report::tests::incremental_scenarios_rank_the_change_time ... ok
+test report::tests::prints_values_leaders_and_missing_engines ... ok
+test report::tests::the_estimate_section ... ok
+test report::tests::the_leader_is_the_lowest_range_apart ... ok
+test scaling::tests::families_need_two_sizes ... ok
+test scaling::tests::exponent_of_powers ... ok
+test scaling::tests::entries_fit_finished_runs_only ... ok
+test tests::hands_the_run_to_the_child ... ok
+test tests::reads_the_memory_cap ... ok
+test tests::reads_the_thread_mode ... ok
+test lubm::tests::one_university_is_lubm_sized ... ok
+test tests::reads_the_old_name_of_this_reasoner ... ok
+test vlog::tests::reads_the_shell_output ... ok
+test tests::skips_the_rows_of_dropped_engines ... ok
+test compare::tests::compares_across_schemas ... ok
+test scenario::tests::the_datasets_match_the_fetch_script ... ok
+test vlog::tests::the_session_runs_the_composed_program ... ok
+test souffle::tests::a_failed_compile_is_an_error ... ok
+test lubm::tests::same_count_gives_same_bytes ... ok
+test tests::stops_a_run_over_the_memory_cap ... ok
+test lubm::tests::data_and_ontology_parse ... ok
+test machine::tests::reads_a_childs_peak_and_stops_a_slow_one ... ok
+test vlog::tests::reads_a_run_and_its_failures ... ok
+test souffle::tests::reads_a_run_and_its_failures ... ok
+test nemo::tests::reads_a_run_and_its_failures ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s

@@ -1,0 +1,7 @@
+Resolved 13 packages in 3ms
+   Building turbowl @ file:///Users/abhishek/repos/turtle-reasoner/crates/python
+      Built turbowl @ file:///Users/abhishek/repos/turtle-reasoner/crates/python
+Prepared 1 package in 24.19s
+Uninstalled 1 package in 0.49ms
+Installed 1 package in 0.88ms
+ ~ turbowl==0.1.0 (from file:///Users/abhishek/repos/turtle-reasoner/crates/python)

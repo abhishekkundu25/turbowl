@@ -4,6 +4,19 @@ What changed in each version of TurbOWL. Nothing has been published yet:
 the versions here are the repository's. The numbers come from the records
 in `docs/verification/`.
 
+## Unreleased: incremental removals
+
+- Small supported removals reuse the previous closure through overdeletion,
+  grounded backward support checks and rederivation. Pure-deletion
+  `set_base` updates use the same path. Equality-sensitive, mixed and large
+  updates retain full reasoning; `trivial` and `literal-values` currently
+  use full reasoning too.
+- Snapshot format 3 preserves pending deletions. Older snapshot formats
+  are refused.
+- `profile::Deletion` reports maintenance counts and fallback reasons for
+  the benchmark adapter. The implementation and outstanding validation are
+  recorded in `docs/verification/2026-11-09-removals.md`.
+
 ## Unreleased: cancellation
 
 A run or a proof search can be stopped halfway (`docs/specs/cancellation.md`,

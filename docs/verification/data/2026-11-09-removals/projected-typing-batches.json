@@ -1,0 +1,2532 @@
+{
+  "closure_with_probe": 26431,
+  "closure_without_probe": 26381,
+  "configuration": "default",
+  "probe_fact": "<http://example.org/deletion-bench/sensor> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://brickschema.org/schema/1.1/Brick#Air_Temperature_Sensor>",
+  "runs_per_case": 11,
+  "samples": [
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 918375
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2543
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 124
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4418
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 792
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 41
+        }
+      ],
+      "ns_per_call": 939500.0,
+      "rounds": 5,
+      "run": 1,
+      "step_ns": 10209
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 442750
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1874
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2499
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 459
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 167
+        }
+      ],
+      "ns_per_call": 1077792.0,
+      "rounds": 10,
+      "run": 1,
+      "step_ns": 5543
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1076667
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 38001
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 166
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 100293
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 46083
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2053208.0,
+      "rounds": 7,
+      "run": 1,
+      "step_ns": 745418
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.875,
+      "rounds": 0,
+      "run": 1,
+      "step_ns": 0
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 436458
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1500
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2416
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 416
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 1044292.0,
+      "rounds": 10,
+      "run": 2,
+      "step_ns": 5541
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1091540
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 37418
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 84
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 99834
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45749
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 167
+        }
+      ],
+      "ns_per_call": 2055709.0000000002,
+      "rounds": 7,
+      "run": 2,
+      "step_ns": 737083
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 3.0,
+      "rounds": 0,
+      "run": 2,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 858292
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2292
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 41
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 7668
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 710
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 881083.0,
+      "rounds": 5,
+      "run": 2,
+      "step_ns": 9333
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1108916
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 38291
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 99250
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45540
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 84
+        }
+      ],
+      "ns_per_call": 2078458.0,
+      "rounds": 7,
+      "run": 3,
+      "step_ns": 743292
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.875,
+      "rounds": 0,
+      "run": 3,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 884459
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2292
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 123
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3958
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 708
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 168
+        }
+      ],
+      "ns_per_call": 911125.0,
+      "rounds": 5,
+      "run": 3,
+      "step_ns": 17166
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 433127
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1500
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 41
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2251
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 375
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 1035583.0000000001,
+      "rounds": 10,
+      "run": 3,
+      "step_ns": 6708
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.833,
+      "rounds": 0,
+      "run": 4,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 882293
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2250
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3959
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 707
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 84
+        }
+      ],
+      "ns_per_call": 901333.0,
+      "rounds": 5,
+      "run": 4,
+      "step_ns": 9584
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 441584
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1499
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2249
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 375
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 84
+        }
+      ],
+      "ns_per_call": 1041667.0,
+      "rounds": 10,
+      "run": 4,
+      "step_ns": 5499
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1121915
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 47710
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 208
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 106085
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47624
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 2121792.0,
+      "rounds": 7,
+      "run": 4,
+      "step_ns": 753042
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 876416
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2500
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 84
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4498
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 835
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 207
+        }
+      ],
+      "ns_per_call": 896417.0,
+      "rounds": 5,
+      "run": 5,
+      "step_ns": 9500
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 439583
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1624
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2375
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 459
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 1029000.0,
+      "rounds": 10,
+      "run": 5,
+      "step_ns": 5500
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1061457
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 35458
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 292
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 101292
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 46835
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 124
+        }
+      ],
+      "ns_per_call": 2015916.9999999998,
+      "rounds": 7,
+      "run": 5,
+      "step_ns": 728793
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.917,
+      "rounds": 0,
+      "run": 5,
+      "step_ns": 0
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 433707
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1626
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 124
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2292
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 374
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 1012542.0,
+      "rounds": 10,
+      "run": 6,
+      "step_ns": 5458
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1104832
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 36668
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 124
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 99166
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45543
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 416
+        }
+      ],
+      "ns_per_call": 2071458.0,
+      "rounds": 7,
+      "run": 6,
+      "step_ns": 742041
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.916,
+      "rounds": 0,
+      "run": 6,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 867751
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2127
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 125
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4000
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 792
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 886333.0,
+      "rounds": 5,
+      "run": 6,
+      "step_ns": 9292
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1176124
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 41667
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 333
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 107958
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 48999
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 2202333.0,
+      "rounds": 7,
+      "run": 7,
+      "step_ns": 781333
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 3.0,
+      "rounds": 0,
+      "run": 7,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 865416
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2125
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 125
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4249
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 750
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 124
+        }
+      ],
+      "ns_per_call": 885000.0,
+      "rounds": 5,
+      "run": 7,
+      "step_ns": 9667
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 435375
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1665
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2416
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 458
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 1019584.0,
+      "rounds": 10,
+      "run": 7,
+      "step_ns": 5458
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 3.041,
+      "rounds": 0,
+      "run": 8,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 874623
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2292
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 84
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4375
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 666
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 893375.0,
+      "rounds": 5,
+      "run": 8,
+      "step_ns": 9166
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 445459
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1750
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2500
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 375
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 83
+        }
+      ],
+      "ns_per_call": 1044999.9999999999,
+      "rounds": 10,
+      "run": 8,
+      "step_ns": 5542
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1136581
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 38792
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 125
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 104042
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47667
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 2151792.0,
+      "rounds": 7,
+      "run": 8,
+      "step_ns": 779583
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 860375
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2291
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3792
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 792
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 878667.0,
+      "rounds": 5,
+      "run": 9,
+      "step_ns": 9208
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 435915
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1583
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2416
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 376
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 41
+        }
+      ],
+      "ns_per_call": 1012042.0000000001,
+      "rounds": 10,
+      "run": 9,
+      "step_ns": 5333
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1093251
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 36750
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 124
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 99251
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45709
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 2058791.9999999998,
+      "rounds": 7,
+      "run": 9,
+      "step_ns": 739832
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.875,
+      "rounds": 0,
+      "run": 9,
+      "step_ns": 0
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 440125
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1667
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2334
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 458
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 1027083.9999999999,
+      "rounds": 10,
+      "run": 10,
+      "step_ns": 5417
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1132167
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 39250
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 41
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 100334
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 47290
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 167
+        }
+      ],
+      "ns_per_call": 2138833.0,
+      "rounds": 7,
+      "run": 10,
+      "step_ns": 773831
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.875,
+      "rounds": 0,
+      "run": 10,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 873958
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2208
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 42
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 4166
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 792
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 126
+        }
+      ],
+      "ns_per_call": 892917.0,
+      "rounds": 5,
+      "run": 10,
+      "step_ns": 9458
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "full_run",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        14819,
+        2946,
+        2586,
+        4231,
+        1624,
+        173,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 29846,
+          "name": "class",
+          "ns": 1094166
+        },
+        {
+          "emitted": 17799,
+          "name": "property",
+          "ns": 36541
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 126
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 103167
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 45749
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 125
+        }
+      ],
+      "ns_per_call": 2055958.0,
+      "rounds": 7,
+      "run": 11,
+      "step_ns": 734125
+    },
+    {
+      "base": 14818,
+      "calls": 1000,
+      "case": "unchanged",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 0,
+          "name": "class",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 0
+        }
+      ],
+      "ns_per_call": 2.875,
+      "rounds": 0,
+      "run": 11,
+      "step_ns": 0
+    },
+    {
+      "base": 14818,
+      "calls": 1,
+      "case": "insert_one",
+      "closure": 26431,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 0,
+        "removed": 0,
+        "restored": 0
+      },
+      "deltas": [
+        1,
+        10,
+        7,
+        6,
+        26
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 118,
+          "name": "class",
+          "ns": 872124
+        },
+        {
+          "emitted": 27,
+          "name": "property",
+          "ns": 2208
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 0
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 3958
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 750
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 891041.0,
+      "rounds": 5,
+      "run": 11,
+      "step_ns": 9543
+    },
+    {
+      "base": 14817,
+      "calls": 1,
+      "case": "delete_one",
+      "closure": 26381,
+      "closure_checked": true,
+      "deletion": {
+        "fallback": null,
+        "overdeleted": 71,
+        "removed": 1,
+        "restored": 13
+      },
+      "deltas": [
+        38,
+        6,
+        21,
+        3,
+        3,
+        71,
+        13,
+        3,
+        3,
+        2
+      ],
+      "diagnostics": 0,
+      "families": [
+        {
+          "emitted": 33,
+          "name": "class",
+          "ns": 443709
+        },
+        {
+          "emitted": 12,
+          "name": "property",
+          "ns": 1584
+        },
+        {
+          "emitted": 0,
+          "name": "property-chains",
+          "ns": 83
+        },
+        {
+          "emitted": 0,
+          "name": "checks",
+          "ns": 2334
+        },
+        {
+          "emitted": 0,
+          "name": "datatype",
+          "ns": 458
+        },
+        {
+          "emitted": 0,
+          "name": "equality",
+          "ns": 42
+        }
+      ],
+      "ns_per_call": 1023500.0000000001,
+      "rounds": 10,
+      "run": 11,
+      "step_ns": 5583
+    }
+  ],
+  "scenario": "Brick + small1",
+  "threads": 1,
+  "timing": "mutation + reason; loading, initial reasoning and checks excluded",
+  "warmups_per_case": 1
+}
