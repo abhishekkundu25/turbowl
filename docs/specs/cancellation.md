@@ -52,7 +52,7 @@ or a search given one checks it as it goes and stops with
 13. As a Python user, I want a cancelled call to raise `CancelledError`, a `TurbowlError`, so that one `except` covers it.
 14. As a Rust user who never cancels, I want `reason()` unchanged, so that my code still compiles and runs as fast.
 15. As a WebAssembly user, I want cancellation to build for `wasm32`, so that a browser worker can cancel too.
-16. As the owner, I want reasoning speed and memory unchanged, so that the scoreboard claim stands.
+16. As the maintainer, I want reasoning speed and memory unchanged, so that the scoreboard claim stands.
 17. As a maintainer, I want chaos to cancel a run at a random round and then require the next run to equal the reference, so that a wrong recovery is found.
 18. As a maintainer, I want chaos to cancel a proof search halfway and then require the next proof to equal the all-cores explainer's, so that a damaged search graph is found.
 19. As a maintainer, I want a deterministic way to cancel at the n-th check, so that tests do not depend on timing.
@@ -154,6 +154,6 @@ or a search given one checks it as it goes and stops with
 
 ## Further Notes
 
-- The owner asked for this on 2026-11-08 and said to assume what fits the
-  goal and record it. The decisions taken without the owner are listed in
+- The maintainer asked for this on 2026-11-08 and said to assume what fits the
+  goal and record it. The decisions taken without the maintainer are listed in
   the close-out's record.

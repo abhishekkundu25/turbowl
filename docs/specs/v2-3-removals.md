@@ -33,7 +33,7 @@ FBF); TurbOWL does not.
 3. As a user, I want the closure after any sequence of additions and removals to equal a full run over the final base, so that incremental results are always right.
 4. As a user, I want diagnostics to disappear when the triples behind them are removed, so that fixed problems stop being reported.
 5. As a user, I want a removal that splits an `owl:sameAs` class handled correctly, even if it costs a full run, so that equality stays right.
-6. As the owner, I want the incremental-remove scenarios on the scoreboard to show the gain, so that the claim covers removals too.
+6. As the maintainer, I want the incremental-remove scenarios on the scoreboard to show the gain, so that the claim covers removals too.
 7. As a maintainer, I want chaos to remove random parts of random inputs and compare each state with a full run, as it does today, so that maintenance bugs are found.
 8. As a maintainer, I want the full-run fallback chosen by a measured threshold, so that large deletions never cost more than starting over.
 
@@ -79,15 +79,15 @@ FBF); TurbOWL does not.
 - Counting-based maintenance (it conflicts with set semantics:
   `sota-algorithms-2026-11.md` §5.3) and differential dataflow.
 - Incremental splitting of `owl:sameAs` classes (B/F≈): a later experiment.
-- Publishing numbers without the owner's approval.
+- Publishing numbers without the maintainer's approval.
 
 ## Principles
 
-- **exhaust-the-design-space**: DRed's rederivation has two designs (one
+- **Exhaust the design space**: DRed's rederivation has two designs (one
   naive round against a head-directed check per family). Ticket 22 builds
   the first and measures it; FBF's check (ticket 23) is the second.
-- **make-operations-idempotent**: a removal followed by putting the same
+- **Make operations idempotent**: a removal followed by putting the same
   triples back converges to the same closure as never removing them (a
   chaos check).
-- **explain-the-number**: each removal number names whether the
+- **Explain the number**: each removal number names whether the
   maintenance path or the fallback ran.

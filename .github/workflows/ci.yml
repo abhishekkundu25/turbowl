@@ -1,0 +1,27 @@
+# The checks that need no fetched tools or data. The oracle, chaos and
+# benchmark suites need scripts/fetch-tools.sh and scripts/fetch-data.sh, and
+# with CI=true a missing oracle fails, so they are not run here.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the pinned toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --release --locked -p turbowl -p turbowl-cli --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --release --locked -p turbowl -p turbowl-cli
+      - name: WebAssembly build
+        run: scripts/check-wasm.sh

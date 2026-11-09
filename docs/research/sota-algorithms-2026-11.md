@@ -271,7 +271,7 @@ $ reasonable example_models/ontologies/Brick.n3 example_models/small1.n3 -o myou
   between 0.2.6 and early 2026 removed the rest is not pinned. The removal of
   complement-class materialisation (`c8eb495`, 2025-09-01) is not it: Brick
   has no `owl:complementOf`. Building 0.2.6 here to time it was not
-  permitted in this session **(needs verification)**.
+  done for this research **(needs verification)**.
 - **Conclusion.** The 18.7 s is a three-year-old figure for reasonable 0.2.6.
   The version the bench links (0.5.0-a1, `fecee2b` plus one commit) reasons
   over the same input in 12.6 ms (§0.2), about 1,500× less.
@@ -292,7 +292,7 @@ pinned `nmo` 0.10.1 with `oracles/nemo/owl2rl.rls` (closure sizes equal the
 bench's Nemo column, which cross-checks them). Semi-naive evaluation
 considers each rule instance once per run whatever the order, so the number
 of instances of a rule equals the number of body matches in the final
-closure. Scripts and outputs are in this session's scratchpad
+closure. Scripts and outputs were kept locally
 (`scripts/brick_facts.py`, `scripts/closure_counts.py`); they are not in the
 repository.
 
@@ -1298,7 +1298,7 @@ a correctness item for ticket 11.
 ### P0. Counters before claims
 
 **Hypothesis.** Experiments E1–E3, E6 and E7 make claims about derivations,
-rounds, sort time and memory. Without counters, the "explain-the-number" rule
+rounds, sort time and memory. Without counters, the rule to explain each number
 cannot be met.
 
 **Change.** Record, per run:
@@ -1666,7 +1666,7 @@ Still open:
    whether memory work should start there rather than in relations.
 3. Which change between reasonable 0.2.6 (2023) and early 2026 removed most
    of the 18.7 s? Only of historical interest; timing 0.2.6 needs a build of
-   it, which this session was not permitted to run.
+   it, which this research did not run.
 4. Does a crate-wide `-Ctarget-feature=+simd128` make calls to safe
    `#[target_feature]` intrinsics safe without `unsafe`? It matters only if
    SIMD is ever tried under `unsafe_code = "deny"`.

@@ -35,7 +35,7 @@ the default and the complete configuration; Nemo's equals it on
 `uobm-010-l` (4,602,841) and `lubm-uba-10-l` (1,961,993).
 
 **GraphDB** is not run. GraphDB Free needs a licence sent by e-mail, which
-the owner has not obtained. With one, it would run on one core only (its
+the maintainer has not obtained. With one, it would run on one core only (its
 licence's limit), and its numbers could not be published without Graphwise's
 written consent (`docs/research/competitors-2026-11.md` §4).
 
@@ -208,15 +208,15 @@ columns that mean the same thing:
 |---|---|---|---|---|
 | load | parsing every file into the reasoner (`load_file`) | Nemo's `Data import` (its own report, `--report short`, whole milliseconds) | not split: in the total | not split: in the total |
 | reasoning (the headline) | the first `reason()`: rules to fixpoint and the closure materialised in memory | Nemo's `Reasoning`: rules to fixpoint. Nemo loads tables lazily, so part of its parsing can fall here. | not split: in the total | not split: in the total |
-| total | load plus reasoning | load plus reasoning | the compiled program's wall clock: process start (a few milliseconds), reading `input.tsv`, rules to fixpoint, and writing `closure.tsv` and the findings | VLog's own "Loading and materializing inferences ... finished in" (whole milliseconds): reading `input.nt` and rules to fixpoint |
+| total | load plus reasoning | load plus reasoning | the compiled program's wall clock, timed from before its spawn: process start (a few milliseconds), reading `input.tsv`, rules to fixpoint, writing `closure.tsv` and the findings, and up to 5 ms of the bench's polling for its exit | VLog's own "Loading and materializing inferences ... finished in" (whole milliseconds): reading `input.nt` and rules to fixpoint |
 | not in the total | process start, the closure check | process start, reading the program, writing `closure.nt` and the finding CSVs (`Data export`, in `export_median_ms`), process exit; all of it is in `wall_median_ms` | compiling the program (once per program, cached in `target/bench-souffle/bin/`; its first launch, which macOS checks, is also before any measured one) | starting the JVM and the shell, reading the program, exporting `closure.csv` and the finding CSVs (the shell's own times, summed in `export_median_ms`); all of it is in `wall_median_ms` |
 | peak memory | the bench child, engine included | the `nmo` process, export included | the compiled program's process, writing included | the JVM's process, VLog's native memory and the exports included |
 
 So `total` (load plus reasoning) is the fairest single comparison of all
 four, and the only one for Soufflé and VLog; the headline compares
 reasoning alone, between this reasoner and Nemo, where Nemo may carry some
-of its parsing. Soufflé's total also holds its output writing, which the
-others leave out. The wall clocks are recorded but not compared.
+of its parsing. Soufflé's total also holds its process start and its
+output writing, which the others leave out. The wall clocks are recorded but not compared.
 
 ### What the competitors read
 

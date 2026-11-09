@@ -1,7 +1,7 @@
 # 06: Explanation speed in the complete configuration
 
 Status: todo. Blocked by: none. A follow-up the close-out found; the
-owner decides whether and when.
+maintainer decides whether and when.
 
 In the complete configuration (every switch on, which an editor does not
 use by default), explaining on the editor-size Brick scenarios misses the

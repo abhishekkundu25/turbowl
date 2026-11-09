@@ -1,6 +1,6 @@
 # 05: The deferred validation runs
 
-Status: todo. Blocked by: none (04 closed without them, at the owner's
+Status: todo. Blocked by: none (04 closed without them, at the maintainer's
 request: the machine was not quiet, load 2.7 to 4 from other applications).
 
 Run these with nothing else running, then add their results to

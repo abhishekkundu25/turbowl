@@ -5,10 +5,34 @@ build-backend = "maturin"
 [project]
 name = "turbowl"
 description = "A fast OWL 2 RL reasoner, with rdflib graphs and terms in and out"
+readme = "../../README.md"
 requires-python = ">=3.10"
 license = "MIT"
+authors = [{ name = "Abhishek Kundu" }]
+keywords = ["owl", "reasoner", "rdf", "rdflib", "semantic-web"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dynamic = ["version"]
 dependencies = ["rdflib>=7.6,<8"]
+
+[project.urls]
+Homepage = "https://github.com/abhishekkundu25/turbowl"
+Repository = "https://github.com/abhishekkundu25/turbowl"
+Issues = "https://github.com/abhishekkundu25/turbowl/issues"
+Changelog = "https://github.com/abhishekkundu25/turbowl/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = ["pytest>=8"]

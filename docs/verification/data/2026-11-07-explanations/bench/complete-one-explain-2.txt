@@ -37,4 +37,4 @@ against the input triples, least squares on a log-log scale. 1 is linear.
 |---|---|---|---|---|---:|---:|---|
 | lubm | turbowl | lubm-1 116513, lubm-50 6600957 | 53, 3548 | 38, 945 | 1.04 | 0.80 |  |
 
-wrote /Users/abhishek/repos/turtle-reasoner/docs/verification/data/2026-11-07-explanations/bench/complete-one-explain-2.json
+wrote <repo>/docs/verification/data/2026-11-07-explanations/bench/complete-one-explain-2.json

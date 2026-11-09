@@ -64,7 +64,7 @@ reference evaluation and the proofs.
 
 ## Review
 
-Two fresh Opus reviewers read the diff, one against the repo's standards
+Two fresh reviewers read the diff, one against the repo's standards
 and one against the spec. Fixed after it:
 
 - In Python, a Ctrl+C during an `explain` that failed for another reason
@@ -85,9 +85,9 @@ Left as they are (judgement calls):
 - `profile::cancel_after` in `profile`, which AGENTS.md calls the bench's
   module. It is for chaos and the tests, and the crate doc says so.
 
-## Decisions taken without the owner
+## Decisions taken without the maintainer
 
-The owner said to assume what fits the goal and record it.
+The maintainer said to assume what fits the goal and record it.
 
 1. **A cancelled run keeps no partial result.** The reasoner is as loaded
    and not yet reasoned, and the next run is a full one, even after a
@@ -112,7 +112,7 @@ The owner said to assume what fits the goal and record it.
    `NotReasonedError` is.
 9. **The CLI does not change.** Ctrl+C ends the process.
 
-## Open for the owner
+## Open for the maintainer
 
 - Ticket 04: the runs that need a quiet machine.
 - Merging `cancel` into `main`, and turtle-lsp's use of it. Its handover on

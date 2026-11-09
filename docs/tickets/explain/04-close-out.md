@@ -2,7 +2,7 @@
 
 Status: todo. Blocked by: 01, 02, 03.
 
-The full validation, run by the orchestrator with nothing else running, then
+The full validation, run by the maintainer with nothing else running, then
 the docs:
 
 - **Reasoning unchanged**: the bench on the editor-size scenarios and
@@ -17,7 +17,7 @@ the docs:
   (where explain lives), the crate doc, the verification record
   `docs/verification/<date>-explanations.md` with raw data under
   `docs/verification/data/`, and this README's statuses and departures.
-  The decisions taken without the owner are listed in the record.
+  The decisions taken without the maintainer are listed in the record.
 
 ## Acceptance
 - [ ] Every budget in the spec met, or each gap stated with its numbers.

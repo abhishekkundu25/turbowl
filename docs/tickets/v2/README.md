@@ -1,4 +1,4 @@
-# Tickets: version 2 (the best OWL 2 RL reasoner)
+# Tickets: version 2 (leading the scoreboard)
 
 Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 15), `docs/specs/v2-2-speed.md` (phase 2, 16 to 21),
@@ -28,9 +28,9 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 | 17 | [All cores: parallel rounds](17-parallel-rounds.md) | done; the speed-up gap accepted | 15 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, **`crates/turbowl/src/rules/mod.rs`**, `crates/turbowl/Cargo.toml`, `scripts/check-wasm.sh` |
 | 18 | [All cores: parallel parsing](18-parallel-parsing.md) | done; loading met on all cores | 16, 17 | `crates/turbowl/src/io/`, **`crates/turbowl/src/term.rs`** |
 | 19 | [Snapshots](19-snapshots.md) | done; 9.2 times on all cores, a gap | 16, 17 | new `crates/turbowl/src/snapshot.rs`, `crates/turbowl/src/lib.rs`, **`crates/turbowl/src/reasoner.rs`**, `crates/cli/`, `crates/python/` |
-| 20 | [The improvement loop](20-improvement-loop.md) | done (two gaps accepted) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the orchestrator) |
+| 20 | [The improvement loop](20-improvement-loop.md) | done (two gaps accepted) | 17, 18, 19 | each experiment's files; **`docs/specs/experiments.md`** (one row per iteration, written by the maintainer) |
 | 21 | [Close-out: phase 2](21-close-out-phase-2.md) | done (gaps listed) | 16 to 20 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
-| 27 | [The full-size scoreboard race](27-full-scoreboard-race.md) | todo, pending the owner | 21 | `docs/verification/` (the scoreboard record) |
+| 27 | [The full-size scoreboard race](27-full-scoreboard-race.md) | todo, pending the maintainer | 21 | `docs/verification/` (the scoreboard record) |
 | 22 | [Removals: DRed](22-dred.md) | todo | 21 | `crates/turbowl/src/engine/`, **`crates/turbowl/src/reasoner.rs`**, `crates/turbowl/src/rules/`, `crates/reference/tests/chaos.rs` |
 | 23 | [Removals: FBF](23-fbf.md) | todo | 22 | as for 22 |
 | 24 | [Close-out: phase 3 and the claim](24-close-out-phase-3.md) | todo | 22, 23 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `docs/verification/`, this README |
@@ -56,7 +56,7 @@ Specs: `docs/specs/v2-1-scoreboard-and-rules.md` (phase 1, tickets 01 to
 
 Phase 1:
 
-1. **01, 02.** Version 1's ticket 14 runs whenever the owner gives a quiet
+1. **01, 02.** Version 1's ticket 14 runs whenever the maintainer gives a quiet
    machine; it blocks only 15.
 2. **03, 11, 13.**
 3. **04, 12, 25.** 25 (added: ticket 13 found the memory blow-up) lands before wave 4, whose rule tickets edit the core.
@@ -146,7 +146,7 @@ Departures from the plan, as they happen.
   applied, uncommitted, to the worktrees of 05, 06 and 12. Ticket 12's
   cherry-pick then duplicated it, because 12 also changed the lines next
   to it. The fix removed the copy. Before 05 and 06 are committed, the
-  orchestrator takes that hunk out of their worktrees.
+  maintainer takes that hunk out of their worktrees.
 - **05.** The consistency halves of its eight W3C cases pass. Their
   "entails" halves fail on Nemo and OWL-RL too: five need scm-cls, scm-op
   or scm-dp (ticket 08), and `WebOnt-differentFrom-001` expects
@@ -178,7 +178,7 @@ Departures from the plan, as they happen.
   OpenCyc still passes the cap, for another reason: it makes a term
   `owl:sameAs rdfs:label`, so the generalized rules type every label
   literal through a large class hierarchy (24 M literal-subject tuples).
-  The owner decides between dropping literal-subject derivations,
+  The maintainer decides between dropping literal-subject derivations,
   compacting the round buffer, and lazy diagnostics. scm-sco has the same
   join shape; experiment E2 is planned for it.
 - **14.** No RDFox estimate can be made yet, for three reasons:
@@ -189,7 +189,7 @@ Departures from the plan, as they happen.
     stays context, not an estimate.
   - VLog, running the W3C rules through Rulewerk, passes 16 GB on Claros.
   - LUBM-1K L, whose program has no `owl:sameAs` rules, is the clean
-    candidate. It waits for the owner's approval of the large download and
+    candidate. It waits for the maintainer's approval of the large download and
     for phase 2's memory work.
 
   The equality rules are a property of each program, recorded per row.
@@ -214,7 +214,7 @@ Departures from the plan, as they happen.
   says so.
 - **13.** The memory cap first read resident memory, which macOS
   compresses under pressure: one smoke run held 69 GB for about 2.5
-  minutes while showing 2 GB, until the agent stopped it. The cap now
+  minutes while showing 2 GB, until it was stopped by hand. The cap now
   reads the physical footprint (compressed and swapped pages included),
   and later runs stopped near 16.4 GB. Oxford's `Claros.ttl` has 84 lines
   with illegal IRI characters; the fetch script percent-encodes them as it
@@ -281,7 +281,7 @@ Departures from the plan, as they happen.
   - Only `"a  b"^^xsd:token` returned to the minimal inputs: the
     expectation check allows one known fault per case and check, so each
     other faulted literal has its own fault test.
-  - For ticket 10, sent to its agent: OWL-RL skips dt-eq and dt-diff on
+  - For ticket 10, passed on to its implementer: OWL-RL skips dt-eq and dt-diff on
     purpose (OWLRL.py:234-237), a fault 10 lists as F15, and the case
     `cls-maxc2-other-numbers` needs a double, not an integer, once dt-eq
     is on.
@@ -324,7 +324,7 @@ Departures from the plan, as they happen.
   terms, and rdflib rewrites that form (F12), so six of them failed. 26's
   brief had not run pytest. W3C OWL 2 RL 101 (`New-Feature-Keys-006`),
   every case Nemo passes; Brick unchanged; pytest 780.
-- **Owner decisions, 2026-11-06.** The W3C OWL 2 RL budget is 101, every
+- **Maintainer decisions, 2026-11-06.** The W3C OWL 2 RL budget is 101, every
   case the rules can pass, with the other 18 listed. Phase 2's bar is
   raised: at least 5 times on 8 or more cores, at most 50 bytes per
   closure triple, with E2, E8 and E1 first in the loop as before.
@@ -332,7 +332,7 @@ Departures from the plan, as they happen.
   measures at a load of about 1.9 (an animated wallpaper and two idle apps
   kept running), which its record states.
 - **15.** Phase 1 closed on 2026-11-06, on a busy machine (load average
-  about 2) by the owner's choice
+  about 2) by the maintainer's choice
   (`docs/verification/2026-11-06-v2-phase-1.md`). Departures:
   - **The defaults.** ADR 0005's rule turned `schema` and `identity` off
     (`660e3bd`). The research alone would have kept both on: owlrl,
@@ -345,7 +345,7 @@ Departures from the plan, as they happen.
     `identity` costs nothing measurable on the editor-size scenarios.
   - **The scoreboard** ran before the defaults were decided, so its
     competitor runs are in the old default (`schema` and `identity` on);
-    then the complete configuration at editor size. The owner stopped the
+    then the complete configuration at editor size. The maintainer stopped the
     session after 4 hours ("record what you have measured and move on").
     Missing: the new default against the competitors; the complete
     configuration on claros-l, uobm-010-u, owl2bench-rl-5 and
@@ -452,7 +452,7 @@ Departures from the plan, as they happen.
     forbids that. It reads the dictionary's private internals, which
     ticket 18 is editing in the same wave; 18 was told what they are.
   - **pytest in the worktrees tested the main checkout.** The `.venv` that
-    `slice.sh new` clones keeps console scripts that point at the main
+    a new parallel worktree clones keeps console scripts that point at the main
     checkout's environment, so `uv run pytest` in a worktree imported the
     main checkout's package. Ticket 19 found it. Every pytest run on a
     merged tree, after each landing, ran in the main checkout and tested
@@ -475,7 +475,7 @@ Departures from the plan, as they happen.
     4% slower with it, bisected to that change alone; code layout is the
     suspect.
   - A reasoner set to one thread still parsed on every core:
-    `reasoner.rs`, ticket 19's file, called `io::parse`. The orchestrator
+    `reasoner.rs`, ticket 19's file, called `io::parse`. The maintainer
     made it call `io::parse_on` with the reasoner's own workers.
   - The merge is now the bound: interning about 2.2 M terms on one thread
     takes 110 to 150 ms while the workers parse. A sharded dictionary
@@ -485,7 +485,7 @@ Departures from the plan, as they happen.
     can cost up to one more sequential parse (cap the overrun); a
     `Workers::every_round()` getter would be cleaner than detecting it
     with `engage(0)`.
-- **Owner decision, 2026-11-06: the memory budget measures the process's
+- **Maintainer decision, 2026-11-06: the memory budget measures the process's
   footprint**, on one thread and on all cores, as the bench records it for
   every engine. Iteration 6's probe had shown that on all cores the
   reasoner never holds more than about 461 MB at once (under the 517.3 MB
@@ -498,19 +498,19 @@ Departures from the plan, as they happen.
   is judged on 10 alternating single runs per side, by medians and middle
   halves: the bench's largest of 3 runs is noise on all cores.
 
-- **Owner decision, 2026-11-07: the dictionary may drop its lookup table
+- **Maintainer decision, 2026-11-07: the dictionary may drop its lookup table
   during a large full run** and rebuild it at the next change (about 30 to
   60 ms once on a lubm-50-sized input, microseconds on editor-sized ones),
   to bring the all-cores footprint under its budget (iteration 8's
   candidate 2, run as iteration 9).
-- **Owner decision, 2026-11-07: the all-cores memory gap is accepted.**
+- **Maintainer decision, 2026-11-07: the all-cores memory gap is accepted.**
   After loop iterations 1 to 9, lubm-50 on all cores peaks at about 547 MB
   in the largest run against 517.3 MB (5.8% over); one thread meets the
   budget. Closing it needed a large structural change (sharing the base
   with the tables, or splitting IRIs), each a few hours at medium to high
   risk. Phase 2's remaining effort goes to the all-cores speed-up and the
   close-out; the two candidates stay open in the loop's list.
-- **Owner decision, 2026-11-07: the all-cores speed-up gap is accepted** at
+- **Maintainer decision, 2026-11-07: the all-cores speed-up gap is accepted** at
   about 4.1 to 4.2 times against 5. Iteration 11 showed round 1 nearly
   saturates the 12-core pool (6 Efficiency cores), with about four times the
   CPU of one thread for the same work.
@@ -522,11 +522,11 @@ Departures from the plan, as they happen.
   build one split per property rule. lubm-50: reasoning 735 ms (version 1) to
   about 387 ms on one thread and 93 ms on all cores; peak memory 1,483 MB to
   about 482 MB on one thread and 544 MB on all cores.
-- **Owner decision, 2026-11-07: phase 2's close-out runs a short race**, the
+- **Maintainer decision, 2026-11-07: phase 2's close-out runs a short race**, the
   editor-size scenarios only, without GLog or a multi-core Soufflé. The
   full-size race is ticket 27, pending.
 
-- **Owner decision, 2026-11-07: a competitor run stops once it passes 3 times
+- **Maintainer decision, 2026-11-07: a competitor run stops once it passes 3 times
   TurbOWL's time** on the same scenario, recorded as more than 3 times
   slower, instead of waiting for the 600 s timeout. Applied by hand in phase
   2's short race (VLog on lubm-50 with every rule on, stopped after about
@@ -537,11 +537,11 @@ Departures from the plan, as they happen.
   (`docs/verification/2026-11-07-v2-phase-2.md`). Correctness ran in full:
   every suite, the slow tier, and 100,000 chaos iterations of each kind,
   every iteration also comparing one thread with all cores. Departures:
-  - **The short race**, at the owner's request: the editor-size scenarios
+  - **The short race**, at the maintainer's request: the editor-size scenarios
     only, against Nemo, Soufflé and VLog, in both configurations, TurbOWL
     on one thread and on all cores. The data-size scenarios ran with
     TurbOWL alone, one run each. The full-size race is ticket 27.
-  - **The 3-times stop rule**, the owner's, applied by hand once: VLog on
+  - **The 3-times stop rule**, the maintainer's, applied by hand once: VLog on
     lubm-50 in the complete configuration, stopped after about 9 minutes.
     The bench does not stop a run itself yet.
   - **The snapshot gap**, new: lubm-50's snapshot loads 9.2 times as fast
@@ -549,4 +549,4 @@ Departures from the plan, as they happen.
     10, and about 19 times on one thread. Ticket 19 measured 15 times;
     parsing and reasoning got faster since. The snapshot is now
     285 MB, against ticket 19's 312 MB at format version 1. It waits for
-    the owner, as does one-thread loading (1.52 s against 1.31 s).
+    the maintainer, as does one-thread loading (1.52 s against 1.31 s).

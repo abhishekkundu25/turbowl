@@ -39,7 +39,7 @@ One ticket at a time: 01, 02, 03. 02 reads 01's interface; 03 measures both.
   - A `cancel` that is not a `turbowl.Cancel` raises `TypeError`.
   - `CancelledError` is a `TurbowlError` and a `RuntimeError`, as
     `NotReasonedError` is.
-- 2026-11-08, after the review (two fresh Opus reviewers, standards and
+- 2026-11-08, after the review (two fresh reviewers, standards and
   spec):
   - Fixed: a Ctrl+C during a Python `explain` that failed for another
     reason was dropped; the Python doc called `SnapshotError` a

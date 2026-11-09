@@ -5,13 +5,14 @@ baseline").
 
 ## Context
 
-The owner's goal for version 2 is the best OWL 2 RL reasoner in the world.
+The maintainer's goal for version 2 is to lead the OWL 2 RL reasoners that
+can be measured here, on speed and memory, with every result still checked.
 Version 1 is faster than `reasonable` on every scenario measured (3.6 to
 7.3 times, with 5.5 to 9.8 times less memory: `docs/verification/`), and
 much faster than Nemo, so beating them says little. The state of the art
 in OWL 2 RL materialisation is RDFox (commercial), VLog, Soufflé and Nemo
-(`docs/research/sota-algorithms-2026-11.md` §7). The owner cannot obtain an
-RDFox licence. The machine has 32 GiB and runs the owner's other jobs.
+(`docs/research/sota-algorithms-2026-11.md` §7). The maintainer cannot obtain an
+RDFox licence. The machine has 32 GiB and runs the maintainer's other jobs.
 
 ## Decision
 

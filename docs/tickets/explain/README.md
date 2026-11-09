@@ -10,7 +10,7 @@ Spec: `docs/specs/explanations.md`. Background:
 | 03 | [Explanations in the CLI and Python](03-explain-adapters.md) | done (fb99694) | 01 | `crates/cli/` (with `Cargo.toml`), **`Cargo.lock`** (one dependency edge), `crates/python/` |
 | 04 | [Close-out](04-close-out.md) | done | 01, 02, 03 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, the crate doc, `docs/verification/`, this README |
 | 05 | [The deferred validation runs](05-deferred-validation.md) | todo | — | `docs/verification/`, `AGENTS.md` (chaos times) |
-| 06 | [Explanation speed in the complete configuration](06-complete-explain-speed.md) | todo (owner) | — | `crates/turbowl/src/explain/` |
+| 06 | [Explanation speed in the complete configuration](06-complete-explain-speed.md) | todo (maintainer) | — | `crates/turbowl/src/explain/` |
 
 ## How the lock files stay apart
 
@@ -32,10 +32,10 @@ Spec: `docs/specs/explanations.md`. Background:
 
 ## Departures
 
-- 2026-11-07, review before the start (a fresh Opus 5.5 reviewer). Changes
+- 2026-11-07, review before the start (a fresh reviewer). Changes
   made to the plan:
   - 01 covers configurations with `equality` and `literal-values` off, and 02
-    adds them, because 01 was too big for one session.
+    adds them, because 01 was too big for one ticket.
   - Rule steps may have no premises (cls-thing and the other axiom rules).
   - The checker records every (fact, rule) pair of one round, so a premise
     set two rules share passes under either.
@@ -72,14 +72,14 @@ Spec: `docs/specs/explanations.md`. Background:
     new `NotReasonedError`.
   - A test-only native method, `explain_cache_held`.
 - 2026-11-07, ticket 02 as built (sent back once, after review):
-  - **Gap, for the owner:** chaos with proofs takes 2.4 to 2.9 times as long
+  - **Gap, for the maintainer:** chaos with proofs takes 2.4 to 2.9 times as long
     per shard (2,000 iterations: about 29 to 35 s without, 81 to 91 s with),
     against the +10% budget. This is test time only: reasoning is
     unchanged. The limiter is equality in closures where a vocabulary term
     shares a class with individuals, which needs the wider search levels.
     Closing it needs a cheaper complete method for those classes, or a new
     budget. A 100,000-iteration shard will take about 2.5 times as long.
-  - Decided without the owner: chaos explains 8 triples and 8 diagnostics
+  - Decided without the maintainer: chaos explains 8 triples and 8 diagnostics
     per state (was 32 of each), every one compared with the all-cores
     explainer's proof, asked in the same order. Fewer goals did not
     help: the cost is a tail of slow goals, not their number.
@@ -101,7 +101,7 @@ Spec: `docs/specs/explanations.md`. Background:
     regression of 02's second round).
   - The complete configuration misses the editor-size budget on Brick:
     ticket 06.
-  - At the owner's request, the runs that need a quiet machine (load stayed
+  - At the maintainer's request, the runs that need a quiet machine (load stayed
     2.7 to 4 from other applications) moved to ticket 05: the latencies
     at load under 1, lubm-50 at 10 runs per side, 100,000 chaos
     iterations, and the slow oracle tier.

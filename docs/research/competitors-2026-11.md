@@ -3,7 +3,7 @@
 Researched 2026-11-05. The question: which reasoning engines and datasets
 can define the scoreboard on which TurbOWL claims to be the best OWL 2 RL
 reasoner, and can each one actually be run, and its numbers published, on the
-owner's machine (Apple M6, aarch64, macOS 27.0, 32 GiB, 12 cores)?
+maintainer's machine (Apple M6, aarch64, macOS 27.0, 32 GiB, 12 cores)?
 
 This note does not repeat the architectures and published speeds in
 `docs/research/sota-algorithms-2026-11.md` §7, or the licence table in
@@ -32,10 +32,10 @@ None of this is legal advice.
    ([docs §2.4.1.4](https://docs.oxfordsemantic.tech/features-and-requirements.html)).
    No tier works without an agreement. The evaluation licence forbids
    disclosing "any Benchmarking Information" without applying to OST at
-   least 30 days ahead (§1.4, §2.2(v), §2.3). The owner has no licence, so
+   least 30 days ahead (§1.4, §2.2(v), §2.3). The maintainer has no licence, so
    RDFox enters the scoreboard only through its published numbers (§1.2),
    bridged by engines that ran next to it in the same paper.
-2. **Stardog is not comparable and its terms are hostile.** It "does not
+2. **Stardog is not comparable and its terms are restrictive.** It "does not
    materialize inferences"; it rewrites queries. Both its Free and its trial
    or academic agreements forbid evaluating the software "for the purpose of
    competing with Stardog". A self-managed server needs a trial key (business
@@ -86,7 +86,7 @@ scoreboard must compare closures under a stated rule set, not just times
 
 ## 1. RDFox
 
-The owner cannot get a licence, so this section answers only two
+The maintainer cannot get a licence, so this section answers only two
 questions.
 
 ### 1.1 Is any tier usable without a licence agreement?
@@ -1024,4 +1024,4 @@ report the closure size next to the time.
 
 Primary sources are cited inline. Local evidence saved during this research
 (licence texts, `.pie` files, Oxford and VLog rule files, UBA source, paper
-text) sits in this session's scratchpad and is not part of the repository.
+text) was kept locally and is not part of the repository.

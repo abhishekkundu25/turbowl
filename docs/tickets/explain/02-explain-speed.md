@@ -30,8 +30,7 @@ budgets and measure them. The interface stays as 01 froze it.
   the bytes the cache holds.
 - **`scaling_explain`** in `crates/turbowl/src/scaling.rs`.
 
-Each speed change is measured before and after, with its limiter named
-(explain-the-number).
+Each speed change is measured before and after, with its limiter named.
 
 ## Acceptance
 - [ ] `crates/oracle/tests/explain.rs` and the chaos quick run pass in every configuration, default and complete included, none missing.

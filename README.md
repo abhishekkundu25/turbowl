@@ -15,7 +15,8 @@ TurbOWL is an OWL 2 RL reasoner in Rust. It computes the closure that the
 W3C OWL 2 RL rule tables define (OWL 2 Profiles §4.3, Tables 4 to 9) and
 reports the contradictions and ill-typed literals they define. It is a
 library with a small interface, a command line, and Python bindings that
-take and return rdflib graphs. The core also builds for WebAssembly.
+take and return rdflib graphs. The core also builds for WebAssembly, with
+the limits listed under [Known limitations](#known-limitations).
 
 Independent oracles check every result: Nemo, OWL-RL, the W3C tests,
 HermiT and a reference evaluator. No single reasoner is the judge.
@@ -27,9 +28,10 @@ TurbOWL is not on crates.io or PyPI yet.
 Total time, loading and reasoning, in the default configuration, median
 of 3 runs. Every engine runs the same W3C OWL 2 RL rules, and every
 closure is checked against TurbOWL's. The last column is how many times
-as long the fastest open-source engine takes as TurbOWL on one thread.
+as long the fastest of Nemo, Soufflé and VLog takes as TurbOWL on one
+thread.
 
-| Scenario | Triples, input → closure | TurbOWL, one thread | TurbOWL, all cores | Fastest open-source engine | Ratio |
+| Scenario | Triples, input → closure | TurbOWL, one thread | TurbOWL, all cores | Fastest of Nemo, Soufflé and VLog | Ratio |
 |---|---:|---:|---:|---|---:|
 | brick-small1 | 14,817 → 26,381 | 11.5 ms | 10.9 ms | Soufflé, 100 ms | 8.7× |
 | brick-soda-hall | 18,577 → 57,652 | 16.1 ms | 15.7 ms | Soufflé, 200 ms | 12× |
@@ -50,8 +52,7 @@ We wrote each engine's rule program from the W3C rules. Tuned by their
 authors, they may be faster. Corrections are welcome.
 
 - With every rule on (the complete configuration, one run), the fastest
-  open-source engine takes 10.6 to 28 times as long as TurbOWL on one
-  thread.
+  of them takes 10.6 to 28 times as long as TurbOWL on one thread.
 - On lubm-50, the peak is 46.6 bytes per closure triple on one thread and
   53.0 on all cores. A saved snapshot of the reasoned state loads in
   0.10 s, against 0.92 s to parse and reason.
@@ -71,7 +72,8 @@ How the numbers were taken, including what favours the other engines:
   the ratios use TurbOWL's one-thread time.
 - VLog's time is its own report, which leaves out the JVM's start, so
   every ratio against VLog favours VLog. Soufflé's program is compiled
-  beforehand, untimed, and its time includes writing the closure.
+  beforehand, untimed. Soufflé's time is its process's wall clock, so it
+  includes its process start and writing the closure.
 - The machine was busy, at a 1-minute load average of 3 to 5. Each gap
   above is many times the spread between runs.
 - A run that went past 16 GB was stopped. In the complete configuration
@@ -247,7 +249,8 @@ proof.leaves()                                  # the base triples it rests on
   change.
 - It works in every configuration, `owl:sameAs` and literal values
   included, and writes the proof in your terms, not the representatives
-  the store keeps.
+  the store keeps. A proof over a long transitive chain is slow (see
+  [Known limitations](#known-limitations)).
 - The reference evaluator replays every proof the tests produce, on every
   minimal input of the oracle suite and every chaos input.
 - `--explain-diagnostics` adds each diagnostic's proof, and the JSON and
@@ -308,7 +311,7 @@ dt-not-type and the value rules use the 32 datatypes OWL 2 RL supports
 (OWL 2 Profiles §4.2.1). TurbOWL handles `owl:sameAs` with
 representatives: equal terms share one id inside, and reading the closure
 expands them. A clique of 1,000 aliases, 11,000,002 triples once expanded,
-reasons in 0.333 ms and stores 10,003 tuples.
+is stored as 10,003 tuples.
 
 ## Verification
 
@@ -331,7 +334,7 @@ Results in the default and the complete configuration:
 
 | Judge | Result |
 |---|---|
-| Every suite: the library, the CLI, the oracle files, the reference evaluator, the benchmark, pytest (787) | Passed |
+| Every suite: the library, the CLI, the oracle files, the reference evaluator, the benchmark, pytest (815) | Passed |
 | W3C OWL 2 RL (complete configuration) | 101 of 119 runnable cases, every case Nemo passes (Nemo 101, OWL-RL 100) |
 | W3C RDF-MT (complete configuration) | 35 of 51 runnable cases (Nemo 28, OWL-RL 30) |
 | Brick with small1 and its three variants, and with soda hall | Equal to Nemo, closures and findings |
@@ -383,9 +386,29 @@ lines and the W3C text for each are in `crates/oracle/src/differences.rs`.
 F8, F11, F13 and F14, and parts of F9 and F10, only derive or report more
 than the W3C rules. Containment never sees those, so they filter nothing.
 
+## Known limitations
+
+These are open issues. Each links to its report.
+
+- With the `rdf-12` feature, a literal's base direction is dropped, so
+  `"x"@en--rtl` and `"x"@en` are one term. This gives wrong results,
+  including false `owl:sameAs` triples and findings ([#2](https://github.com/abhishekkundu25/turbowl/issues/2)).
+- On wasm32, a transitive chain of about 3,000 links or more panics: a
+  join estimate wraps around on 32 bits ([#3](https://github.com/abhishekkundu25/turbowl/issues/3)).
+- Memory grows with the square of a transitive chain's length. A chain of
+  8,000 links, about 350 KB of input, peaks at about 1.2 GB
+  ([#4](https://github.com/abhishekkundu25/turbowl/issues/4)). There is no limit on a run's output yet ([#7](https://github.com/abhishekkundu25/turbowl/issues/7)).
+- Cancellation is checked only between rounds, so one long round runs to
+  its end ([#5](https://github.com/abhishekkundu25/turbowl/issues/5)).
+- Explaining a triple over a long transitive chain is slow: across 500
+  links, 17.8 s and 4.5 GB ([#6](https://github.com/abhishekkundu25/turbowl/issues/6)).
+- Whether to store transitive closures compactly is undecided
+  ([#8](https://github.com/abhishekkundu25/turbowl/issues/8)).
+
 ## Working on it
 
-`AGENTS.md` says how to build, test and verify. `CONTEXT.md` defines the
+`CONTRIBUTING.md` says how to build, test and send a change. `AGENTS.md`
+says how to build, test and verify in full. `CONTEXT.md` defines the
 words the project uses, and `docs/adr/` records why it is built this way.
 Every full verification is in `docs/verification/`, with its raw results.
 
