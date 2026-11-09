@@ -2,6 +2,11 @@
 //! agrees on. The leaper with the fewest candidates proposes; the others
 //! intersect. This is datafrog's single-variable extension over sorted
 //! relations (ADR 0001), not a trie iterator.
+//!
+//! The leaper interface (`count`, `propose`, `intersect`) is adapted from
+//! datafrog 2.0.1 (`src/treefrog.rs`). Copyright (c) Frank McSherry, The Rust
+//! Project Developers and the Datafrog Developers; used under the MIT license
+//! (see `THIRD-PARTY-NOTICES.md` at the repository root).
 
 use super::relation::gallop;
 use super::variable::View;

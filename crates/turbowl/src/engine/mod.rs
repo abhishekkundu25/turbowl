@@ -5,8 +5,9 @@
 //! Frank McSherry and the Rust compiler team): relations as sorted,
 //! duplicate-free vectors; variables with stable batches, a recent delta and
 //! queued additions; merge joins that gallop; leapjoin by proposing and
-//! intersecting one variable's values. The code is written for this crate,
-//! with these differences:
+//! intersecting one variable's values. `gallop` and the leaper interface are
+//! adapted from datafrog (see `THIRD-PARTY-NOTICES.md`); the rest is written
+//! for this crate. The differences:
 //!
 //! - No `Rc<RefCell<…>>`: joins borrow their inputs and hand each result to a
 //!   callback, and new tuples are queued after the reads end. The borrow

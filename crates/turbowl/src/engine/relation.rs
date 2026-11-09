@@ -1,6 +1,11 @@
 //! `Relation`: a sorted, duplicate-free `Vec` of tuples, and `gallop`, the
 //! exponential search every join and merge here uses to skip ahead.
 //!
+//! `gallop` is adapted from datafrog 2.0.1 (`src/join.rs`). Copyright (c)
+//! Frank McSherry, The Rust Project Developers and the Datafrog Developers;
+//! used under the MIT license (see `THIRD-PARTY-NOTICES.md` at the repository
+//! root).
+//!
 //! A relation holds little spare room ([`fit`]): a store keeps its tuples
 //! for the whole run, and room left over from building them would be kept
 //! with them.
