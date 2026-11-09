@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1 — 2026-11-10
+
+### Added
+
+- **A cancel handle that trips itself.** `Cancel::with_check` takes a
+  function, calls it at each of the handle's checks, and trips when it
+  returns true; the handle then stays tripped and the function is not
+  called again. It needs no second thread, so a deadline works in a
+  browser: `Cancel::with_check(move || Instant::now() >= deadline)`. The
+  caller supplies the clock. `cancel()` still trips such a handle, and
+  clones share it.
+
 ## 0.2.0 — 2026-11-10
 
 ### Added

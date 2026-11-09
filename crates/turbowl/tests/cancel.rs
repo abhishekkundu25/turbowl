@@ -2,8 +2,8 @@
 //! partial result and the next run equals one that was never cancelled; a
 //! cancelled proof search keeps the indexes and the next question gets the
 //! proof it would have got. `profile::cancel_after` cancels at a given
-//! check, so these tests need no clock (but the one that times a cancel
-//! from another thread).
+//! check, so these tests need no clock (but the ones that time a cancel
+//! from another thread or a deadline).
 
 use oxrdf::{NamedNode, Triple};
 use std::time::{Duration, Instant};
@@ -388,4 +388,36 @@ fn a_cancel_from_another_thread_stops_a_search_within_10_ms() {
     });
     assert!(matches!(result, Err(Error::Cancelled)), "{result:?}");
     assert!(late <= Duration::from_millis(10), "returned {late:?} after the cancel");
+}
+
+/// A handle with a deadline stops a long search on the searching thread,
+/// with no other thread to trip it.
+#[test]
+fn a_deadline_stops_a_long_search() {
+    // x is a C400 through a 400-link subclass chain: the search takes
+    // seconds (about 6 s unbounded on the development machine).
+    let n = 400;
+    let mut text = String::from("ex:x a ex:C0 .\n");
+    for i in 0..n {
+        text.push_str(&format!("ex:C{i} rdfs:subClassOf ex:C{} .\n", i + 1));
+    }
+    let mut r = Reasoner::new();
+    load(&mut r, &text);
+    r.reason();
+    let goal = Triple::new(ex("x"), oxrdf::vocab::rdf::TYPE, ex(&format!("C{n}")));
+    let explainer = r.explainer().unwrap();
+    let limit = Duration::from_millis(200);
+    let start = Instant::now();
+    let deadline = start + limit;
+    let cancel = Cancel::with_check(move || Instant::now() >= deadline);
+    let result = explainer.explain_cancellable(goal.as_ref(), &cancel);
+    let elapsed = start.elapsed();
+    assert!(matches!(result, Err(Error::Cancelled)), "{result:?}");
+    assert!(cancel.is_cancelled());
+    // Generous: a step between two checks, and the drop of the search's
+    // graph after the cancel, on a loaded machine.
+    assert!(
+        elapsed <= limit + Duration::from_secs(2),
+        "returned after {elapsed:?}, the limit {limit:?}"
+    );
 }
