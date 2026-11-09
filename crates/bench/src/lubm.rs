@@ -6,6 +6,10 @@
 //! random choices come from a fixed seed here, and the names are neutral
 //! (`http://example.org/...`). Numbers from it compare with other runs of this
 //! generator only, not with published LUBM figures.
+//!
+//! LUBM and the univ-bench ontology are by Yuanbo Guo, Zhengxiang Pan and Jeff
+//! Heflin (Lehigh University). This file contains no code from UBA (see
+//! `THIRD-PARTY-NOTICES.md` at the repository root).
 
 use std::io::{self, Write};
 
