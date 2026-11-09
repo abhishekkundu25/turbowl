@@ -42,7 +42,7 @@ FBF); TurbOWL does not.
 
 ### Execution contract, 2026-11-09
 
-The owner requested specification and implementation after the small
+The maintainer requested specification and implementation after the small
 deletion benchmark in `docs/verification/2026-11-09-deletion-cost.md`.
 This specification and tickets 22 to 24 are the local tracker.
 

@@ -1403,7 +1403,7 @@ Not ranked here, and why:
 
 These are the implementation probes for tickets 22 and 23, based on
 `83b356e`, on `feat/incremental-deletions`. Raw files are in
-`docs/verification/data/2026-11-09-removals/`. The owner authorized the
+`docs/verification/data/2026-11-09-removals/`. The maintainer authorized the
 small comparison at the current load, so timings are approximate. No
 benchmark ran beside our builds or tests. These probes do not replace the
 phase 3 scoreboard or acceptance runs.

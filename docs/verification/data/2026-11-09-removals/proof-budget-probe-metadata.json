@@ -13,7 +13,7 @@
     2.8720703125,
     2.60302734375
   ],
-  "load_exception": "Owner authorized the small comparison with approximate timings under current load.",
+  "load_exception": "Maintainer authorized the small comparison with approximate timings under current load.",
   "command": [
     "timeout",
     "120",

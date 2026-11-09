@@ -11,7 +11,7 @@
     1.79833984375,
     1.77099609375
   ],
-  "load_exception": "Owner authorized approximate timings under current load.",
+  "load_exception": "Maintainer authorized approximate timings under current load.",
   "command": "timeout 120 target/release/examples/deletion_cost",
   "finished_utc": "2026-11-08T23:03:59.120794+00:00",
   "load_after": [

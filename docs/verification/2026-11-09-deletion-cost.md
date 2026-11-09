@@ -15,7 +15,7 @@ measurement of current behavior, with no change to the reasoner.
 - Release build, Rust 1.99.0, macOS 27 on arm64, one reasoning thread,
   default switches. The host reports 12 logical CPUs.
 - Measured on 2026-11-09 in Asia/Kolkata, 2026-11-08 at 23:03 UTC.
-- The owner explicitly authorized approximate timings at the current
+- The maintainer explicitly authorized approximate timings at the current
   machine load. The 1-minute load was 1.59 before and after. These are
   approximate timings, not a quiet-machine performance claim.
 - No build or test from this session ran alongside the measurement.
@@ -76,7 +76,7 @@ were no failed cases.
 
 The [benchmark source](../../crates/bench/examples/deletion_cost.rs) is
 self-contained and uses the public interface. On a quiet machine, or
-with the owner's explicit load exception:
+with the maintainer's explicit load exception:
 
 ```sh
 timeout 120 cargo build --release --locked --offline -p turbowl-bench --example deletion_cost
@@ -94,7 +94,7 @@ load rule itself.
 The example builds in release mode and passes `cargo fmt --check` and
 release Clippy with warnings denied.
 
-## Open for the owner
+## Open for the maintainer
 
 The implementation plan remains DRed, then FBF. This measurement adds
 no deletion optimization. Quiet-machine measurements and larger deletion
