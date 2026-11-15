@@ -353,15 +353,19 @@ mod dictionary {
     // The timed dictionary tests keep every size in one memory regime, so
     // the fit follows the dictionary and not the cache: a table that leaves
     // the cache between two sizes makes each probe about twice as slow.
-    // Interning new terms is timed from 65,536 to 1,048,576 terms (5 to 77
-    // MB, past the cache, where fresh memory is touched at every size);
-    // re-interning from 2,048 to 32,768 (150 KB to 2.4 MB, in the cache).
+    // Interning new terms is timed from 1,024 to 16,384 terms (77 KB to 945
+    // KB): in the cache, and below where the allocator starts handing out
+    // fresh pages (past about 1 MB each new term costs more). Past both there
+    // is no one regime on every machine: a CI runner's large L3 holds 5 MB
+    // but not 77 MB, so 65,536 to 1,048,576 fitted 1.27 there. Re-interning,
+    // which allocates nothing, is timed from 2,048 to 32,768 (150 KB to 2.4
+    // MB). The bytes per term are checked exactly up to 1,048,576 below.
     #[test]
     fn scaling_dictionary_intern_new_terms() {
         let _lock = lock();
         linear(
             "scaling_dictionary_intern_new_terms",
-            &sizes(65_536),
+            &sizes(1_024),
             shared(terms),
             |terms: Rc<Vec<(Kind, String)>>| filled(&terms),
         );
