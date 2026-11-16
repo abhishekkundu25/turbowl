@@ -1,0 +1,24 @@
+# Weekly updates for the Rust crates, the Python bindings' tooling and the
+# GitHub Actions. cooldown: a release is proposed only once it is 7 days old,
+# so a version that is yanked or compromised soon after publishing never
+# reaches a PR. Each update still has to pass CI and every oracle.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      cargo: { patterns: ["*"] }
+  - package-ecosystem: uv
+    directory: /crates/python
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      python: { patterns: ["*"] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    groups:
+      actions: { patterns: ["*"] }
