@@ -65,3 +65,6 @@ timeout 120 cargo test --release --locked -p turbowl-cli
 - Nothing is published (crates.io, PyPI, GitHub) without the maintainer's
   approval.
 - Fixtures use neutral names (`ex:`, `http://example.org/`).
+- Write your replies to the maintainer in ASD-STE100 (Simplified
+  Technical English). Code, commits, docs and PR descriptions keep their
+  usual style.
